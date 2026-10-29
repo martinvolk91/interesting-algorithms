@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li class="current"><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-one-idea">0. The one idea</a></li>
+<li><a href="#1-where-the-time-goes">1. Where the time goes</a><ul>
+<li><a href="#11-in-our-toys">1.1 In our toys</a></li>
+<li><a href="#12-in-real-ckks-bootstrapping">1.2 In real CKKS bootstrapping</a></li>
+</ul>
+</li>
+<li><a href="#2-the-ntt-from-on²-to-on-log-n">2. The NTT: from O(N²) to O(N log N)</a><ul>
+<li><a href="#21-what-it-computes">2.1 What it computes</a></li>
+<li><a href="#22-measured">2.2 Measured</a></li>
+<li><a href="#23-what-makes-the-ntt-hard-for-hardware">2.3 What makes the NTT hard for hardware</a></li>
+</ul>
+</li>
+<li><a href="#3-rns-why-hardware-works-on-3064-bit-words">3. RNS: why hardware works on 30–64-bit words</a></li>
+<li><a href="#4-key-switching-the-operation-that-sets-the-speed-limit">4. Key switching: the operation that sets the speed limit</a><ul>
+<li><a href="#41-anatomy-of-hybrid-key-switching">4.1 Anatomy of hybrid key switching</a></li>
+<li><a href="#42-a-cost-model-at-bootstrapping-size">4.2 A cost model at bootstrapping size</a></li>
+<li><a href="#43-the-three-ways-out">4.3 The three ways out</a></li>
+</ul>
+</li>
+<li><a href="#5-cpus">5. CPUs</a></li>
+<li><a href="#6-gpus">6. GPUs</a></li>
+<li><a href="#7-fpgas">7. FPGAs</a></li>
+<li><a href="#8-asics-the-academic-lineage">8. ASICs: the academic lineage</a></li>
+<li><a href="#9-intel-heracles-from-simulation-to-silicon">9. Intel Heracles: from simulation to silicon</a></li>
+<li><a href="#10-tfhe-hardware">10. TFHE hardware</a></li>
+<li><a href="#11-algorithmhardware-co-design-where-things-are-heading">11. Algorithm–hardware co-design: where things are heading</a></li>
+<li><a href="#12-summary-orders-of-magnitude-in-2026">12. Summary: orders of magnitude in 2026</a></li>
+<li><a href="#13-exercises">13. Exercises</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="deep-dive-fhe-hardware-why-its-slow-and-how-gpus-and-asics-fix-it">Deep dive: FHE hardware (why it's slow, and how GPUs and ASICs fix it)<a class="headerlink" href="#deep-dive-fhe-hardware-why-its-slow-and-how-gpus-and-asics-fix-it" title="Link to this section">#</a></h1>
+<p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4 NTT</a>, <a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5 RNS</a>, <a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5 key switching</a>, <a href="../07_state_of_the_art_2026.html#4-hardware-acceleration">07 §4 hardware</a></p>
+<hr />
+<p>Every deep dive so far ran into the same wall: FHE is slow. This one asks <strong>why, at the level
+of arithmetic and memory</strong>, and looks at how CPUs, GPUs, FPGAs and dedicated chips attack the
+problem, from academic designs (F1, BTS, CraterLake, ARK, SHARP) to Intel's fabricated
+<strong>Heracles</strong>.</p>
+<p>Measurements come from <a href="../../code/hw_profile.py"><code>../code/hw_profile.py</code></a>, which profiles the
+earlier toys, implements a real <strong>negacyclic NTT</strong>, demonstrates <strong>RNS</strong> limbs, and runs a cost
+model of <strong>key switching</strong> at bootstrapping-size parameters:</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/hw_profile.py<span class="w">       </span><span class="c1"># from the homomorphic_encryption/ folder, ~2 s</span>
+</code></pre></div>
+
+<p>Python is useless for absolute speed. What it shows reliably is <strong>where</strong> the work goes and
+<strong>how it scales</strong>.</p>
+<hr />
+<h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
+<blockquote>
+<p>FHE turns one plaintext operation into <strong>millions of modular multiplications on huge
+polynomials</strong>, plus <strong>megabytes to gigabytes of key material</strong> streamed through the chip.
+Three things dominate:</p>
+<ol>
+<li><strong>Polynomial multiplication</strong>, done with the <strong>NTT</strong>: lots of compute, but it parallelizes well.</li>
+<li><strong>Key switching</strong> (relinearization, rotations, bootstrapping): NTTs plus <strong>basis
+   conversion</strong> plus reading a <strong>large key</strong>.</li>
+<li><strong>Memory bandwidth</strong>: the keys don't fit in cache, so the chip waits for them.</li>
+</ol>
+<p>Accelerators win with wide parallel NTT/modular-multiply lanes, <strong>huge on-chip memory</strong>, and
+above all by <strong>generating or reusing data instead of loading it</strong>.</p>
+</blockquote>
+<hr />
+<h2 id="1-where-the-time-goes">1. Where the time goes<a class="headerlink" href="#1-where-the-time-goes" title="Link to this section">#</a></h2>
+<h3 id="11-in-our-toys">1.1 In our toys<a class="headerlink" href="#11-in-our-toys" title="Link to this section">#</a></h3>
+<p>Profiling each toy's most expensive operation, as a share of run time by function:</p>
+<div class="highlight"><pre><span></span><code>CKKS bootstrapping (toy_ckks)        0.06 s   poly_mul 71%, centre 19%, &lt;lambda&gt; 4%, &lt;genexpr&gt; 1%
+TFHE programmable bootstrap (toy)    0.17 s   poly_mul 95%, decompose 2%, poly_add 1%, external_product 1%
+BFV multiply + rotate (toy_bfv)      0.04 s   poly_mul_int 93%, centre 4%, key_switch 1%, poly_add 1%
+</code></pre></div>
+
+<p><strong>Ring multiplication is 90–95 % of everything</strong> (<code>poly_mul</code> plus <code>centre</code>, its modular
+reduction, in the CKKS toy). The rest (decomposition, automorphisms, additions) is noise.
+The toys use schoolbook \(O(N^2)\) multiplication, so this is the <em>worst</em> case. With an NTT the
+share drops, and data movement and basis conversion move to the front.</p>
+<h3 id="12-in-real-ckks-bootstrapping">1.2 In real CKKS bootstrapping<a class="headerlink" href="#12-in-real-ckks-bootstrapping" title="Link to this section">#</a></h3>
+<p>The ARK paper measured the computational workload of bootstrapping at practical parameters:
+<strong>NTT 54.8 %</strong>, <strong>basis conversion 34.2 %</strong>, everything else ~11 % (as summarized by the FHE
+accelerator SoK, arXiv 2212.01713). Recent CKKS bootstrapping implementations spend
+<strong>55–72 %</strong> of their <em>time</em> in the CoeffToSlot/SlotToCoeff linear transforms, which are
+rotations, i.e. key switches (<a href="ckks.html#57-where-the-time-goes">CKKS deep dive §5.7</a>).</p>
+<hr />
+<h2 id="2-the-ntt-from-on²-to-on-log-n">2. The NTT: from O(N²) to O(N log N)<a class="headerlink" href="#2-the-ntt-from-on²-to-on-log-n" title="Link to this section">#</a></h2>
+<h3 id="21-what-it-computes">2.1 What it computes<a class="headerlink" href="#21-what-it-computes" title="Link to this section">#</a></h3>
+<p>The negacyclic NTT evaluates a polynomial at the <code>N</code> odd powers of a <code>2N</code>-th root of unity
+<code>ψ</code> mod a prime <code>p</code> (<a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4</a>).
+In that "evaluation domain", ring multiplication is <strong>pointwise</strong>:</p>
+<div class="math-display">\[a \cdot b = \mathrm{INTT}\big(\mathrm{NTT}(a) \odot \mathrm{NTT}(b)\big)\]</div>
+<p><code>hw_profile.py</code> implements it the standard way. Cooley–Tukey butterflies go forward and
+Gentleman–Sande butterflies go back, with the multiplication by powers of <code>ψ</code> (the
+"negacyclic twist") folded into the twiddle factors:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">a</span><span class="p">[:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">n</span><span class="p">,</span> <span class="mi">1</span>
+    <span class="k">while</span> <span class="n">m</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>                                         <span class="c1"># log2(n) stages of n/2 butterflies</span>
+        <span class="n">t</span> <span class="o">//=</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_rev</span><span class="p">[</span><span class="n">m</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="n">t</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="n">t</span> <span class="o">+</span> <span class="n">t</span><span class="p">):</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="n">t</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span> <span class="o">%</span> <span class="n">p</span>
+                <span class="n">a</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span> <span class="o">+</span> <span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span><span class="p">,</span> <span class="p">(</span><span class="n">u</span> <span class="o">-</span> <span class="n">v</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span>
+        <span class="n">m</span> <span class="o">*=</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">a</span>
+</code></pre></div>
+
+<p>Each <strong>butterfly</strong> is one modular multiplication, one addition and one subtraction, and there
+are <code>(N/2)·log₂N</code> of them per transform:</p>
+<div class="highlight"><pre><span></span><code> stage 1 (stride N/2)      stage 2 (stride N/4)      …   stage log N (stride 1)
+ a0 ──┬── a0+w·a4          a0 ──┬──                        neighbours
+ a4 ──┴── a0−w·a4          a2 ──┴──
+</code></pre></div>
+
+<h3 id="22-measured">2.2 Measured<a class="headerlink" href="#22-measured" title="Link to this section">#</a></h3>
+<p>Multiplying two random polynomials mod a 30-bit NTT-friendly prime. Both methods give
+identical results (the script asserts it):</p>
+<div class="highlight"><pre><span></span><code>     N   schoolbook        NTT  speedup  mod-mults: schoolbook        NTT
+    64        0.3 ms      0.1 ms       3x                  4,096        704
+   128        1.1 ms      0.2 ms       5x                 16,384      1,600
+   256        4.6 ms      0.5 ms      10x                 65,536      3,584
+   512       27.9 ms      1.4 ms      20x                262,144      7,936
+  1024       89.9 ms      3.5 ms      25x              1,048,576     17,408
+  2048      378.6 ms      6.0 ms      63x              4,194,304     37,888
+  4096     (skipped)     14.2 ms                      16,777,216     81,920
+  8192     (skipped)     29.4 ms                      67,108,864    176,128
+ 16384     (skipped)     68.1 ms                     268,435,456    376,832
+</code></pre></div>
+
+<p>At bootstrapping size (<code>N = 2¹⁶</code>), schoolbook needs about \(4.3 \times 10^9\) modular
+multiplications per product, while the NTT route needs about \(1.7 \times 10^6\): <strong>~2 500×
+fewer</strong>. No real FHE library multiplies polynomials any other way.</p>
+<h3 id="23-what-makes-the-ntt-hard-for-hardware">2.3 What makes the NTT hard for hardware<a class="headerlink" href="#23-what-makes-the-ntt-hard-for-hardware" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Data access, not arithmetic.</strong> Each stage pairs elements at a different stride (<code>N/2</code>,
+  <code>N/4</code>, …, 1). A vector or SIMD unit needs shuffles between stages, and an ASIC needs a
+  transpose network. The standard fix is the <strong>4-step (Bailey) NTT</strong>: view the <code>N</code> points as a
+  matrix, do small NTTs on the columns, multiply by twiddles, transpose, and do small NTTs on
+  the rows. F1 builds a <code>2¹⁴</code>-point NTT from 128-wide vector operations this way. BTS splits a
+  <code>2¹⁷</code>-point NTT into 64 × 64 × 32 steps across a 2-D array of processing elements.</li>
+<li><strong>Twiddle factors per limb.</strong> Each RNS prime (§3) needs its own table of <code>ψ</code> powers, which
+  is extra memory that FFTs over ℂ don't need (SoK §4.1.2).</li>
+<li><strong>Modular multiplication</strong> of 30–64-bit words (Barrett or Montgomery reduction) costs
+  several integer multiplies. Multiplier area grows roughly with the square of the word
+  width, which is why designs trend toward <strong>shorter words</strong>: SHARP uses 36-bit words, and the
+  Cheddar GPU library uses 32-bit.</li>
+<li><strong>Sequential depth.</strong> A TFHE blind rotation is <code>n</code> external products <em>in sequence</em>, each
+  containing NTTs. Latency, not throughput, is the limit. That is why the CRYPTO 2026 result
+  cutting the sequential NTT layers from 500+ to 3 is aimed squarely at parallel hardware
+  (<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1</a>).</li>
+</ul>
+<hr />
+<h2 id="3-rns-why-hardware-works-on-3064-bit-words">3. RNS: why hardware works on 30–64-bit words<a class="headerlink" href="#3-rns-why-hardware-works-on-3064-bit-words" title="Link to this section">#</a></h2>
+<p>Ciphertext moduli are 500–1 700 bits. Instead of big-integer arithmetic, the modulus is a
+product of word-size NTT-friendly primes, and every polynomial is stored as one residue
+polynomial ("limb") per prime (<a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5</a>).
+Measured:</p>
+<div class="highlight"><pre><span></span><code>N = 1024, Q = product of 20 NTT-friendly 30-bit primes (600 bits)
+big-integer schoolbook mod Q:   0.43 s
+RNS: 20 independent 30-bit NTT multiplications (+ CRT check):   0.12 s   identical result: True
+</code></pre></div>
+
+<p>In Python the gain is modest. For hardware, it's everything: the 600-bit product became <strong>20
+completely independent word-size NTT multiplications</strong>, which can go to 20 parallel lanes with
+no carries between them. Accelerators organize their parallelism around two axes:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>What runs in parallel</th>
+<th>Good for</th>
+<th>Problem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>limb-level</strong> (rPLP in the SoK)</td>
+<td>different RNS limbs on different units</td>
+<td>NTT, element-wise ops</td>
+<td>basis conversion mixes all limbs</td>
+</tr>
+<tr>
+<td><strong>coefficient-level</strong> (CLP)</td>
+<td>slices of the same polynomial on different units</td>
+<td>basis conversion</td>
+<td>NTT needs cross-unit transposes</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Basis conversion (BConv)</strong> is the step that breaks limb independence. It re-expresses a
+polynomial from one set of primes in another, which needs every limb's coefficient <code>k</code> to
+produce every output limb's coefficient <code>k</code>: an all-to-all mixing of limbs. Key switching
+(§4) and rescaling need it. CraterLake gave it a dedicated unit (the CRB unit, <strong>34 % of the
+chip area</strong> per the SoK), and ARK switches between limb-level and coefficient-level
+distribution depending on the operation.</p>
+<hr />
+<h2 id="4-key-switching-the-operation-that-sets-the-speed-limit">4. Key switching: the operation that sets the speed limit<a class="headerlink" href="#4-key-switching-the-operation-that-sets-the-speed-limit" title="Link to this section">#</a></h2>
+<h3 id="41-anatomy-of-hybrid-key-switching">4.1 Anatomy of hybrid key switching<a class="headerlink" href="#41-anatomy-of-hybrid-key-switching" title="Link to this section">#</a></h3>
+<p>Every relinearization and every rotation is a key switch
+(<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>). The variant everyone
+uses splits the <code>L</code> limbs into <code>dnum</code> digits of α limbs each, with a temporary special modulus
+of <code>k = α</code> limbs:</p>
+<div class="highlight"><pre><span></span><code> input polynomial (L limbs, NTT form)
+   │  split into dnum digits of α limbs
+   ▼
+ ModUp      per digit: INTT α limbs → BConv to the other L−α+k limbs → NTT them
+   ▼
+ inner product with the key: Σ_digits digit × evk_digit  (2 polys × dnum × (L+k) limbs)  ← READ THE KEY
+   ▼
+ ModDown    INTT k limbs → BConv back to L limbs → NTT → subtract, × P⁻¹
+   ▼
+ 2 output polynomials (L limbs)
+</code></pre></div>
+
+<h3 id="42-a-cost-model-at-bootstrapping-size">4.2 A cost model at bootstrapping size<a class="headerlink" href="#42-a-cost-model-at-bootstrapping-size" title="Link to this section">#</a></h3>
+<p><code>hw_profile.py</code> counts the operations of one key switch at <code>N = 2¹⁶</code> and <code>L = 24</code> limbs of
+64 bits. It then times them on a hypothetical chip with <strong>40 960 modular multipliers at 1 GHz</strong>
+and <strong>3 TB/s of HBM3</strong>, the example machine the FHE accelerator SoK uses. This is a model,
+not a measurement:</p>
+<div class="highlight"><pre><span></span><code>N = 2^16, 24 limbs of 64 bits; hypothetical chip: 41 T modmul/s, 3 TB/s HBM
+dnum alpha=k  NTTs   modmults  key size mults/byte  compute  load key  bound
+   1      24   144      198 M     48 MB        3.9    4.8 us    16.8 us  memory x3.5
+   2      12   144      164 M     72 MB        2.2    4.0 us    25.2 us  memory x6.3
+   3       8   160      163 M     96 MB        1.6    4.0 us    33.6 us  memory x8.5
+   4       6   180      170 M    120 MB        1.4    4.1 us    41.9 us  memory x10.1
+   6       4   224      193 M    168 MB        1.1    4.7 us    58.7 us  memory x12.5
+  12       2   364      279 M    312 MB        0.9    6.8 us   109.1 us  memory x16.0
+  24       1   650      463 M    600 MB        0.7   11.3 us   209.7 us  memory x18.5
+</code></pre></div>
+
+<p>What the table says:</p>
+<ul>
+<li><strong>One key switch is about 160–200 million modular multiplications</strong> and needs a <strong>50–600 MB
+  key</strong>, depending on <code>dnum</code>.</li>
+<li><strong>It is memory-bound</strong> at every setting. The chip can do 41 T modmul/s but only receives
+  3 TB/s, so it needs at least 13.7 multiplications per byte loaded to keep busy. Key
+  switching offers 0.7–3.9.</li>
+<li><strong><code>dnum</code> is a dial</strong>: fewer digits mean a smaller key and less traffic, but a bigger special
+  modulus, which costs security budget (fewer levels for the same <code>N</code>). More digits mean more
+  NTTs and much bigger keys.</li>
+<li>This matches the literature. ARK's analysis (via the SoK) found CoeffToSlot at
+  <code>N = 2¹⁶, L = 23, dnum = 4</code> takes <strong>0.18 ms of compute but 2.1 ms to load its data
+  (11.7×)</strong>.</li>
+</ul>
+<p>Bootstrapping needs <strong>dozens of distinct rotation keys</strong>. That is gigabytes of key material
+per bootstrap if nothing is cached. Our toys show the same imbalance at miniature scale:</p>
+<div class="highlight"><pre><span></span><code>toy CKKS: 9 switching keys x 2 polys x 16 coeffs x 1829 bits = 64 KB (a ciphertext at level 0: 0.29 KB)
+toy TFHE: bootstrapping key 64 KB, key-switching key 42 KB (an LWE ciphertext: 68 bytes)
+toy BFV : one Galois key 7.5 KB (a ciphertext: 1.9 KB)
+</code></pre></div>
+
+<p>In every scheme, <strong>keys are 10–1 000× larger than the data</strong>.</p>
+<h3 id="43-the-three-ways-out">4.3 The three ways out<a class="headerlink" href="#43-the-three-ways-out" title="Link to this section">#</a></h3>
+<p>Each one raises the multiplications-per-byte ratio, and every serious accelerator combines
+them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Trick</th>
+<th>Effect in the model (dnum = 3)</th>
+<th>Who</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Generate the random half of each key on chip</strong> from a seed (it is pseudorandom)</td>
+<td>traffic halves: memory-bound ×8.5 → ×4.2</td>
+<td>CraterLake (KSHGen unit), BTS</td>
+</tr>
+<tr>
+<td><strong>Reuse a key</strong> for many operations while it sits on chip (hoisting, multi-hop rotations that use one key repeatedly, operation scheduling)</td>
+<td>8 uses per load: 33.6 µs / 8 = 4.2 µs ≈ compute time, i.e. balanced</td>
+<td>ARK ("inter-operation key reuse"), hoisted rotations in software</td>
+</tr>
+<tr>
+<td><strong>Large on-chip memory</strong>, so the working set never leaves the chip</td>
+<td>traffic → ~0 for keys that fit</td>
+<td>F1 (64 MB scratchpad), then larger on-chip storage in its successors; Heracles (64 MB on chip plus 48 GB HBM)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The same logic applies to the <strong>plaintext constants</strong> of bootstrapping's linear transforms,
+which can also run to hundreds of MB. ARK's "on-the-fly residue extension" regenerates their
+limbs on chip instead of loading them.</p>
+<hr />
+<h2 id="5-cpus">5. CPUs<a class="headerlink" href="#5-cpus" title="Link to this section">#</a></h2>
+<ul>
+<li>Libraries (OpenFHE, SEAL, HElib, Lattigo, TFHE-rs) use <strong>multi-threading across limbs and
+  ciphertexts</strong>, plus SIMD for NTTs and modular arithmetic.</li>
+<li><strong>Intel HEXL</strong> accelerates NTTs and element-wise modular arithmetic with <strong>AVX-512</strong>,
+  including the IFMA instructions (52-bit integer multiply-add). Vendor material reports
+  roughly 2–5× on supported hardware.</li>
+<li>A CPU core has a few hundred GB/s of memory bandwidth at best, and tens of MB of cache. It is
+  far behind on both of §4's axes. Typical CKKS bootstrapping takes <strong>seconds</strong> on a multi-core
+  CPU, and a TFHE PBS takes <strong>milliseconds</strong> per core.</li>
+</ul>
+<h2 id="6-gpus">6. GPUs<a class="headerlink" href="#6-gpus" title="Link to this section">#</a></h2>
+<p>GPUs are the practical accelerator in 2026. They are available everywhere, with thousands of
+integer lanes and TB/s-class HBM.</p>
+<p><strong>What maps well:</strong> the NTT's <code>N/2</code> independent butterflies per stage, element-wise limb
+arithmetic, and running thousands of independent TFHE bootstraps at once.</p>
+<p><strong>What fights back:</strong></p>
+<ul>
+<li>GPUs have no native 64-bit modular multiply, so it must be emulated. Hence 32-bit designs
+  like <strong>Cheddar</strong>.</li>
+<li>Kernel launch overhead and intermediate results going through global memory are handled
+  with <strong>kernel fusion</strong>, as in <strong>"100×"</strong> (Jung et al., TCHES 2021: GPU CKKS bootstrapping
+  more than 100× faster than a single CPU thread).</li>
+<li><strong>Memory capacity</strong> for keys, and the cache hierarchy, are the focus of <strong>Theodosian</strong> (2025).</li>
+<li>Using <strong>tensor cores</strong> for NTTs (TensorFHE) means reformulating the NTT as small matrix
+  products.</li>
+</ul>
+<p><strong>Numbers</strong> (as reported by the authors; order of magnitude):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Reported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FIDESlib (CKKS, 2025)</td>
+<td>bootstrapping <strong>≥ 70×</strong> faster than AVX-optimized OpenFHE (up to 227.8× vs non-AVX OpenFHE)</td>
+</tr>
+<tr>
+<td>Cheddar (CKKS, 32-bit)</td>
+<td>2.9–25.6× over earlier GPU libraries; ResNet-20 inference in 1.50 s on an A100</td>
+</tr>
+<tr>
+<td>Theodosian (CKKS, RTX 5090)</td>
+<td>bootstrapping 32 768 complex slots in <strong>22.1 → 15.2 → 12.8 ms</strong>; 1.45–1.83× over Cheddar</td>
+</tr>
+<tr>
+<td>TFHE-rs CUDA (TFHE)</td>
+<td>PBS <strong>&lt; 1 ms</strong> on an H100; ~189 000 PBS/s on 8 × H100 (vendor figures)</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="7-fpgas">7. FPGAs<a class="headerlink" href="#7-fpgas" title="Link to this section">#</a></h2>
+<p>FPGAs offer custom datapaths with HBM, but limited on-chip memory (BRAM/URAM), lower clocks,
+and DSP blocks sized for small multiplies. Examples are HEAX, HEXL-FPGA, FAB and Poseidon
+(the last two with bootstrapping). For one logistic-regression iteration, the SoK lists
+Poseidon at <strong>73 ms</strong> and FAB at <strong>103 ms</strong>, against <strong>775 ms</strong> for the "100×" GPU
+implementation. FPGAs are a good prototyping and niche-deployment target, and Niobium and
+others have used them on the way to ASICs.</p>
+<h2 id="8-asics-the-academic-lineage">8. ASICs: the academic lineage<a class="headerlink" href="#8-asics-the-academic-lineage" title="Link to this section">#</a></h2>
+<p>All of these are <strong>simulated designs</strong>: RTL synthesized for area and power, with performance
+modelled. None was fabricated.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Design</th>
+<th>Venue</th>
+<th>Key idea</th>
+<th>Notable (as reported)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>F1</strong></td>
+<td>MICRO 2021</td>
+<td>First programmable FHE accelerator: 16 clusters of 128-wide vector units (NTT, modmul, automorphism), 64 MB scratchpad, crossbars</td>
+<td>Up to ~17 000× over a CPU on LoLa-MNIST. But max <code>N = 2¹⁴</code> and fixed <code>dnum = L+1</code>, so <strong>no fully packed CKKS bootstrapping</strong></td>
+</tr>
+<tr>
+<td><strong>BTS</strong></td>
+<td>ISCA 2022</td>
+<td>"Bootstrappable" from the start: 64 × 32 grid of PEs, each with a butterfly and a base-conversion unit, local scratchpads wired to HBM</td>
+<td>Successor of the "100×" GPU work, with GPU-like organization</td>
+</tr>
+<tr>
+<td><strong>CraterLake</strong></td>
+<td>ISCA 2022</td>
+<td><strong>Unbounded depth</strong> (<code>N = 2¹⁶</code>, depth up to 60), a 2048-wide vector processor (8 × 256), a <strong>CRB</strong> base-conversion unit, and <strong>KSHGen</strong>, which generates key halves on chip</td>
+<td>gmean <strong>4 600×</strong> over CPU, <strong>11.2×</strong> over the best prior accelerator at similar area and power</td>
+</tr>
+<tr>
+<td><strong>ARK</strong></td>
+<td>MICRO 2022</td>
+<td><strong>Algorithm–hardware co-design</strong>: runtime data generation, multi-hop rotations so one key serves many rotations, hybrid limb/coefficient parallelism</td>
+<td><strong>6.5×</strong> faster than BTS on ResNet-20, where bootstrapping is 76 % of the work</td>
+</tr>
+<tr>
+<td><strong>SHARP</strong></td>
+<td>ISCA 2023</td>
+<td><strong>36-bit words</strong>: smaller multipliers and memories, with precision managed in software</td>
+<td></td>
+</tr>
+<tr>
+<td>CiFHER, Osiris, …</td>
+<td>2023–2026</td>
+<td>chiplets (resizable systems), systolic arrays, memory-hierarchy-centric designs</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>The arc is clear: <strong>F1</strong> proved the architecture, <strong>BTS and CraterLake</strong> made bootstrapping
+the design target, and <strong>ARK</strong> showed that changing the <em>algorithm</em> to fit the memory system
+beats adding more arithmetic.</p>
+<h2 id="9-intel-heracles-from-simulation-to-silicon">9. Intel Heracles: from simulation to silicon<a class="headerlink" href="#9-intel-heracles-from-simulation-to-silicon" title="Link to this section">#</a></h2>
+<p><strong>Heracles</strong> is Intel's FHE accelerator from DARPA's DPRIVE program (2021–), presented at
+<strong>ISSCC in February 2026</strong>. It is the first widely reported <em>fabricated</em> large FHE
+accelerator. From press coverage (the ISSCC paper itself was not available to me, so treat the
+details as secondary):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Reported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Process / size</td>
+<td>an Intel 3 nm-class FinFET process; one report gives &gt; 200 mm² (single-sourced)</td>
+</tr>
+<tr>
+<td>Compute</td>
+<td>a grid of specialized compute tiles (one lower-authority source: 64 cores in an 8 × 8 SIMD grid)</td>
+</tr>
+<tr>
+<td>On-chip memory</td>
+<td><strong>64 MB</strong> scratchpad plus register files and buffers; ~9.6 TB/s tile-to-tile interconnect</td>
+</tr>
+<tr>
+<td>Off-chip memory</td>
+<td><strong>48 GB HBM3</strong> in two stacks, ~819 GB/s</td>
+</tr>
+<tr>
+<td>Speed</td>
+<td><strong>1 074–5 547×</strong> over a 24-core Xeon across seven FHE operations (one outlet gives the upper bound as 1 547×; sources conflict). Demo: an encrypted voter-verification query in <strong>14 µs</strong> instead of 15 ms</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>research prototype, <strong>no announced commercial plans</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Read through §4, the design makes sense. Off-chip bandwidth (~0.8 TB/s) is far lower than the
+on-chip interconnect (~9.6 TB/s), so performance depends on <strong>keeping keys and intermediate
+data on chip</strong> and reusing them. That is the CraterLake/ARK lesson, implemented in silicon.
+The 48 GB of HBM is there for <em>capacity</em>, holding the gigabytes of evaluation keys, more than
+for bandwidth.</p>
+<p><strong>Startups and others:</strong> Niobium (a DPRIVE spin-out; $23M raised; reported Samsung Foundry
+8 nm deal), Cornami (reconfigurable fabric, working with DESILO on the GL scheme), Optalysys
+(photonic computing for the NTT/FFT), and Fabric Cryptography
+(<a href="../07_state_of_the_art_2026.html#4-hardware-acceleration">07 §4</a>).</p>
+<h2 id="10-tfhe-hardware">10. TFHE hardware<a class="headerlink" href="#10-tfhe-hardware" title="Link to this section">#</a></h2>
+<p>TFHE is a different workload: small ciphertexts, one PBS per gate or lookup, and a PBS that is
+<code>n</code> <strong>sequential</strong> external products (<a href="tfhe.html#4-programmable-bootstrapping-step-by-step">TFHE deep dive §4.3</a>).</p>
+<ul>
+<li><strong>Latency</strong> per PBS is bounded by that sequential chain.</li>
+<li><strong>Throughput</strong> comes from running many independent PBS at once, which GPUs do well.
+  Dedicated designs (e.g. Matcha, Strix, Morphling, and the FPGA design FPT in the academic
+  literature) pipeline the external products and use FFT/NTT units tailored to <code>N = 1024–2048</code>.</li>
+<li>The bootstrapping key (tens of MB) is reused by <strong>every</strong> PBS. It fits the "keep the key on
+  chip" pattern better than CKKS's many rotation keys.</li>
+</ul>
+<h2 id="11-algorithmhardware-co-design-where-things-are-heading">11. Algorithm–hardware co-design: where things are heading<a class="headerlink" href="#11-algorithmhardware-co-design-where-things-are-heading" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Shorter words</strong> (32–36 bits) with more limbs: cheaper multipliers, more parallelism.</li>
+<li><strong>Generate, don't load:</strong> seeded key halves, on-chip twiddle generation, regenerated
+  plaintext limbs.</li>
+<li><strong>Reuse:</strong> hoisted rotations (decompose once, rotate many times), baby-step giant-step,
+  multi-hop rotations, operation scheduling by compilers.</li>
+<li><strong>Hardware-shaped schemes:</strong> the Gentry–Lee matrix scheme turns encrypted linear algebra into
+  plain matrix multiplication, which suits tensor cores and systolic arrays. MRFHE batches the
+  DFT steps of bootstrapping. The CRYPTO 2026 shallow-bootstrapping work targets parallel
+  hardware explicitly (<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1–2</a>).</li>
+<li><strong>Compilers as the interface:</strong> HEIR and similar compilers lower one program to CPU, GPU or
+  accelerator backends. Google's 2026 HEIR demos reportedly involved hardware partners.</li>
+</ul>
+<h2 id="12-summary-orders-of-magnitude-in-2026">12. Summary: orders of magnitude in 2026<a class="headerlink" href="#12-summary-orders-of-magnitude-in-2026" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>CKKS bootstrap (<code>N = 2¹⁶</code>, ~32K slots)</th>
+<th>TFHE PBS</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU (multi-core, AVX-512)</td>
+<td>seconds</td>
+<td>~ms per core</td>
+<td>everywhere</td>
+</tr>
+<tr>
+<td>GPU (A100 / H100 / RTX 5090)</td>
+<td><strong>~13–100 ms</strong></td>
+<td><strong>&lt; 1 ms</strong>; 10⁵ PBS/s per node</td>
+<td>practical today</td>
+</tr>
+<tr>
+<td>FPGA</td>
+<td>tens to hundreds of ms per workload step</td>
+<td>~ms</td>
+<td>niche / prototyping</td>
+</tr>
+<tr>
+<td>Academic ASICs (simulated)</td>
+<td>sub-ms to ms</td>
+<td>sub-ms</td>
+<td>research</td>
+</tr>
+<tr>
+<td>Intel Heracles (fabricated)</td>
+<td>not reported per op; 10³–5·10³× over a 24-core Xeon</td>
+<td>—</td>
+<td>prototype</td>
+</tr>
+</tbody>
+</table></div>
+<p>All figures are as reported by authors or vendors, under different parameters and workloads.
+Use them for order of magnitude only.</p>
+<hr />
+<h2 id="13-exercises">13. Exercises<a class="headerlink" href="#13-exercises" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>4-step NTT:</strong> rewrite <code>NTT.forward</code> as column NTTs, a twiddle multiplication, a transpose
+   and row NTTs, and check that the results match.</li>
+<li><strong>Montgomery multiplication:</strong> implement it for 30-bit primes and count integer
+   multiplications per modmul against <code>% p</code>.</li>
+<li><strong>Plug the NTT into a toy:</strong> replace <code>poly_mul</code> in <code>toy_tfhe.py</code> with an NTT over a prime
+   <code>Q</code> and re-profile. How much faster is a PBS, and what dominates now?</li>
+<li><strong>Hoisted rotations:</strong> in <code>toy_ckks.linear_transform</code>, decompose the input once and reuse
+   the digits for all rotations. Count the multiplications saved.</li>
+<li><strong>Seeded keys:</strong> store only a seed for the <code>a</code> half of each switching key in the toys, and
+   measure how much key material is left.</li>
+<li><strong>Tune <code>dnum</code>:</strong> extend the model with the security cost of the special modulus (larger
+   <code>PQ</code> needs larger <code>N</code>) and find the best <code>dnum</code> for <code>L = 24</code>.</li>
+</ol>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
+<ul>
+<li><em>SoK: Fully Homomorphic Encryption Accelerators</em>. <a href="https://arxiv.org/abs/2212.01713">arXiv 2212.01713</a>: architecture summaries of F1, CraterLake, BTS and ARK, the memory-bound CoeffToSlot example, and the cross-platform evaluation used above</li>
+<li>Feldmann et al. <em>F1: A Fast and Programmable Accelerator for Fully Homomorphic Encryption</em>. MICRO 2021</li>
+<li>Samardzic et al. <em>CraterLake: A Hardware Accelerator for Efficient Unbounded Computation on Encrypted Data</em>. ISCA 2022 (<a href="https://par.nsf.gov/servlets/purl/10350313">PDF via NSF PAR</a>)</li>
+<li>Kim et al. <em>BTS: An Accelerator for Bootstrappable Fully Homomorphic Encryption</em>. ISCA 2022</li>
+<li>Kim et al. <em>ARK: Fully Homomorphic Encryption Accelerator with Runtime Data Generation and Inter-Operation Key Reuse</em>. MICRO 2022 (<a href="https://arxiv.org/abs/2205.00922">arXiv 2205.00922</a>)</li>
+<li>Kim et al. <em>SHARP: A Short-Word Hierarchical Accelerator for Robust and Practical Fully Homomorphic Encryption</em>. ISCA 2023</li>
+<li>Jung et al. <em>Over 100x Faster Bootstrapping in Fully Homomorphic Encryption through Memory-centric Optimization with GPUs</em>. TCHES 2021</li>
+<li><em>Cheddar</em> (32-bit GPU CKKS library). <a href="https://arxiv.org/abs/2407.13055">arXiv 2407.13055</a></li>
+<li><em>FIDESlib: A Fully-Fledged Open-Source FHE Library for Efficient CKKS on GPUs</em>. <a href="https://arxiv.org/abs/2507.04775">arXiv 2507.04775</a></li>
+<li><em>Theodosian: A Deep Dive into Memory-Hierarchy-Centric FHE Acceleration</em>. <a href="https://arxiv.org/abs/2512.18345">arXiv 2512.18345</a></li>
+<li><em>CiFHER: A Chiplet-Based FHE Accelerator with a Resizable Structure</em>. <a href="https://arxiv.org/abs/2308.04890">arXiv 2308.04890</a> · <em>Osiris</em> (systolic). <a href="https://arxiv.org/abs/2408.09593">arXiv 2408.09593</a> · <em>WHET</em> (2026). <a href="https://arxiv.org/abs/2606.11541">arXiv 2606.11541</a></li>
+<li>Intel Heracles coverage: <a href="https://www.i-programmer.info/news/149-security/18779-intel-demos-homomorphic-encryption-chip.html">i-programmer</a> · <a href="https://www.all-about-industries.com/intel-displays-functional-he-accelerator-for-calculations-on-encrypted-data-a-07827ea187a489935ff36ccf9e231ff5/">all-about-industries</a> · <a href="https://www.techmeme.com/260310/p57">IEEE Spectrum via Techmeme</a> · <a href="https://www.privacyguides.org/news/2026/03/19/intels-fully-homomorphic-encryption-chip-could-revolutionize-privacy/">Privacy Guides</a></li>
+</ul>
+<blockquote>
+<p>Venues and titles of F1, BTS, SHARP and "100×" are cited from memory; the architecture facts
+about F1, BTS, CraterLake and ARK come from the SoK. TFHE accelerator names (Matcha, Strix,
+Morphling, FPT) are from memory and were not re-checked here.</p>
+</blockquote>
+</article>
+<footer class="pager"><a href="../deep_dives/threshold_fhe.html">← Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a><span></span></footer>
+</main>
+</body>
+</html>

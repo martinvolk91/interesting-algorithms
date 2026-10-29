@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 · Core techniques: what makes FHE practical</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li class="current"><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-batching--simd-packing">1. Batching / SIMD packing</a></li>
+<li><a href="#2-rotations-galois-automorphisms">2. Rotations (Galois automorphisms)</a></li>
+<li><a href="#3-packing-strategies-for-linear-algebra">3. Packing strategies for linear algebra</a></li>
+<li><a href="#4-polynomial-approximation-of-non-linear-functions-ckks--bfv">4. Polynomial approximation of non-linear functions (CKKS / BFV)</a></li>
+<li><a href="#5-programmable-bootstrapping-and-luts-tfhe">5. Programmable bootstrapping and LUTs (TFHE)</a></li>
+<li><a href="#6-functional-bootstrapping-in-ckks">6. Functional bootstrapping in CKKS</a></li>
+<li><a href="#7-scheme-switching">7. Scheme switching</a></li>
+<li><a href="#8-multi-party-variants">8. Multi-party variants</a></li>
+<li><a href="#9-compilers-and-toolchains">9. Compilers and toolchains</a></li>
+<li><a href="#10-bandwidth-tricks">10. Bandwidth tricks</a></li>
+<li><a href="#11-integrity-and-verifiability">11. Integrity and verifiability</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="05--core-techniques-what-makes-fhe-practical">05 · Core techniques: what makes FHE practical<a class="headerlink" href="#05--core-techniques-what-makes-fhe-practical" title="Link to this section">#</a></h1>
+<p><a href="04_schemes.html">← 04 Schemes</a> · <a href="index.html">index</a> · next: <a href="06_security.html">06 Security →</a></p>
+<hr />
+<p>The schemes in <a href="04_schemes.html">04</a> are the engines. This chapter covers the techniques that
+took FHE from "a billion times slower" to "deployed in iOS". Most performance wins come from
+<strong>data layout</strong> and <strong>algorithm choice</strong>, not from faster primitives.</p>
+<h2 id="1-batching--simd-packing">1. Batching / SIMD packing<a class="headerlink" href="#1-batching--simd-packing" title="Link to this section">#</a></h2>
+<p>By the CRT (ch. 02 §4), one plaintext polynomial holds many independent values ("<strong>slots</strong>"):</p>
+<ul>
+<li>BGV/BFV with prime \(t \equiv 1 \pmod{2N}\): <strong>N slots</strong> of integers mod <code>t</code>
+  (Smart–Vercauteren 2010/2014).</li>
+<li>CKKS: <strong>N/2 complex slots</strong>.</li>
+</ul>
+<p>Homomorphic <code>+</code> and <code>×</code> then act <strong>slot-wise</strong>, like SIMD vector instructions. One
+ciphertext multiplication performs 16 384 or 32 768 multiplications at once, which amortizes
+the enormous per-operation cost. Throughput-oriented FHE is all about <strong>keeping slots full</strong>.</p>
+<h2 id="2-rotations-galois-automorphisms">2. Rotations (Galois automorphisms)<a class="headerlink" href="#2-rotations-galois-automorphisms" title="Link to this section">#</a></h2>
+<p>Slot-wise operations alone can't move data <em>between</em> slots. The ring automorphisms
+\(\sigma_k : X \mapsto X^k\) (with <code>k</code> odd) permute the slots. With \(k = 5^j\) they act as a
+<strong>cyclic rotation by <code>j</code></strong> (the slots form a <code>2 × N/2</code> hypercube; \(k = -1\) swaps the two
+rows, and for CKKS it is complex conjugation).</p>
+<p>Applying \(\sigma_k\) to a ciphertext yields one under the key \(\sigma_k(s)\), so a key switch
+brings it back. Each rotation amount needs its own <strong>Galois key</strong>, or you compose
+power-of-two rotations.</p>
+<p><strong>Example: sum of all slots</strong> in \(\log_2(\#\text{slots})\) rotate-and-add steps:</p>
+<div class="highlight"><pre><span></span><code>[a b c d e f g h]
++ rot 4 → [a+e b+f c+g d+h  e+a ...]
++ rot 2 → [a+c+e+g  b+d+f+h ...]
++ rot 1 → [Σ Σ Σ Σ Σ Σ Σ Σ]            (every slot now holds the total)
+</code></pre></div>
+
+<p>Dot product = slot-wise multiplication + sum of slots. Rotations cost a key switch each,
+so <strong>minimizing rotations</strong> is a big part of FHE algorithm design.</p>
+<h2 id="3-packing-strategies-for-linear-algebra">3. Packing strategies for linear algebra<a class="headerlink" href="#3-packing-strategies-for-linear-algebra" title="Link to this section">#</a></h2>
+<p>How you lay data out in slots determines how many rotations you need:</p>
+<ul>
+<li><strong>Matrix × vector, diagonal method</strong> (Halevi–Shoup 2014): store the matrix by its
+  generalized diagonals, so \(Mv = \sum_i \mathrm{diag}_i(M) \odot \mathrm{rot}_i(v)\).</li>
+<li><strong>Baby-step giant-step (BSGS):</strong> reduces rotations from <code>d</code> to about \(2\sqrt{d}\). It is used
+  everywhere, including inside CKKS bootstrapping's linear transforms.</li>
+<li><strong>Matrix × matrix:</strong> Jiang–Kim–Lauter–Song (2018) and many successors. This is the bottleneck
+  of encrypted transformers, and the motivation for the GL matrix scheme (ch. 04).</li>
+<li><strong>Convolutions:</strong> multiplexed packing for CNNs (e.g. Lee et al., ResNet-20 under CKKS
+  with bootstrapping, 2022).</li>
+<li><strong>Column vs row vs "replicated" layouts</strong>, and layout <em>conversion</em> between layers, which is
+  a major job of FHE compilers (§9).</li>
+</ul>
+<h2 id="4-polynomial-approximation-of-non-linear-functions-ckks--bfv">4. Polynomial approximation of non-linear functions (CKKS / BFV)<a class="headerlink" href="#4-polynomial-approximation-of-non-linear-functions-ckks--bfv" title="Link to this section">#</a></h2>
+<p>BGV/BFV/CKKS natively compute only <strong>polynomials</strong>. Everything else is approximated on a
+<strong>known, bounded input range</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Typical approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sigmoid, tanh, GELU, exp</td>
+<td>Chebyshev or minimax polynomials of moderate degree</td>
+</tr>
+<tr>
+<td>ReLU, max, comparison, sign</td>
+<td><strong>Composite</strong> minimax polynomials (Lee–Lee–Kim–No et al.): compose low-degree polys to approximate <code>sign(x)</code> sharply. ReLU(x) = x·(1+sign(x))/2</td>
+</tr>
+<tr>
+<td><code>1/x</code>, <code>1/√x</code> (softmax, LayerNorm)</td>
+<td>Newton / Goldschmidt iterations from an initial polynomial guess</td>
+</tr>
+<tr>
+<td>Softmax</td>
+<td><code>exp</code> approx. + sum (rotations) + inverse approx. Often the hardest layer in encrypted transformers</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Paterson–Stockmeyer</strong> evaluates a degree-<code>d</code> polynomial with about \(\sqrt{2d}\)
+non-scalar multiplications at depth \(\lceil \log_2 d \rceil\). The cost is set by <strong>depth</strong>:
+higher degree means better accuracy but more levels, and therefore more bootstrapping.</p>
+<p>The alternative is to <strong>change the model</strong>: train with FHE-friendly activations such as
+\(x^2\) or low-degree polynomials, or quantize. The 2026 SoK on encrypted LLMs calls frameworks
+that do <em>not</em> change the model "<strong>model-preserving</strong>". Only 5 of 21 surveyed frameworks are
+(ch. 07).</p>
+<h2 id="5-programmable-bootstrapping-and-luts-tfhe">5. Programmable bootstrapping and LUTs (TFHE)<a class="headerlink" href="#5-programmable-bootstrapping-and-luts-tfhe" title="Link to this section">#</a></h2>
+<p>In TFHE every bootstrap evaluates a lookup table on an encrypted small integer (ch. 03 §8):</p>
+<ul>
+<li>Any function on 1–8 bit inputs costs <strong>one PBS</strong>, regardless of how non-linear it is.</li>
+<li>Bigger integers: <strong>radix decomposition</strong> (blocks plus carry propagation) or <strong>CRT
+  decomposition</strong> (residues mod small coprimes; each block is independent and parallel).</li>
+<li><strong>Multi-value bootstrapping</strong> evaluates several LUTs on the same input in one blind rotation.</li>
+<li><strong>Tree-based / WoP-PBS</strong> (without padding) lift the 1-bit "padding" restriction caused by
+  the negacyclic ring.</li>
+</ul>
+<p>Zama's <strong>Concrete</strong> compiler turns Python/NumPy into TFHE circuits by choosing bit widths and
+placing PBS automatically. <strong>Concrete ML</strong> applies this to quantized ML models (trees, linear
+models, small NNs).</p>
+<h2 id="6-functional-bootstrapping-in-ckks">6. Functional bootstrapping in CKKS<a class="headerlink" href="#6-functional-bootstrapping-in-ckks" title="Link to this section">#</a></h2>
+<p>The "discrete CKKS" line (2024–2026) evaluates LUTs on <em>many</em> values at once inside CKKS
+bootstrapping, combining TFHE's expressiveness with CKKS's batching. Main papers: bootstrapping
+bits (Eurocrypt 2024), small integers / SI-BTS (Asiacrypt 2024), general functional
+bootstrapping (Alexandru–Kim–Polyakov), modular reduction, and high-precision discrete CKKS
+for noise flooding (2025). See ch. 07 for details.</p>
+<h2 id="7-scheme-switching">7. Scheme switching<a class="headerlink" href="#7-scheme-switching" title="Link to this section">#</a></h2>
+<p>Convert between CKKS/BFV (batched linear algebra) and FHEW/TFHE (cheap non-linear LUTs) as
+needed (ch. 04). It is powerful, but the switching itself is expensive, and its IND-CPA-D
+security has recently been shown to be subtle (ch. 06).</p>
+<h2 id="8-multi-party-variants">8. Multi-party variants<a class="headerlink" href="#8-multi-party-variants" title="Link to this section">#</a></h2>
+<p>Plain FHE has <strong>one</strong> key owner. For data from several parties:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Idea</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Threshold FHE</strong></td>
+<td>The secret key is secret-shared among <code>n</code> parties. Decryption needs <code>t</code> of them (a small MPC protocol)</td>
+<td>Zama Protocol (threshold decryption network), Lattigo multiparty, OpenFHE</td>
+</tr>
+<tr>
+<td><strong>Multiparty HE (MHE)</strong></td>
+<td>Parties jointly generate one collective public key. Each keeps a share of the secret key (Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021)</td>
+<td>federated analytics, medical consortia (Tune Insight)</td>
+</tr>
+<tr>
+<td><strong>Multi-key FHE</strong></td>
+<td>Each party has its own key. Ciphertexts under different keys combine on the fly (López-Alt–Tromer–Vaikuntanathan 2012)</td>
+<td>research. The cost grows with the number of parties</td>
+</tr>
+</tbody>
+</table></div>
+<p>Threshold decryption needs <strong>noise flooding</strong> of the partial decryptions, or the key shares
+leak. This connects to IND-CPA-D in ch. 06.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/threshold_fhe.html">deep_dives/threshold_fhe.md</a> builds
+distributed key generation, 2-of-3 threshold decryption with smudging, and re-encryption on
+the toy BFV (<a href="../code/threshold_bfv.py">code/threshold_bfv.py</a>), and maps them onto the Zama Protocol.</p>
+</blockquote>
+<h2 id="9-compilers-and-toolchains">9. Compilers and toolchains<a class="headerlink" href="#9-compilers-and-toolchains" title="Link to this section">#</a></h2>
+<p>Writing FHE by hand means choosing parameters, placing relinearizations, rescales and
+bootstraps, designing slot layouts and approximating functions. Compilers automate this:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Target</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HEIR</strong> (Google)</td>
+<td>multi-scheme, MLIR-based</td>
+<td>General-purpose HE compiler. Packing, parameter selection, arithmetization. Backends include OpenFHE and Lattigo. Paper: arXiv <a href="https://arxiv.org/abs/2508.11095">2508.11095</a>. Promoted by Google for encrypted AI inference in 2026</td>
+</tr>
+<tr>
+<td><strong>Concrete / Concrete ML</strong> (Zama)</td>
+<td>TFHE</td>
+<td>Python → TFHE circuits. Quantized ML models</td>
+</tr>
+<tr>
+<td><strong>Orion</strong></td>
+<td>CKKS</td>
+<td>PyTorch → CKKS for deep CNNs, automated bootstrapping placement (ASPLOS 2025)</td>
+</tr>
+<tr>
+<td><strong>Fhelipe</strong></td>
+<td>CKKS</td>
+<td>Tensor-compiler approach (PLDI 2024)</td>
+</tr>
+<tr>
+<td><strong>EVA / CHET</strong> (Microsoft)</td>
+<td>CKKS</td>
+<td>Early (2019–2020) CKKS compilers, scale management</td>
+</tr>
+<tr>
+<td><strong>Google FHE Transpiler</strong></td>
+<td>TFHE / BGV</td>
+<td>C++ → boolean circuits (2021). Superseded by HEIR</td>
+</tr>
+</tbody>
+</table></div>
+<p>Compilers are seen as a key enabler. HEIR in particular aims to be a common layer between
+front ends (PyTorch, Python) and both software libraries and hardware accelerators. Google's
+2026 demos reportedly involved hardware partners such as Niobium.</p>
+<h2 id="10-bandwidth-tricks">10. Bandwidth tricks<a class="headerlink" href="#10-bandwidth-tricks" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Seeded ciphertexts:</strong> for symmetric encryption, the uniform part <code>a</code> can be regenerated
+  from a PRNG seed, which halves upload size.</li>
+<li><strong>Transciphering / hybrid HE:</strong> the client encrypts with a cheap <strong>symmetric cipher</strong> (AES,
+  or HE-friendly ciphers such as Rasta, Pasta, Kreyvium, Elisabeth). The server holds an FHE
+  encryption of the symmetric key and <em>homomorphically decrypts</em> to obtain FHE ciphertexts. It
+  gives a tiny upload at the cost of server work.</li>
+<li><strong>Ciphertext compression / packing LWE → RLWE</strong> for responses (common in PIR).</li>
+</ul>
+<h2 id="11-integrity-and-verifiability">11. Integrity and verifiability<a class="headerlink" href="#11-integrity-and-verifiability" title="Link to this section">#</a></h2>
+<p>FHE gives confidentiality, <strong>not</strong> correctness. Approaches to verifiable FHE include
+SNARK/STARK proofs of correct homomorphic evaluation (an active 2023–2026 research area; the
+proofs are heavy because FHE arithmetic is large), redundancy or replication across servers,
+and running the FHE evaluator inside a TEE for "belt and braces". Zama's protocol, for
+example, combines ZK proofs that inputs were encrypted correctly with several independent
+coprocessors that recompute results and must agree.</p>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Hands-on: rotations and the diagonal matrix-vector method in OpenFHE-Python.</li>
+<li>How encrypted ResNet / BERT layers are packed, and where the bootstraps go.</li>
+<li>Composite minimax polynomials for <code>sign(x)</code>: the math and the depth/accuracy trade-off.</li>
+<li>TFHE-rs radix integers: build an encrypted comparator.</li>
+<li>Threshold FHE: how noise flooding protects key shares during joint decryption.</li>
+<li>HEIR: compile a small Python function and inspect the generated OpenFHE code.</li>
+</ul>
+</article>
+<footer class="pager"><a href="04_schemes.html">← 04 · The schemes: five &quot;generations&quot; of FHE</a><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks →</a></footer>
+</main>
+</body>
+</html>

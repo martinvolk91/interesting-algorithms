@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dive: CKKS (encoding, rescaling, bootstrapping)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li class="current"><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-one-idea">0. The one idea</a><ul>
+<li><a href="#notation">Notation</a></li>
+</ul>
+</li>
+<li><a href="#1-encoding">1. Encoding</a><ul>
+<li><a href="#11-the-canonical-embedding-why-slots-exist">1.1 The canonical embedding: why slots exist</a></li>
+<li><a href="#12-why-only-n2-slots">1.2 Why only N/2 slots</a></li>
+<li><a href="#13-encode-and-decode">1.3 Encode and decode</a></li>
+<li><a href="#14-worked-example-n--4-δ--64">1.4 Worked example (N = 4, Δ = 64)</a></li>
+<li><a href="#15-encoding-precision">1.5 Encoding precision</a></li>
+<li><a href="#16-three-slot-tricks-that-come-free-with-the-encoding">1.6 Three slot tricks that come free with the encoding</a></li>
+</ul>
+</li>
+<li><a href="#2-encryption-and-decryption">2. Encryption and decryption</a></li>
+<li><a href="#3-homomorphic-operations-and-their-bookkeeping">3. Homomorphic operations and their bookkeeping</a><ul>
+<li><a href="#31-multiplication-and-relinearization">3.1 Multiplication and relinearization</a></li>
+</ul>
+</li>
+<li><a href="#4-rescaling">4. Rescaling</a><ul>
+<li><a href="#41-why-rescale-at-all">4.1 Why rescale at all</a></li>
+<li><a href="#42-the-operation">4.2 The operation</a></li>
+<li><a href="#43-why-errors-behave-like-floating-point">4.3 Why errors behave like floating point</a></li>
+<li><a href="#44-designing-the-modulus-chain">4.4 Designing the modulus chain</a></li>
+<li><a href="#45-rns-rescaling-is-drop-a-limb">4.5 RNS: rescaling is "drop a limb"</a></li>
+<li><a href="#46-scale-drift-the-price-of-rns">4.6 Scale drift: the price of RNS</a></li>
+<li><a href="#47-precision-budget-in-one-line">4.7 Precision budget, in one line</a></li>
+</ul>
+</li>
+<li><a href="#5-bootstrapping">5. Bootstrapping</a><ul>
+<li><a href="#51-the-key-observation">5.1 The key observation</a></li>
+<li><a href="#52-step-2-coefftoslot">5.2 Step 2: CoeffToSlot</a></li>
+<li><a href="#53-step-3-evalmod-the-heart-of-bootstrapping">5.3 Step 3: EvalMod, the heart of bootstrapping</a></li>
+<li><a href="#54-step-4-slottocoeff">5.4 Step 4: SlotToCoeff</a></li>
+<li><a href="#55-the-result-in-the-toy">5.5 The result in the toy</a></li>
+<li><a href="#56-the-headroom-trade-off">5.6 The headroom trade-off</a></li>
+<li><a href="#57-where-the-time-goes">5.7 Where the time goes</a></li>
+<li><a href="#58-variants-and-the-research-frontier">5.8 Variants and the research frontier</a></li>
+</ul>
+</li>
+<li><a href="#6-security-notes-specific-to-ckks">6. Security notes specific to CKKS</a></li>
+<li><a href="#7-doing-it-with-a-real-library-openfhe-python">7. Doing it with a real library (OpenFHE-Python)</a></li>
+<li><a href="#8-exercises-good-next-steps">8. Exercises (good next steps)</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="deep-dive-ckks-encoding-rescaling-bootstrapping">Deep dive: CKKS (encoding, rescaling, bootstrapping)<a class="headerlink" href="#deep-dive-ckks-encoding-rescaling-bootstrapping" title="Link to this section">#</a></h1>
+<p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html">02 Math foundations</a>, <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-4-ckks-cheonkimkimsong-2017">04 Schemes</a></p>
+<hr />
+<p>CKKS (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the FHE scheme for <strong>approximate arithmetic on
+real and complex numbers</strong>. It is the workhorse of encrypted machine learning. This document
+goes through its three distinctive pieces in depth:</p>
+<ol>
+<li><strong>Encoding</strong>: how a vector of complex numbers becomes one polynomial, and why that makes
+   polynomial multiplication act slot by slot.</li>
+<li><strong>Rescaling</strong>: how CKKS keeps numbers at a fixed scale, like fixed-point arithmetic, and
+   why its errors behave like floating-point errors.</li>
+<li><strong>Bootstrapping</strong>: how a ciphertext that has used up its levels is refreshed, step by step.</li>
+</ol>
+<p>Everything here is implemented in <a href="../../code/toy_ckks.py"><code>../code/toy_ckks.py</code></a>, about 360
+lines of dependency-free Python, including <strong>a working homomorphic bootstrapping</strong>. Run it
+from the <code>homomorphic_encryption/</code> folder (it takes about 0.1 s):</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/toy_ckks.py
+</code></pre></div>
+
+<p>All numbers quoted below as "toy output" come from that script. Its parameters (<code>N = 16</code>) are
+wildly insecure; it exists to make each step visible.</p>
+<hr />
+<h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
+<blockquote>
+<p>CKKS is <strong>fixed-point arithmetic in which the encryption noise lives in the
+least-significant bits.</strong></p>
+</blockquote>
+<p>Every scheme decrypts to "message + noise". BFV puts the message in the top bits, far above the
+noise, and rounds the noise away. CKKS doesn't bother separating them. It multiplies the
+message by a big <strong>scale</strong> <code>Δ</code> (say 2⁴⁰) and accepts that decryption returns</p>
+<div class="math-display">\[\Delta \cdot z + e \quad\longrightarrow\quad z + e/\Delta\]</div>
+<p>so the result is correct to roughly <code>log₂Δ − log₂|e|</code> bits, like a floating-point mantissa. In
+exchange you get native real-number arithmetic and up to <code>N/2</code> values per ciphertext.</p>
+<h3 id="notation">Notation<a class="headerlink" href="#notation" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Meaning</th>
+<th>Toy value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>N</code></td>
+<td>ring degree, \(R = \mathbb{Z}[X]/(X^N+1)\)</td>
+<td>16 (real: 2¹⁴–2¹⁷)</td>
+</tr>
+<tr>
+<td><code>n = N/2</code></td>
+<td>number of complex <strong>slots</strong></td>
+<td>8</td>
+</tr>
+<tr>
+<td>\(\zeta = e^{i\pi/N}\)</td>
+<td>primitive <code>2N</code>-th root of unity</td>
+<td></td>
+</tr>
+<tr>
+<td>\(\rho_j = \zeta^{5^j}\)</td>
+<td>the root attached to slot <code>j</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>Δ</code></td>
+<td>scale</td>
+<td>2⁶⁰ (real: 2⁴⁰–2⁵⁵)</td>
+</tr>
+<tr>
+<td>\(Q_\ell\)</td>
+<td>ciphertext modulus at level <code>ℓ</code></td>
+<td>\(q_0 \cdot \Delta^\ell\)</td>
+</tr>
+<tr>
+<td>\(q_0\)</td>
+<td>bottom modulus</td>
+<td>2⁷⁴ (= Δ · 2¹⁴)</td>
+</tr>
+<tr>
+<td><code>L</code></td>
+<td>top level</td>
+<td>14</td>
+</tr>
+<tr>
+<td><code>s</code></td>
+<td>secret key, ternary, Hamming weight <code>h</code></td>
+<td><code>h = 8</code></td>
+</tr>
+<tr>
+<td><code>P</code></td>
+<td>special modulus for key switching</td>
+<td>\(Q_L\)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The toy uses the <strong>original</strong> CKKS modulus chain \(Q_\ell = q_0\Delta^\ell\) with powers of two,
+so each rescale divides by <em>exactly</em> Δ. Real libraries use a chain of primes (RNS), which
+brings complications covered in §4.5–4.6.</p>
+<hr />
+<h2 id="1-encoding">1. Encoding<a class="headerlink" href="#1-encoding" title="Link to this section">#</a></h2>
+<h3 id="11-the-canonical-embedding-why-slots-exist">1.1 The canonical embedding: why slots exist<a class="headerlink" href="#11-the-canonical-embedding-why-slots-exist" title="Link to this section">#</a></h3>
+<p>Evaluate a polynomial <code>m(X)</code> at the <code>N</code> complex roots of \(X^N + 1\), which are the odd powers
+\(\zeta, \zeta^3, \dots, \zeta^{2N-1}\):</p>
+<div class="math-display">\[\sigma(m) = \big(m(\zeta),\ m(\zeta^3),\ \dots,\ m(\zeta^{2N-1})\big) \in \mathbb{C}^N\]</div>
+<p>This <strong>canonical embedding</strong> is a ring homomorphism. Every root <code>ω</code> satisfies \(\omega^N = -1\),
+so reducing a product modulo \(X^N+1\) doesn't change its value at <code>ω</code>:</p>
+<div class="math-display">\[\sigma(a \cdot b) = \sigma(a) \odot \sigma(b), \qquad \sigma(a + b) = \sigma(a) + \sigma(b)\]</div>
+<p><strong>Multiplying polynomials in <code>R</code> multiplies their evaluations slot by slot.</strong> This is the
+entire basis of CKKS's SIMD behaviour. Put your data in the evaluations, and polynomial
+arithmetic becomes vector arithmetic.</p>
+<h3 id="12-why-only-n2-slots">1.2 Why only N/2 slots<a class="headerlink" href="#12-why-only-n2-slots" title="Link to this section">#</a></h3>
+<p>Plaintext polynomials have <strong>real</strong> (integer) coefficients, so the value at a conjugate root is
+the conjugate value: \(m(\bar\omega) = \overline{m(\omega)}\). Half of the <code>N</code> evaluations are
+therefore determined by the other half, which leaves <strong>N/2 free complex values</strong>.</p>
+<p>Which half to use? CKKS uses the roots \(\rho_j = \zeta^{5^j}\), \(j = 0..n-1\). The number 5
+has order <code>N/2</code> modulo <code>2N</code>, and \(\{\pm 5^j \bmod 2N\}\) is exactly the set of odd residues. So
+the <code>ρ_j</code> together with their conjugates \(\zeta^{-5^j}\) are all <code>N</code> roots, each used once.
+§1.6 explains why the powers of 5 are the right choice.</p>
+<h3 id="13-encode-and-decode">1.3 Encode and decode<a class="headerlink" href="#13-encode-and-decode" title="Link to this section">#</a></h3>
+<p><strong>Decode</strong> is just evaluation, divided by the scale:</p>
+<div class="math-display">\[z_j = m(\rho_j) / \Delta\]</div>
+<p><strong>Encode</strong> inverts it. The evaluation matrix \(V_{\omega,k} = \omega^k\) over all <code>N</code> roots
+satisfies \(V^H V = N \cdot I\): its columns are orthogonal because
+\(\sum_\omega \omega^d = 0\) for \(0 &lt; |d| &lt; N\). Inverting is therefore "conjugate transpose,
+divide by <code>N</code>". Including the conjugate half of the vector explicitly:</p>
+<div class="math-display">\[m_k = \Big\lfloor \Delta \cdot \tfrac{2}{N} \cdot \mathrm{Re} \sum_{j} z_j\, \rho_j^{-k} \Big\rceil\]</div>
+<div class="highlight"><pre><span></span><code>z ∈ C^(N/2) ──expand with conjugates──▶ C^N ──σ⁻¹ (inverse &quot;special FFT&quot;)──▶ R[X] ──×Δ, round──▶ Z[X]
+</code></pre></div>
+
+<p>In the toy:</p>
+<div class="highlight"><pre><span></span><code><span class="n">ZETA</span> <span class="o">=</span> <span class="n">cmath</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">cmath</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">N</span><span class="p">)</span>                         <span class="c1"># primitive 2N-th root of unity</span>
+<span class="n">ROOTS</span> <span class="o">=</span> <span class="p">[</span><span class="n">ZETA</span> <span class="o">**</span> <span class="nb">pow</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">SLOTS</span><span class="p">)]</span>    <span class="c1"># slot j &lt;-&gt; root zeta^(5^j)</span>
+
+<span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">DELTA</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">scale</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">N</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="n">zj</span> <span class="o">*</span> <span class="n">r</span> <span class="o">**</span> <span class="o">-</span><span class="n">k</span> <span class="k">for</span> <span class="n">zj</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">ROOTS</span><span class="p">))</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">DELTA</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">mk</span> <span class="o">*</span> <span class="n">r</span><span class="o">**</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">mk</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">m</span><span class="p">))</span> <span class="o">/</span> <span class="n">scale</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ROOTS</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Real libraries compute both directions with an \(O(N \log N)\) FFT variant instead of these
+\(O(N^2)\) sums.</p>
+<h3 id="14-worked-example-n--4-δ--64">1.4 Worked example (N = 4, Δ = 64)<a class="headerlink" href="#14-worked-example-n--4-δ--64" title="Link to this section">#</a></h3>
+<p>With <code>N = 4</code> there are 2 slots, attached to \(\rho_0 = \zeta = e^{i\pi/4}\) and
+\(\rho_1 = \zeta^5 = -\zeta\). Encode <code>z = (3+4i, 2−i)</code>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(\sigma^{-1}(z)\) (real coefficients)</td>
+<td><code>(2.5, 2.1213, 1.5, 1.4142)</code></td>
+</tr>
+<tr>
+<td>× 64, round</td>
+<td><strong>m(X) = 160 + 136X + 96X² + 91X³</strong></td>
+</tr>
+<tr>
+<td>decode <code>m(ρ_j)/64</code></td>
+<td><code>(2.9972 + 4.0080i, 2.0028 − 1.0080i)</code>, error ≈ 0.0085</td>
+</tr>
+<tr>
+<td><code>m · m mod X⁴+1</code></td>
+<td><code>−8368 + 26048X + 40935X² + 55232X³</code></td>
+</tr>
+<tr>
+<td>decode at scale 64²</td>
+<td><code>(−7.081 + 24.026i, 2.995 − 4.038i)</code> ≈ <code>z² = (−7+24i, 3−4i)</code> ✓</td>
+</tr>
+<tr>
+<td><strong>rescale</strong>: ÷64, round</td>
+<td><code>−131 + 407X + 640X² + 863X³</code> → <code>(−7.085 + 24.032i, 2.991 − 4.032i)</code> at scale 64</td>
+</tr>
+</tbody>
+</table></div>
+<p>The whole scheme is in that table. <strong>Squaring the polynomial squared both slots.</strong> The scale
+went from Δ to Δ², and dividing by Δ brought it back. The small errors come from rounding
+the coefficients to integers, exactly as noise would.</p>
+<h3 id="15-encoding-precision">1.5 Encoding precision<a class="headerlink" href="#15-encoding-precision" title="Link to this section">#</a></h3>
+<p>Rounding each coefficient moves it by at most ½. Each slot is a sum of <code>N</code> coefficients times
+unit-modulus roots, so the slot error is at most \(N/(2\Delta)\), and typically about
+\(\sqrt{N}/\Delta\). Encoding alone loses about <code>log₂N</code> bits of the <code>log₂Δ</code> available.</p>
+<p>The toy decodes with error 2⁻⁴⁸ at Δ = 2⁶⁰. That limit comes from <strong>Python's 53-bit floats</strong>
+in the encoder (coefficients are around 2⁵⁹), not from CKKS. Real libraries hit the same wall,
+which is one reason scales above about 2⁵⁰ need extended-precision encoders.</p>
+<h3 id="16-three-slot-tricks-that-come-free-with-the-encoding">1.6 Three slot tricks that come free with the encoding<a class="headerlink" href="#16-three-slot-tricks-that-come-free-with-the-encoding" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Operation on the polynomial</th>
+<th>Effect on slots</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(m(X) \mapsto m(X^5)\)</td>
+<td><strong>rotate left by 1</strong></td>
+<td>\(m(\rho_j^5) = m(\zeta^{5^{j+1}}) = m(\rho_{j+1})\), and \(5^{n} \equiv 1\), so it wraps around</td>
+</tr>
+<tr>
+<td>\(m(X) \mapsto m(X^{-1})\)</td>
+<td><strong>complex conjugate</strong> every slot</td>
+<td>\(\rho_j^{-1} = \bar\rho_j\) and <code>m</code> has real coefficients</td>
+</tr>
+<tr>
+<td>\(m(X) \mapsto X^{N/2}\, m(X)\)</td>
+<td><strong>multiply every slot by <code>i</code></strong></td>
+<td>\(\rho_j^{N/2} = e^{i\pi 5^j/2} = i\), because \(5^j \equiv 1 \pmod 4\)</td>
+</tr>
+<tr>
+<td>add a constant <code>c</code> to coefficient 0</td>
+<td>add <code>c</code> to every slot</td>
+<td>a constant polynomial evaluates to <code>c</code> everywhere</td>
+</tr>
+</tbody>
+</table></div>
+<p>The first two are ring <strong>automorphisms</strong>. Applied to a ciphertext, they change the secret key
+from <code>s(X)</code> to <code>s(X^k)</code>, so they need a <strong>key switch</strong> and a Galois key. The last two are
+completely free: no key, no noise, no level.</p>
+<hr />
+<h2 id="2-encryption-and-decryption">2. Encryption and decryption<a class="headerlink" href="#2-encryption-and-decryption" title="Link to this section">#</a></h2>
+<p>Standard RLWE (see <a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>), with one
+difference from BFV: there is <strong>no plaintext modulus <code>t</code></strong> and no Δ multiplied in at encryption
+time, because the encoder already scaled the message.</p>
+<ul>
+<li><code>sk = s</code> (small ternary). <code>pk = (b, a) = (−a·s + e, a) mod Q_L</code>.</li>
+<li><code>Enc(m) = (v·b + e₀ + m,  v·a + e₁)</code>, with <code>v</code> ternary and <code>e₀, e₁</code> Gaussian.</li>
+<li><code>Dec(c) = c₀ + c₁·s = m + (v·e + e₀ + e₁·s) mod Q_ℓ</code>. The output is <strong>the message plus the
+  noise</strong>, and the noise is simply part of the output.</li>
+</ul>
+<p>That last point is a design feature for precision and a security liability. Anyone who sees
+the exact decryption <code>m + e</code> together with the ciphertext can solve
+<code>c₁·s = (m + e) − c₀</code> for <code>s</code>. This is the <strong>IND-CPA-D</strong> attack of
+<a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>. Never reveal raw CKKS
+decryptions without noise flooding.</p>
+<hr />
+<h2 id="3-homomorphic-operations-and-their-bookkeeping">3. Homomorphic operations and their bookkeeping<a class="headerlink" href="#3-homomorphic-operations-and-their-bookkeeping" title="Link to this section">#</a></h2>
+<p>Every ciphertext carries two numbers besides its polynomials: its <strong>level</strong> <code>ℓ</code> (modulus
+\(Q_\ell\)) and its <strong>scale</strong>. In the toy the scale is always exactly Δ after each operation. In
+RNS libraries it isn't (§4.6).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>How</th>
+<th>Scale</th>
+<th>Level</th>
+<th>Key needed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ct + ct</code></td>
+<td>add componentwise</td>
+<td>must match</td>
+<td>must match (drop the higher one)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ct + const</code></td>
+<td>add <code>round(cΔ)</code> to coefficient 0 of <code>c₀</code></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ct × i</code></td>
+<td>multiply both parts by \(X^{N/2}\)</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ct × const</code> / <code>ct × plaintext</code></td>
+<td>multiply by encoded constant</td>
+<td>Δ → Δ² → <strong>rescale</strong> → Δ</td>
+<td>−1</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ct × ct</code></td>
+<td>tensor, <strong>relinearize</strong>, <strong>rescale</strong></td>
+<td>Δ → Δ² → Δ</td>
+<td>−1</td>
+<td>relinearization key (<code>s²</code>)</td>
+</tr>
+<tr>
+<td>rotate by <code>r</code></td>
+<td>automorphism <code>X ↦ X^(5^r)</code>, key switch</td>
+<td>—</td>
+<td>—</td>
+<td>Galois key for <code>5^r</code></td>
+</tr>
+<tr>
+<td>conjugate</td>
+<td>automorphism <code>X ↦ X^(−1)</code>, key switch</td>
+<td>—</td>
+<td>—</td>
+<td>conjugation key</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="31-multiplication-and-relinearization">3.1 Multiplication and relinearization<a class="headerlink" href="#31-multiplication-and-relinearization" title="Link to this section">#</a></h3>
+<div class="math-display">\[(c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s) = \underbrace{c_0c_0&#x27;}_{d_0} + \underbrace{(c_0c_1&#x27; + c_1c_0&#x27;)}_{d_1}s + \underbrace{c_1c_1&#x27;}_{d_2}s^2\]</div>
+<p>The term <code>d₂·s²</code> is removed by <strong>key switching</strong> with a key <code>(b, a) = (−a·s + e + P·s², a) mod P·Q_L</code>:</p>
+<div class="math-display">\[\big(u_0, u_1\big) = \Big\lfloor \tfrac{d_2 \cdot (b, a)}{P} \Big\rceil \quad\Rightarrow\quad u_0 + u_1 s = d_2 s^2 + \underbrace{d_2 e / P}_{\text{small if } P \gtrsim Q_\ell} + \text{rounding}\]</div>
+<p>The large <strong>special modulus <code>P</code></strong> is what keeps the added noise small. The toy uses <code>P = Q_L</code>
+for simplicity. Real libraries use <strong>hybrid key switching</strong>: split <code>d₂</code> into <code>dnum</code> RNS digits,
+so that <code>P</code> only needs to be about \(Q^{1/\text{dnum}}\). That trades key size and modulus budget
+against compute.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">key_switch</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (u0, u1) with u0 + u1*s ~ d * s_from, using key = Enc_s(P * s_from).&quot;&quot;&quot;</span>
+    <span class="n">pq</span> <span class="o">=</span> <span class="n">P</span> <span class="o">*</span> <span class="n">Q</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">centre</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pq</span><span class="p">),</span> <span class="n">centre</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pq</span><span class="p">)</span>
+    <span class="n">down</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">centre</span><span class="p">([(</span><span class="n">c</span> <span class="o">+</span> <span class="n">P</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">//</span> <span class="n">P</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">pq</span><span class="p">)],</span> <span class="n">Q</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">down</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">down</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="n">k0</span><span class="p">,</span> <span class="n">k1</span> <span class="o">=</span> <span class="n">key_switch</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">evk</span><span class="p">[</span><span class="s2">&quot;relin&quot;</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>           <span class="c1"># relinearize: d2*s^2 -&gt; k0 + k1*s</span>
+    <span class="k">return</span> <span class="n">rescale</span><span class="p">(</span><span class="n">Ct</span><span class="p">(</span><span class="n">poly_add</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">k0</span><span class="p">,</span> <span class="n">q</span><span class="p">),</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">q</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">level</span><span class="p">))</span>
+</code></pre></div>
+
+<p>Rotations and conjugation reuse the same <code>key_switch</code>, with keys that encrypt <code>s(X^k)</code>
+instead of <code>s²</code>.</p>
+<hr />
+<h2 id="4-rescaling">4. Rescaling<a class="headerlink" href="#4-rescaling" title="Link to this section">#</a></h2>
+<h3 id="41-why-rescale-at-all">4.1 Why rescale at all<a class="headerlink" href="#41-why-rescale-at-all" title="Link to this section">#</a></h3>
+<p>After one multiplication the message is at scale Δ². Without intervention, depth <code>d</code> gives
+scale \(\Delta^{2^d}\), so the modulus (and with it <code>N</code>) would have to grow doubly exponentially.
+It is the same problem as fixed-point arithmetic. With <code>k</code> fractional bits,
+\((a \cdot 2^k)(b \cdot 2^k) = ab \cdot 2^{2k}\), and you shift right by <code>k</code> after every
+multiplication. <strong>Rescaling is that right shift, applied to a ciphertext.</strong></p>
+<h3 id="42-the-operation">4.2 The operation<a class="headerlink" href="#42-the-operation" title="Link to this section">#</a></h3>
+<div class="math-display">\[\mathrm{RS}(c) = \Big\lfloor \tfrac{c}{p} \Big\rceil \bmod Q_{\ell-1}, \qquad Q_\ell = p \cdot Q_{\ell-1}\]</div>
+<p>applied to both components. Start from \(c_0 + c_1 s = \Delta^2 m + E + k Q_\ell\) (exact over
+the integers, for some <code>k</code>). Dividing by <code>p ≈ Δ</code>:</p>
+<div class="math-display">\[\mathrm{RS}(c_0) + \mathrm{RS}(c_1)\, s = \tfrac{\Delta^2}{p} m + \tfrac{E}{p} + e_{\text{rs}} + k\,Q_{\ell-1}\]</div>
+<ul>
+<li>the message returns to scale \(\Delta^2/p \approx \Delta\);</li>
+<li>the noise <code>E</code> is <strong>divided by <code>p</code> too</strong>;</li>
+<li>a new rounding error \(e_{\text{rs}}\) appears. Its coefficients are at most about
+  \((1 + \|s\|_1)/2\), i.e. ≈ <code>h/2</code>, which is tiny compared with Δ;</li>
+<li>the modulus drops from \(Q_\ell\) to \(Q_{\ell-1}\): <strong>one level is consumed</strong>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">rescale</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Divide by DELTA and drop one level: scale DELTA^2 -&gt; DELTA, noise / DELTA.&quot;&quot;&quot;</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">Q</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">div</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">centre</span><span class="p">([(</span><span class="n">x</span> <span class="o">+</span> <span class="n">DELTA</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">//</span> <span class="n">DELTA</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">a</span><span class="p">],</span> <span class="n">q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Ct</span><span class="p">(</span><span class="n">div</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">c0</span><span class="p">),</span> <span class="n">div</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">c1</span><span class="p">),</span> <span class="n">ct</span><span class="o">.</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="43-why-errors-behave-like-floating-point">4.3 Why errors behave like floating point<a class="headerlink" href="#43-why-errors-behave-like-floating-point" title="Link to this section">#</a></h3>
+<p>Before rescaling, a product's noise is roughly \(\Delta(m_1 e_2 + m_2 e_1) + e_1e_2 + e_{\text{ks}}\).
+After dividing by Δ it is about \(m_1 e_2 + m_2 e_1\). So <strong>relative errors add</strong>, just as in
+floating-point multiplication. Errors get amplified by the <em>condition number</em> of the
+computation, and the scheme itself adds very little.</p>
+<p>The toy shows this. It squares a vector on the unit circle 14 times. The derivative of <code>z²</code> is
+<code>2z</code>, so each squaring should double the error, i.e. lose exactly one bit:</p>
+<div class="highlight"><pre><span></span><code>== squaring until the levels run out: z -&gt; z^2 -&gt; z^4 ...
+z^16     [10] max error 2^ -43.7
+z^256    [ 6] max error 2^ -39.7
+z^4096   [ 2] max error 2^ -35.7
+z^16384  [ 0] max error 2^ -33.7
+</code></pre></div>
+
+<p>That is one bit per squaring, exactly as numerical analysis predicts. The 2⁻⁴⁸ starting error
+comes from the encoder's floats (§1.5), not from the encryption.</p>
+<h3 id="44-designing-the-modulus-chain">4.4 Designing the modulus chain<a class="headerlink" href="#44-designing-the-modulus-chain" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>Q_L = q₀ · p₁ · p₂ · … · p_L        (+ special modulus P for key switching)
+      │     └────────┬────────┘
+      │        each p_i ≈ Δ: one rescale = one multiplicative level
+      └── q₀ &gt; Δ · (largest |value| at the end) · margin
+</code></pre></div>
+
+<ul>
+<li><strong><code>p_i ≈ Δ</code></strong> sets the precision per level. It is typically 40–55 bits.</li>
+<li><strong><code>q₀</code></strong> must hold the final result <em>including its integer part</em>. It is typically 10–20 bits
+  more than Δ. For bootstrapping it must also leave the headroom of §5.4.</li>
+<li><strong><code>L</code></strong> equals the multiplicative depth you need (plus bootstrapping's own levels).</li>
+<li>The total \(\log_2(P \cdot Q_L)\) must stay under the security bound for <code>N</code>
+  (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>).</li>
+</ul>
+<p>Example: Microsoft SEAL's basic CKKS example uses <code>N = 8192</code> with primes of <code>{60, 40, 40, 60}</code>
+bits and scale 2⁴⁰. That is 200 bits in total (the limit is 218), giving 2 multiplications.
+The outer 60-bit primes are <code>q₀</code> and the special prime <code>P</code>.</p>
+<h3 id="45-rns-rescaling-is-drop-a-limb">4.5 RNS: rescaling is "drop a limb"<a class="headerlink" href="#45-rns-rescaling-is-drop-a-limb" title="Link to this section">#</a></h3>
+<p>In real libraries \(Q_\ell = q_0 p_1 \cdots p_\ell\) is a product of NTT-friendly primes
+(\(p \equiv 1 \bmod 2N\)), each stored as its own residue polynomial (an "RNS limb",
+<a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5</a>). Dividing by the last
+prime then needs no big-integer arithmetic:</p>
+<div class="math-display">\[c&#x27; = \frac{c - [c]_{p_\ell}}{p_\ell} \quad\Longrightarrow\quad c&#x27;_i = \big(c_i - [c]_{p_\ell}\big)\cdot p_\ell^{-1} \bmod q_i \quad \text{for each remaining limb } i\]</div>
+<p>It costs one inverse NTT of the dropped limb, <code>ℓ</code> forward NTTs, and some multiplications.</p>
+<h3 id="46-scale-drift-the-price-of-rns">4.6 Scale drift: the price of RNS<a class="headerlink" href="#46-scale-drift-the-price-of-rns" title="Link to this section">#</a></h3>
+<p>Primes can't all equal Δ exactly, since each must be ≡ 1 mod 2N. After rescaling, the scale is
+\(\Delta^2/p_\ell\), which is close to Δ but not equal to it, and it differs from level to level.
+Two ciphertexts that reached the same level by different paths can then have <strong>different
+scales</strong>, and adding them silently computes the wrong thing. Fixes used in practice:</p>
+<ul>
+<li>choose primes alternately just above and just below Δ so the drift cancels;</li>
+<li><strong>track the exact scale per level</strong> and fold the correction into constants and plaintexts.
+  This is Kim–Papadimitriou–Polyakov's "reduced approximation error" CKKS, the <code>FLEXIBLEAUTO</code>
+  mode in OpenFHE, which also rescales <em>lazily</em>, just before the next multiplication;</li>
+<li>when levels must be aligned, multiply by a corrective constant rather than just dropping limbs.</li>
+</ul>
+<p>The toy avoids all of this by using powers of two, which is also why it can align levels with a
+plain <code>drop()</code>.</p>
+<h3 id="47-precision-budget-in-one-line">4.7 Precision budget, in one line<a class="headerlink" href="#47-precision-budget-in-one-line" title="Link to this section">#</a></h3>
+<div class="math-display">\[\text{bits of precision} \approx \log_2\Delta \;-\; \log_2(\text{noise}) \;-\; \log_2(\text{condition number of your computation})\]</div>
+<p>Real deployments typically get 20–40 bits. Enough for ML, not enough for exact arithmetic.</p>
+<hr />
+<h2 id="5-bootstrapping">5. Bootstrapping<a class="headerlink" href="#5-bootstrapping" title="Link to this section">#</a></h2>
+<p>Levels run out: in the toy, after 14 squarings the ciphertext sits at level 0 (modulus <code>q₀</code>)
+and can't be multiplied again. Bootstrapping (Cheon–Han–Kim–Kim–Song, Eurocrypt 2018) gives it
+new levels <strong>without the secret key</strong>.</p>
+<h3 id="51-the-key-observation">5.1 The key observation<a class="headerlink" href="#51-the-key-observation" title="Link to this section">#</a></h3>
+<p>At level 0, \(c_0 + c_1 s = m + e \pmod{q_0}\). Now simply <strong>reinterpret the same coefficients
+modulo the big \(Q_L\)</strong>. Over the integers, \(c_0 + c_1 s\) equals <code>m + e</code> <em>plus some multiple of
+<code>q₀</code></em>:</p>
+<div class="math-display">\[c_0 + c_1 s = \underbrace{m + e}_{\text{small}} + q_0 \cdot I(X) \pmod{Q_L}\]</div>
+<p><code>I(X)</code> has small integer coefficients. Each coefficient of \(c_0\) and \(c_1\) is at most \(q_0/2\),
+and <code>s</code> has <code>h</code> non-zero ±1 entries, so \(|I_k| \le (h+1)/2\). In practice it is about
+\(O(\sqrt h)\). Toy output, with <code>h = 8</code>:</p>
+<div class="highlight"><pre><span></span><code>I(X) = round(t / Q0) after ModRaise: [0, 0, 0, 0, 0, 1, 1, 0, 1, 0, -1, -1, -1, 0, 1, 1]
+</code></pre></div>
+
+<p>So the ciphertext now lives at the top level, but it encrypts <code>t = m + q₀·I</code> instead of <code>m</code>.
+<strong>Bootstrapping is the homomorphic computation of <code>t mod q₀</code>, coefficient by coefficient.</strong>
+The difficulty is that homomorphic operations act on <strong>slots</strong>, while the garbage <code>q₀·I</code> is in
+the <strong>coefficients</strong>. Hence the sandwich:</p>
+<div class="highlight"><pre><span></span><code> level 0 ct (mod q₀)
+   │ 1. ModRaise            reinterpret mod Q_L       → encrypts t(X) = m + e + q₀·I(X)
+   ▼
+   │ 2. CoeffToSlot         homomorphic W⁻¹ (+ conj)  → slots hold t_k / q₀       [~1–4 levels]
+   ▼
+   │ 3. EvalMod             (q₀/2π)·sin(2π x)          → slots hold (m+e)_k        [~8–12 levels]
+   ▼
+   │ 4. SlotToCoeff         homomorphic W             → coefficients hold m + e  [~1–3 levels]
+   ▼
+ level L − (depth of 2+3+4) ct, decrypting to (approximately) the same z
+</code></pre></div>
+
+<p>Toy bootstrap code (abridged):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">bootstrap</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+    <span class="n">ct</span> <span class="o">=</span> <span class="n">drop</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span> <span class="n">ct</span> <span class="o">=</span> <span class="n">Ct</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>                                   <span class="c1"># 1. ModRaise</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">linear_transform</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="p">[[</span><span class="n">DELTA</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">Q0</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">W_INV</span><span class="p">],</span> <span class="n">evk</span><span class="p">)</span>
+    <span class="n">u_bar</span> <span class="o">=</span> <span class="n">conjugate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">evk</span><span class="p">)</span>                                                     <span class="c1"># 2. CoeffToSlot</span>
+    <span class="n">x_re</span> <span class="o">=</span> <span class="n">add</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u_bar</span><span class="p">)</span>                                  <span class="c1"># t_j / (Q0 S)</span>
+    <span class="n">x_im</span> <span class="o">=</span> <span class="n">sub</span><span class="p">(</span><span class="n">zero</span><span class="p">,</span> <span class="n">mul_i</span><span class="p">(</span><span class="n">sub</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u_bar</span><span class="p">)))</span>                <span class="c1"># t_{j+N/2} / (Q0 S)</span>
+    <span class="n">s_re</span> <span class="o">=</span> <span class="n">eval_mod</span><span class="p">(</span><span class="n">add_const</span><span class="p">(</span><span class="n">x_re</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.25</span> <span class="o">/</span> <span class="n">S</span><span class="p">),</span> <span class="n">evk</span><span class="p">)</span>                              <span class="c1"># 3. EvalMod</span>
+    <span class="n">s_im</span> <span class="o">=</span> <span class="n">eval_mod</span><span class="p">(</span><span class="n">add_const</span><span class="p">(</span><span class="n">x_im</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.25</span> <span class="o">/</span> <span class="n">S</span><span class="p">),</span> <span class="n">evk</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">add</span><span class="p">(</span><span class="n">s_re</span><span class="p">,</span> <span class="n">mul_i</span><span class="p">(</span><span class="n">s_im</span><span class="p">))</span>                                                    <span class="c1"># 4. SlotToCoeff</span>
+    <span class="k">return</span> <span class="n">linear_transform</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">[[</span><span class="n">Q0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">DELTA</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">W</span><span class="p">],</span> <span class="n">evk</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="52-step-2-coefftoslot">5.2 Step 2: CoeffToSlot<a class="headerlink" href="#52-step-2-coefftoslot" title="Link to this section">#</a></h3>
+<p>There are <code>N</code> coefficients but only <code>N/2</code> complex slots, so pack two real coefficients per
+slot: \(u_j = t_j + i\, t_{j+N/2}\). Since \(\rho^{N/2} = i\) (§1.6):</p>
+<div class="math-display">\[t(\rho_l) = \sum_{j&lt;n} t_j \rho_l^j + \rho_l^{N/2}\sum_{j&lt;n} t_{j+n}\rho_l^j = \sum_{j&lt;n} \underbrace{(t_j + i\,t_{j+n})}_{u_j}\, \rho_l^{\,j}\]</div>
+<p>So the slots are \(w = \frac{1}{\Delta} W u\) with the \(n \times n\) matrix \(W_{lj} = \rho_l^j\).
+That map is <strong>complex-linear</strong>, and \(W^{-1} = \frac{2}{N} W^H\). The toy relies on this
+identity, and its bootstrap working end to end confirms it. CoeffToSlot is therefore <em>one homomorphic matrix-vector product</em>, followed by one
+<strong>conjugation</strong> to separate the two halves:</p>
+<div class="math-display">\[\mathrm{Re}(u) = \tfrac{u + \bar u}{2} \;(\text{coefficients } t_j), \qquad \mathrm{Im}(u) = -i\,\tfrac{u - \bar u}{2} \;(\text{coefficients } t_{j+N/2})\]</div>
+<p>The toy folds the ½ and the normalization <code>1/(q₀·S)</code> (§5.3) into the matrix, so CoeffToSlot
+costs one level.</p>
+<p><strong>How the matrix-vector product is done:</strong> the <strong>diagonal method</strong> (Halevi–Shoup),
+\(Mw = \sum_d \mathrm{diag}_d(M) \odot \mathrm{rot}(w, d)\), which needs <code>n − 1</code> rotations:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">linear_transform</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Slots w -&gt; M w with the diagonal method: M w = sum_d diag_d(M) * rotate(w, d).&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">SLOTS</span><span class="p">):</span>
+        <span class="n">diag</span> <span class="o">=</span> <span class="n">encode</span><span class="p">([</span><span class="n">M</span><span class="p">[</span><span class="n">j</span><span class="p">][(</span><span class="n">j</span> <span class="o">+</span> <span class="n">d</span><span class="p">)</span> <span class="o">%</span> <span class="n">SLOTS</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">SLOTS</span><span class="p">)])</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ct</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">rotate</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">evk</span><span class="p">)</span>
+        <span class="n">acc</span> <span class="o">=</span> <span class="n">add</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">plaintext_times</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">diag</span><span class="p">))</span>      <span class="c1"># (abridged)</span>
+    <span class="k">return</span> <span class="n">rescale</span><span class="p">(</span><span class="n">acc</span><span class="p">)</span>
+</code></pre></div>
+
+<p>With <code>n = 2¹⁵</code> slots that would be 32 767 rotations, which is impossible. Real implementations:</p>
+<ul>
+<li>use <strong>baby-step giant-step</strong>, which needs about \(2\sqrt{n}\) rotations;</li>
+<li>exploit the fact that <code>W</code> is a (twisted) DFT, so it <strong>factors like an FFT</strong> into
+  \(\log_2 n\) sparse "butterfly" matrices with only 2–3 non-zero diagonals each;</li>
+<li><strong>merge</strong> those layers into 2–4 groups, each costing one level. More levels means fewer
+  rotations per level. OpenFHE exposes this trade-off as the <strong>level budget</strong>, e.g. <code>[4, 4]</code>
+  for CoeffToSlot and SlotToCoeff.</li>
+</ul>
+<p><strong>Precision trap:</strong> the input values are large (\(|t| \approx q_0 \cdot |I|\), so the slots hold
+values around \(2^{14}\)–\(2^{16}\) in the toy). Any relative error in the matrix entries is multiplied by
+that size. CoeffToSlot therefore needs more precision than ordinary computation. §5.6 shows
+this is what limits the toy.</p>
+<h3 id="53-step-3-evalmod-the-heart-of-bootstrapping">5.3 Step 3: EvalMod, the heart of bootstrapping<a class="headerlink" href="#53-step-3-evalmod-the-heart-of-bootstrapping" title="Link to this section">#</a></h3>
+<p>Each slot now holds \(x = t/q_0 = I + \varepsilon\) with \(\varepsilon = m/q_0\) tiny. We want
+\(\varepsilon \cdot q_0\): the <strong>fractional part</strong> of <code>x</code>, times <code>q₀</code>. "x mod 1" isn't a
+polynomial, but near integers it is well approximated by a sine:</p>
+<div class="math-display">\[\frac{q_0}{2\pi}\sin(2\pi x) = \frac{q_0}{2\pi}\sin(2\pi\varepsilon) \approx m - \frac{(2\pi)^2 m^3}{6\, q_0^2}\]</div>
+<p>The error term is the <strong>sine approximation error</strong>. Its relative size is \((2\pi\varepsilon)^2/6\).
+If \(q_0\) exceeds the message by <code>b</code> bits (\(\varepsilon \le 2^{-b}\)), the error is about
+\(2^{-2b+2.7}\). That is the first half of the precision trade-off in §5.6.</p>
+<p><strong>Evaluating sine homomorphically.</strong> <code>x</code> ranges over \([-K, K]\), where <code>K</code> bounds <code>|I|</code>
+(<code>K = 5</code> in the toy). Approximating \(\sin(2\pi x)\) directly over that whole range needs a
+high-degree polynomial. The standard trick (Han–Ki 2020):</p>
+<ol>
+<li>Approximate \(\cos\!\big(2\pi(x - \tfrac14)/2^r\big)\) instead. Dividing by \(2^r\) shrinks
+   the range by \(2^r\), so a modest-degree <strong>Chebyshev</strong> interpolant suffices.</li>
+<li>Apply the <strong>double-angle formula</strong> \(\cos 2\theta = 2\cos^2\theta - 1\) <code>r</code> times. Each costs
+   one squaring, i.e. one level.</li>
+<li>The shift by ¼ turns cos into sin: \(\cos(2\pi(x - \tfrac14)) = \sin(2\pi x)\).</li>
+</ol>
+<p>The toy uses <code>r = 3</code> and a degree-31 Chebyshev polynomial, evaluated with the recurrences
+\(T_{2m} = 2T_m^2 - 1\) and \(T_{2m+1} = 2T_mT_{m+1} - T_1\) (depth \(\lceil\log_2 31\rceil = 5\)):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">eval_mod</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Slots y = (x - 1/4)/S  -&gt;  sin(2 pi x), which is ~ 2 pi (x mod 1) when x is near an integer.&quot;&quot;&quot;</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">y</span><span class="p">:</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">S</span> <span class="o">*</span> <span class="n">y</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="n">DOUBLE_ANGLE</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">eval_chebyshev</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">chebyshev_coeffs</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">CHEB_DEG</span><span class="p">),</span> <span class="n">evk</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">DOUBLE_ANGLE</span><span class="p">):</span>
+        <span class="n">sq</span> <span class="o">=</span> <span class="n">mul</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">evk</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">add_const</span><span class="p">(</span><span class="n">add</span><span class="p">(</span><span class="n">sq</span><span class="p">,</span> <span class="n">sq</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">c</span>
+</code></pre></div>
+
+<p>Levels: 5 (Chebyshev basis) + 1 (coefficients) + 3 (double angles) = <strong>9 levels</strong> for EvalMod
+alone. Measured effect of the polynomial degree (headroom 14 bits, 3 double angles):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Chebyshev degree</th>
+<th>depth</th>
+<th>bootstrap precision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>3</td>
+<td>fails (−12.6 bits)</td>
+</tr>
+<tr>
+<td>11</td>
+<td>4</td>
+<td>fails (−3.5 bits)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>4</td>
+<td>7.7 bits</td>
+</tr>
+<tr>
+<td>23</td>
+<td>5</td>
+<td><strong>22.5 bits</strong></td>
+</tr>
+<tr>
+<td>31</td>
+<td>5</td>
+<td>22.5 bits</td>
+</tr>
+</tbody>
+</table></div>
+<p>Below a threshold degree the approximation error dominates and the result is garbage. Above
+it, extra degree buys nothing.</p>
+<p><strong>State-of-the-art EvalMod</strong> goes further:</p>
+<ul>
+<li><strong>Minimax</strong> instead of Chebyshev interpolation, and <strong>direct approximation of the modular
+  reduction</strong>, not of sine (Lee–Lee–Kim–No, Eurocrypt 2021).</li>
+<li>An <strong>arcsine correction</strong>: evaluate \(\frac{1}{2\pi}\arcsin(\cdot)\) after the sine to cancel
+  the sine error (Lee et al.; Bossuat–Mouchet–Troncoso-Pastoriza–Hubaux, Eurocrypt 2021).
+  It costs more depth but removes the <code>2b</code>-bit ceiling.</li>
+<li><strong>Sparse-secret encapsulation</strong> (Bossuat–Troncoso-Pastoriza–Hubaux 2022): use a dense
+  secret for security, but switch to a sparse one just for ModRaise so that <code>K</code> (and the
+  polynomial degree) stays small.</li>
+</ul>
+<h3 id="54-step-4-slottocoeff">5.4 Step 4: SlotToCoeff<a class="headerlink" href="#54-step-4-slottocoeff" title="Link to this section">#</a></h3>
+<p>Recombine \(v = \sin_{re} + i\cdot\sin_{im}\), so that slot <code>j</code> holds about
+\(2\pi(m_j + i\, m_{j+N/2})/q_0\), and multiply by \(\frac{q_0}{2\pi\Delta} W\). By §5.2 that
+produces exactly the slots that the polynomial <code>m</code> decodes to, i.e. the original <code>z</code>. It is
+one more linear transform, so one more level in the toy and 2–4 in real implementations.</p>
+<h3 id="55-the-result-in-the-toy">5.5 The result in the toy<a class="headerlink" href="#55-the-result-in-the-toy" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>== bootstrapping
+I(X) = round(t / Q0) after ModRaise: [0, 0, 0, 0, 0, 1, 1, 0, 1, 0, -1, -1, -1, 0, 1, 1]
+refreshed  [ 3] max error 2^ -23.3
+squared    [ 2] max error 2^ -22.3
+squared    [ 1] max error 2^ -21.3
+squared    [ 0] max error 2^ -20.3
+</code></pre></div>
+
+<p>A ciphertext with <strong>zero</strong> levels left became one with <strong>3</strong> levels left, and computation
+continued. Bootstrapping used 11 of the 14 levels (CoeffToSlot 1, EvalMod 9, SlotToCoeff 1),
+and the precision dropped from ~34 bits to ~23 bits. Both effects are characteristic of real
+CKKS bootstrapping: <strong>it consumes most of the modulus, and it costs precision.</strong></p>
+<h3 id="56-the-headroom-trade-off">5.6 The headroom trade-off<a class="headerlink" href="#56-the-headroom-trade-off" title="Link to this section">#</a></h3>
+<p>How much bigger than the message should \(q_0\) be? Measured in the toy (worst of 4 runs,
+Δ = 2⁶⁰):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>headroom \(\log_2(q_0/\Delta)\)</th>
+<th>6</th>
+<th>8</th>
+<th>10</th>
+<th>12</th>
+<th>14</th>
+<th>16</th>
+<th>18</th>
+<th>20</th>
+<th>24</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bootstrap precision (bits)</td>
+<td>11.0</td>
+<td>15.0</td>
+<td>19.0</td>
+<td><strong>22.8</strong></td>
+<td>22.5</td>
+<td>18.6</td>
+<td>15.2</td>
+<td>11.0</td>
+<td>2.6</td>
+</tr>
+</tbody>
+</table></div>
+<p>Two error sources pull in opposite directions:</p>
+<ul>
+<li><strong>Too little headroom</strong> → the <strong>sine approximation error</strong> \(\approx 2^{-2b+2.7}\) dominates.
+  Precision grows by 2 bits per bit of headroom (6 → 11, 8 → 15, 10 → 19), exactly matching
+  §5.3's formula.</li>
+<li><strong>Too much headroom</strong> → the CoeffToSlot inputs are bigger (∝ \(q_0/\Delta\)) <strong>and</strong> the final
+  SlotToCoeff multiplies errors by \(q_0/(2\pi\Delta)\). Precision falls by about 2 bits per bit
+  of headroom.</li>
+</ul>
+<p>The optimum sits where the two cross. In the toy that is around 12–14 bits, giving about 23
+bits of precision. Real parameter sets solve the same optimization. They get further with
+larger CoeffToSlot scales, arcsine correction, and <strong>Meta-BTS</strong> (Bae et al., CCS 2022), which
+bootstraps the <em>error</em> a second time to reach 40+ bits.</p>
+<h3 id="57-where-the-time-goes">5.7 Where the time goes<a class="headerlink" href="#57-where-the-time-goes" title="Link to this section">#</a></h3>
+<p>Key switches per toy bootstrap (measured):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Key switches</th>
+<th>Rescales</th>
+<th>Levels</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CoeffToSlot</td>
+<td>8 (7 rotations + 1 conjugation)</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>EvalMod (×2: real and imag parts)</td>
+<td>38 (relinearizations)</td>
+<td>60</td>
+<td>9</td>
+</tr>
+<tr>
+<td>SlotToCoeff</td>
+<td>7 (rotations)</td>
+<td>1</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div>
+<p>In the toy, EvalMod dominates only because <code>n = 8</code> makes the linear transforms trivial. At
+real sizes (\(n = 2^{15}\) slots) the linear transforms need hundreds of rotations even with BSGS
+and FFT factoring, and they dominate. The CRYPTO 2026 matrix-FHE bootstrapping paper reports
+CoeffToSlot and SlotToCoeff at <strong>54.9–71.7 %</strong> of prior CKKS bootstrapping time
+(<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1</a>).</p>
+<p>Typical real-world figures, order of magnitude only:</p>
+<ul>
+<li><strong>Parameters:</strong> <code>N = 2¹⁶</code>, \(\log_2(PQ) \approx\) 1500–1750 bits, about 20–30 levels in total.</li>
+<li><strong>Levels consumed:</strong> about 12–18 by bootstrapping, leaving about 8–12 for computation.</li>
+<li><strong>Precision:</strong> 20–30 bits, or 40+ with Meta-BTS or arcsine tricks.</li>
+<li><strong>Latency:</strong> seconds on a multi-core CPU, and about tens to hundreds of milliseconds on a
+  modern GPU (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.</li>
+</ul>
+<h3 id="58-variants-and-the-research-frontier">5.8 Variants and the research frontier<a class="headerlink" href="#58-variants-and-the-research-frontier" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Sparse packing:</strong> bootstrapping only <code>n ≪ N/2</code> slots shrinks the linear transforms.</li>
+<li><strong>Bootstrapping discrete data</strong> (2024–2025): replace EvalMod with functions that output
+  bits or small integers, getting TFHE-style lookup tables with CKKS batching. See
+  <a href="../07_state_of_the_art_2026.html#ckks">07 §1</a>.</li>
+<li><strong>MRFHE</strong> (Cheon et al., ePrint 2026/853): recasts the DFT steps as batched matrix
+  multiplications, with a constant number of key switches per ciphertext.</li>
+<li><strong>Gentry–Lee matrix FHE</strong> (2025–2026): a different encoding in which the linear-transform
+  share of bootstrapping drops to 20.1 %.</li>
+<li><strong>Hardware</strong> (CraterLake, ARK, SHARP, Intel Heracles): largely built to run exactly this
+  pipeline, i.e. the NTTs, automorphisms and key switching of §5.2.</li>
+</ul>
+<hr />
+<h2 id="6-security-notes-specific-to-ckks">6. Security notes specific to CKKS<a class="headerlink" href="#6-security-notes-specific-to-ckks" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Decryption leaks noise.</strong> Never publish <code>Dec(ct)</code> as-is if anyone but the key owner sees it.
+  Use noise flooding: OpenFHE's <code>NOISE_FLOODING_DECRYPT</code> / two-phase mode, at a cost of extra
+  precision bits. Details in <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>,
+  and the attack reproduced on this toy in <a href="ckks_ind_cpa_d.html">ckks_ind_cpa_d.md</a>.</li>
+<li><strong>Sparse secrets</strong> make bootstrapping cheaper (smaller <code>K</code>) but need larger <code>N</code> for the same
+  security. Prefer sparse-secret encapsulation.</li>
+<li><strong>Bootstrapping keys are big.</strong> Rotation keys for all the needed rotations can reach several
+  GB at <code>N = 2¹⁶</code>, which is a practical cost on both client and server.</li>
+<li><strong>The toy's parameters are not secure</strong> in any sense. <code>N = 16</code> has no security at all.
+  Bootstrappable CKKS at 128-bit security needs <code>N = 2¹⁶</code> (or <code>N = 2¹⁵</code> with sparse secrets
+  and a tight chain).</li>
+</ul>
+<hr />
+<h2 id="7-doing-it-with-a-real-library-openfhe-python">7. Doing it with a real library (OpenFHE-Python)<a class="headerlink" href="#7-doing-it-with-a-real-library-openfhe-python" title="Link to this section">#</a></h2>
+<p>The following is adapted from OpenFHE's <code>simple-ckks-bootstrapping</code> example. <strong>It was not run
+here</strong>, because <code>openfhe</code> is not installed in this environment. Check it against the current
+<a href="https://github.com/openfheorg/openfhe-python">openfhe-python examples</a> before relying on it.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">openfhe</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">CCParamsCKKSRNS</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetSecretKeyDist</span><span class="p">(</span><span class="n">SecretKeyDist</span><span class="o">.</span><span class="n">UNIFORM_TERNARY</span><span class="p">)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetSecurityLevel</span><span class="p">(</span><span class="n">SecurityLevel</span><span class="o">.</span><span class="n">HEStd_NotSet</span><span class="p">)</span>   <span class="c1"># demo only! use HEStd_128_classic for real</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetRingDim</span><span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetScalingTechnique</span><span class="p">(</span><span class="n">ScalingTechnique</span><span class="o">.</span><span class="n">FLEXIBLEAUTO</span><span class="p">)</span>   <span class="c1"># exact scale tracking (§4.6)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetScalingModSize</span><span class="p">(</span><span class="mi">59</span><span class="p">)</span>                          <span class="c1"># bits of each rescaling prime (≈ log Δ)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetFirstModSize</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>                            <span class="c1"># q₀</span>
+
+<span class="n">level_budget</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>                                 <span class="c1"># levels for CoeffToSlot, SlotToCoeff (§5.2)</span>
+<span class="n">levels_after_bootstrap</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">depth</span> <span class="o">=</span> <span class="n">levels_after_bootstrap</span> <span class="o">+</span> <span class="n">FHECKKSRNS</span><span class="o">.</span><span class="n">GetBootstrapDepth</span><span class="p">(</span><span class="n">level_budget</span><span class="p">,</span> <span class="n">SecretKeyDist</span><span class="o">.</span><span class="n">UNIFORM_TERNARY</span><span class="p">)</span>
+<span class="n">params</span><span class="o">.</span><span class="n">SetMultiplicativeDepth</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
+
+<span class="n">cc</span> <span class="o">=</span> <span class="n">GenCryptoContext</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="p">(</span><span class="n">PKESchemeFeature</span><span class="o">.</span><span class="n">PKE</span><span class="p">,</span> <span class="n">PKESchemeFeature</span><span class="o">.</span><span class="n">KEYSWITCH</span><span class="p">,</span> <span class="n">PKESchemeFeature</span><span class="o">.</span><span class="n">LEVELEDSHE</span><span class="p">,</span>
+                <span class="n">PKESchemeFeature</span><span class="o">.</span><span class="n">ADVANCEDSHE</span><span class="p">,</span> <span class="n">PKESchemeFeature</span><span class="o">.</span><span class="n">FHE</span><span class="p">):</span>
+    <span class="n">cc</span><span class="o">.</span><span class="n">Enable</span><span class="p">(</span><span class="n">feature</span><span class="p">)</span>
+
+<span class="n">num_slots</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">GetRingDimension</span><span class="p">()</span> <span class="o">//</span> <span class="mi">2</span>
+<span class="n">cc</span><span class="o">.</span><span class="n">EvalBootstrapSetup</span><span class="p">(</span><span class="n">level_budget</span><span class="p">)</span>
+<span class="n">keys</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">KeyGen</span><span class="p">()</span>
+<span class="n">cc</span><span class="o">.</span><span class="n">EvalMultKeyGen</span><span class="p">(</span><span class="n">keys</span><span class="o">.</span><span class="n">secretKey</span><span class="p">)</span>
+<span class="n">cc</span><span class="o">.</span><span class="n">EvalBootstrapKeyGen</span><span class="p">(</span><span class="n">keys</span><span class="o">.</span><span class="n">secretKey</span><span class="p">,</span> <span class="n">num_slots</span><span class="p">)</span>     <span class="c1"># rotation keys for the linear transforms</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">]</span>
+<span class="n">pt</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">MakeCKKSPackedPlaintext</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">depth</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>      <span class="c1"># encode directly at the bottom level</span>
+<span class="n">ct</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">Encrypt</span><span class="p">(</span><span class="n">keys</span><span class="o">.</span><span class="n">publicKey</span><span class="p">,</span> <span class="n">pt</span><span class="p">)</span>
+<span class="n">ct2</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">EvalBootstrap</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span>                            <span class="c1"># ModRaise → CtS → EvalMod → StC</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;levels left after bootstrap:&quot;</span><span class="p">,</span> <span class="n">depth</span> <span class="o">-</span> <span class="n">ct2</span><span class="o">.</span><span class="n">GetLevel</span><span class="p">())</span>
+</code></pre></div>
+
+<hr />
+<h2 id="8-exercises-good-next-steps">8. Exercises (good next steps)<a class="headerlink" href="#8-exercises-good-next-steps" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>Reproduce the headroom curve</strong> (§5.6) by changing <code>Q0</code> in <code>toy_ckks.py</code>.</li>
+<li><strong>Break it:</strong> implement the Li–Micciancio key recovery. Take a ciphertext and its exact
+   decryption, and solve <code>c₁·s = m' − c₀</code> in \(R_{Q}\). With <code>N = 16</code> it is a 16×16 linear
+   system. (Done in <a href="ckks_ind_cpa_d.html">ckks_ind_cpa_d.md</a>.)</li>
+<li><strong>Use a dense secret</strong> (<code>H = 16</code>): watch <code>|I|</code> grow, and find how much more degree or how
+   many more double angles EvalMod needs.</li>
+<li><strong>Replace the diagonal method with baby-step giant-step</strong> and count rotations.</li>
+<li><strong>Add the arcsine correction</strong> after EvalMod and measure the precision gain.</li>
+<li><strong>Switch to an RNS prime chain</strong> (primes ≡ 1 mod 32 close to 2⁶⁰) and watch scale drift
+   appear.</li>
+</ol>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
+<ul>
+<li>Cheon, Kim, Kim, Song. <em>Homomorphic Encryption for Arithmetic of Approximate Numbers</em>. Asiacrypt 2017. <a href="https://eprint.iacr.org/2016/421">ePrint 2016/421</a></li>
+<li>Cheon, Han, Kim, Kim, Song. <em>Bootstrapping for Approximate Homomorphic Encryption</em>. Eurocrypt 2018. <a href="https://eprint.iacr.org/2018/153">ePrint 2018/153</a></li>
+<li>Cheon, Han, Kim, Kim, Song. <em>A Full RNS Variant of Approximate Homomorphic Encryption</em>. SAC 2018. <a href="https://eprint.iacr.org/2018/931">ePrint 2018/931</a></li>
+<li>Chen, Chillotti, Song. <em>Improved Bootstrapping for Approximate Homomorphic Encryption</em>. Eurocrypt 2019. <a href="https://eprint.iacr.org/2018/1043">ePrint 2018/1043</a></li>
+<li>Han, Ki. <em>Better Bootstrapping for Approximate Homomorphic Encryption</em>. CT-RSA 2020. <a href="https://eprint.iacr.org/2019/688">ePrint 2019/688</a></li>
+<li>Lee, Lee, Kim, No. <em>High-Precision Bootstrapping of RNS-CKKS HE Using Optimal Minimax Polynomial Approximation and Inverse Sine Function</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/552">ePrint 2020/552</a></li>
+<li>Bossuat, Mouchet, Troncoso-Pastoriza, Hubaux. <em>Efficient Bootstrapping for Approximate HE with Non-Sparse Keys</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1203">ePrint 2020/1203</a></li>
+<li>Kim, Papadimitriou, Polyakov. <em>Approximate Homomorphic Encryption with Reduced Approximation Error</em>. CT-RSA 2022. <a href="https://eprint.iacr.org/2020/1118">ePrint 2020/1118</a></li>
+<li>Bossuat, Troncoso-Pastoriza, Hubaux. <em>Bootstrapping for Approximate HE with Negligible Failure-Probability by Using Sparse-Secret Encapsulation</em>. ACNS 2022. <a href="https://eprint.iacr.org/2022/024">ePrint 2022/024</a></li>
+<li>Bae, Cheon, Cho, Kim, Kim. <em>META-BTS: Bootstrapping Precision Beyond the Limit</em>. CCS 2022. <a href="https://eprint.iacr.org/2022/1167">ePrint 2022/1167</a></li>
+<li>Halevi, Shoup. <em>Algorithms in HElib</em>. CRYPTO 2014. <a href="https://eprint.iacr.org/2014/106">ePrint 2014/106</a></li>
+<li>Li, Micciancio. <em>On the Security of Homomorphic Encryption on Approximate Numbers</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1533">ePrint 2020/1533</a></li>
+<li>2024–2026 work (discrete CKKS, MRFHE, GL bootstrapping): see <a href="../07_state_of_the_art_2026.html#sources-for-this-chapter">07 State of the art</a>.</li>
+</ul>
+<blockquote>
+<p>Several ePrint numbers above are cited from memory. If a link doesn't match its title,
+search the title on <a href="https://eprint.iacr.org">eprint.iacr.org</a>.</p>
+</blockquote>
+</article>
+<footer class="pager"><a href="../09_glossary_and_reading_list.html">← 09 · Glossary and reading list</a><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D) →</a></footer>
+</main>
+</body>
+</html>

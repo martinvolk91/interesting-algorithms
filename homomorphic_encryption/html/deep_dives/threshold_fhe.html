@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dive: threshold and multiparty FHE (and the Zama Protocol)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li class="current"><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-one-idea">0. The one idea</a><ul>
+<li><a href="#notation">Notation</a></li>
+</ul>
+</li>
+<li><a href="#1-the-variants">1. The variants</a></li>
+<li><a href="#2-distributed-key-generation">2. Distributed key generation</a><ul>
+<li><a href="#21-the-collective-public-key">2.1 The collective public key</a></li>
+<li><a href="#22-thresholdizing-shamir-sharing-of-s">2.2 Thresholdizing: Shamir sharing of s</a></li>
+<li><a href="#23-the-hard-part-the-collective-relinearization-key">2.3 The hard part: the collective relinearization key</a></li>
+</ul>
+</li>
+<li><a href="#3-computing-on-jointly-encrypted-data">3. Computing on jointly encrypted data</a></li>
+<li><a href="#4-threshold-decryption">4. Threshold decryption</a><ul>
+<li><a href="#41-the-protocol">4.1 The protocol</a></li>
+<li><a href="#42-toy-run">4.2 Toy run</a></li>
+<li><a href="#43-robustness">4.3 Robustness</a></li>
+</ul>
+</li>
+<li><a href="#5-why-smudging-is-mandatory">5. Why smudging is mandatory</a><ul>
+<li><a href="#51-without-noise-one-decryption-leaks-everything">5.1 Without noise, one decryption leaks everything</a></li>
+<li><a href="#52-the-exact-scheme-surprise">5.2 The exact-scheme surprise</a></li>
+<li><a href="#53-how-much-smudging">5.3 How much smudging</a></li>
+<li><a href="#54-tfhe-has-no-room-noahs-ark">5.4 TFHE has no room: Noah's Ark</a></li>
+</ul>
+</li>
+<li><a href="#6-re-encryption-decrypting-for-one-user-only">6. Re-encryption: decrypting for one user only</a></li>
+<li><a href="#7-how-the-zama-protocol-uses-threshold-fhe">7. How the Zama Protocol uses threshold FHE</a><ul>
+<li><a href="#71-toy--zama">7.1 Toy ↔ Zama</a></li>
+<li><a href="#72-what-the-trust-model-rests-on">7.2 What the trust model rests on</a></li>
+</ul>
+</li>
+<li><a href="#8-other-uses-of-threshold-and-multiparty-fhe">8. Other uses of threshold and multiparty FHE</a></li>
+<li><a href="#9-security-notes-on-the-toy">9. Security notes on the toy</a></li>
+<li><a href="#10-exercises">10. Exercises</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol">Deep dive: threshold and multiparty FHE (and the Zama Protocol)<a class="headerlink" href="#deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol" title="Link to this section">#</a></h1>
+<p><a href="../index.html">index</a> · background: <a href="../05_core_techniques.html#8-multi-party-variants">05 Core techniques §8</a>, <a href="bfv_pir.html">BFV deep dive</a>, <a href="ckks_ind_cpa_d.html">IND-CPA-D deep dive</a></p>
+<hr />
+<p>Plain FHE has <strong>one key owner</strong>. That breaks down when:</p>
+<ul>
+<li><strong>several parties contribute data</strong> (hospitals, banks) and none of them should be able to
+  decrypt the others' data alone; or</li>
+<li><strong>nobody should hold the key at all</strong>, as on a public blockchain where encrypted balances and
+  contract state are shared by everyone and decrypted only under agreed rules.</li>
+</ul>
+<p><strong>Threshold FHE</strong> splits the secret key among <code>n</code> parties so that any <code>t</code> of them can decrypt
+together, and fewer than <code>t</code> learn nothing. This document builds a toy version on top of the
+toy BFV and then maps it onto the <strong>Zama Protocol</strong>, the largest deployment of threshold FHE
+today. The code is in <a href="../../code/threshold_bfv.py"><code>../code/threshold_bfv.py</code></a>:</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/threshold_bfv.py<span class="w">    </span><span class="c1"># from the homomorphic_encryption/ folder, ~0.3 s</span>
+</code></pre></div>
+
+<p>It is pure Python, semi-honest only (no proofs against cheating parties), and insecure (<code>N = 64</code>).</p>
+<hr />
+<h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
+<blockquote>
+<p>Decryption is <strong>linear in the secret key</strong>: \(c_0 + c_1 \cdot s\). Split <code>s</code> into shares, let
+each party compute \(c_1 \cdot (\text{its share})\), and add the results. Two catches make it
+a research field rather than a one-liner:</p>
+<ol>
+<li>The <strong>evaluation keys</strong> (public key, relinearization key, bootstrapping keys) must be
+   generated without anyone ever knowing <code>s</code>.</li>
+<li>A partial decryption \(c_1 \cdot \text{share}\) reveals the share, and the combined result
+   reveals the noise. Every partial must be <strong>smudged</strong> with large fresh noise.</li>
+</ol>
+</blockquote>
+<h3 id="notation">Notation<a class="headerlink" href="#notation" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Meaning</th>
+<th>Toy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code>, <code>t</code></td>
+<td>parties, threshold</td>
+<td>3, 2</td>
+</tr>
+<tr>
+<td>\(s_i\)</td>
+<td>party <code>i</code>'s private contribution (ternary)</td>
+<td></td>
+</tr>
+<tr>
+<td>\(s = \sum_i s_i\)</td>
+<td>the joint secret key: <strong>never assembled</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>\(S_j\)</td>
+<td>party <code>j</code>'s Shamir share of <code>s</code></td>
+<td>uniform mod <code>Q</code></td>
+</tr>
+<tr>
+<td>\(\lambda_j^A\)</td>
+<td>Lagrange coefficient of party <code>j</code> for active set <code>A</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>σ_sm</code></td>
+<td>smudging noise per partial decryption</td>
+<td>2⁸⁶</td>
+</tr>
+<tr>
+<td><code>Q</code></td>
+<td>ciphertext modulus</td>
+<td><strong>prime</strong> 2¹²⁰ − 119 (see §2.2)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="1-the-variants">1. The variants<a class="headerlink" href="#1-the-variants" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Key structure</th>
+<th>Decryption</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Threshold FHE</strong> (t-of-n)</td>
+<td>one public key, secret Shamir-shared</td>
+<td>any <code>t</code> parties</td>
+<td>Asharov et al. 2012; Boneh et al. 2018 ("universal thresholdizer")</td>
+</tr>
+<tr>
+<td><strong>Multiparty HE (MHE)</strong> (n-of-n)</td>
+<td>collective keys from additive contributions</td>
+<td>all <code>n</code> parties</td>
+<td>Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021; implemented in Lattigo</td>
+</tr>
+<tr>
+<td><strong>Multi-key FHE</strong></td>
+<td>each party keeps its own key; ciphertexts are extended on the fly</td>
+<td>all parties whose data was used</td>
+<td>López-Alt–Tromer–Vaikuntanathan 2012; cost grows with the number of parties</td>
+</tr>
+<tr>
+<td><strong>FHE + generic MPC</strong></td>
+<td>keys generated and used inside a general MPC protocol</td>
+<td><code>t</code> parties via MPC</td>
+<td>the Zama Protocol's KMS (§7)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The toy combines the first two: MHE-style key generation from additive contributions, then
+Shamir sharing for t-of-n decryption.</p>
+<hr />
+<h2 id="2-distributed-key-generation">2. Distributed key generation<a class="headerlink" href="#2-distributed-key-generation" title="Link to this section">#</a></h2>
+<h3 id="21-the-collective-public-key">2.1 The collective public key<a class="headerlink" href="#21-the-collective-public-key" title="Link to this section">#</a></h3>
+<p>All parties agree on a common random polynomial <code>a</code>, a <strong>common reference string</strong>. Each party
+<code>i</code> samples its own small \(s_i\) and publishes \(-a\,s_i + e_i\). The sum is a valid RLWE public
+key for \(s = \sum_i s_i\):</p>
+<div class="math-display">\[pk = \Big(\sum_i (-a\,s_i + e_i),\ a\Big) = (-a\,s + e,\ a), \qquad e = \sum_i e_i\]</div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">collective_public_key</span><span class="p">(</span><span class="n">contribs</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Each party publishes -a*s_i + e_i for the common random a. The sum is a public key</span>
+<span class="sd">    for s = sum_i s_i, which nobody ever holds.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">poly_sum</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">neg</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_mul</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">s_i</span><span class="p">)),</span> <span class="n">noise</span><span class="p">())</span> <span class="k">for</span> <span class="n">s_i</span> <span class="ow">in</span> <span class="n">contribs</span><span class="p">),</span> <span class="n">a</span>
+</code></pre></div>
+
+<p>As long as <strong>one</strong> party sampled its \(s_i\) honestly and keeps it secret, <code>s</code> is hidden. The
+price is slightly more noise: <code>s</code> has coefficients in −3..3 instead of −1..1, and <code>e</code> is a sum
+of <code>n</code> errors.</p>
+<h3 id="22-thresholdizing-shamir-sharing-of-s">2.2 Thresholdizing: Shamir sharing of <code>s</code><a class="headerlink" href="#22-thresholdizing-shamir-sharing-of-s" title="Link to this section">#</a></h3>
+<p>To allow <strong>any 2 of 3</strong> to decrypt, each party deals its contribution with a random polynomial
+of degree <code>t − 1</code> (coefficient-wise on ring elements). Party <code>j</code>'s share is the sum of the
+values it receives:</p>
+<div class="math-display">\[f_i(x) = s_i + r_i\,x, \qquad S_j = \sum_i f_i(j), \qquad \sum_{j \in A} \lambda_j^A\, S_j = \sum_i f_i(0) = s \quad (|A| = t)\]</div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">shamir_shares</span><span class="p">(</span><span class="n">contribs</span><span class="p">):</span>
+    <span class="n">shares</span> <span class="o">=</span> <span class="p">{</span><span class="n">j</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">PARTIES</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">s_i</span> <span class="ow">in</span> <span class="n">contribs</span><span class="p">:</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="n">s_i</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">bfv</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">THRESHOLD</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">PARTIES</span><span class="p">:</span>
+            <span class="n">f_ij</span> <span class="o">=</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">j</span><span class="o">**</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coeffs</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+            <span class="n">shares</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">shares</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">f_ij</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">shares</span>
+</code></pre></div>
+
+<p>Any single share is <strong>uniformly random</strong>: <code>S_1[0] = −1.384e+35</code>, against a key with
+coefficients in −3..3. That is information-theoretic hiding.</p>
+<p><strong>Why the toy switches to a prime modulus.</strong> Lagrange coefficients
+\(\lambda_j = \prod_{k \ne j} \frac{k}{k - j}\) need inverses of differences like <code>2 − 1</code> and
+<code>3 − 1</code>. Modulo a power of two, even numbers have no inverse, and among any three party ids
+two differ by an even number. So the threshold demo sets <code>Q = 2¹²⁰ − 119</code>, the largest prime
+below 2¹²⁰. Real libraries use a product of large primes (RNS), where every small difference
+is invertible. (The alternative is Shoup's trick of clearing denominators with <code>n!</code>, which
+costs noise.)</p>
+<p>Production DKGs add <strong>verifiable secret sharing</strong> (commitments that let parties detect a
+dealer sending inconsistent shares) and <strong>resharing</strong> (moving <code>s</code> to a new committee
+without ever reconstructing it).</p>
+<h3 id="23-the-hard-part-the-collective-relinearization-key">2.3 The hard part: the collective relinearization key<a class="headerlink" href="#23-the-hard-part-the-collective-relinearization-key" title="Link to this section">#</a></h3>
+<p>The relinearization key encrypts \(s^2 = (\sum_i s_i)^2\). It contains <strong>cross terms</strong>
+\(s_i s_j\) that no party can compute alone. Mouchet et al. give a two-round protocol. Each
+party also samples an ephemeral \(u_i\); let \(u = \sum_i u_i\):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Round</th>
+<th>Party <code>i</code> broadcasts (per gadget digit <code>k</code>)</th>
+<th>Aggregate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>\(-u_i a_k + W^k s_i + e\) and \(s_i a_k + e\)</td>
+<td>\(h_0 = -u\,a_k + W^k s + E_0\), \(h_1 = s\,a_k + E_1\)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>\(s_i\, h_0 + e\) and \((u_i - s_i)\, h_1 + e\)</td>
+<td>\(g_0 = s\,h_0\), \(g_1 = (u - s)\,h_1\)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The key is \(\mathrm{rlk}_k = (g_0 + g_1,\ h_1)\). Check:</p>
+<div class="math-display">\[g_0 + g_1 + h_1 s = s(-u a_k + W^k s + E_0) + u(s a_k + E_1) = W^k s^2 + \underbrace{s E_0 + u E_1}_{\text{noise}}\]</div>
+<p>The \(\pm s\,u\,a_k\) terms cancel, leaving exactly the format <code>toy_bfv.key_switch</code> expects.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">collective_relin_key</span><span class="p">(</span><span class="n">contribs</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
+    <span class="n">us</span> <span class="o">=</span> <span class="p">[</span><span class="n">bfv</span><span class="o">.</span><span class="n">ternary</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">contribs</span><span class="p">]</span>                   <span class="c1"># each party&#39;s ephemeral secret</span>
+    <span class="n">h0</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly_sum</span><span class="p">(</span><span class="o">...</span> <span class="o">-</span><span class="n">u_i</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">W</span><span class="o">^</span><span class="n">k</span><span class="o">*</span><span class="n">s_i</span> <span class="o">+</span> <span class="n">e</span> <span class="o">...</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">crs</span><span class="p">)]</span>   <span class="c1"># round 1</span>
+    <span class="n">h1</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly_sum</span><span class="p">(</span><span class="o">...</span> <span class="n">s_i</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">e</span> <span class="o">...</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">crs</span><span class="p">]</span>                             <span class="c1"># round 1</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">crs</span><span class="p">)):</span>
+        <span class="n">g0</span> <span class="o">=</span> <span class="n">poly_sum</span><span class="p">(</span><span class="o">...</span> <span class="n">s_i</span><span class="o">*</span><span class="n">h0</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="n">e</span> <span class="o">...</span><span class="p">)</span>                                    <span class="c1"># round 2</span>
+        <span class="n">g1</span> <span class="o">=</span> <span class="n">poly_sum</span><span class="p">(</span><span class="o">...</span> <span class="p">(</span><span class="n">u_i</span> <span class="o">-</span> <span class="n">s_i</span><span class="p">)</span><span class="o">*</span><span class="n">h1</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="n">e</span> <span class="o">...</span><span class="p">)</span>                            <span class="c1"># round 2</span>
+        <span class="n">rlk</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">g0</span><span class="p">,</span> <span class="n">g1</span><span class="p">),</span> <span class="n">h1</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>            <span class="c1"># b + a*s = W^k * s^2 + small</span>
+</code></pre></div>
+
+<p><strong>Cost:</strong> the extra \(sE_0 + uE_1\) noise makes the joint key slightly worse. In the toy, a
+ciphertext multiplication leaves <strong>69.9</strong> bits of budget with the joint key, against <strong>75.5</strong>
+with a single-party key, i.e. about 5.6 bits.</p>
+<p><strong>Galois keys</strong> are easier: \(\sigma_k(s) = \sum_i \sigma_k(s_i)\) is linear in the
+contributions, so one round like §2.1 suffices.</p>
+<p><strong>TFHE bootstrapping keys</strong> are the hardest. They are GGSW encryptions of the individual
+<strong>bits</strong> of <code>s</code>, and extracting bits of a secret-shared value needs a general MPC protocol.
+This is the most expensive part of setting up threshold TFHE, and it is what the Zama KMS's
+distributed key generation does (§7).</p>
+<hr />
+<h2 id="3-computing-on-jointly-encrypted-data">3. Computing on jointly encrypted data<a class="headerlink" href="#3-computing-on-jointly-encrypted-data" title="Link to this section">#</a></h2>
+<p>Three hospitals encrypt patient counts per age group under the collective public key, and an
+untrusted server sums them and squares the totals:</p>
+<div class="highlight"><pre><span></span><code><span class="n">cts</span> <span class="o">=</span> <span class="p">[</span><span class="n">bfv</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="n">pk</span><span class="p">,</span> <span class="n">bfv</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">counts</span><span class="p">]</span>
+<span class="n">total</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cts</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">cts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<span class="n">squares</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">evk</span><span class="p">)</span>                     <span class="c1"># needs the jointly generated relin key</span>
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>true totals per age group: [19, 8, 17, 16, 18, 16, 13, 12]
+</code></pre></div>
+
+<p><strong>Evaluation is unchanged.</strong> The server runs ordinary BFV, and it neither knows nor cares that
+the key is shared. All the multiparty machinery lives in key generation and decryption.</p>
+<hr />
+<h2 id="4-threshold-decryption">4. Threshold decryption<a class="headerlink" href="#4-threshold-decryption" title="Link to this section">#</a></h2>
+<h3 id="41-the-protocol">4.1 The protocol<a class="headerlink" href="#41-the-protocol" title="Link to this section">#</a></h3>
+<p>Pick an active set <code>A</code> of <code>t</code> parties. Each converts its Shamir share into an <strong>additive</strong>
+share by multiplying by its Lagrange coefficient, <em>before</em> using it, and publishes</p>
+<div class="math-display">\[h_j = (\lambda_j^A S_j)\cdot c_1 + e_{sm,j}, \qquad e_{sm,j} \leftarrow \mathcal{N}(0, \sigma_{sm}^2)\]</div>
+<p>Anyone can combine:</p>
+<div class="math-display">\[c_0 + \sum_{j\in A} h_j = c_0 + s\,c_1 + \sum_j e_{sm,j} = \Delta m + e + \sum_j e_{sm,j} \;\xrightarrow{\text{round } t/q}\; m\]</div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">partial_decrypt</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">share</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">smudge</span><span class="o">=</span><span class="n">SMUDGE</span><span class="p">):</span>
+    <span class="n">additive</span> <span class="o">=</span> <span class="p">[</span><span class="n">lagrange</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">share</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_mul</span><span class="p">(</span><span class="n">additive</span><span class="p">,</span> <span class="n">ct</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">noise</span><span class="p">(</span><span class="n">smudge</span><span class="p">)</span> <span class="k">if</span> <span class="n">smudge</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">partials</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">poly_sum</span><span class="p">(</span><span class="n">partials</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">bfv</span><span class="o">.</span><span class="n">decode</span><span class="p">([</span><span class="n">bfv</span><span class="o">.</span><span class="n">round_div</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span> <span class="n">c</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span> <span class="o">%</span> <span class="n">T</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">])</span>
+</code></pre></div>
+
+<p><strong>Why the Lagrange coefficient goes on the share, not the output:</strong> \(\lambda_j\) is a huge
+number mod <code>Q</code>. Computing \(\lambda_j \cdot (S_j c_1 + e_{sm})\) would multiply the smudging
+noise by \(\lambda_j\) and destroy the message. Applied to the share, it only touches exact
+arithmetic, so the noise stays as sampled. This placement is a classic subtlety of threshold
+lattice cryptography.</p>
+<h3 id="42-toy-run">4.2 Toy run<a class="headerlink" href="#42-toy-run" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>== 3. threshold decryption: any 2 of 3 parties, never 1
+parties [1, 2]: squares [104, 64, 32, 256, 67, 256, 169, 144]  correct: True  budget left 23.5 bits
+parties [1, 3]: squares [104, 64, 32, 256, 67, 256, 169, 144]  correct: True  budget left 23.2 bits
+parties [2, 3]: squares [104, 64, 32, 256, 67, 256, 169, 144]  correct: True  budget left 23.1 bits
+party [2] alone: [31, 64, 85, 70, 243, 5, 235, 1]  correct: False
+</code></pre></div>
+
+<p>Every pair recovers the squared totals (mod 257: 19² = 361 ≡ 104). A single party gets noise.</p>
+<h3 id="43-robustness">4.3 Robustness<a class="headerlink" href="#43-robustness" title="Link to this section">#</a></h3>
+<p>If a party publishes a wrong \(h_j\), the toy simply decrypts to garbage, and nobody can tell
+who cheated. Real systems add <strong>zero-knowledge proofs</strong> of correct partial decryption, or use
+<strong>robust</strong> protocols with more than <code>t</code> participants and error correction (Reed–Solomon
+decoding of shares). The Zama KMS is designed to output correctly even with up to a third of
+its nodes malicious (§7).</p>
+<hr />
+<h2 id="5-why-smudging-is-mandatory">5. Why smudging is mandatory<a class="headerlink" href="#5-why-smudging-is-mandatory" title="Link to this section">#</a></h2>
+<h3 id="51-without-noise-one-decryption-leaks-everything">5.1 Without noise, one decryption leaks everything<a class="headerlink" href="#51-without-noise-one-decryption-leaks-everything" title="Link to this section">#</a></h3>
+<p>With no smudging, \(h_j = (\lambda_j S_j)\cdot c_1\) <strong>exactly</strong>. The ciphertext, and so \(c_1\),
+is public (on a blockchain, literally). Anyone who sees \(h_j\) solves a linear system for
+\(\lambda_j S_j\) and divides by \(\lambda_j\):</p>
+<div class="highlight"><pre><span></span><code>without smudging, one partial decryption also reveals that party&#39;s long-term share S_1: True
+</code></pre></div>
+
+<p>That is party 1's <strong>permanent</strong> share, not an ephemeral value. One threshold decryption hands
+over <code>t</code> shares, i.e. <strong>the key</strong>:</p>
+<div class="highlight"><pre><span></span><code>smudging sigma   decrypts   budget left   key recovered from one public decryption
+          none       True      102.3      YES: all data exposed
+</code></pre></div>
+
+<h3 id="52-the-exact-scheme-surprise">5.2 The exact-scheme surprise<a class="headerlink" href="#52-the-exact-scheme-surprise" title="Link to this section">#</a></h3>
+<p>In single-key BFV, decryption <strong>rounds</strong> the noise away, which is why exact schemes are
+IND-CPA-D secure (<a href="bfv_pir.html#21-encrypt-and-decrypt">BFV §2.1</a>). In threshold decryption the
+<strong>unrounded</strong> value \(c_0 + \sum h_j = \Delta m + e\) is computed in the open, by whoever
+combines the partials. The noise <code>e</code> depends on the secret key, so <strong>threshold BFV, BGV and
+TFHE face the same problem as CKKS</strong> in the
+<a href="ckks_ind_cpa_d.html">IND-CPA-D deep dive</a>: the noise must be statistically hidden.</p>
+<h3 id="53-how-much-smudging">5.3 How much smudging<a class="headerlink" href="#53-how-much-smudging" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Small noise is not enough.</strong> σ = 3.2 defeats the one-shot linear solve (the "no" below),
+  but it does not <em>statistically</em> hide <code>e</code>. The averaging and lattice attacks from the
+  IND-CPA-D deep dive still apply.</li>
+<li><strong>The smudging lemma</strong> says \(\sigma_{sm} \approx 2^{\lambda} \cdot |e|\) for λ bits of
+  statistical security, where <code>|e|</code> is the noise of the ciphertext being decrypted. Measured in
+  the toy: about \(2^{8.7}\) for the summed counts and \(2^{40.9}\) after one multiplication. The
+  default σ_sm = 2⁸⁶ therefore gives about 45 bits of margin for the squared totals.</li>
+<li><strong>It must also stay below Δ.</strong> The upper limit is decryption correctness:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>smudging sigma   decrypts   budget left   key recovered from one public decryption
+          none       True      102.3      YES: all data exposed
+           3.2       True      102.3      no
+          2^40       True       69.2      no
+          2^86       True       23.2      no
+         2^100       True        9.4      no
+         2^106       True        3.2      no
+         2^110      False        0.0      no
+</code></pre></div>
+
+<p>Over 20 trials each, 2¹⁰⁸ still decrypted correctly every time and 2¹¹⁰ never did
+(\(\Delta \approx 2^{112}\)). So the modulus has to hold the message, plus the computation noise,
+plus <strong>about λ extra bits</strong> for smudging. This is the "flooding tax" of threshold FHE.</p>
+<h3 id="54-tfhe-has-no-room-noahs-ark">5.4 TFHE has no room: Noah's Ark<a class="headerlink" href="#54-tfhe-has-no-room-noahs-ark" title="Link to this section">#</a></h3>
+<p>TFHE uses a small modulus (2⁶⁴) packed tightly with message and noise, so there are no 40 spare
+bits for smudging. Zama's <strong>"Noah's Ark"</strong> paper (Dahl et al., WAHC 2023,
+<a href="https://eprint.iacr.org/2023/815">ePrint 2023/815</a>) shows noise flooding still works:
+before threshold decryption, <strong>use TFHE's fast bootstrapping to move the ciphertext into a
+scheme with larger parameters</strong>, then flood there. The security proof is a simulation
+argument. Newer work tries to cut the cost further:</p>
+<ul>
+<li><strong>Ajax</strong> (<a href="https://eprint.iacr.org/2025/1834">ePrint 2025/1834</a>) points out that
+  flooding-based threshold decryption needs large parameters or a costly switch, and proposes
+  an improvement.</li>
+<li><strong>High-throughput UC threshold FHE decryption</strong> (<a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a>)
+  aims to avoid noise flooding altogether.</li>
+</ul>
+<hr />
+<h2 id="6-re-encryption-decrypting-for-one-user-only">6. Re-encryption: decrypting for one user only<a class="headerlink" href="#6-re-encryption-decrypting-for-one-user-only" title="Link to this section">#</a></h2>
+<p>Sometimes the result should be readable by <strong>one</strong> user (a balance, a diagnosis) and by
+nobody else, the key-holding parties included. <strong>Collective public-key switching</strong> (Mouchet et
+al.) re-encrypts under the user's own public key <code>(p₀', p₁')</code> without ever producing the
+plaintext. Each active party publishes</p>
+<div class="math-display">\[\big(\lambda_j S_j\, c_1 + u_j\, p_0&#x27; + e_{sm},\;\; u_j\, p_1&#x27; + e\big)\]</div>
+<p>Summed and added to <code>(c₀, 0)</code>, this gives
+\(c_0&#x27; + c_1&#x27; s&#x27; = c_0 + s\,c_1 + u\,(p_0&#x27; + p_1&#x27; s&#x27;) + \text{noise} = \Delta m + \text{noise}\),
+an ordinary ciphertext under the user's key <code>s'</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">reencrypt_share</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">share</span><span class="p">,</span> <span class="n">active</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">user_pk</span><span class="p">,</span> <span class="n">smudge</span><span class="o">=</span><span class="n">SMUDGE</span><span class="p">):</span>
+    <span class="n">additive</span> <span class="o">=</span> <span class="p">[</span><span class="n">lagrange</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">active</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">share</span><span class="p">]</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">ternary</span><span class="p">()</span>
+    <span class="n">h0</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_mul</span><span class="p">(</span><span class="n">additive</span><span class="p">,</span> <span class="n">ct</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_mul</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">user_pk</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">noise</span><span class="p">(</span><span class="n">smudge</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">h0</span><span class="p">,</span> <span class="n">bfv</span><span class="o">.</span><span class="n">poly_add</span><span class="p">(</span><span class="n">bfv</span><span class="o">.</span><span class="n">poly_mul</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">user_pk</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">noise</span><span class="p">())</span>
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>researcher decrypts: [19, 8, 17, 16, 18, 16, 13, 12]  (the parties never see it)
+</code></pre></div>
+
+<hr />
+<h2 id="7-how-the-zama-protocol-uses-threshold-fhe">7. How the Zama Protocol uses threshold FHE<a class="headerlink" href="#7-how-the-zama-protocol-uses-threshold-fhe" title="Link to this section">#</a></h2>
+<p>The Zama Protocol adds confidential smart contracts to existing blockchains: encrypted balances,
+votes and bids that contracts compute on. It launched on Ethereum mainnet at the end of 2025
+(<a href="../07_state_of_the_art_2026.html#8-industry-and-deployments">07</a>). Its
+<a href="https://docs.zama.org/protocol/zama-protocol-litepaper">litepaper</a> describes these components:</p>
+<div class="highlight"><pre><span></span><code>user ── encrypts input under the network&#39;s FHE public key + ZK proof of correct encryption
+  │
+  ▼
+HOST CHAIN (e.g. Ethereum): fhEVM contracts handle encrypted values as handles;
+  │                          an on-chain ACL says who may decrypt which value
+  ▼
+COPROCESSORS (5 operators at launch): run the actual TFHE computations (TFHE-rs) off-chain,
+  │   commit results; majority consensus; anyone can recompute to verify
+  ▼
+GATEWAY (a dedicated Arbitrum rollup): aggregates ACLs, runs the majority vote over
+  │   coprocessor results, orchestrates decryption requests (publicly visible)
+  │   (input proofs are verified on the protocol side; users pay a fee for it)
+  ▼
+KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and threshold decryption
+     • 2/3-majority rule, designed to stay correct with up to 1/3 malicious nodes
+     • nodes run inside AWS Nitro Enclaves (attested software)
+     • planned: ~100-node committees, ZK-MPC proofs, HSMs
+</code></pre></div>
+
+<h3 id="71-toy--zama">7.1 Toy ↔ Zama<a class="headerlink" href="#71-toy--zama" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Toy</th>
+<th>Zama Protocol</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 parties, threshold 2</td>
+<td>13 KMS nodes, 2/3 majority</td>
+</tr>
+<tr>
+<td>collective public key (§2.1)</td>
+<td>the network's FHE public key, which every user encrypts to</td>
+</tr>
+<tr>
+<td>Shamir shares of <code>s</code> (§2.2)</td>
+<td>key shares held by KMS nodes, from an MPC distributed key generation</td>
+</tr>
+<tr>
+<td>collective relinearization key (§2.3)</td>
+<td>TFHE bootstrapping and key-switching keys, generated in MPC: the heavy part</td>
+</tr>
+<tr>
+<td>untrusted server (§3)</td>
+<td>coprocessors running TFHE-rs, cross-checked by majority vote</td>
+</tr>
+<tr>
+<td>threshold decryption + smudging (§4–5)</td>
+<td><strong>public decryption</strong>: KMS threshold decryption with noise flooding (Noah's Ark)</td>
+</tr>
+<tr>
+<td>re-encryption to a user's key (§6)</td>
+<td><strong>user decryption</strong>: the KMS delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention ML-KEM), not an FHE key switch</td>
+</tr>
+<tr>
+<td>no access control</td>
+<td>an ACL decides who may request a decryption of which value</td>
+</tr>
+<tr>
+<td>semi-honest, no proofs</td>
+<td>robust MPC, enclave attestation, ZK proofs of input encryption</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="72-what-the-trust-model-rests-on">7.2 What the trust model rests on<a class="headerlink" href="#72-what-the-trust-model-rests-on" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Confidentiality</strong> requires that fewer than the threshold of KMS nodes collude. Enclaves add
+  defence in depth: per the litepaper, extracting key shares outside the protocol would need
+  AWS <em>and</em> several node operators to collude.</li>
+<li><strong>Correctness</strong> of computation rests on the coprocessor majority and on public
+  re-computability: FHE evaluation is deterministic, so anyone can check it.</li>
+<li><strong>Availability</strong> requires enough honest KMS nodes online to reach the threshold.</li>
+<li><strong>The KMS is, by design, a decryption service.</strong> The ACL decides <em>who</em> may decrypt <em>what</em>.
+  That is exactly the IND-CPA-D setting, which is why noise flooding and negligible
+  failure probabilities are non-negotiable here.</li>
+<li>The input proofs are not post-quantum yet. The litepaper notes a lattice-based replacement is
+  planned. The FHE itself is lattice-based.</li>
+</ul>
+<hr />
+<h2 id="8-other-uses-of-threshold-and-multiparty-fhe">8. Other uses of threshold and multiparty FHE<a class="headerlink" href="#8-other-uses-of-threshold-and-multiparty-fhe" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Medical and financial consortia:</strong> joint statistics, GWAS and survival analysis without
+  pooling data (Lattigo's MHE, Tune Insight).</li>
+<li><strong>Federated learning:</strong> encrypted model aggregation with no central key holder.</li>
+<li><strong>Voting and sealed-bid auctions:</strong> tally or compare, then threshold-decrypt only the result.</li>
+<li><strong>Thresholdizing other cryptography:</strong> Boneh et al. show threshold FHE can turn signatures
+  and other primitives into threshold versions generically.</li>
+</ul>
+<hr />
+<h2 id="9-security-notes-on-the-toy">9. Security notes on the toy<a class="headerlink" href="#9-security-notes-on-the-toy" title="Link to this section">#</a></h2>
+<ul>
+<li><code>N = 64</code>: no security at all.</li>
+<li><strong>Semi-honest only.</strong> There are no proofs that parties follow the protocol, no verifiable
+  secret sharing, and the common random strings are assumed honest.</li>
+<li>Smudging uses Python's <code>random</code>, which is not a cryptographic generator.</li>
+<li>The script computes <code>s = Σ sᵢ</code> only to <em>check</em> the protocol. No party could do so.</li>
+</ul>
+<h2 id="10-exercises">10. Exercises<a class="headerlink" href="#10-exercises" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>Joint Galois keys:</strong> add the one-round rotation-key protocol, then compute an encrypted
+   inner product on jointly encrypted data.</li>
+<li><strong>Catch a cheating dealer:</strong> add commitments so that parties can verify the shares they
+   receive (Feldman/Pedersen-style, adapted to ring elements).</li>
+<li><strong>Robust decryption:</strong> run 3-of-5 with one party sending garbage, and decode anyway.</li>
+<li><strong>Resharing:</strong> move the key from parties {1, 2, 3} to a new committee {4, 5, 6} without
+   reconstructing <code>s</code>.</li>
+<li><strong>Power-of-two modulus:</strong> make threshold decryption work for <code>Q = 2¹²⁰</code> by clearing
+   denominators (multiply by <code>(n!)²</code>), and measure the extra noise.</li>
+<li><strong>Size the smudging:</strong> for λ = 40 and a budget of 1 000 decryptions per key, use the
+   smudging lemma to pick σ_sm, and check what is left of the budget.</li>
+</ol>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
+<ul>
+<li>Asharov, Jain, López-Alt, Tromer, Vaikuntanathan, Wichs. <em>Multiparty Computation with Low Communication, Computation and Interaction via Threshold FHE</em>. Eurocrypt 2012. <a href="https://eprint.iacr.org/2011/613">ePrint 2011/613</a></li>
+<li>López-Alt, Tromer, Vaikuntanathan. <em>On-the-Fly Multiparty Computation on the Cloud via Multikey Fully Homomorphic Encryption</em>. STOC 2012. <a href="https://eprint.iacr.org/2013/094">ePrint 2013/094</a></li>
+<li>Boneh, Gennaro, Goldfeder, Jain, Kim, Rasmussen, Sahai. <em>Threshold Cryptosystems from Threshold Fully Homomorphic Encryption</em>. CRYPTO 2018. <a href="https://eprint.iacr.org/2017/956">ePrint 2017/956</a></li>
+<li>Mouchet, Troncoso-Pastoriza, Bossuat, Hubaux. <em>Multiparty Homomorphic Encryption from Ring-Learning-with-Errors</em>. PETS 2021. <a href="https://eprint.iacr.org/2020/304">ePrint 2020/304</a></li>
+<li>Dahl, Demmler, Smart, et al. (Zama). <em>Noah's Ark: Efficient Threshold-FHE Using Noise Flooding</em>. WAHC 2023. <a href="https://eprint.iacr.org/2023/815">ePrint 2023/815</a></li>
+<li><em>Ajax</em> (threshold FHE decryption). <a href="https://eprint.iacr.org/2025/1834">ePrint 2025/1834</a></li>
+<li><em>High-Throughput Universally Composable Threshold FHE Decryption</em>. <a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a></li>
+<li>Zama. <a href="https://docs.zama.org/protocol/zama-protocol-litepaper"><em>Zama Confidential Blockchain Protocol Litepaper</em></a> · <a href="https://www.zama.org/post/zama-protocol-testnet-update-mpc-partners-better-performance-audits-and-new-features"><em>Testnet update: MPC partners …</em></a> · <a href="https://docs.zama.org/protocol/relayer-sdk-guides/fhevm-relayer/decryption/user-decryption"><em>User decryption</em> (relayer SDK guide)</a> · <a href="https://docs.zama.org/protocol/protocol/overview"><em>FHE on blockchain</em> (protocol overview)</a></li>
+</ul>
+<blockquote>
+<p>The ePrint numbers for Asharov et al., López-Alt et al., Boneh et al. and Mouchet et al. are
+cited from memory. If a link doesn't match its title, search the title on
+<a href="https://eprint.iacr.org">eprint.iacr.org</a>. Noah's Ark, Ajax and 2025/1781 were checked.</p>
+</blockquote>
+</article>
+<footer class="pager"><a href="../deep_dives/bfv_pir.html">← Deep dive: BFV and private information retrieval (caller ID)</a><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it) →</a></footer>
+</main>
+</body>
+</html>

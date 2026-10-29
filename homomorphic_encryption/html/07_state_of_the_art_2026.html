@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 · State of the art (as of October 2026)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li class="current"><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-picture-in-ten-bullets">0. The picture in ten bullets</a></li>
+<li><a href="#1-bootstrapping-research">1. Bootstrapping research</a><ul>
+<li><a href="#fhew--tfhe">FHEW / TFHE</a></li>
+<li><a href="#ckks">CKKS</a></li>
+<li><a href="#matrix-fhe">Matrix FHE</a></li>
+</ul>
+</li>
+<li><a href="#2-new-schemes">2. New schemes</a></li>
+<li><a href="#3-encrypted-ai-and-llm-inference">3. Encrypted AI and LLM inference</a></li>
+<li><a href="#4-hardware-acceleration">4. Hardware acceleration</a><ul>
+<li><a href="#academic-asic-lineage-simulated-designs">Academic ASIC lineage (simulated designs)</a></li>
+<li><a href="#darpa-dprive-2021-and-intel-heracles">DARPA DPRIVE (2021–) and Intel Heracles</a></li>
+<li><a href="#startups">Startups</a></li>
+<li><a href="#gpus-available-now">GPUs (available now)</a></li>
+</ul>
+</li>
+<li><a href="#5-standardization">5. Standardization</a></li>
+<li><a href="#6-compilers-and-developer-tooling">6. Compilers and developer tooling</a></li>
+<li><a href="#7-security-research-summary-details-in-ch-06">7. Security research (summary; details in ch. 06)</a></li>
+<li><a href="#8-industry-and-deployments">8. Industry and deployments</a></li>
+<li><a href="#9-open-problems-worth-following">9. Open problems worth following</a></li>
+<li><a href="#sources-for-this-chapter">Sources for this chapter</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="07--state-of-the-art-as-of-october-2026">07 · State of the art (as of October 2026)<a class="headerlink" href="#07--state-of-the-art-as-of-october-2026" title="Link to this section">#</a></h1>
+<p><a href="06_security.html">← 06 Security</a> · <a href="index.html">index</a> · next: <a href="08_ecosystem_and_applications.html">08 Ecosystem and applications →</a></p>
+<hr />
+<blockquote>
+<p><strong>How to read this chapter.</strong> It reflects a literature and news search on 2026-10-29.
+Many 2026 items are <strong>preprints</strong> (IACR ePrint, arXiv) or <strong>vendor and press claims</strong>, and
+are marked as such. Numbers are as reported by the authors. Most full papers were not
+re-checked line by line; abstracts and summaries were used. Treat this as a map of where to
+look, not as verified benchmarks.</p>
+</blockquote>
+<h2 id="0-the-picture-in-ten-bullets">0. The picture in ten bullets<a class="headerlink" href="#0-the-picture-in-ten-bullets" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>The scheme landscape is stable but converging.</strong> BGV/BFV, CKKS and TFHE remain the big
+   three. CKKS is absorbing TFHE's strength (functional bootstrapping on discrete data), and
+   TFHE is absorbing batching ideas. A new matrix-native scheme (Gentry–Lee) appeared in late
+   2025.</li>
+<li><strong>Bootstrapping is still the bottleneck and the main research target.</strong> CRYPTO 2026 has
+   results that cut FHEW/TFHE bootstrapping from 500+ sequential NTT layers to 3.</li>
+<li><strong>Hardware has arrived as silicon.</strong> Intel's <strong>Heracles</strong> FHE accelerator (DARPA DPRIVE)
+   was presented at ISSCC 2026 with ~10³× speedups over a 24-core Xeon on core operations.
+   Startups (Niobium, Cornami, Optalysys, Fabric) are building chips.</li>
+<li><strong>GPUs are the practical accelerator today.</strong> TFHE bootstraps take under 1 ms on an H100.
+   GPU CKKS libraries (FIDESlib, Cheddar, Phantom) report 1–2 orders of magnitude over
+   optimized CPU code.</li>
+<li><strong>Encrypted LLM inference works but isn't practical.</strong> 21 CKKS frameworks have run
+   end-to-end private inference up to 8B-parameter models, but the best are still about
+   <strong>10⁴× slower</strong> than plaintext.</li>
+<li><strong>Security research has shifted from "is LWE hard?" to "how do real systems leak?"</strong>: the
+   IND-CPA-D attacks on CKKS, BFV, TFHE and scheme switching (ch. 06).</li>
+<li><strong>Standardization is close.</strong> ISO/IEC 28033 (FHE) Parts 2 (BGV/BFV), 3 (CKKS) and 4
+   (CGGI/TFHE) reached Draft International Standard ballots in early 2026.</li>
+<li><strong>Compilers are maturing.</strong> Google's MLIR-based <strong>HEIR</strong> is positioning itself as the common
+   layer across schemes, libraries and hardware.</li>
+<li><strong>Production deployments are real but narrow</strong>: private lookups (Apple, Microsoft) and
+   confidential blockchain tokens (Zama). General encrypted backends are not shipping.</li>
+<li><strong>The remaining gaps</strong>: latency, memory (keys in the GB range), developer ergonomics,
+    verifiability, and secure-by-default parameters for shared decryptions.</li>
+</ol>
+<hr />
+<h2 id="1-bootstrapping-research">1. Bootstrapping research<a class="headerlink" href="#1-bootstrapping-research" title="Link to this section">#</a></h2>
+<h3 id="fhew--tfhe">FHEW / TFHE<a class="headerlink" href="#fhew--tfhe" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Jain, Lin, Liu, Saha. "New Techniques for Fast and Shallow FHE Bootstrapping and Beyond"</strong>
+  (CRYPTO 2026; ePrint <a href="https://eprint.iacr.org/2026/1730">2026/1730</a>)<ul>
+<li>With a <strong>sparse, small-norm LWE secret</strong> (Hamming weight <code>h</code>), blind-rotation cost drops
+from Õ(n²) to <strong>Õ(n·h)</strong> Z_q-multiplications. That gives a <strong>4.5–7.5× speedup</strong> over
+OpenFHE's gate and functional bootstrapping.</li>
+<li>With a new <strong>structured-secret RLWE variant</strong> and a relinearization-free BV-style
+multiplication, the <strong>sequential NTT/INTT depth drops to 3</strong> (versus 500+ in standard
+FHEW/TFHE) at similar total work. The authors expect large latency wins on GPUs and other
+parallel hardware.</li>
+<li>Includes a security analysis of the new assumption (worst-case to average-case and
+search-to-decision reductions, concrete attacks). It is a new assumption, so expect
+follow-up cryptanalysis.</li>
+</ul>
+</li>
+<li><strong>GPU TFHE:</strong> bootstrapping latency reported as <strong>&lt; 1 ms on an NVIDIA H100</strong> and about
+  <strong>189 000 bootstraps/s across 8 H100s</strong> (Zama; vendor figures via secondary sources).</li>
+<li><strong>Encrypted LSTM via PBS</strong> (ePrint <a href="https://eprint.iacr.org/2026/1091">2026/1091</a>):
+  211 µs amortized per bootstrap, and 5.2 s inference for a 128-token sequence.</li>
+</ul>
+<h3 id="ckks">CKKS<a class="headerlink" href="#ckks" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>MRFHE: Mixed-Radix FHE with Better Batch Bootstrapping</strong> (Cheon et al., ePrint
+  <a href="https://eprint.iacr.org/2026/853">2026/853</a>): recasts the DFT steps of CKKS bootstrapping
+  as <strong>batched matrix multiplications</strong> with a constant number of key switches per
+  ciphertext. Implemented in Lattigo.</li>
+<li><strong>Discrete / functional CKKS bootstrapping</strong> (2024–2025): bootstrapping <strong>bits</strong>
+  (Bae–Cheon–Kim–Stehlé, Eurocrypt 2024, <a href="https://eprint.iacr.org/2024/767">2024/767</a>),
+  <strong>small integers</strong> with LUTs (Bae–Kim–Stehlé–Suvanto, Asiacrypt 2024,
+  <a href="https://eprint.iacr.org/2024/1637">2024/1637</a>): <strong>3.75 ms amortized per 8-bit LUT</strong> over
+  2¹² ciphertexts, single-threaded at 128-bit security, <strong>general functional bootstrapping</strong>
+  (Alexandru–Kim–Polyakov, <a href="https://eprint.iacr.org/2024/1623">2024/1623</a>), modular
+  reduction (<a href="https://eprint.iacr.org/2024/1638">2024/1638</a>), and <strong>high-precision discrete
+  CKKS</strong> for noise flooding (Choe–Kim–Stehlé–Suvanto, <a href="https://eprint.iacr.org/2025/1786">2025/1786</a>).
+  Together these turn CKKS into a credible "do everything" scheme.</li>
+<li><strong>GPU CKKS:</strong> FIDESlib reports <strong>≥ 70×</strong> faster bootstrapping than AVX-optimized OpenFHE
+  (secondary source). Cheddar and Phantom are other high-performance GPU libraries.</li>
+</ul>
+<h3 id="matrix-fhe">Matrix FHE<a class="headerlink" href="#matrix-fhe" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Crockett, Gentry, Kim, Lee, Lee. "Efficient Bootstrapping in FHE for Matrix Arithmetic"</strong>
+  (CRYPTO 2026; ePrint <a href="https://eprint.iacr.org/2026/956">2026/956</a>): bootstrapping for the
+  Gentry–Lee scheme. Linear transformations take <strong>20.1 %</strong> of bootstrapping time, versus
+  <strong>54.9–71.7 %</strong> in prior CKKS work.</li>
+</ul>
+<h2 id="2-new-schemes">2. New schemes<a class="headerlink" href="#2-new-schemes" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Gentry &amp; Lee, "Fully Homomorphic Encryption for Matrix Arithmetic"</strong> (ePrint
+  <a href="https://eprint.iacr.org/2025/1935">2025/1935</a>, Oct 2025). RLWE-based, with native batched
+  matrix multiplication (four ciphertext-component matrix products), transpose and rotation,
+  over complex numbers and integers. DESILO markets it as the "5th generation" ("GL scheme")
+  and partners with Cornami on hardware. It was presented at FHE.org 2026 (Taipei). See ch. 04.</li>
+</ul>
+<h2 id="3-encrypted-ai-and-llm-inference">3. Encrypted AI and LLM inference<a class="headerlink" href="#3-encrypted-ai-and-llm-inference" title="Link to this section">#</a></h2>
+<p><strong>Status (per the 2026 SoK):</strong> CKKS-based private LLM inference is <em>algorithmically feasible</em>
+but <em>operationally impractical</em> for interactive use.</p>
+<ul>
+<li><strong>SoK: Private LLM Inference using Approximate HE.</strong> Al Badawi, Alexandru, Polyakov,
+  Vaikuntanathan (ePrint <a href="https://eprint.iacr.org/2026/935">2026/935</a>).<ul>
+<li>21 CKKS frameworks have shown <strong>end-to-end private LLM inference, up to 8B parameters</strong>
+(Llama-3-8B).</li>
+<li>Only <strong>5 of 21 are model-preserving</strong>: they run the unmodified model with the whole prompt
+encrypted, with no retraining or architecture substitution.</li>
+<li>Polynomial approximations keep <strong>downstream accuracy high</strong> from BERT-Tiny to Llama-3-8B.</li>
+<li>The <strong>runtime gap is about four orders of magnitude</strong> versus plaintext.</li>
+<li>It releases <strong>POLARIS</strong>, an open-source model-preserving framework (whole BERT family, CPU
+and GPU), and proposes a "Private LLM Card" reporting standard.</li>
+</ul>
+</li>
+<li><strong>ELLMo</strong> (ePrint <a href="https://eprint.iacr.org/2026/198">2026/198</a>): packing- and depth-aware
+  transformer inference, a new matrix multiplication with fewer rotations, and <strong>up to 46 %
+  fewer bootstraps</strong> in non-linear layers.</li>
+<li><strong>Error-propagation-aware scale design</strong> (ePrint <a href="https://eprint.iacr.org/2026/2242">2026/2242</a>):
+  tunes CKKS scales per layer to cut bootstrapping in LLM inference.</li>
+<li><strong>Hybrid CKKS/TFHE decoding</strong>: ROSETTA (arXiv <a href="https://arxiv.org/abs/2609.16915">2609.16915</a>).
+  CKKS for the linear layers, TFHE for exact non-linear steps.</li>
+<li><strong>Encrypted state-space models</strong> for long contexts as a transformer alternative: FESC (arXiv
+  <a href="https://arxiv.org/abs/2608.17442">2608.17442</a>).</li>
+<li><strong>Encrypted recommendation models</strong>: HE-LRM (arXiv <a href="https://arxiv.org/abs/2506.18150">2506.18150</a>).</li>
+<li>Other end-to-end systems often cited: <strong>THOR, Powerformer, Tricycle</strong> (per the EDBT 2026
+  tutorial by Lim, Agrawal and El Abbadi,
+  <a href="https://openproceedings.org/2026/conf/edbt/paper-T1.pdf">"Private LLM Inference with Homomorphic Encryption"</a>).</li>
+<li>GPU encrypted GPT-2-class inference: about <strong>200× over CPU baselines</strong> (ICML 2025, as cited
+  by secondary sources). That is still far from interactive.</li>
+</ul>
+<p><strong>Reality check:</strong> for private LLM inference <em>today</em>, confidential GPUs and TEEs are the
+practical option. FHE wins where trust in hardware vendors is unacceptable, or for small and
+medium models (logistic regression, trees, small NNs), which run in <strong>seconds</strong> under CKKS or
+Concrete ML.</p>
+<h2 id="4-hardware-acceleration">4. Hardware acceleration<a class="headerlink" href="#4-hardware-acceleration" title="Link to this section">#</a></h2>
+<p><strong>Why FHE needs custom hardware:</strong> the work is dominated by NTTs, modular multiplication over
+wide RNS limbs, automorphisms (data permutations) and, above all, <strong>memory bandwidth</strong>:
+key-switching keys are hundreds of MB to GB and are streamed for every rotation and
+relinearization.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/hardware.html">deep_dives/hardware.md</a> measures where the time goes
+in our toys, implements the NTT and RNS, models key switching at bootstrapping size
+(memory-bound by ~3–18×), and walks through GPUs, F1, BTS, CraterLake, ARK, SHARP and Heracles.</p>
+</blockquote>
+<h3 id="academic-asic-lineage-simulated-designs">Academic ASIC lineage (simulated designs)<a class="headerlink" href="#academic-asic-lineage-simulated-designs" title="Link to this section">#</a></h3>
+<p>F1 (MICRO 2021) → BTS and CraterLake (ISCA 2022) → ARK (MICRO 2022) → SHARP (ISCA 2023) →
+systolic designs such as Osiris (arXiv <a href="https://arxiv.org/abs/2408.09593">2408.09593</a>). These
+showed 1000×+ speedups over CPU in simulation and set the architecture template: many NTT
+lanes, huge on-chip SRAM, HBM, and on-the-fly key generation.</p>
+<h3 id="darpa-dprive-2021-and-intel-heracles">DARPA DPRIVE (2021–) and Intel Heracles<a class="headerlink" href="#darpa-dprive-2021-and-intel-heracles" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Intel Heracles</strong>, presented at <strong>ISSCC (Feb 2026)</strong> after about five years of DPRIVE
+  work. It is a dedicated FHE accelerator, not a general-purpose CPU, with <strong>48 GB HBM3</strong>.<ul>
+<li><strong>1 074–5 547× faster</strong> than a 24-core Sapphire Rapids Xeon across seven key FHE operations
+(some reports give the upper bound as 1 547×; the sources conflict).</li>
+<li>Demo: an encrypted query went from <strong>15 ms (Xeon) to 14 µs</strong>.</li>
+<li><strong>No announced commercial plans.</strong> It is a research prototype.</li>
+</ul>
+</li>
+</ul>
+<h3 id="startups">Startups<a class="headerlink" href="#startups" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Niobium Microsystems</strong> (a DPRIVE spin-out): raised <strong>$23M</strong>, and reportedly has an 8 nm chip
+  deal with <strong>Samsung Foundry</strong>.</li>
+<li><strong>Cornami</strong>: reconfigurable compute fabric, partnered with DESILO for GL-scheme acceleration.</li>
+<li><strong>Optalysys</strong>: <strong>photonic</strong> (optical) FHE acceleration.</li>
+<li><strong>Fabric Cryptography</strong>: a cryptography-focused processor.</li>
+</ul>
+<h3 id="gpus-available-now">GPUs (available now)<a class="headerlink" href="#gpus-available-now" title="Link to this section">#</a></h3>
+<p>TFHE-rs CUDA backend, FIDESlib, Cheddar, Phantom, HEaaN-GPU. For batched CKKS and PBS-heavy
+TFHE, GPUs give roughly <strong>10–100×</strong> over CPU (vendor and secondary figures).</p>
+<h2 id="5-standardization">5. Standardization<a class="headerlink" href="#5-standardization" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Standard</th>
+<th>Scope</th>
+<th>Status (2026)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HomomorphicEncryption.org Security Standard</td>
+<td>Parameters for BGV/BFV/CKKS-style schemes</td>
+<td>Community standard since 2018. The de facto reference</td>
+</tr>
+<tr>
+<td>ISO/IEC 18033-6:2019</td>
+<td><strong>Partially</strong> HE (ElGamal, Paillier)</td>
+<td>Published</td>
+</tr>
+<tr>
+<td><strong>ISO/IEC 28033-1</strong></td>
+<td>FHE: general concepts, security models</td>
+<td>Committee Draft (comment period closed)</td>
+</tr>
+<tr>
+<td><strong>ISO/IEC 28033-2</strong></td>
+<td>Exact arithmetic on modular integers (BGV/BFV)</td>
+<td>DIS, Jan 2026. BSI lists an adoption dated 30 Jan 2026 (status ambiguous across sources)</td>
+</tr>
+<tr>
+<td><strong>ISO/IEC 28033-3</strong></td>
+<td>Approximate numbers (CKKS)</td>
+<td>DIS, ballot closed 27 Mar 2026</td>
+</tr>
+<tr>
+<td><strong>ISO/IEC 28033-4</strong></td>
+<td>Look-up table evaluation (CGGI / TFHE)</td>
+<td>DIS 4.2, voting closed 19 Feb 2026</td>
+</tr>
+<tr>
+<td>NIST multi-party threshold cryptography call (IR 8214C)</td>
+<td>Includes FHE among the "special" primitives for threshold schemes</td>
+<td>Ongoing</td>
+</tr>
+</tbody>
+</table></div>
+<p>Check the ISO website for the current stage before relying on the ISO entries; drafts move.</p>
+<h2 id="6-compilers-and-developer-tooling">6. Compilers and developer tooling<a class="headerlink" href="#6-compilers-and-developer-tooling" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>HEIR</strong> (Google): MLIR-based universal HE compiler (arXiv
+  <a href="https://arxiv.org/abs/2508.11095">2508.11095</a>). Python frontend (<code>@compile()</code> decorator),
+  OpenFHE and Lattigo backends. Google promoted it in <strong>Aug 2026</strong> for converting pretrained
+  models to encrypted inference, with demos on recommendation, fraud detection, intrusion
+  detection and hotword models (secondary reports).</li>
+<li><strong>Concrete / Concrete ML</strong> (Zama), <strong>Orion</strong> (PyTorch → CKKS), <strong>Fhelipe</strong>.</li>
+<li>The trend: programmers describe the computation, and the compiler chooses the scheme,
+  parameters, packing, bootstrap placement and backend (CPU, GPU or ASIC).</li>
+</ul>
+<h2 id="7-security-research-summary-details-in-ch-06">7. Security research (summary; details in ch. 06)<a class="headerlink" href="#7-security-research-summary-details-in-ch-06" title="Link to this section">#</a></h2>
+<ul>
+<li>The IND-CPA-D attack line now covers CKKS (2021), average-case noise estimation in libraries
+  (USENIX Sec 2024), exact schemes via decryption failures (CCS 2024), scheme switching
+  (2026/285) and BFV in OpenFHE (2026/2546).</li>
+<li>Noise-flooding countermeasures revisited (PKC 2025). High-precision discrete CKKS makes
+  flooding affordable (2025/1786).</li>
+<li>Lattice assumptions themselves are holding (the 2024 quantum-LWE claim was retracted). New
+  assumptions (structured-secret RLWE in 2026/1730, GL's matrix structure) need scrutiny.</li>
+</ul>
+<h2 id="8-industry-and-deployments">8. Industry and deployments<a class="headerlink" href="#8-industry-and-deployments" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Apple</strong>: Live Caller ID Lookup (iOS 18, BFV-based PIR), Enhanced Visual Search (BFV +
+  differential privacy + anonymization network), and the open-source <code>swift-homomorphic-encryption</code>.</li>
+<li><strong>Microsoft</strong>: Edge Password Monitor (BFV in SEAL, inside a PSI protocol).</li>
+<li><strong>Zama</strong>: the <strong>Zama Protocol</strong> went live on <strong>Ethereum mainnet on 31 Dec 2025</strong> (TFHE + threshold
+  MPC for confidential tokens, ERC-7984). It runs at about 20 TPS on CPU. The CEO claims
+  <strong>1 000 confidential transfers/s on GPUs</strong> (self-reported, without methodology). Roadmap
+  targets of 10k TPS (2028) and 100k TPS (2030) are aspirational.</li>
+<li><strong>Google</strong>: HEIR, Private Join and Compute (additive HE).</li>
+<li><strong>Duality, CryptoLab (HEaaN), DESILO, Inpher, Tune Insight</strong>: enterprise analytics,
+  healthcare, finance (AML), and genomics pilots.</li>
+<li>Jeremy Kun's <a href="https://jeremykun.com/fhe-in-production"><em>FHE in production</em></a> keeps a
+  skeptical list of what is truly deployed versus pilots and rumours.</li>
+</ul>
+<h2 id="9-open-problems-worth-following">9. Open problems worth following<a class="headerlink" href="#9-open-problems-worth-following" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>Bootstrapping latency</strong>: from ms toward µs (TFHE), and from seconds toward ms (CKKS).</li>
+<li><strong>Memory</strong>: evaluation keys of GBs. On-the-fly key generation, key compression.</li>
+<li><strong>Secure by default under shared decryptions</strong> (IND-CPA-D) without large precision loss.</li>
+<li><strong>Verifiable FHE</strong>: efficient proofs that the server computed correctly.</li>
+<li><strong>Multi-party FHE at scale</strong>: threshold decryption networks, key resharing, robustness.</li>
+<li><strong>Non-linear functions</strong> in batched schemes: softmax, LayerNorm, comparisons.</li>
+<li><strong>Standard benchmarks</strong>: comparable numbers across libraries and hardware (the SoK's
+   "Private LLM Card" is one attempt).</li>
+<li><strong>Cryptanalysis of new structures</strong>: sparse/structured secrets, GL matrix encodings,
+   circular security.</li>
+<li><strong>Usability</strong>: compilers that make FHE as easy as writing NumPy.</li>
+</ol>
+<hr />
+<h2 id="sources-for-this-chapter">Sources for this chapter<a class="headerlink" href="#sources-for-this-chapter" title="Link to this section">#</a></h2>
+<p>Primary (papers):</p>
+<ul>
+<li><a href="https://eprint.iacr.org/2026/1730">ePrint 2026/1730: Jain, Lin, Liu, Saha, Fast and Shallow FHE Bootstrapping (CRYPTO 2026)</a></li>
+<li><a href="https://eprint.iacr.org/2026/956">ePrint 2026/956: Efficient Bootstrapping in FHE for Matrix Arithmetic (CRYPTO 2026)</a></li>
+<li><a href="https://eprint.iacr.org/2026/853">ePrint 2026/853: MRFHE, Mixed-Radix FHE with Better Batch Bootstrapping</a></li>
+<li><a href="https://eprint.iacr.org/2026/1091">ePrint 2026/1091: Practical Homomorphic LSTM via Programmable Bootstrapping</a></li>
+<li><a href="https://eprint.iacr.org/2025/1935">ePrint 2025/1935: Gentry &amp; Lee, FHE for Matrix Arithmetic</a></li>
+<li><a href="https://eprint.iacr.org/2026/935">ePrint 2026/935: SoK, Private LLM Inference using Approximate HE</a></li>
+<li><a href="https://eprint.iacr.org/2026/198">ePrint 2026/198: ELLMo</a> · <a href="https://eprint.iacr.org/2026/2242">ePrint 2026/2242: Error-propagation-aware scale design</a></li>
+<li><a href="https://arxiv.org/abs/2609.16915">arXiv 2609.16915: ROSETTA</a> · <a href="https://arxiv.org/abs/2608.17442">arXiv 2608.17442: FESC</a> · <a href="https://arxiv.org/abs/2506.18150">arXiv 2506.18150: HE-LRM</a></li>
+<li><a href="https://openproceedings.org/2026/conf/edbt/paper-T1.pdf">EDBT 2026 tutorial: Private LLM Inference with HE</a></li>
+<li><a href="https://eprint.iacr.org/2024/767">ePrint 2024/767: Bootstrapping Bits with CKKS</a> · <a href="https://eprint.iacr.org/2024/1637">2024/1637: Bootstrapping Small Integers with CKKS</a> · <a href="https://eprint.iacr.org/2024/1623">2024/1623: General Functional Bootstrapping using CKKS</a> · <a href="https://eprint.iacr.org/2024/1638">2024/1638: Modular Reduction in CKKS</a> · <a href="https://eprint.iacr.org/2025/1786">2025/1786: Discrete CKKS in High Precision</a></li>
+<li><a href="https://eprint.iacr.org/2026/285">ePrint 2026/285: PEGASUS / scheme switching not IND-CPA-D</a> · <a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546: BFV key-recovery attacks</a> · <a href="https://eprint.iacr.org/2024/203.pdf">ePrint 2024/203: Application-aware approximate HE</a> · <a href="https://eprint.iacr.org/2024/853.pdf">ePrint 2024/853</a></li>
+<li><a href="https://usenix.org/system/files/sec24summer-prepub-822-guo.pdf">Guo et al., USENIX Security 2024</a></li>
+<li><a href="https://arxiv.org/abs/2508.11095">arXiv 2508.11095: HEIR, A Universal Compiler for HE</a></li>
+<li><a href="https://arxiv.org/pdf/2408.09593">arXiv 2408.09593: Osiris, systolic FHE accelerator</a></li>
+</ul>
+<p>Standards:</p>
+<ul>
+<li><a href="https://www.dinmedia.de/en/draft-standard/iso-iec-dis-28033-2/399825297">ISO/IEC DIS 28033-2 (DIN Media)</a> · <a href="https://www.dinmedia.de/en/draft-standard/iso-iec-dis-28033-3/398741185">ISO/IEC DIS 28033-3 (DIN Media)</a> · <a href="https://knowledge.bsigroup.com/products/bs-iso-iec-28033-2-information-security-fully-homomorphic-encryption-part-2-mechanisms-for-exact-arithmetic-on-modular-integers">BSI 28033-2</a> · <a href="https://bobs.isolutions.iso.org/standard/87638.html?browse=tc">ISO 28033-1 CD listing</a> · <a href="https://iss.rs/en/project/show/iso:proj:87641">ISS project 87641</a></li>
+<li><a href="https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/security.html">OpenFHE Security Notes</a></li>
+</ul>
+<p>Secondary (news, vendor or blog; treat numbers with care):</p>
+<ul>
+<li>Intel Heracles: <a href="https://www.privacyguides.org/news/2026/03/19/intels-fully-homomorphic-encryption-chip-could-revolutionize-privacy/">Privacy Guides</a> · <a href="https://www.i-programmer.info/news/149-security/18779-intel-demos-homomorphic-encryption-chip.html">i-programmer</a> · <a href="https://www.all-about-industries.com/intel-displays-functional-he-accelerator-for-calculations-on-encrypted-data-a-07827ea187a489935ff36ccf9e231ff5/">all-about-industries</a> · <a href="https://community.intel.com/t5/Blogs/Tech-Innovation/Data-Center/Intel-Labs-Continues-Focused-Research-and-Standards-Efforts-to/post/1488532">Intel Labs blog</a></li>
+<li><a href="https://cybersecuritycue.com/niobium-raises-23m-fhe-hardware-acceleration/">Niobium raises $23M</a></li>
+<li><a href="https://dualitytech.com/blog/homomorphic-encryption-performance-2026/">Duality: HE benchmarks 2026 (vendor)</a></li>
+<li><a href="https://wavect.io/blog/fully-homomorphic-encryption-practical-2026/">Wavect: FHE in 2026, what ships and what is hype</a></li>
+<li><a href="https://jeremykun.com/fhe-in-production">Jeremy Kun: FHE in production</a></li>
+<li><a href="https://swift.org/blog/announcing-swift-homomorphic-encryption/">Swift.org: Announcing Swift Homomorphic Encryption</a></li>
+<li>Zama: <a href="https://thedefiant.io/news/infrastructure/zama-ceo-claims-1-000-confidential-transfers-per-second-on-gpus">The Defiant, 1 000 TPS claim</a> · <a href="https://blockeden.xyz/blog/2026/01/05/zama-protocol/">BlockEden, Zama Protocol overview</a></li>
+<li>DESILO / GL scheme: <a href="https://technode.global/?p=118096">TechNode Global</a> · <a href="https://cioinfluence.com/machine-learning/desilo-and-cornami-announce-breakthrough-in-encrypted-ai-computation">CIO Influence, DESILO + Cornami</a></li>
+<li>HEIR: <a href="https://google.github.io/heir">Google HEIR docs</a> · <a href="https://northeasttimes.com/2026/08/15/google-releases-open-source-tool-to-run-ai-on-encrypted-data/">Northeast Times</a></li>
+</ul>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Read 2026/1730 together: what the structured-secret RLWE assumption is and why depth 3 is possible.</li>
+<li>Encrypted LLMs: go through the SoK's taxonomy and POLARIS, and try running BERT-Tiny encrypted.</li>
+<li>Heracles vs CraterLake vs GPUs: an architecture comparison.</li>
+<li>What exactly ISO/IEC 28033 standardizes, and how it differs from the HE.org standard.</li>
+</ul>
+</article>
+<footer class="pager"><a href="06_security.html">← 06 · Security: what HE guarantees, and where it breaks</a><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications →</a></footer>
+</main>
+</body>
+</html>

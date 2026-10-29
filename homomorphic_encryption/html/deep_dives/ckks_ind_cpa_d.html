@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li class="current"><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-one-idea">0. The one idea</a></li>
+<li><a href="#1-security-notions-ind-cpa-is-not-enough">1. Security notions: IND-CPA is not enough</a><ul>
+<li><a href="#11-what-ind-cpa-promises">1.1 What IND-CPA promises</a></li>
+<li><a href="#12-ind-cpa-d-decryptions-of-honest-computations">1.2 IND-CPA-D: decryptions of honest computations</a></li>
+<li><a href="#13-where-this-happens-in-practice">1.3 Where this happens in practice</a></li>
+</ul>
+</li>
+<li><a href="#2-the-attack">2. The attack</a><ul>
+<li><a href="#21-the-algebra">2.1 The algebra</a></li>
+<li><a href="#22-toy-run">2.2 Toy run</a></li>
+<li><a href="#23-what-makes-it-so-damaging">2.3 What makes it so damaging</a></li>
+<li><a href="#24-a-note-on-output-precision">2.4 A note on output precision</a></li>
+</ul>
+</li>
+<li><a href="#3-noise-flooding">3. Noise flooding</a><ul>
+<li><a href="#31-the-idea">3.1 The idea</a></li>
+<li><a href="#32-how-large-the-smudging-lemma">3.2 How large? The smudging lemma</a></li>
+<li><a href="#33-the-price-precision">3.3 The price: precision</a></li>
+</ul>
+</li>
+<li><a href="#4-why-the-number-of-decryptions-matters-the-averaging-attack">4. Why the number of decryptions matters: the averaging attack</a></li>
+<li><a href="#5-getting-the-noise-bound-right">5. Getting the noise bound right</a></li>
+<li><a href="#6-its-not-only-ckks">6. It's not only CKKS</a></li>
+<li><a href="#7-practical-checklist">7. Practical checklist</a></li>
+<li><a href="#8-exercises">8. Exercises</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)<a class="headerlink" href="#deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d" title="Link to this section">#</a></h1>
+<p><a href="../index.html">index</a> · background: <a href="ckks.html">CKKS deep dive</a>, <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 Security §3</a></p>
+<hr />
+<p>In 2021 Baiyu Li and Daniele Micciancio showed that CKKS, a scheme with a valid IND-CPA
+security proof, falls to a <strong>passive key-recovery attack</strong> as soon as someone who holds a
+ciphertext also sees its decryption. No malicious computation is involved, no fault
+injection, no side channel: one honestly computed result, shared in the ordinary way, gives
+away the secret key.</p>
+<p>This document reproduces the attack on the toy CKKS, then fixes it with <strong>noise flooding</strong>,
+then breaks weak flooding with an <strong>averaging attack</strong>. Everything runs in
+<a href="../../code/ckks_attack.py"><code>../code/ckks_attack.py</code></a>, which builds on
+<a href="../../code/toy_ckks.py"><code>toy_ckks.py</code></a>:</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/ckks_attack.py<span class="w">      </span><span class="c1"># from the homomorphic_encryption/ folder, takes ~2 s</span>
+</code></pre></div>
+
+<hr />
+<h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
+<blockquote>
+<p>CKKS decryption returns \(c_0 + c_1 s \bmod Q\), <strong>noise included</strong>, because in CKKS the noise
+is part of the approximate answer. Whoever holds the ciphertext \((c_0, c_1)\) and sees that
+output has one linear equation in one unknown polynomial: \(c_1 \cdot s = m&#x27; - c_0\).
+Solve it, and you have the key.</p>
+</blockquote>
+<p>Exact schemes (BFV, BGV, TFHE) round the noise away during decryption, so their outputs
+contain only the message, which the attacker already knows. CKKS skipped that step to gain
+precision, and the rounding step was what protected the key.</p>
+<hr />
+<h2 id="1-security-notions-ind-cpa-is-not-enough">1. Security notions: IND-CPA is not enough<a class="headerlink" href="#1-security-notions-ind-cpa-is-not-enough" title="Link to this section">#</a></h2>
+<h3 id="11-what-ind-cpa-promises">1.1 What IND-CPA promises<a class="headerlink" href="#11-what-ind-cpa-promises" title="Link to this section">#</a></h3>
+<p>In the IND-CPA game, the adversary picks two messages, gets an encryption of one of them, and
+must guess which. It sees public keys, evaluation keys and ciphertexts, <strong>but never a
+decryption</strong>. CKKS is IND-CPA secure under RLWE. That proof is correct and the attack does
+not contradict it. The game simply doesn't model the attack.</p>
+<h3 id="12-ind-cpa-d-decryptions-of-honest-computations">1.2 IND-CPA-D: decryptions of honest computations<a class="headerlink" href="#12-ind-cpa-d-decryptions-of-honest-computations" title="Link to this section">#</a></h3>
+<p>Li and Micciancio's game adds decryptions, restricted so the adversary can't win trivially:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Oracle</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Encrypt</strong>(m₀, m₁)</td>
+<td>encrypts <code>m_b</code> (the challenge bit <code>b</code> is secret) and stores the ciphertext</td>
+</tr>
+<tr>
+<td><strong>Eval</strong>(g, i₁…i_k)</td>
+<td>homomorphically applies <code>g</code> to stored ciphertexts and stores the result</td>
+</tr>
+<tr>
+<td><strong>Decrypt</strong>(i)</td>
+<td>returns <code>Dec(ct_i)</code>, <strong>only if</strong> <code>g(m₀…) = g(m₁…)</code> for that entry, i.e. the true answer is the same in both worlds</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every decryption the adversary sees is of an honest computation whose correct answer it
+already knows. For an <strong>exact</strong> scheme with negligible decryption-failure probability, that
+oracle reveals nothing, because it can be simulated by returning the known answer. So
+IND-CPA implies IND-CPA-D. For an <strong>approximate</strong> scheme the output carries extra
+information: the noise. That extra information is enough to recover the key.</p>
+<p>The attack in the game: call Encrypt(m, m), call Decrypt on it, recover <code>s</code>, then decrypt any
+challenge with m₀ ≠ m₁. The adversary wins with probability 1.</p>
+<h3 id="13-where-this-happens-in-practice">1.3 Where this happens in practice<a class="headerlink" href="#13-where-this-happens-in-practice" title="Link to this section">#</a></h3>
+<p>The decryption oracle is not exotic. It exists whenever a decrypted result becomes visible to
+whoever holds (or computed) the ciphertext:</p>
+<ul>
+<li>a client sends an encrypted query and later <strong>tells the server the answer</strong>, or acts on it
+  visibly: a fraud score that blocks a payment, a recommendation that gets clicked;</li>
+<li>results of encrypted analytics are <strong>published</strong>;</li>
+<li><strong>threshold decryption</strong>: every party sees the output, and the partial decryptions too;</li>
+<li>a client <strong>re-uploads</strong> a decrypted result as the next input.</li>
+</ul>
+<p>In all these cases the server is the natural attacker. It already holds <code>(c₀, c₁)</code>, since it
+computed them.</p>
+<hr />
+<h2 id="2-the-attack">2. The attack<a class="headerlink" href="#2-the-attack" title="Link to this section">#</a></h2>
+<h3 id="21-the-algebra">2.1 The algebra<a class="headerlink" href="#21-the-algebra" title="Link to this section">#</a></h3>
+<ol>
+<li>The server computes honestly and returns <code>ct = (c₀, c₁)</code> at level <code>ℓ</code> (modulus \(Q_\ell\)).</li>
+<li>The client decrypts, \(m&#x27; = c_0 + c_1 s \bmod Q_\ell\), decodes to complex numbers, and
+   shares them.</li>
+<li>The attacker <strong>re-encodes</strong> the shared numbers. Decoding and encoding are exact inverses on
+   integer polynomials as long as the floats carry every bit: with Δ = 2⁴⁰ the coefficients are
+   about 2⁴⁰ &lt; 2⁵³, so doubles do. The attacker gets back <code>m'</code> exactly, noise included.</li>
+<li>Solve
+   \[c_1 \cdot s \equiv m&#x27; - c_0 \pmod{Q_\ell}\]
+   This is <code>N</code> linear equations (multiplication by <code>c₁</code> is an <code>N × N</code> negacyclic matrix) in the
+   <code>N</code> unknown coefficients of <code>s</code>.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">recover_key</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">decrypted</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a ciphertext and its exact decryption m&#39; = c0 + c1*s, solve c1*s = m&#39; - c0 for s.&quot;&quot;&quot;</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">ckks</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">ckks</span><span class="o">.</span><span class="n">poly_sub</span><span class="p">(</span><span class="n">decrypted</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">solve_mod</span><span class="p">(</span><span class="n">negacyclic_matrix</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">c1</span><span class="p">),</span> <span class="n">r</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">ckks</span><span class="o">.</span><span class="n">centre</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">negacyclic_matrix</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Matrix M with M s = c * s in Z[X]/(X^N + 1).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">c</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">j</span><span class="p">]</span> <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="k">else</span> <span class="o">-</span><span class="n">c</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">j</span> <span class="o">+</span> <span class="n">N</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+</code></pre></div>
+
+<p><code>solve_mod</code> is ordinary Gaussian elimination modulo \(Q_\ell\), choosing invertible (odd)
+pivots.</p>
+<h3 id="22-toy-run">2.2 Toy run<a class="headerlink" href="#22-toy-run" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>== 1. the attack: one shared result reveals the key
+result #1: c1 not invertible mod 2, try the next result
+result #2: c1 not invertible mod 2, try the next result
+result #3: c1 not invertible mod 2, try the next result
+result #4: KEY RECOVERED
+attacker decrypts the secret data: 0.212319-0.833932j  true: 0.212319-0.833932j
+</code></pre></div>
+
+<p>Each "result" is an honest product <code>x · w</code> computed by the server. Once the system is solvable,
+the attacker has <code>s</code> and reads a completely unrelated ciphertext.</p>
+<p><strong>Why some results don't work in the toy.</strong> The toy's moduli are powers of two. Modulo 2, the
+ring \(\mathbb{F}_2[X]/(X^N+1) = \mathbb{F}_2[X]/((X+1)^N)\) is <em>local</em>: a polynomial is
+invertible exactly when the sum of its coefficients is odd. That is true for about half of all
+<code>c₁</code>. Measured: 103 of 200 results. The attacker checks the parity in advance and waits for a
+usable result. <strong>Real libraries use RNS prime moduli</strong>, where <code>c₁</code> is invertible with
+overwhelming probability. There the attack is a single division done prime by prime in the NTT
+domain, \(s = (m&#x27; - c_0)\cdot c_1^{-1}\), and it takes milliseconds even at <code>N = 2¹⁶</code>.</p>
+<h3 id="23-what-makes-it-so-damaging">2.3 What makes it so damaging<a class="headerlink" href="#23-what-makes-it-so-damaging" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Passive.</strong> The server never deviates from the protocol. Auditing its computation finds nothing.</li>
+<li><strong>Total.</strong> It recovers the <em>secret key</em>, not just one message. Every past and future
+  ciphertext under that key is exposed.</li>
+<li><strong>Cheap.</strong> One decryption and one linear solve.</li>
+<li><strong>Invisible to the client.</strong> Sharing a result looks harmless.</li>
+</ul>
+<h3 id="24-a-note-on-output-precision">2.4 A note on output precision<a class="headerlink" href="#24-a-note-on-output-precision" title="Link to this section">#</a></h3>
+<p>At the toy's original scale of 2⁶⁰, the coefficients exceed 2⁵³, so Python's doubles
+<em>happen</em> to drop the lowest bits of the decryption, and the exact attack above would fail.
+That is an accident of floating point, not a defence. Deterministic truncation leaves partial
+information about <code>e</code> in the output, an attacker who can shift results by known amounts can
+probe the rounding boundaries, and no security proof covers it. The literature treats only
+properly sized <strong>randomized</strong> noise as a fix. The attack script therefore re-parameterizes the
+toy to Δ = 2⁴⁰, a typical deployment scale.</p>
+<hr />
+<h2 id="3-noise-flooding">3. Noise flooding<a class="headerlink" href="#3-noise-flooding" title="Link to this section">#</a></h2>
+<h3 id="31-the-idea">3.1 The idea<a class="headerlink" href="#31-the-idea" title="Link to this section">#</a></h3>
+<p>Before releasing a decryption, add fresh random noise <code>f</code> that is much larger than the
+computation noise <code>e</code>:</p>
+<div class="math-display">\[\text{release } m&#x27; + f = \Delta z + e + f, \qquad f \leftarrow \text{Gaussian}(\sigma_f),\ \ \sigma_f \gg |e|\]</div>
+<p>If <code>f</code> is large enough, the distribution of <code>e + f</code> is statistically almost the same as that of
+<code>f</code>. The output then carries (almost) no information about <code>e</code>, and hence none about <code>s</code>. A
+simulator can produce it from the true answer alone, which reduces IND-CPA-D to IND-CPA.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">publish</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">flood_sigma</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">ckks</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>                                  <span class="c1"># = c0 + c1*s = Delta*z + e</span>
+    <span class="k">if</span> <span class="n">flood_sigma</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">+</span> <span class="nb">round</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">gauss</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">flood_sigma</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">m</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">decode</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</code></pre></div>
+
+<p>(Real implementations sample a proper discrete Gaussian with a secure random generator, and
+flood <em>before</em> decoding, as here.)</p>
+<h3 id="32-how-large-the-smudging-lemma">3.2 How large? The smudging lemma<a class="headerlink" href="#32-how-large-the-smudging-lemma" title="Link to this section">#</a></h3>
+<p>The statistical distance between <code>e + f</code> and <code>f</code> is roughly \(B / \sigma_f\), where <code>B</code> bounds
+<code>|e|</code>. For <strong>λ bits of statistical security</strong>:</p>
+<div class="math-display">\[\sigma_f \approx 2^{\lambda} \cdot B\]</div>
+<p>In the toy, <code>B</code> is small: fresh encryptions have \(\max_k |e_k| \approx 2^{4.9}\), and results
+after one multiplication about \(2^{5.1}\)–\(2^{6.1}\). With λ = 40, that gives
+\(\sigma_f \approx 2^{46}\).</p>
+<p>Tighter analyses based on differential privacy (Li–Micciancio–Schultz–Sorrell, CRYPTO 2022)
+allow smaller <code>σ_f</code> for a bounded number of decryptions. The overall shape stays the same:
+<strong>dozens of bits</strong> of flooding.</p>
+<h3 id="33-the-price-precision">3.3 The price: precision<a class="headerlink" href="#33-the-price-precision" title="Link to this section">#</a></h3>
+<p>Flooding noise is indistinguishable from signal error, so it eats output precision bit for
+bit. Toy measurement, Δ = 2⁴⁰, the same result decrypted with increasing flooding:</p>
+<div class="highlight"><pre><span></span><code>flooding sigma   output precision   single-query attack
+          none     33.9 bits        key recovered
+           2^4     32.9 bits        garbage (not a ternary key)
+          2^10     27.7 bits        garbage (not a ternary key)
+          2^20     17.0 bits        garbage (not a ternary key)
+          2^30      7.2 bits        garbage (not a ternary key)
+</code></pre></div>
+
+<p>Rule of thumb: <strong>precision ≈ log₂Δ − log₂σ_f − 3 bits.</strong> Even σ_f = 2⁴ stops the one-shot
+linear attack: the "key" it computes is random garbage. But stopping <em>one particular attack</em>
+is not security (§4). With properly sized flooding (≈ 2⁴⁶ here), Δ = 2⁴⁰ leaves <strong>nothing</strong>.
+To keep 20 output bits you need Δ ≈ 2⁶⁶–2⁷⁰. That means larger moduli, larger <code>N</code> and slower
+everything. This is why <strong>high-precision CKKS</strong> matters: for example, discrete-CKKS
+bootstrapping at ~80 bits (Choe–Kim–Stehlé–Suvanto 2025,
+<a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a>) exists precisely to make flooding
+affordable.</p>
+<hr />
+<h2 id="4-why-the-number-of-decryptions-matters-the-averaging-attack">4. Why the number of decryptions matters: the averaging attack<a class="headerlink" href="#4-why-the-number-of-decryptions-matters-the-averaging-attack" title="Link to this section">#</a></h2>
+<p>Flooding noise is fresh each time. If the attacker sees <strong>many</strong> flooded decryptions of the
+same result, it can average them. The flooding shrinks by \(\sqrt{k}\) while <code>e</code> stays put. Once
+the average is accurate to ±½ in every coefficient, rounding gives <code>m'</code> exactly and §2 applies.</p>
+<p>Toy run, σ_f = 2⁴, the same result decrypted repeatedly:</p>
+<div class="highlight"><pre><span></span><code>== 3. averaging attack on weak flooding (sigma = 2^4): ask for the same result many times
+   100 decryptions averaged -&gt; not yet
+  1000 decryptions averaged -&gt; not yet
+  3000 decryptions averaged -&gt; not yet
+ 10000 decryptions averaged -&gt; KEY RECOVERED
+ 30000 decryptions averaged -&gt; KEY RECOVERED
+rule of thumb: ~(6 sigma)^2 queries -&gt; 9216 for sigma = 2^4, 2^65 for sigma = 2^30
+</code></pre></div>
+
+<p>The <code>(6σ)²</code> rule follows from needing all <code>N</code> coefficients within ½ of the truth, i.e.
+\(\sigma/\sqrt{k} \lesssim 1/6\), a 3-sigma margin. The observed threshold (between 3 000 and
+10 000) matches the predicted ~9 200.</p>
+<p><strong>"Just cache the noise per ciphertext" doesn't help.</strong> A natural patch is to derive <code>f</code>
+deterministically from a hash of the ciphertext, so repeated requests get the same answer.
+But the attacker can submit \(c + (k_i, 0)\) for known constants \(k_i\). Each is a <em>different</em>
+ciphertext decrypting to \(m&#x27; + k_i\), so each gets fresh flooding, and the attacker subtracts
+the known \(k_i\) and averages anyway.</p>
+<p><strong>Lesson:</strong> the flooding level must account for the <strong>total number of decryptions the
+adversary can observe</strong>. In differential-privacy terms, the privacy budget composes over
+queries. Libraries expose this as a statistical-security parameter plus an expected number of
+adversarial decryptions; recent OpenFHE versions take both when configuring CKKS noise
+flooding (check the current API). The averaging attack is only one attack. The real
+requirement is the statistical bound of §3.2 over all queries combined.</p>
+<hr />
+<h2 id="5-getting-the-noise-bound-right">5. Getting the noise bound right<a class="headerlink" href="#5-getting-the-noise-bound-right" title="Link to this section">#</a></h2>
+<p><code>σ_f</code> is set relative to <code>B</code>, the noise of <strong>this computation's</strong> output. Underestimating <code>B</code>
+silently voids the protection:</p>
+<ul>
+<li><strong>Average-case estimates are not enough.</strong> Guo, Nabokov, Suvanto and Johansson (USENIX
+  Security 2024) recovered keys from libraries (OpenFHE among them) whose flooding was
+  calibrated with <em>average-case</em> noise estimates. A computation whose actual noise exceeds the
+  estimate leaves <code>e</code> visible above the flooding.</li>
+<li><strong>The circuit matters.</strong> Alexandru, Al Badawi, Micciancio and Polyakov
+  (<a href="https://eprint.iacr.org/2024/203">ePrint 2024/203</a>) argue these attacks evaluate a
+  different circuit from the one the parameters were estimated for. They propose an
+  <strong>application-aware</strong> model, in which parameters are certified only for a declared
+  computation.</li>
+<li><strong>OpenFHE's response: a two-phase mode.</strong> First run the actual circuit in a
+  noise-<em>estimation</em> mode to measure <code>B</code>. Then run it for real with flooding sized from that
+  measurement. That gives provable IND-CPA-D security for the declared computation.</li>
+<li><strong>The countermeasures themselves keep being re-examined</strong>, e.g. Bergamaschi et al.
+  (PKC 2025). See <a href="../07_state_of_the_art_2026.html#7-security-research-summary-details-in-ch-06">07 §7</a>.</li>
+</ul>
+<hr />
+<h2 id="6-its-not-only-ckks">6. It's not only CKKS<a class="headerlink" href="#6-its-not-only-ckks" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>What leaks</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Exact schemes (BFV, BGV, TFHE)</strong></td>
+<td>Not the noise, which is rounded away, but <strong>decryption failures</strong>. If failure probability is noticeable (e.g. 2⁻⁴⁰ or worse), <em>which</em> results come out wrong reveals the key. The toy TFHE at 5 bits fails 2.4 % of the time, exactly this situation (<a href="tfhe.html#4-programmable-bootstrapping-step-by-step">TFHE deep dive §4.1</a>)</td>
+<td>Cheon–Choe–Passelègue–Stehlé–Suvanto, CCS 2024</td>
+</tr>
+<tr>
+<td><strong>BFV in OpenFHE</strong></td>
+<td>full key recovery in minutes to hours</td>
+<td><a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></td>
+</tr>
+<tr>
+<td><strong>Scheme switching CKKS → FHEW</strong></td>
+<td>PEGASUS-style switching is not IND-CPA-D. Key recovery against OpenFHE's implementation</td>
+<td>Santato–Zanotto, <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></td>
+</tr>
+<tr>
+<td><strong>Threshold FHE</strong></td>
+<td>each party's <em>partial</em> decryption contains its key share times a ciphertext plus noise. Without flooding ("smudging"), the shares leak</td>
+<td>demonstrated in the <a href="threshold_fhe.html#5-why-smudging-is-mandatory">threshold FHE deep dive §5</a></td>
+</tr>
+<tr>
+<td><strong>Circuit privacy</strong></td>
+<td>the output noise reveals information about the <em>server's</em> function</td>
+<td>same fix: flood or sanitize (<a href="../06_security.html#4-circuit-privacy-and-sanitization">06 §4</a>)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The common thread: <strong>any channel that exposes noise, or exposes whether noise crossed a
+threshold, is a channel to the secret key.</strong></p>
+<hr />
+<h2 id="7-practical-checklist">7. Practical checklist<a class="headerlink" href="#7-practical-checklist" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>Who sees decrypted outputs?</strong> If anyone other than the key owner can see them, even
+   indirectly through the owner's behaviour, you are in the IND-CPA-D setting.</li>
+<li><strong>CKKS:</strong> enable flooded decryption, and budget for it: Δ needs ~λ extra bits, which means
+   bigger parameters. Size <code>B</code> with <strong>worst-case</strong> estimates <em>for the circuit you actually run</em>.</li>
+<li><strong>Count decryptions.</strong> Fix an upper bound on how many results an adversary may observe
+   under one key, and feed it to the parameter selection. Rotate keys before exceeding it.</li>
+<li><strong>Exact schemes:</strong> choose parameters with <strong>negligible</strong> failure probability (2⁻⁶⁴ to
+   2⁻¹²⁸). Libraries such as TFHE-rs now default to this range.</li>
+<li><strong>Never decrypt arbitrary ciphertexts on request.</strong> That is a decryption oracle for
+   <em>dishonest</em> ciphertexts, the even stronger CCA1 setting, where lattice schemes break with a
+   few thousand queries regardless of flooding.</li>
+<li><strong>If results may have leaked without flooding, treat the key as compromised.</strong></li>
+</ol>
+<hr />
+<h2 id="8-exercises">8. Exercises<a class="headerlink" href="#8-exercises" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>Port the attack to a prime modulus:</strong> pick an NTT-friendly prime <code>q</code>, compute
+   \(c_1^{-1}\) with the NTT (or <code>pow(…, -1, q)</code> per evaluation point), and confirm that a
+   <em>single</em> result always suffices.</li>
+<li><strong>Dithering attack:</strong> round the published output to 20 bits instead of flooding, then
+   recover information about <code>e</code> by submitting results shifted by known constants.</li>
+<li><strong>Plot the averaging attack's success rate</strong> against <code>k</code> for several <code>σ_f</code>, and compare
+   with the <code>(6σ)²</code> rule.</li>
+<li><strong>Break hash-seeded flooding</strong> with shifted resubmissions (§4).</li>
+<li><strong>Threshold decryption:</strong> split <code>s</code> into two additive shares, publish unflooded partial
+   decryptions, and recover each share.</li>
+<li><strong>Run the attack at Δ = 2⁶⁰</strong>, where floats drop the low bits, and recover the key anyway,
+   e.g. by brute-forcing the residual error over the sparse secret.</li>
+</ol>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
+<ul>
+<li>Li, Micciancio. <em>On the Security of Homomorphic Encryption on Approximate Numbers</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1533">ePrint 2020/1533</a></li>
+<li>Li, Micciancio, Schultz, Sorrell. <em>Securing Approximate Homomorphic Encryption Using Differential Privacy</em>. CRYPTO 2022. <a href="https://eprint.iacr.org/2022/816">ePrint 2022/816</a></li>
+<li>Guo, Nabokov, Suvanto, Johansson. <em>Key Recovery Attacks on Approximate Homomorphic Encryption with Non-Worst-Case Noise Flooding Countermeasures</em>. USENIX Security 2024. <a href="https://usenix.org/system/files/sec24summer-prepub-822-guo.pdf">paper</a></li>
+<li>Alexandru, Al Badawi, Micciancio, Polyakov. <em>Application-Aware Approximate Homomorphic Encryption: Configuring FHE for Practical Use</em>. <a href="https://eprint.iacr.org/2024/203">ePrint 2024/203</a></li>
+<li>Cheon, Choe, Passelègue, Stehlé, Suvanto. <em>Attacks Against the IND-CPA-D Security of Exact FHE Schemes</em>. CCS 2024. <a href="https://eprint.iacr.org/2024/127">ePrint 2024/127</a></li>
+<li>Bergamaschi et al. Revisiting noise-flooding countermeasures for approximate HE. PKC 2025.</li>
+<li>Santato, Zanotto. PEGASUS / CKKS→FHEW scheme switching is not IND-CPA-D. <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></li>
+<li>New attacks on BFV in OpenFHE. <a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></li>
+<li>Choe, Kim, Stehlé, Suvanto. <em>Leveraging Discrete CKKS to Bootstrap in High Precision</em>. <a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a></li>
+<li>OpenFHE, <a href="https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/security.html"><em>Security Notes for Homomorphic Encryption</em></a> (CKKS noise flooding and its configuration)</li>
+</ul>
+<blockquote>
+<p>Some ePrint numbers above (2022/816, 2024/127) are cited from memory. If a link doesn't
+match its title, search the title on <a href="https://eprint.iacr.org">eprint.iacr.org</a>.</p>
+</blockquote>
+</article>
+<footer class="pager"><a href="../deep_dives/ckks.html">← Deep dive: CKKS (encoding, rescaling, bootstrapping)</a><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping →</a></footer>
+</main>
+</body>
+</html>

@@ -11,6 +11,16 @@ documents later.
 
 Status: overview, first pass (2026-10-29).
 
+**HTML version.** The formulas render properly in the HTML build: open
+[`html/index.html`](html/index.html) in a browser. After editing any `.md` file, rebuild it with
+
+```bash
+python3 build_html.py
+```
+
+It needs only Python-Markdown and Pygments. Formulas are rendered by KaTeX, loaded from a CDN,
+so they need an internet connection; everything else works offline.
+
 ---
 
 ## Reading order

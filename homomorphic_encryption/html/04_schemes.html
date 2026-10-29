@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 · The schemes: five &quot;generations&quot; of FHE</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li class="current"><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#generation-1-feasibility">Generation 1: feasibility</a></li>
+<li><a href="#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">Generation 2: BGV and BFV (exact arithmetic over Z_t)</a></li>
+<li><a href="#generation-3-gsw-fhew-tfhe-cggi">Generation 3: GSW, FHEW, TFHE (CGGI)</a><ul>
+<li><a href="#gsw-gentrysahaiwaters-2013-the-approximate-eigenvector-scheme">GSW (Gentry–Sahai–Waters 2013): the "approximate eigenvector" scheme</a></li>
+<li><a href="#fhew-ducasmicciancio-2015">FHEW (Ducas–Micciancio 2015)</a></li>
+<li><a href="#tfhe--cggi-chillottigamageorgievaizabachène-2016">TFHE / CGGI (Chillotti–Gama–Georgieva–Izabachène 2016)</a></li>
+</ul>
+</li>
+<li><a href="#generation-4-ckks-cheonkimkimsong-2017">Generation 4: CKKS (Cheon–Kim–Kim–Song 2017)</a></li>
+<li><a href="#generation-5-gentrylee-gl-fhe-for-matrix-arithmetic-2025">"Generation 5": Gentry–Lee (GL), FHE for matrix arithmetic (2025)</a></li>
+<li><a href="#comparison">Comparison</a></li>
+<li><a href="#scheme-switching-using-several-at-once">Scheme switching: using several at once</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="04--the-schemes-five-generations-of-fhe">04 · The schemes: five "generations" of FHE<a class="headerlink" href="#04--the-schemes-five-generations-of-fhe" title="Link to this section">#</a></h1>
+<p><a href="03_how_it_works.html">← 03 How it works</a> · <a href="index.html">index</a> · next: <a href="05_core_techniques.html">05 Core techniques →</a></p>
+<hr />
+<p>FHE schemes are usually grouped into generations. The grouping is loose, and the later
+generations did <strong>not</strong> replace the earlier ones. BGV/BFV, TFHE and CKKS are all actively
+used and developed, because they are good at different things.</p>
+<div class="highlight"><pre><span></span><code>Gen 1 (2009–10)  Gentry (ideal lattices), DGHV (integers)        proof of concept, impractical
+Gen 2 (2011–12)  BV, BGV, BFV  (RLWE, leveled, SIMD)              exact modular arithmetic, batched
+Gen 3 (2013–16)  GSW → FHEW → TFHE / CGGI                         fast bootstrapping, bits / LUTs
+Gen 4 (2017)     CKKS                                             approximate real-number arithmetic
+&quot;Gen 5&quot; (2025)   Gentry–Lee (GL) matrix FHE                       native encrypted matrix multiplication
+</code></pre></div>
+
+<h2 id="generation-1-feasibility">Generation 1: feasibility<a class="headerlink" href="#generation-1-feasibility" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Gentry 2009</strong>: ideal lattices, a "somewhat" HE scheme, plus <em>squashing</em> (making the
+  decryption circuit shallow) and <em>bootstrapping</em>. The landmark result, but impractical.</li>
+<li><strong>DGHV 2010</strong> (van Dijk, Gentry, Halevi, Vaikuntanathan): the same blueprint over the
+  integers. A ciphertext is <code>c = m + 2r + p·q</code> for a secret odd integer <code>p</code>. Decryption is
+  <code>(c mod p) mod 2</code>. Conceptually simple and great for teaching (see deep dives), but keys are
+  huge.</li>
+<li>The first implementation (Gentry–Halevi 2011) needed about <strong>30 minutes per bootstrap</strong> and
+  gigabyte-scale keys.</li>
+</ul>
+<h2 id="generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">Generation 2: BGV and BFV (exact arithmetic over <code>Z_t</code>)<a class="headerlink" href="#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t" title="Link to this section">#</a></h2>
+<p><strong>Papers.</strong> Brakerski–Vaikuntanathan 2011 (BV: relinearization, (R)LWE).
+Brakerski–Gentry–Vaikuntanathan 2012 (<strong>BGV</strong>: modulus switching, leveled FHE without
+bootstrapping). Brakerski 2012 and Fan–Vercauteren 2012 (<strong>BFV</strong>: scale-invariant).</p>
+<p><strong>Plaintext space.</strong> Polynomials in \(R_t = \mathbb{Z}_t[X]/(X^N+1)\). With a prime
+\(t \equiv 1 \pmod{2N}\), <strong>batching</strong> turns this into <strong>N independent slots of integers mod
+<code>t</code></strong>, operated on SIMD-style (ch. 05).</p>
+<p><strong>The difference between the two is where the message sits:</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>BGV</th>
+<th>BFV</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decryption equation</td>
+<td><code>c₀ + c₁s = m + t·e (mod q)</code></td>
+<td><code>c₀ + c₁s = Δ·m + e (mod q)</code>, <code>Δ = q/t</code></td>
+</tr>
+<tr>
+<td>Message lives in</td>
+<td><strong>low</strong> bits (noise is a multiple of <code>t</code>)</td>
+<td><strong>high</strong> bits (noise below it)</td>
+</tr>
+<tr>
+<td>Noise control</td>
+<td><strong>modulus switching</strong> after each mult (required)</td>
+<td>scale-invariant: multiply by <code>t/q</code> and round; modulus switching optional</td>
+</tr>
+<tr>
+<td>Typical sweet spot</td>
+<td>larger <code>t</code>, deep circuits</td>
+<td>small <code>t</code>, simpler parameter management</td>
+</tr>
+</tbody>
+</table></div>
+<p>Kim–Polyakov–Zucca (2021) showed that with modern RNS optimizations the two have similar
+performance. BGV tends to win for larger plaintext moduli, BFV for small ones.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a> builds BFV step by step
+(<a href="../code/toy_bfv.py">code/toy_bfv.py</a>) and uses it for a caller-ID PIR demo (<a href="../code/pir_caller_id.py">code/pir_caller_id.py</a>).</p>
+</blockquote>
+<p><strong>Good for:</strong> exact integer workloads such as counting, private information retrieval (PIR),
+private set intersection, database lookups, genomics, and exact statistics. Apple's Live
+Caller ID and Microsoft's Password Monitor are BFV.</p>
+<p><strong>Weak at:</strong> non-polynomial functions (comparison, division) and bootstrapping, which is slow
+and complicated (digit extraction). Most BGV/BFV deployments are <strong>leveled</strong>.</p>
+<h2 id="generation-3-gsw-fhew-tfhe-cggi">Generation 3: GSW, FHEW, TFHE (CGGI)<a class="headerlink" href="#generation-3-gsw-fhew-tfhe-cggi" title="Link to this section">#</a></h2>
+<h3 id="gsw-gentrysahaiwaters-2013-the-approximate-eigenvector-scheme">GSW (Gentry–Sahai–Waters 2013): the "approximate eigenvector" scheme<a class="headerlink" href="#gsw-gentrysahaiwaters-2013-the-approximate-eigenvector-scheme" title="Link to this section">#</a></h3>
+<p>A ciphertext is a <strong>matrix</strong> <code>C</code> such that, for the secret vector <code>v</code>,</p>
+<div class="math-display">\[C \cdot v \approx m \cdot v \qquad (\text{$v$ is an approximate eigenvector, $m$ the eigenvalue})\]</div>
+<p>So <code>C₁ + C₂</code> encrypts <code>m₁ + m₂</code> and <code>C₁ · C₂</code> encrypts <code>m₁ · m₂</code>, using <strong>plain matrix
+arithmetic with no evaluation key and no relinearization</strong>. With the gadget decomposition
+<code>G⁻¹</code>, the product's noise grows <strong>asymmetrically</strong>: it is roughly <code>poly(n)·e₂ + m₂·e₁</code>. One
+factor's noise is scaled by a fixed <code>poly(n)</code>; the other's only by the small message. Chaining many multiplications in the right order (e.g. a branching program) therefore grows
+noise only <em>linearly</em>. This asymmetry is what makes the fast bootstrapping of FHEW and TFHE
+possible. GSW ciphertexts are big, so GSW is rarely used directly. Its idea lives on as the
+<strong>GGSW</strong> ciphertexts in TFHE bootstrapping keys.</p>
+<h3 id="fhew-ducasmicciancio-2015">FHEW (Ducas–Micciancio 2015)<a class="headerlink" href="#fhew-ducasmicciancio-2015" title="Link to this section">#</a></h3>
+<p>Encrypt <strong>single bits</strong> with plain LWE. Bootstrap after <strong>every</strong> NAND gate, with an RLWE/GSW
+accumulator that performs the decryption's rounding step "in the exponent" of <code>X</code>. It was the
+first bootstrapping under one second.</p>
+<h3 id="tfhe--cggi-chillottigamageorgievaizabachène-2016">TFHE / CGGI (Chillotti–Gama–Georgieva–Izabachène 2016)<a class="headerlink" href="#tfhe--cggi-chillottigamageorgievaizabachène-2016" title="Link to this section">#</a></h3>
+<p>Formalized over the <strong>real torus</strong> \(\mathbb{T} = \mathbb{R}/\mathbb{Z}\), implemented with
+32/64-bit integers. It has three ciphertext types:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it is</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LWE</strong></td>
+<td><code>(a, b)</code> with <code>b = ⟨a,s⟩ + e + m</code></td>
+<td>carries the data</td>
+</tr>
+<tr>
+<td><strong>GLWE</strong> (RLWE)</td>
+<td>polynomial version</td>
+<td>accumulator during bootstrapping</td>
+</tr>
+<tr>
+<td><strong>GGSW</strong> (GSW over rings)</td>
+<td>a matrix of GLWEs</td>
+<td>bootstrapping key: encryptions of the secret-key bits</td>
+</tr>
+</tbody>
+</table></div>
+<p>The <strong>external product</strong> <code>GGSW × GLWE → GLWE</code> is cheap, and it gives the <strong>CMux</strong> gate
+(encrypted if-then-else), which blind rotation uses (ch. 03 §8). Gate bootstrapping took
+<strong>under 0.1 s</strong> in the 2016 paper, and about <strong>13 ms</strong> a year later.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/tfhe.html">deep_dives/tfhe.md</a> walks through programmable
+bootstrapping step by step, with a runnable toy implementation (<a href="../code/toy_tfhe.py">code/toy_tfhe.py</a>).</p>
+</blockquote>
+<p><strong>Programmable bootstrapping</strong> (Chillotti–Joye–Paillier 2021, Zama) generalizes it: each
+bootstrap applies an arbitrary <strong>lookup table</strong> to a small (≈ 1–8 bit) encrypted integer. Zama's
+<strong>TFHE-rs</strong> builds 8- to 256-bit integers out of radix "blocks" of 2-bit messages plus carries,
+which gives encrypted <code>u64</code> arithmetic, comparisons and branching-free control flow.</p>
+<p><strong>Good for:</strong> non-linear and branchy logic (comparisons, max, ReLU, sorting), arbitrary
+functions on small integers, smart-contract-style logic, and low-latency single operations.
+Noise never accumulates, so there is no depth planning.</p>
+<p><strong>Weak at:</strong> throughput. Each ciphertext holds one small value and every operation pays a
+bootstrap, so large linear algebra is much slower than with CKKS/BFV batching.</p>
+<h2 id="generation-4-ckks-cheonkimkimsong-2017">Generation 4: CKKS (Cheon–Kim–Kim–Song 2017)<a class="headerlink" href="#generation-4-ckks-cheonkimkimsong-2017" title="Link to this section">#</a></h2>
+<p><strong>Approximate arithmetic on real or complex numbers.</strong> It is also called HEAAN, after the
+original library.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/ckks.html">deep_dives/ckks.md</a> covers encoding, rescaling and
+bootstrapping step by step, with a runnable toy implementation (<a href="../code/toy_ckks.py">code/toy_ckks.py</a>).</p>
+</blockquote>
+<p><strong>Encoding.</strong> A vector \(z \in \mathbb{C}^{N/2}\) is mapped to a polynomial by the inverse
+<strong>canonical embedding</strong> (evaluating at the complex roots of \(X^N+1\); an inverse FFT),
+multiplied by a scale <code>Δ</code> (e.g. 2⁴⁰), and rounded to integer coefficients. One ciphertext
+holds <strong>N/2 complex slots</strong>, e.g. 32 768 values at <code>N = 2¹⁶</code>.</p>
+<p><strong>Arithmetic.</strong> Slot-wise add and multiply, <strong>rescale</strong> after each multiplication (drop a
+prime, ch. 03 §7), and rotate slots with Galois keys. Noise <em>is</em> rounding error, and precision
+is managed like floating point.</p>
+<p><strong>Bootstrapping.</strong> Cheon–Han–Kim–Kim–Song (2018). ModRaise → CoeffToSlot → EvalMod (sine
+approximation) → SlotToCoeff. It costs ~10–15 levels and is approximate. On CPUs it takes
+seconds per (fully packed) ciphertext. GPU implementations bring it to the tens to hundreds
+of milliseconds; FIDESlib reports ≥ 70× over AVX-optimized OpenFHE. Because it refreshes
+<strong>tens of thousands of values at once</strong>, the amortized cost per value is tiny.</p>
+<p><strong>Good for:</strong> machine learning inference and training, statistics, linear algebra, signal
+processing. Anything that tolerates ~20–40 bits of precision. It dominates encrypted
+neural-network research, including the encrypted-LLM work in ch. 07.</p>
+<p><strong>Weak at:</strong> exact results, and non-polynomial functions, which need polynomial approximations
+(ch. 05). Its decryption leaks noise, so it needs <strong>noise flooding</strong> before results are shared
+(IND-CPA-D, ch. 06).</p>
+<p><strong>Recent twist (2024–2026):</strong> "<strong>discrete CKKS</strong>". Bae–Cheon–Kim–Stehlé (Eurocrypt 2024)
+showed how to bootstrap <strong>bits</strong>. Bae–Kim–Stehlé–Suvanto (Asiacrypt 2024) bootstrapped <strong>small
+integers</strong> with functional (LUT) bootstrapping, at 3.75 ms amortized per 8-bit LUT. Alexandru,
+Kim and Polyakov did <strong>general functional bootstrapping</strong> in CKKS. These blur the old line
+"CKKS for reals, TFHE for discrete".</p>
+<h2 id="generation-5-gentrylee-gl-fhe-for-matrix-arithmetic-2025">"Generation 5": Gentry–Lee (GL), FHE for matrix arithmetic (2025)<a class="headerlink" href="#generation-5-gentrylee-gl-fhe-for-matrix-arithmetic-2025" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Paper:</strong> C. Gentry, Y. Lee, <em>"Fully Homomorphic Encryption for Matrix Arithmetic"</em>, IACR ePrint
+  <a href="https://eprint.iacr.org/2025/1935">2025/1935</a>. The "5th generation" branding comes from a
+  DESILO press release (March 2026); treat it as marketing, not a community consensus.</li>
+<li><strong>Idea:</strong> an RLWE-based scheme whose plaintexts are <strong>batched matrices</strong>, over the complex
+  numbers or the integers. Encrypted matrix multiplication reduces to <strong>four matrix
+  multiplications of ciphertext components</strong>. It needs no slot-to-coefficient conversion and
+  no ring switching, and it natively supports transpose, conjugate transpose and matrix
+  rotations.</li>
+<li><strong>Why it matters:</strong> in CKKS, a matrix product needs many rotations (key switches) and careful
+  packing. Under GL it becomes plaintext-style matrix multiplication, which maps directly onto
+  GPU tensor cores and BLAS.</li>
+<li><strong>Bootstrapping for GL:</strong> Crockett, Gentry, Kim, Lee and Lee (CRYPTO 2026,
+  ePrint <a href="https://eprint.iacr.org/2026/956">2026/956</a>). In their proof of concept, linear
+  transformations are <strong>20.1 %</strong> of bootstrapping time, versus <strong>54.9–71.7 %</strong> in prior CKKS
+  bootstrapping.</li>
+<li><strong>Status:</strong> very new. Library support, independent benchmarks and cryptanalysis of
+  its specific structure are still emerging. It is one to watch.</li>
+</ul>
+<h2 id="comparison">Comparison<a class="headerlink" href="#comparison" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>BGV / BFV</th>
+<th>CKKS</th>
+<th>FHEW / TFHE</th>
+<th>GL (matrix)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plaintext</td>
+<td>integers mod <code>t</code></td>
+<td>real / complex (approx.)</td>
+<td>bits / small ints (≤ ~8 bits per ct)</td>
+<td>matrices (complex or integer)</td>
+</tr>
+<tr>
+<td>Values per ciphertext</td>
+<td>up to <code>N</code> (e.g. 16 384)</td>
+<td><code>N/2</code> (e.g. 32 768)</td>
+<td>1</td>
+<td>a batch of matrices</td>
+</tr>
+<tr>
+<td>Exact?</td>
+<td>yes</td>
+<td>no (≈ fixed-point)</td>
+<td>yes</td>
+<td>both variants</td>
+</tr>
+<tr>
+<td>Native ops</td>
+<td>+, × slot-wise, rotations</td>
+<td>+, × slot-wise, rotations</td>
+<td>+ linear, any LUT via PBS</td>
+<td>+, ×, matrix-mult, transpose</td>
+</tr>
+<tr>
+<td>Non-linear functions</td>
+<td>poor (polynomials mod <code>t</code>)</td>
+<td>polynomial approximations</td>
+<td><strong>excellent</strong> (LUTs)</td>
+<td>polynomial approx.</td>
+</tr>
+<tr>
+<td>Bootstrapping</td>
+<td>slow, rarely used</td>
+<td>~seconds CPU / ~10–100s of ms GPU, amortized over 10⁴ slots</td>
+<td>~ms CPU, &lt; 1 ms GPU, <strong>per value</strong></td>
+<td>new (2026)</td>
+</tr>
+<tr>
+<td>Typical use</td>
+<td>PIR, PSI, exact stats, genomics</td>
+<td>ML, analytics, LLM research</td>
+<td>logic, comparisons, blockchain, small-model ML</td>
+<td>linear-algebra-heavy ML</td>
+</tr>
+<tr>
+<td>Main libraries</td>
+<td>OpenFHE, SEAL, HElib, Lattigo, Swift HE</td>
+<td>OpenFHE, SEAL, Lattigo, HEaaN, FIDESlib</td>
+<td>TFHE-rs, Concrete, OpenFHE (FHEW/CGGI)</td>
+<td>research code (DESILO)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Performance figures are order-of-magnitude only. They vary by 10× or more with parameters,
+library, thread count and hardware. See <a href="07_state_of_the_art_2026.html">07</a> for sourced numbers.</p>
+<h2 id="scheme-switching-using-several-at-once">Scheme switching: using several at once<a class="headerlink" href="#scheme-switching-using-several-at-once" title="Link to this section">#</a></h2>
+<p>Real workloads mix linear algebra (good in CKKS) with non-linear decisions (good in TFHE).
+<strong>Scheme switching</strong> converts ciphertexts between them, roughly by extracting LWE ciphertexts
+from RLWE slots and packing LWE ciphertexts back into RLWE via key switching:</p>
+<ul>
+<li>CHIMERA (Boura–Gama–Georgieva–Jetchev 2018/2020), PEGASUS (Lu et al. 2021).</li>
+<li>OpenFHE ships CKKS ↔ FHEW switching.</li>
+<li>Hybrid CKKS/TFHE encrypted LLM decoding (e.g. ROSETTA, arXiv 2609.16915).</li>
+</ul>
+<p>A security note: Santato–Zanotto 2026 (ePrint <a href="https://eprint.iacr.org/2026/285">2026/285</a>)
+showed PEGASUS-style switching is <strong>not IND-CPA-D secure</strong> and demonstrated key recovery
+against OpenFHE's CKKS→FHEW path (ch. 06).</p>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>DGHV over the integers in 40 lines of Python: the most intuitive FHE scheme.</li>
+<li>BGV vs BFV side by side with real noise measurements (OpenFHE-Python).</li>
+<li>TFHE-rs integer arithmetic: how radix blocks, carries and PBS give encrypted <code>u64</code>.</li>
+<li>CKKS encoding by hand for <code>N = 8</code>: canonical embedding, scaling, rounding.</li>
+<li>Read the Gentry–Lee paper together: how the matrix encoding avoids rotations.</li>
+</ul>
+</article>
+<footer class="pager"><a href="03_how_it_works.html">← 03 · How it works: from LWE to bootstrapping</a><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical →</a></footer>
+</main>
+</body>
+</html>

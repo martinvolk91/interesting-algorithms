@@ -156,7 +156,7 @@ lanes, huge on-chip SRAM, HBM, and on-the-fly key generation.
   - **No announced commercial plans.** It is a research prototype.
 
 ### Startups
-- **Niobium Microsystems** (a DPRIVE spin-out): raised **$23M**, and reportedly has an 8 nm chip
+- **Niobium Microsystems** (a DPRIVE spin-out): raised **\$23M**, and reportedly has an 8 nm chip
   deal with **Samsung Foundry**.
 - **Cornami**: reconfigurable compute fabric, partnered with DESILO for GL-scheme acceleration.
 - **Optalysys**: **photonic** (optical) FHE acceleration.
@@ -256,7 +256,7 @@ Standards:
 
 Secondary (news, vendor or blog; treat numbers with care):
 - Intel Heracles: [Privacy Guides](https://www.privacyguides.org/news/2026/03/19/intels-fully-homomorphic-encryption-chip-could-revolutionize-privacy/) · [i-programmer](https://www.i-programmer.info/news/149-security/18779-intel-demos-homomorphic-encryption-chip.html) · [all-about-industries](https://www.all-about-industries.com/intel-displays-functional-he-accelerator-for-calculations-on-encrypted-data-a-07827ea187a489935ff36ccf9e231ff5/) · [Intel Labs blog](https://community.intel.com/t5/Blogs/Tech-Innovation/Data-Center/Intel-Labs-Continues-Focused-Research-and-Standards-Efforts-to/post/1488532)
-- [Niobium raises $23M](https://cybersecuritycue.com/niobium-raises-23m-fhe-hardware-acceleration/)
+- [Niobium raises \$23M](https://cybersecuritycue.com/niobium-raises-23m-fhe-hardware-acceleration/)
 - [Duality: HE benchmarks 2026 (vendor)](https://dualitytech.com/blog/homomorphic-encryption-performance-2026/)
 - [Wavect: FHE in 2026, what ships and what is hype](https://wavect.io/blog/fully-homomorphic-encryption-practical-2026/)
 - [Jeremy Kun: FHE in production](https://jeremykun.com/fhe-in-production)

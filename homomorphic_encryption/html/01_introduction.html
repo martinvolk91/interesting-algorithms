@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 · Introduction: what homomorphic encryption is</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li class="current"><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-the-problem-it-solves">1. The problem it solves</a></li>
+<li><a href="#2-formal-definition">2. Formal definition</a></li>
+<li><a href="#3-the-taxonomy-phe--she--lhe--fhe">3. The taxonomy: PHE → SHE → LHE → FHE</a><ul>
+<li><a href="#partially-homomorphic-examples-worth-seeing-once">Partially homomorphic examples (worth seeing once)</a></li>
+</ul>
+</li>
+<li><a href="#4-history-timeline">4. History timeline</a></li>
+<li><a href="#5-what-he-does-not-give-you">5. What HE does not give you</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="01--introduction-what-homomorphic-encryption-is">01 · Introduction: what homomorphic encryption is<a class="headerlink" href="#01--introduction-what-homomorphic-encryption-is" title="Link to this section">#</a></h1>
+<p><a href="index.html">← index</a> · next: <a href="02_math_foundations.html">02 Mathematical foundations →</a></p>
+<hr />
+<h2 id="1-the-problem-it-solves">1. The problem it solves<a class="headerlink" href="#1-the-problem-it-solves" title="Link to this section">#</a></h2>
+<p>Classical encryption protects data <strong>at rest</strong> (disk encryption) and <strong>in transit</strong> (TLS).
+As soon as you want someone to <em>do something</em> with your data, though, they have to decrypt it,
+so the data is exposed <strong>in use</strong>.</p>
+<div class="highlight"><pre><span></span><code>Today:      you --TLS--&gt; cloud [decrypts, computes on plaintext, re-encrypts] --TLS--&gt; you
+                                 ^^^^^^^^^ the cloud sees everything here
+
+With HE:    you --Enc(x)--&gt; cloud [computes f on Enc(x) -&gt; Enc(f(x))] --Enc(f(x))--&gt; you
+                                    the cloud never sees x or f(x)
+</code></pre></div>
+
+<p>The secret key never leaves the client. The server works only with ciphertexts and
+<strong>evaluation keys</strong> (public helper material that allows computation but not decryption).</p>
+<p>Analogy (Gentry's own): a <strong>glovebox</strong>. You lock raw materials in a transparent box that has
+gloves built in. A worker can assemble the product through the gloves but can never take
+anything out. Only you have the key to open the box.</p>
+<h2 id="2-formal-definition">2. Formal definition<a class="headerlink" href="#2-formal-definition" title="Link to this section">#</a></h2>
+<p>A homomorphic encryption scheme is a tuple of algorithms:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Who runs it</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KeyGen(λ) → (sk, pk, evk)</code></td>
+<td>client</td>
+<td>Secret key, public key, evaluation keys (relinearization, rotation, bootstrapping keys)</td>
+</tr>
+<tr>
+<td><code>Enc(pk, m) → c</code></td>
+<td>client</td>
+<td>Encrypt a message</td>
+</tr>
+<tr>
+<td><code>Dec(sk, c) → m</code></td>
+<td>client</td>
+<td>Decrypt</td>
+</tr>
+<tr>
+<td><code>Eval(evk, f, c₁…cₖ) → c'</code></td>
+<td><strong>server</strong></td>
+<td>Compute on ciphertexts</td>
+</tr>
+</tbody>
+</table></div>
+<p>Correctness requirement:</p>
+<div class="math-display">\[\mathrm{Dec}\big(sk,\ \mathrm{Eval}(evk, f, \mathrm{Enc}(m_1), \dots, \mathrm{Enc}(m_k))\big) = f(m_1, \dots, m_k)\]</div>
+<p>Two further requirements make it non-trivial:</p>
+<ul>
+<li><strong>Compactness</strong>: the output ciphertext's size must not depend on <code>f</code>. Otherwise you could
+  "evaluate" by simply attaching a description of <code>f</code> to the input ciphertexts and letting the
+  client do all the work at decryption time.</li>
+<li><strong>Security</strong>: ciphertexts must be <strong>IND-CPA</strong> secure (semantically secure). Seeing
+  ciphertexts reveals nothing about the plaintexts. See <a href="06_security.html">06 Security</a>.</li>
+</ul>
+<p>Why addition and multiplication? Over bits, <strong>XOR = addition mod 2</strong> and <strong>AND =
+multiplication mod 2</strong>, and {XOR, AND} is functionally complete. Any computable function
+(with a bounded running time) can be written as a circuit of these gates. A scheme that
+supports unlimited additions <strong>and</strong> multiplications can therefore evaluate anything.</p>
+<h2 id="3-the-taxonomy-phe--she--lhe--fhe">3. The taxonomy: PHE → SHE → LHE → FHE<a class="headerlink" href="#3-the-taxonomy-phe--she--lhe--fhe" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Supports</th>
+<th>Examples</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Partially HE (PHE)</strong></td>
+<td>One operation, unlimited times</td>
+<td>RSA (×), ElGamal (×), Paillier (+), Goldwasser–Micali (⊕)</td>
+<td>Cheap, mature, used in e-voting and ad measurement</td>
+</tr>
+<tr>
+<td><strong>Somewhat HE (SHE)</strong></td>
+<td>Both + and ×, but only a few multiplications</td>
+<td>BGN (2005, 1 mult via pairings), early lattice schemes</td>
+<td>Noise blows up after a few levels</td>
+</tr>
+<tr>
+<td><strong>Leveled HE (LHE)</strong></td>
+<td>Any circuit up to a depth <code>L</code> chosen at key generation</td>
+<td>BGV / BFV / CKKS without bootstrapping</td>
+<td><strong>What most real deployments use</strong>: parameters sized for the exact circuit</td>
+</tr>
+<tr>
+<td><strong>Fully HE (FHE)</strong></td>
+<td>Any circuit, unbounded depth</td>
+<td>Any of the above <strong>plus bootstrapping</strong></td>
+<td>Bootstrapping is the expensive part</td>
+</tr>
+</tbody>
+</table></div>
+<p>"FHE" is often used loosely for the whole lattice-based family, even when a deployment never
+bootstraps. Jeremy Kun's production survey, for instance, notes that Apple's and Microsoft's
+deployments are technically SHE/LHE.</p>
+<h3 id="partially-homomorphic-examples-worth-seeing-once">Partially homomorphic examples (worth seeing once)<a class="headerlink" href="#partially-homomorphic-examples-worth-seeing-once" title="Link to this section">#</a></h3>
+<p><strong>Textbook RSA</strong> (the repo already has an RSA implementation in <a href="../../python_rsa"><code>../python_rsa</code></a>):</p>
+<div class="math-display">\[E(a)\cdot E(b) = a^e b^e = (ab)^e = E(ab) \pmod n\]</div>
+<p>Textbook RSA is deterministic and therefore <strong>not</strong> IND-CPA secure, so this is a curiosity
+rather than a usable HE scheme.</p>
+<p><strong>Paillier</strong> (1999): additively homomorphic and semantically secure.
+Public key <code>n = pq</code>, <code>g = n + 1</code>. To encrypt, pick a random <code>r</code> and compute</p>
+<p>\[E(m) = g^m \cdot r^n \bmod n^2\]
+\[E(a)\cdot E(b) = g^{a+b}(r_a r_b)^n = E(a+b), \qquad E(a)^k = E(k\cdot a)\]</p>
+<p>This is enough for encrypted sums, averages, and dot products with <em>plaintext</em> weights.
+Electronic voting and Google's Private Join and Compute work this way.</p>
+<p>The leap from "+ only" or "× only" to "both, unboundedly" required entirely new mathematics.
+That mathematics is lattices.</p>
+<h2 id="4-history-timeline">4. History timeline<a class="headerlink" href="#4-history-timeline" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Year</th>
+<th>Milestone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1978</td>
+<td>Rivest, Adleman, Dertouzos: <em>"On Data Banks and Privacy Homomorphisms"</em>. The question is posed.</td>
+</tr>
+<tr>
+<td>1982</td>
+<td>Goldwasser–Micali: XOR-homomorphic, the first probabilistic (semantically secure) encryption</td>
+</tr>
+<tr>
+<td>1985</td>
+<td>ElGamal: multiplicatively homomorphic</td>
+</tr>
+<tr>
+<td>1999</td>
+<td>Paillier: additively homomorphic</td>
+</tr>
+<tr>
+<td>2005</td>
+<td>Boneh–Goh–Nissim: unlimited additions + <strong>one</strong> multiplication (bilinear pairings)</td>
+</tr>
+<tr>
+<td>2005</td>
+<td>Regev introduces <strong>Learning With Errors (LWE)</strong>, the problem everything below is built on</td>
+</tr>
+<tr>
+<td><strong>2009</strong></td>
+<td><strong>Gentry's PhD thesis / STOC paper</strong>: the first FHE (ideal lattices + <em>bootstrapping</em>)</td>
+</tr>
+<tr>
+<td>2010</td>
+<td>van Dijk–Gentry–Halevi–Vaikuntanathan (DGHV): FHE over the integers. Lyubashevsky–Peikert–Regev: <strong>Ring-LWE</strong></td>
+</tr>
+<tr>
+<td>2011</td>
+<td>Brakerski–Vaikuntanathan (BV): FHE from (R)LWE with <strong>relinearization</strong>. Gentry–Halevi: first implementation, ~30 min per bootstrap</td>
+</tr>
+<tr>
+<td>2012</td>
+<td><strong>BGV</strong> (leveled FHE, modulus switching); Brakerski / Fan–Vercauteren → <strong>BFV</strong> (scale-invariant)</td>
+</tr>
+<tr>
+<td>2013</td>
+<td><strong>GSW</strong> (Gentry–Sahai–Waters): "approximate eigenvector", no relinearization, asymmetric noise growth</td>
+</tr>
+<tr>
+<td>2015</td>
+<td><strong>FHEW</strong> (Ducas–Micciancio): bootstrapping a NAND gate in under a second</td>
+</tr>
+<tr>
+<td>2016</td>
+<td><strong>TFHE</strong> (Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017)</td>
+</tr>
+<tr>
+<td>2017</td>
+<td><strong>CKKS</strong> (Cheon–Kim–Kim–Song): approximate arithmetic on real/complex numbers</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>CKKS bootstrapping; HomomorphicEncryption.org publishes a community <strong>security standard</strong></td>
+</tr>
+<tr>
+<td>2019</td>
+<td>ISO/IEC 18033-6 standardizes <em>partially</em> HE (ElGamal, Paillier)</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>Li–Micciancio: <strong>IND-CPA-D</strong> passive key-recovery attack on CKKS. DARPA <strong>DPRIVE</strong> hardware program kicks off. Programmable bootstrapping (Chillotti–Joye–Paillier)</td>
+</tr>
+<tr>
+<td>2022</td>
+<td><strong>Gödel Prize</strong> to Brakerski, Gentry, Vaikuntanathan for FHE. OpenFHE released (successor of PALISADE)</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>Apple ships <strong>Live Caller ID Lookup</strong> (BFV-based PIR) in iOS 18 and open-sources swift-homomorphic-encryption. CKKS learns to bootstrap bits and small integers. A claimed quantum attack on LWE (Chen) is withdrawn after a bug is found</td>
+</tr>
+<tr>
+<td>2025</td>
+<td>Gentry–Lee: <strong>FHE for matrix arithmetic</strong> (ePrint 2025/1935). Zama Protocol (TFHE + threshold MPC) launches on Ethereum mainnet (Dec 2025)</td>
+</tr>
+<tr>
+<td>2026</td>
+<td><strong>Intel Heracles</strong> FHE accelerator chip shown at ISSCC. ISO/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut FHEW/TFHE bootstrapping depth to 3 NTT layers (vs 500+). Google promotes the <strong>HEIR</strong> compiler for encrypted AI</td>
+</tr>
+</tbody>
+</table></div>
+<p>Details and sources for 2024–2026 are in <a href="07_state_of_the_art_2026.html">07 State of the art</a>.</p>
+<h2 id="5-what-he-does-not-give-you">5. What HE does <em>not</em> give you<a class="headerlink" href="#5-what-he-does-not-give-you" title="Link to this section">#</a></h2>
+<p>These limits matter as much as the capabilities:</p>
+<ul>
+<li><strong>No integrity.</strong> The server can compute the <em>wrong</em> function, or garbage, and you can't
+  tell. Fixing this needs verifiable computation (ZK proofs over FHE), redundancy, or a TEE.</li>
+<li><strong>No hiding of the function by default.</strong> Ciphertext noise can leak <em>what</em> was computed.
+  Circuit privacy needs extra work (noise flooding, sanitization).</li>
+<li><strong>No data-dependent control flow.</strong> The server can't branch on an encrypted value, because it
+  doesn't know the value. Every <code>if</code> becomes "compute both branches and select arithmetically",
+  and loops need a public bound. This is why FHE programs are written as <strong>circuits</strong>.</li>
+<li><strong>Ciphertext expansion.</strong> A ciphertext is typically 10–10,000× larger than its plaintext
+  (batching amortizes this).</li>
+<li><strong>Malleable by design.</strong> Anyone can modify ciphertexts meaningfully, so HE can never be
+  IND-CCA2 secure.</li>
+<li><strong>Multi-user data needs extra machinery.</strong> Plain FHE has one key owner. Computing over data
+  from several parties needs threshold or multi-key FHE, or a combination with MPC.</li>
+</ul>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Paillier in Python: build an encrypted voting or encrypted-average demo.</li>
+<li>Why {+, ×} over <code>Z₂</code> is universal, and how circuits get "arithmetized".</li>
+<li>The full Gentry 2009 construction (ideal lattices, squashing). Historically important, but no longer used.</li>
+</ul>
+</article>
+<footer class="pager"><a href="index.html">← Homomorphic Encryption</a><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE →</a></footer>
+</main>
+</body>
+</html>

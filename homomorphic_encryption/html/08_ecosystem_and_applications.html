@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 · Ecosystem and applications</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li class="current"><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-libraries-2026">1. Libraries (2026)</a></li>
+<li><a href="#2-what-makes-a-problem-a-good-fit-for-fhe">2. What makes a problem a good fit for FHE</a></li>
+<li><a href="#3-application-areas">3. Application areas</a></li>
+<li><a href="#4-fhe-vs-the-other-privacy-technologies">4. FHE vs the other privacy technologies</a><ul>
+<li><a href="#quick-decision-guide">Quick decision guide</a></li>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="08--ecosystem-and-applications">08 · Ecosystem and applications<a class="headerlink" href="#08--ecosystem-and-applications" title="Link to this section">#</a></h1>
+<p><a href="07_state_of_the_art_2026.html">← 07 State of the art</a> · <a href="index.html">index</a> · next: <a href="09_glossary_and_reading_list.html">09 Glossary and reading list →</a></p>
+<hr />
+<h2 id="1-libraries-2026">1. Libraries (2026)<a class="headerlink" href="#1-libraries-2026" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Language</th>
+<th>Schemes</th>
+<th>Maintainer</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OpenFHE</strong></td>
+<td>C++ (+ <code>openfhe-python</code>)</td>
+<td>BGV, BFV, CKKS, FHEW, CGGI/TFHE, scheme switching, threshold</td>
+<td>Duality + community (successor of PALISADE)</td>
+<td>The broadest feature set. Best documented security notes. Not always the fastest</td>
+</tr>
+<tr>
+<td><strong>Microsoft SEAL</strong></td>
+<td>C++ (.NET wrapper)</td>
+<td>BFV, BGV, CKKS</td>
+<td>Microsoft</td>
+<td>Mature and stable. Low development activity, and no new NuGet packages</td>
+</tr>
+<tr>
+<td><strong>HElib</strong></td>
+<td>C++</td>
+<td>BGV, CKKS</td>
+<td>IBM</td>
+<td>Pioneer library (Halevi–Shoup). Has BGV bootstrapping</td>
+</tr>
+<tr>
+<td><strong>Lattigo</strong></td>
+<td>Go</td>
+<td>BGV/BFV, CKKS, <strong>multiparty</strong></td>
+<td>Tune Insight</td>
+<td>Clean API and strong multiparty support. MRFHE (2026) was built on it</td>
+</tr>
+<tr>
+<td><strong>TFHE-rs</strong></td>
+<td>Rust (+ C, JS/WASM)</td>
+<td>TFHE (booleans, shortint, radix integers)</td>
+<td>Zama</td>
+<td>The default for TFHE. CUDA backend</td>
+</tr>
+<tr>
+<td><strong>Concrete / Concrete ML</strong></td>
+<td>Python</td>
+<td>TFHE (compiler)</td>
+<td>Zama</td>
+<td>Python/NumPy → FHE. scikit-learn-style encrypted ML</td>
+</tr>
+<tr>
+<td><strong>HEaaN</strong></td>
+<td>C++ / Python</td>
+<td>CKKS</td>
+<td>CryptoLab (CKKS authors)</td>
+<td>Fast CKKS with GPU support. Commercial licence</td>
+</tr>
+<tr>
+<td><strong>swift-homomorphic-encryption</strong></td>
+<td>Swift</td>
+<td>BFV, PIR</td>
+<td>Apple</td>
+<td>Production code behind Live Caller ID Lookup</td>
+</tr>
+<tr>
+<td><strong>FIDESlib</strong>, <strong>Cheddar</strong>, <strong>Phantom</strong></td>
+<td>C++/CUDA</td>
+<td>CKKS (GPU)</td>
+<td>academic</td>
+<td>Fastest CKKS bootstrapping numbers reported on GPUs</td>
+</tr>
+<tr>
+<td><strong>Liberate.FHE</strong></td>
+<td>Python (GPU)</td>
+<td>CKKS</td>
+<td>DESILO</td>
+<td>GPU CKKS in Python</td>
+</tr>
+<tr>
+<td><strong>Poulpy</strong></td>
+<td>Rust</td>
+<td>CKKS-style, CPU-focused</td>
+<td>newer project</td>
+<td>API still evolving</td>
+</tr>
+<tr>
+<td><strong>HEIR</strong></td>
+<td>MLIR / Python</td>
+<td>compiler → OpenFHE, Lattigo, …</td>
+<td>Google</td>
+<td>Not a scheme library. A compiler that targets them</td>
+</tr>
+<tr>
+<td><strong>TenSEAL</strong>, <strong>Pyfhel</strong></td>
+<td>Python</td>
+<td>CKKS/BFV via SEAL</td>
+<td>OpenMined / community</td>
+<td>Easy for learning. Check maintenance status</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>For hands-on experiments in this repo</strong> (Python): <code>openfhe-python</code> for all schemes and the
+most faithful view of the internals, <code>concrete-python</code> / <code>concrete-ml</code> for TFHE and ML, and
+<code>tenseal</code> for the fastest "hello CKKS".</p>
+<h2 id="2-what-makes-a-problem-a-good-fit-for-fhe">2. What makes a problem a good fit for FHE<a class="headerlink" href="#2-what-makes-a-problem-a-good-fit-for-fhe" title="Link to this section">#</a></h2>
+<p>FHE works best when <strong>all</strong> of these hold:</p>
+<ol>
+<li><strong>The data owner and the key owner are the same party</strong>, and that party only wants the
+   result back (single-client outsourcing).</li>
+<li><strong>Low multiplicative depth</strong>, or a computation that is mostly <strong>linear</strong>: sums, dot products,
+   lookups, low-degree polynomials.</li>
+<li><strong>Massive data parallelism</strong> that fills the SIMD slots.</li>
+<li><strong>Latency tolerance</strong>: seconds to minutes are acceptable.</li>
+<li><strong>High value of confidentiality</strong>: regulation (GDPR, HIPAA, banking secrecy), competition
+   between data holders, or a zero-trust stance towards the cloud or hardware vendor.</li>
+</ol>
+<p>Bad fits: deep sequential computation, heavy branching on secret data, real-time interactive
+workloads, and multi-party computation where everyone has inputs. Use MPC for the last one, or
+threshold FHE.</p>
+<h2 id="3-application-areas">3. Application areas<a class="headerlink" href="#3-application-areas" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Pattern</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Private Information Retrieval (PIR)</strong></td>
+<td>Client sends an encrypted index or key. Server computes a plaintext-DB × encrypted-selector product, which is depth ~1–2</td>
+<td><strong>Apple Live Caller ID Lookup</strong> (BFV), Apple Enhanced Visual Search (nearest-neighbour lookup + DP)</td>
+</tr>
+<tr>
+<td><strong>Private set intersection / membership</strong></td>
+<td>Encrypted lookup against a breach or blocklist</td>
+<td><strong>Microsoft Edge Password Monitor</strong> (BFV, PSI with OPRF)</td>
+</tr>
+<tr>
+<td><strong>Encrypted ML inference (MLaaS)</strong></td>
+<td>Client encrypts features. Server runs the model. Client decrypts the prediction</td>
+<td>Fraud and credit scoring, medical risk models; Concrete ML, CKKS pipelines. Encrypted LLMs remain research (ch. 07)</td>
+</tr>
+<tr>
+<td><strong>Cross-organization analytics</strong></td>
+<td>Several data holders compute joint statistics without pooling raw data (often threshold / multiparty HE)</td>
+<td>AML / financial crime (IMDA–Mastercard PoC), hospital consortia (Duality with Dana-Farber and Tel Aviv Sourasky), Tune Insight in Swiss hospitals</td>
+</tr>
+<tr>
+<td><strong>Genomics</strong></td>
+<td>Encrypted GWAS, similarity search, ancestry</td>
+<td>The iDASH competition track (2015–2023), CryptoLab–Macrogen contract</td>
+</tr>
+<tr>
+<td><strong>Confidential blockchains</strong></td>
+<td>Encrypted balances and contract state. Threshold decryption network</td>
+<td><strong>Zama Protocol</strong> (Ethereum mainnet, Dec 2025), fhEVM-based chains</td>
+</tr>
+<tr>
+<td><strong>Federated learning</strong></td>
+<td>Secure aggregation of encrypted model updates (threshold HE)</td>
+<td>Research and pilots</td>
+</tr>
+<tr>
+<td><strong>Ads / measurement</strong></td>
+<td>Additive HE for conversion and join statistics</td>
+<td>Google Private Join and Compute (Paillier-style, not FHE)</td>
+</tr>
+<tr>
+<td><strong>E-voting</strong></td>
+<td>Additive HE tallying</td>
+<td>Helios-style systems (ElGamal), not FHE</td>
+</tr>
+</tbody>
+</table></div>
+<p>Note the pattern among the <strong>shipping</strong> deployments (Apple, Microsoft): they are
+<strong>private lookups with shallow circuits on exact schemes (BFV)</strong>, technically leveled /
+somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
+<h2 id="4-fhe-vs-the-other-privacy-technologies">4. FHE vs the other privacy technologies<a class="headerlink" href="#4-fhe-vs-the-other-privacy-technologies" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Protects</th>
+<th>Trust assumption</th>
+<th>Performance</th>
+<th>Interaction</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FHE</strong></td>
+<td>inputs and outputs during computation</td>
+<td>math only (lattices)</td>
+<td>slow: 10²–10⁴×</td>
+<td><strong>non-interactive</strong> (one round)</td>
+<td>single-client outsourcing, lookups, inference</td>
+</tr>
+<tr>
+<td><strong>MPC</strong> (secret sharing, garbled circuits)</td>
+<td>each party's inputs</td>
+<td>non-collusion of parties</td>
+<td>fast compute, <strong>heavy communication</strong></td>
+<td>many rounds</td>
+<td>several parties with inputs, auctions, key management</td>
+</tr>
+<tr>
+<td><strong>TEE / confidential computing</strong> (SGX, TDX, SEV-SNP, confidential GPUs)</td>
+<td>data in use</td>
+<td><strong>trust the hardware vendor</strong>, side-channel risk</td>
+<td>~native</td>
+<td>none</td>
+<td>general workloads, LLM inference today</td>
+</tr>
+<tr>
+<td><strong>Zero-knowledge proofs</strong></td>
+<td><em>integrity</em> (and hides witness)</td>
+<td>math</td>
+<td>prover slow, verifier fast</td>
+<td>1 message</td>
+<td>proving correct computation, blockchains</td>
+</tr>
+<tr>
+<td><strong>Differential privacy</strong></td>
+<td>individuals in <em>outputs</em></td>
+<td>correct noise calibration</td>
+<td>~native</td>
+<td>none</td>
+<td>statistics releases, telemetry</td>
+</tr>
+<tr>
+<td><strong>Federated learning</strong></td>
+<td>raw training data stays local</td>
+<td>the aggregator; updates leak</td>
+<td>~native + comms</td>
+<td>rounds</td>
+<td>distributed training</td>
+</tr>
+</tbody>
+</table></div>
+<p>These are <strong>complements, not competitors</strong>. Real systems combine them: Apple uses FHE + DP + an
+anonymization network, Zama uses FHE + threshold MPC + ZK, and threshold FHE is itself a hybrid
+of FHE and MPC.</p>
+<h3 id="quick-decision-guide">Quick decision guide<a class="headerlink" href="#quick-decision-guide" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>Need to compute on data you can&#39;t see?
+├─ One data owner, outsourcing to an untrusted server?
+│   ├─ Shallow / lookup-like / batched → FHE (BFV for exact, CKKS for approx)
+│   ├─ Lots of non-linear logic on small values → FHE (TFHE)
+│   └─ Deep, big, latency-critical (e.g. large LLM) → TEE today; watch FHE hardware
+├─ Several parties each with private inputs?
+│   ├─ Online and interactive OK → MPC
+│   └─ Non-interactive / one aggregator → threshold or multi-key FHE
+└─ Need to prove the computation was correct? → add ZK / verifiable FHE
+</code></pre></div>
+
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li><del>Build a toy <strong>PIR</strong> with BFV</del> → done in pure Python: <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a>. Next step: the same with openfhe-python at realistic sizes.</li>
+<li>Concrete ML: train a small model and run encrypted inference; measure accuracy vs bit width.</li>
+<li>How Apple's Live Caller ID protocol is structured, and what Apple can and can't see.</li>
+<li><del>Zama Protocol architecture</del> → done: <a href="deep_dives/threshold_fhe.html#7-how-the-zama-protocol-uses-threshold-fhe">deep_dives/threshold_fhe.md §7</a>.</li>
+</ul>
+</article>
+<footer class="pager"><a href="07_state_of_the_art_2026.html">← 07 · State of the art (as of October 2026)</a><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list →</a></footer>
+</main>
+</body>
+</html>

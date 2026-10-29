@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 · How it works: from LWE to bootstrapping</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li class="current"><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-a-toy-scheme-you-can-run">1. A toy scheme you can run</a></li>
+<li><a href="#2-moving-to-rings-and-public-keys">2. Moving to rings and public keys</a></li>
+<li><a href="#3-homomorphic-addition">3. Homomorphic addition</a></li>
+<li><a href="#4-homomorphic-multiplication-the-hard-part">4. Homomorphic multiplication (the hard part)</a></li>
+<li><a href="#5-relinearization-and-key-switching">5. Relinearization and key switching</a></li>
+<li><a href="#6-modulus-switching-bgv-trading-modulus-for-noise">6. Modulus switching (BGV): trading modulus for noise</a></li>
+<li><a href="#7-ckks-noise-as-part-of-the-message">7. CKKS: noise as part of the message</a></li>
+<li><a href="#8-bootstrapping-gentrys-big-idea">8. Bootstrapping: Gentry's big idea</a><ul>
+<li><a href="#bgv--bfv-bootstrapping">BGV / BFV bootstrapping</a></li>
+<li><a href="#ckks-bootstrapping">CKKS bootstrapping</a></li>
+<li><a href="#fhew--tfhe-bootstrapping-blind-rotation">FHEW / TFHE bootstrapping (blind rotation)</a></li>
+</ul>
+</li>
+<li><a href="#9-putting-it-together-the-lifecycle">9. Putting it together: the lifecycle</a><ul>
+<li><a href="#mental-model-checklist">Mental model checklist</a></li>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="03--how-it-works-from-lwe-to-bootstrapping">03 · How it works: from LWE to bootstrapping<a class="headerlink" href="#03--how-it-works-from-lwe-to-bootstrapping" title="Link to this section">#</a></h1>
+<p><a href="02_math_foundations.html">← 02 Math foundations</a> · <a href="index.html">index</a> · next: <a href="04_schemes.html">04 Schemes →</a></p>
+<hr />
+<p>This chapter follows one ciphertext through its whole life: encryption, addition,
+multiplication, the noise problem, the tricks that manage noise, and finally bootstrapping.
+The notation is close to BFV and CKKS. The specific schemes are covered in <a href="04_schemes.html">04</a>.</p>
+<h2 id="1-a-toy-scheme-you-can-run">1. A toy scheme you can run<a class="headerlink" href="#1-a-toy-scheme-you-can-run" title="Link to this section">#</a></h2>
+<p><a href="../code/toy_lwe.py"><code>code/toy_lwe.py</code></a> is secret-key LWE encryption of messages mod <code>t</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">n</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">15</span><span class="p">,</span> <span class="mi">16</span>          <span class="c1"># LWE dimension, ciphertext modulus, plaintext modulus</span>
+<span class="n">delta</span> <span class="o">=</span> <span class="n">q</span> <span class="o">//</span> <span class="n">t</span>                    <span class="c1"># scaling factor: the message lives in the top bits</span>
+
+<span class="k">def</span> <span class="nf">encrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="n">random</span><span class="o">.</span><span class="n">randrange</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="n">noise</span><span class="p">,</span> <span class="n">noise</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">ai</span> <span class="o">*</span> <span class="n">si</span> <span class="k">for</span> <span class="n">ai</span><span class="p">,</span> <span class="n">si</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span> <span class="o">+</span> <span class="n">delta</span> <span class="o">*</span> <span class="n">m</span> <span class="o">+</span> <span class="n">e</span><span class="p">)</span> <span class="o">%</span> <span class="n">q</span>
+    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
+
+<span class="k">def</span> <span class="nf">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="n">phase</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span> <span class="o">/</span> <span class="n">delta</span><span class="p">)</span> <span class="o">%</span> <span class="n">t</span>      <span class="c1"># phase = b - &lt;a,s&gt; = delta*m + e</span>
+
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">c1</span><span class="p">,</span> <span class="n">c2</span><span class="p">):</span>                                <span class="c1"># componentwise: messages AND noises add</span>
+    <span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">b1</span><span class="p">),</span> <span class="p">(</span><span class="n">a2</span><span class="p">,</span> <span class="n">b2</span><span class="p">)</span> <span class="o">=</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c2</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span> <span class="o">%</span> <span class="n">q</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">)],</span> <span class="p">(</span><span class="n">b1</span> <span class="o">+</span> <span class="n">b2</span><span class="p">)</span> <span class="o">%</span> <span class="n">q</span>
+</code></pre></div>
+
+<p>One run of it:</p>
+<div class="highlight"><pre><span></span><code>Dec(c3 + c5)  = 8
+Dec(4 * c3)   = 12
+Dec(c3+c5+c5) = 13
+after    10 additions: noise =    38   (limit 1024)
+after   100 additions: noise =    80   (limit 1024)
+after  1000 additions: noise =   646   (limit 1024)
+after  4813 additions: noise =  1027   -&gt; decryption FAILED
+</code></pre></div>
+
+<p>That output contains the two central facts of all of FHE:</p>
+<ol>
+<li><strong>Operations on ciphertexts act on the plaintexts.</strong></li>
+<li><strong>Every operation grows the noise, and once noise exceeds <code>Δ/2</code> the message is destroyed.</strong></li>
+</ol>
+<p>Picture the decryption "phase" <code>b − ⟨a, s⟩</code> on a circle of circumference <code>q</code>, split into <code>t</code>
+sectors of width <code>Δ</code>. The message picks a sector, and the noise is a small offset from the
+sector's centre. Decryption fails when the offset crosses into the neighbouring sector.</p>
+<div class="highlight"><pre><span></span><code> q = 32768, t = 16, Δ = 2048
+ |---- m=0 ----|---- m=1 ----|---- m=2 ----| ... |---- m=15 ----|
+        ^ Δ·m + e: fine while |e| &lt; Δ/2 = 1024
+</code></pre></div>
+
+<p>Everything else in this chapter is about getting <strong>multiplication</strong> to work and <strong>keeping
+noise under control</strong>.</p>
+<h2 id="2-moving-to-rings-and-public-keys">2. Moving to rings and public keys<a class="headerlink" href="#2-moving-to-rings-and-public-keys" title="Link to this section">#</a></h2>
+<p>Real schemes use RLWE (ch. 02): everything below is a polynomial in
+\(R_q = \mathbb{Z}_q[X]/(X^N+1)\), and "small" means "small coefficients".</p>
+<p><strong>Key generation</strong></p>
+<ul>
+<li>secret key: <code>s</code> with small (ternary) coefficients</li>
+<li>public key: <code>pk = (p₀, p₁) = (−a·s + e, a)</code>, with <code>a</code> uniform and <code>e</code> small. This is an RLWE sample, so it looks random.</li>
+</ul>
+<p><strong>Encryption</strong> (BFV-style, with <code>Δ = ⌊q/t⌋</code>)</p>
+<ul>
+<li>sample small <code>u, e₁, e₂</code></li>
+<li><code>ct = (c₀, c₁) = (p₀·u + e₁ + Δ·m,  p₁·u + e₂)</code></li>
+</ul>
+<p><strong>Decryption</strong>: compute <code>c₀ + c₁·s</code>, which telescopes to</p>
+<div class="math-display">\[c_0 + c_1 s = \Delta m + \underbrace{(e\,u + e_1 + e_2\, s)}_{\text{small noise } v}\]</div>
+<p>then scale by <code>t/q</code> and round to get <code>m</code>.</p>
+<p>Abstractly, <strong>a ciphertext is a vector <code>c</code> such that <code>⟨c, (1, s)⟩ = Δ·m + small</code></strong>. Keep
+that invariant in mind; every operation below preserves it.</p>
+<h2 id="3-homomorphic-addition">3. Homomorphic addition<a class="headerlink" href="#3-homomorphic-addition" title="Link to this section">#</a></h2>
+<div class="math-display">\[(c_0, c_1) + (d_0, d_1) = (c_0 + d_0,\ c_1 + d_1)\]</div>
+<p>The invariant gives \(\Delta(m_1 + m_2) + (v_1 + v_2)\). Noise grows <strong>additively</strong>, which is
+cheap. Plaintext × ciphertext (multiplying by a known constant or polynomial <code>k</code>) scales the
+noise by about <code>‖k‖</code>.</p>
+<h2 id="4-homomorphic-multiplication-the-hard-part">4. Homomorphic multiplication (the hard part)<a class="headerlink" href="#4-homomorphic-multiplication-the-hard-part" title="Link to this section">#</a></h2>
+<p>Multiply the two "decryption equations":</p>
+<div class="math-display">\[(c_0 + c_1 s)(d_0 + d_1 s) = \underbrace{c_0 d_0}_{e_0} + \underbrace{(c_0 d_1 + c_1 d_0)}_{e_1} s + \underbrace{c_1 d_1}_{e_2} s^2\]</div>
+<p>So the <strong>tensor product</strong> <code>(e₀, e₁, e₂)</code> is a valid ciphertext of the product, decryptable
+with <code>(1, s, s²)</code>. Two problems remain:</p>
+<ol>
+<li><strong>Scale.</strong> The plaintext part is now <code>Δ²·m₁m₂</code>. BFV multiplies by <code>t/q</code> and rounds to get
+   back to <code>Δ·m₁m₂</code>. CKKS <em>rescales</em> (§7). BGV avoids the issue by putting the message in the
+   low bits instead of the high bits.</li>
+<li><strong>Size.</strong> The ciphertext grew from 2 to 3 polynomials. Keep multiplying and it keeps growing.</li>
+</ol>
+<p>The <strong>noise grows multiplicatively</strong>: roughly \(v_{\text{new}} \approx t \cdot N \cdot (\|v_1\| + \|v_2\|)\)
+in BFV, and <code>v₁·v₂</code>-like in BGV before modulus switching. After <code>L</code> sequential multiplications
+the noise is roughly <code>B^(2^L)</code> (or <code>B·poly(N)^L</code> with the tricks below). This is why
+<strong>multiplicative depth</strong>, the longest chain of sequential multiplications, is <em>the</em> cost
+metric of FHE, and the number of operations matters much less.</p>
+<blockquote>
+<p>Computing \(x_1 x_2 \cdots x_8\) as a chain costs depth 7. As a balanced binary tree it costs
+depth 3. Computing \(x^{16}\) by repeated squaring costs depth 4. FHE programmers think in
+trees.</p>
+</blockquote>
+<h2 id="5-relinearization-and-key-switching">5. Relinearization and key switching<a class="headerlink" href="#5-relinearization-and-key-switching" title="Link to this section">#</a></h2>
+<p>To shrink <code>(e₀, e₁, e₂)</code> back to two components, the server needs to multiply <code>e₂</code> by <code>s²</code>
+without knowing <code>s</code>. The solution is to publish an <strong>encryption of <code>s²</code> under <code>s</code></strong>: the
+<strong>relinearization key</strong>.</p>
+<p>A naive version, <code>e₂ · Enc(s²)</code>, would multiply the key's noise by <code>e₂</code>, which is a <em>large</em>
+(uniform mod <code>q</code>) polynomial. So <code>e₂</code> is first decomposed into small digits in some base <code>w</code>
+(the <strong>gadget decomposition</strong>):</p>
+<div class="math-display">\[e_2 = \sum_i e_2^{(i)} w^i, \quad \|e_2^{(i)}\| &lt; w, \qquad \text{rlk}_i = (-a_i s + \epsilon_i + w^i s^2,\ a_i)\]</div>
+<div class="math-display">\[c_0&#x27; = e_0 + \sum_i e_2^{(i)}\,\text{rlk}_i[0], \qquad c_1&#x27; = e_1 + \sum_i e_2^{(i)}\,\text{rlk}_i[1]\]</div>
+<p>Check: \(c_0&#x27; + c_1&#x27; s = e_0 + e_1 s + e_2 s^2 + \sum_i e_2^{(i)} \epsilon_i\). The extra noise
+is only (small digit) × (small error).</p>
+<p>This is an instance of the general <strong>key switching</strong> primitive: turn a ciphertext under key
+<code>s'</code> into one under key <code>s</code>, given an encryption of <code>s'</code> under <code>s</code>. Key switching is used for:</p>
+<ul>
+<li><strong>relinearization</strong> (<code>s' = s²</code>)</li>
+<li><strong>rotations</strong> of packed slots (<code>s' = σ(s)</code>, a Galois automorphism; ch. 05)</li>
+<li><strong>scheme switching</strong> and changing ring dimension</li>
+<li>the final step of <strong>TFHE bootstrapping</strong></li>
+</ul>
+<p>Key switching is the single most expensive routine in RLWE-based FHE (many NTTs plus large
+keys) and the main target of hardware acceleration. Modern libraries use <strong>hybrid key
+switching</strong>: RNS digit decomposition combined with a temporary larger "special" modulus <code>P</code>.</p>
+<h2 id="6-modulus-switching-bgv-trading-modulus-for-noise">6. Modulus switching (BGV): trading modulus for noise<a class="headerlink" href="#6-modulus-switching-bgv-trading-modulus-for-noise" title="Link to this section">#</a></h2>
+<p><strong>Brakerski–Gentry–Vaikuntanathan (2012)</strong> observed that if you scale a ciphertext from
+modulus <code>q</code> down to a smaller <code>q'</code>,</p>
+<div class="math-display">\[c&#x27; = \Big\lfloor \tfrac{q&#x27;}{q} \cdot c \Big\rceil \quad (\text{with a correction so that } c&#x27; \equiv c \bmod t),\]</div>
+<p>the message survives and <strong>the noise shrinks by the factor <code>q'/q</code></strong>, plus a small rounding
+term. The noise-to-modulus <em>ratio</em> stays about the same, but its absolute size drops, so the
+next multiplication squares a <em>small</em> number instead of a big one.</p>
+<p>Choose a chain \(q_L &gt; q_{L-1} &gt; \dots &gt; q_0\) (in RNS: drop one prime at a time). Each
+multiplication is followed by one modulus switch, which consumes one <strong>level</strong>. Noise growth
+becomes <em>linear</em> in depth instead of exponential. You get a <strong>leveled</strong> scheme: <code>L</code> levels
+means depth-<code>L</code> circuits.</p>
+<div class="highlight"><pre><span></span><code>level L   ███████████████████████ modulus      noise ▏
+   × then mod-switch
+level L-1 ██████████████████████  modulus      noise ▏
+   ...
+level 0   ███                     modulus      noise ▏  ← out of levels: decrypt or bootstrap
+</code></pre></div>
+
+<h2 id="7-ckks-noise-as-part-of-the-message">7. CKKS: noise as part of the message<a class="headerlink" href="#7-ckks-noise-as-part-of-the-message" title="Link to this section">#</a></h2>
+<p><strong>CKKS (2017)</strong> reinterprets the noise. Instead of fighting to remove it, it accepts that
+decryption returns <code>Δ·m + e</code> and treats <code>e</code> as <strong>ordinary floating-point error</strong>:</p>
+<ul>
+<li>Encode a vector of real/complex numbers <code>z</code> into a polynomial and scale by <code>Δ</code> (e.g. 2⁴⁰).</li>
+<li>Decryption gives <code>Δ·m + e</code>, which decodes to <code>z + e/Δ</code>: correct to about <code>log Δ − log e</code> bits.</li>
+<li>After a multiplication the scale is <code>Δ²</code>. <strong>Rescaling</strong> divides the ciphertext by
+  <code>q_ℓ ≈ Δ</code> (dropping one RNS prime), bringing the scale back to about <code>Δ</code> and dividing the
+  noise too.</li>
+</ul>
+<p>So CKKS's modulus chain is literally a budget of <em>precision-preserving multiplications</em>. It is
+the natural fit for ML, statistics and signal processing, where you already accept rounding
+error. Its weakness is that it isn't exact, and the approximate decryption leaks information
+about <code>e</code>. See the IND-CPA-D attacks in <a href="06_security.html">06</a>.</p>
+<h2 id="8-bootstrapping-gentrys-big-idea">8. Bootstrapping: Gentry's big idea<a class="headerlink" href="#8-bootstrapping-gentrys-big-idea" title="Link to this section">#</a></h2>
+<p>Levels run out. To evaluate <strong>unbounded</strong> depth you need to <em>reset</em> the noise. Gentry's
+insight (2009):</p>
+<blockquote>
+<p>Decryption is itself a function, \(D_c(\mathit{sk}) = \mathrm{Dec}(\mathit{sk}, c)\).
+If the scheme can homomorphically evaluate its own decryption function, then running
+\(D_c\) on an <strong>encryption of the secret key</strong> outputs a <strong>fresh</strong> encryption of <code>m</code>.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code>             noisy ct  c  (decrypts to m, but almost out of budget)
+                   │   treat c as public constants in the circuit D_c
+                   ▼
+  Enc(sk) ──▶ Eval(D_c, ·) ──▶ ct&#39; = Enc(D_c(sk)) = Enc(m)
+  (bootstrapping key)           noise depends only on the depth of D_c,
+                                not on how noisy c was
+</code></pre></div>
+
+<p>The secret key is never revealed: the server only ever holds <code>Enc(sk)</code>. This requires:</p>
+<ul>
+<li><strong>Bootstrappability</strong>: the depth of <code>Dec</code> plus at least one more operation must fit in the
+  scheme's capacity. Gentry needed a "squashing" trick to make his decryption shallow enough.
+  Modern schemes design for this directly.</li>
+<li><strong>Circular security</strong>: it must be safe to publish <code>Enc_sk(sk)</code>. This is an extra assumption
+  (ch. 02 §7).</li>
+</ul>
+<p>Bootstrapping is where most FHE research effort goes. Each family does it differently:</p>
+<h3 id="bgv--bfv-bootstrapping">BGV / BFV bootstrapping<a class="headerlink" href="#bgv--bfv-bootstrapping" title="Link to this section">#</a></h3>
+<p>Mod-switch to a tiny modulus, homomorphically compute <code>c₀ + c₁s mod q</code> (a linear map), then
+<strong>digit extraction</strong>: a polynomial that extracts the top digits to remove the noise. It is
+expensive and used less in practice; most BGV/BFV deployments are leveled.</p>
+<h3 id="ckks-bootstrapping">CKKS bootstrapping<a class="headerlink" href="#ckks-bootstrapping" title="Link to this section">#</a></h3>
+<p>The ciphertext at level 0 satisfies <code>c₀ + c₁s = Δm + e (mod q₀)</code>.</p>
+<ol>
+<li><strong>ModRaise</strong>: reinterpret it modulo a big <code>Q</code>. Now <code>c₀ + c₁s = Δm + e + q₀·I(X)</code> for some small-integer polynomial <code>I</code>.</li>
+<li><strong>CoeffToSlot</strong>: a homomorphic DFT moves polynomial coefficients into slots.</li>
+<li><strong>EvalMod</strong>: remove <code>q₀·I</code> by computing <code>x mod q₀</code> approximately, as a polynomial approximation of <code>(q₀/2π)·sin(2πx/q₀)</code> (Chebyshev series and double-angle formulas).</li>
+<li><strong>SlotToCoeff</strong>: inverse DFT.</li>
+</ol>
+<p>It consumes ~10–15 levels by itself, so you need big parameters (<code>N = 2¹⁶</code>). The linear
+transforms (2 and 4) are 55–72% of the time in recent CKKS implementations (ch. 07). Results
+are <em>approximate</em>, with precision typically 20–30+ bits.</p>
+<h3 id="fhew--tfhe-bootstrapping-blind-rotation">FHEW / TFHE bootstrapping (blind rotation)<a class="headerlink" href="#fhew--tfhe-bootstrapping-blind-rotation" title="Link to this section">#</a></h3>
+<p>These schemes bootstrap <strong>after every gate or lookup</strong>, and each bootstrap is fast:</p>
+<ol>
+<li>Mod-switch the LWE ciphertext <code>(a, b)</code> from <code>q</code> to <code>2N</code>, giving <code>(ã, b̃)</code>.</li>
+<li><strong>Blind rotation</strong>: start with an accumulator <code>ACC = X^(−b̃) · v(X)</code>, where <code>v</code> is a
+   <strong>test polynomial</strong>. For each secret-key coordinate <code>sᵢ</code>, multiply by <code>X^(ãᵢ·sᵢ)</code> using a
+   <strong>CMux</strong> with the bootstrapping-key ciphertext <code>GGSW(sᵢ)</code>, without learning <code>sᵢ</code>. At the end
+   <code>ACC = X^(−phase) · v(X)</code>.</li>
+<li><strong>Sample extract</strong>: the constant coefficient is now <code>v[phase] ≈ f(m)</code>. Pull it out as an LWE ciphertext.</li>
+<li><strong>Key switch</strong> back to the original LWE key.</li>
+</ol>
+<p>Because <code>v</code> is arbitrary, the bootstrap <strong>evaluates any lookup table <code>f</code> for free</strong> while
+cleaning the noise. This is <strong>programmable bootstrapping</strong> (PBS), and it is why TFHE is so
+good at non-linear functions: comparisons, ReLU, sign, max. The cost is that each ciphertext
+holds only one small value (≈ 1–8 bits), and the <code>n</code> sequential CMux steps (each a few NTTs)
+limit latency. The CRYPTO 2026 work in ch. 07 attacks exactly this sequential chain.</p>
+<h2 id="9-putting-it-together-the-lifecycle">9. Putting it together: the lifecycle<a class="headerlink" href="#9-putting-it-together-the-lifecycle" title="Link to this section">#</a></h2>
+<div class="highlight"><pre><span></span><code>Client                                         Server
+──────                                         ──────
+KeyGen → sk, pk, evk (relin, Galois, bootstrapping keys)
+                                   evk ──────▶ stored (often 100s of MB – GBs)
+encode(values) → plaintext poly
+Enc(pk, ·) → ct (top level, small noise)
+                                   ct  ──────▶ add / mult / relinearize / rotate / rescale
+                                               ... depth budget runs low ...
+                                               bootstrap (or: params sized so it never runs out)
+                                               ... more computation ...
+                                   ct&#39; ◀────── result
+Dec(sk, ct&#39;) → plaintext poly → decode → result values
+</code></pre></div>
+
+<h3 id="mental-model-checklist">Mental model checklist<a class="headerlink" href="#mental-model-checklist" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>One-line meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Noise</td>
+<td>Random error that hides the message. It grows with every operation</td>
+</tr>
+<tr>
+<td>Noise budget / level</td>
+<td>How much noise growth is left before decryption fails</td>
+</tr>
+<tr>
+<td>Multiplicative depth</td>
+<td>Longest chain of sequential multiplications. It dominates the parameter size</td>
+</tr>
+<tr>
+<td>Relinearization</td>
+<td>Shrink a 3-component product ciphertext back to 2 using an evaluation key</td>
+</tr>
+<tr>
+<td>Key switching</td>
+<td>Change which secret key a ciphertext decrypts under. The expensive primitive</td>
+</tr>
+<tr>
+<td>Modulus switching / rescaling</td>
+<td>Divide the ciphertext by a prime: less noise (BGV) or the right scale (CKKS), costs one level</td>
+</tr>
+<tr>
+<td>Bootstrapping</td>
+<td>Homomorphically decrypt to reset the noise. Turns leveled HE into FHE</td>
+</tr>
+<tr>
+<td>Programmable bootstrapping</td>
+<td>Bootstrapping that also applies a lookup table (TFHE / FHEW)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Extend <code>toy_lwe.py</code> to RLWE with BFV multiplication and relinearization (≈150 lines of Python).</li>
+<li>Implement TFHE gate bootstrapping in Python with tiny parameters to watch blind rotation happen.</li>
+<li>CKKS bootstrapping in detail: why sine, Chebyshev versus minimax approximations, and the "sparse-secret encapsulation" trick.</li>
+<li>Hybrid key switching: digit decomposition versus the special modulus, and the memory/compute trade-off.</li>
+</ul>
+</article>
+<footer class="pager"><a href="02_math_foundations.html">← 02 · Mathematical foundations: lattices, LWE and Ring-LWE</a><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE →</a></footer>
+</main>
+</body>
+</html>

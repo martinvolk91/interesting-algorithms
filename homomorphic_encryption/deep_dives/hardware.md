@@ -348,7 +348,7 @@ data on chip** and reusing them. That is the CraterLake/ARK lesson, implemented 
 The 48 GB of HBM is there for *capacity*, holding the gigabytes of evaluation keys, more than
 for bandwidth.
 
-**Startups and others:** Niobium (a DPRIVE spin-out; $23M raised; reported Samsung Foundry
+**Startups and others:** Niobium (a DPRIVE spin-out; \$23M raised; reported Samsung Foundry
 8 nm deal), Cornami (reconfigurable fabric, working with DESILO on the GL scheme), Optalysys
 (photonic computing for the NTT/FFT), and Fabric Cryptography
 ([07 §4](../07_state_of_the_art_2026.md#4-hardware-acceleration)).

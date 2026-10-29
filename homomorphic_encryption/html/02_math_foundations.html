@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 · Mathematical foundations: lattices, LWE and Ring-LWE</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li class="current"><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-lattices-in-one-page">1. Lattices in one page</a></li>
+<li><a href="#2-learning-with-errors-lwe">2. Learning With Errors (LWE)</a><ul>
+<li><a href="#lwe-as-an-encryption-scheme-preview-of-chapter-03">LWE as an encryption scheme (preview of chapter 03)</a></li>
+</ul>
+</li>
+<li><a href="#3-ring-lwe-the-efficient-version">3. Ring-LWE: the efficient version</a></li>
+<li><a href="#4-the-number-theoretic-transform-ntt">4. The Number Theoretic Transform (NTT)</a></li>
+<li><a href="#5-rns-making-1000-bit-moduli-fast">5. RNS: making 1000-bit moduli fast</a></li>
+<li><a href="#6-parameters-security-and-sizes">6. Parameters, security and sizes</a></li>
+<li><a href="#7-why-this-is-post-quantum">7. Why this is post-quantum</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="02--mathematical-foundations-lattices-lwe-and-ring-lwe">02 · Mathematical foundations: lattices, LWE and Ring-LWE<a class="headerlink" href="#02--mathematical-foundations-lattices-lwe-and-ring-lwe" title="Link to this section">#</a></h1>
+<p><a href="01_introduction.html">← 01 Introduction</a> · <a href="index.html">index</a> · next: <a href="03_how_it_works.html">03 How it works →</a></p>
+<hr />
+<p>Every practical FHE scheme today rests on one hard problem, <strong>Learning With Errors</strong>, usually
+in its ring form. This chapter builds up the minimum mathematics needed to read the scheme
+descriptions.</p>
+<h2 id="1-lattices-in-one-page">1. Lattices in one page<a class="headerlink" href="#1-lattices-in-one-page" title="Link to this section">#</a></h2>
+<p>A <strong>lattice</strong> is the set of all integer combinations of some basis vectors
+\(b_1, \dots, b_n \in \mathbb{R}^m\):</p>
+<div class="math-display">\[\mathcal{L}(B) = \{\, B z \;:\; z \in \mathbb{Z}^n \,\}\]</div>
+<p>Think of an infinite, regular grid of points, possibly very skewed. The same lattice has many
+bases. A <strong>good</strong> basis has short, nearly orthogonal vectors. A <strong>bad</strong> basis has long, nearly
+parallel ones.</p>
+<p>The hard problems:</p>
+<ul>
+<li><strong>SVP (Shortest Vector Problem):</strong> find the shortest non-zero lattice vector.</li>
+<li><strong>CVP / BDD (Closest Vector / Bounded Distance Decoding):</strong> given a point <em>near</em> the lattice,
+  find the closest lattice point.</li>
+<li><strong>Approximate versions</strong> (<code>γ-SVP</code>, <code>GapSVP</code>, <code>SIVP</code>): find a vector within a factor <code>γ</code> of optimal.</li>
+</ul>
+<p>With a good basis, CVP is easy: round off coordinates (Babai's algorithm). With a bad basis in
+high dimensions it is believed to be infeasible, <strong>even for quantum computers</strong>. The best
+known algorithms (lattice sieving, enumeration, BKZ reduction) run in time exponential in the
+dimension.</p>
+<h2 id="2-learning-with-errors-lwe">2. Learning With Errors (LWE)<a class="headerlink" href="#2-learning-with-errors-lwe" title="Link to this section">#</a></h2>
+<p>Introduced by <strong>Oded Regev (2005)</strong>, who won the 2018 Gödel Prize for it.</p>
+<p>Fix a dimension <code>n</code>, a modulus <code>q</code>, and a "small" error distribution <code>χ</code> (e.g. a discrete
+Gaussian with σ ≈ 3.2). Pick a secret \(s \in \mathbb{Z}_q^n\). An <strong>LWE sample</strong> is</p>
+<div class="math-display">\[(\,a,\ b = \langle a, s\rangle + e \bmod q\,), \qquad a \leftarrow \mathbb{Z}_q^n \text{ uniform},\ e \leftarrow \chi\]</div>
+<ul>
+<li><strong>Search-LWE:</strong> given many samples, find <code>s</code>.</li>
+<li><strong>Decision-LWE:</strong> distinguish LWE samples from uniformly random pairs <code>(a, b)</code>.</li>
+</ul>
+<p><strong>Why the error is everything.</strong> Without <code>e</code>, each sample is a linear equation
+\(b = \langle a, s\rangle\), and Gaussian elimination recovers <code>s</code> from <code>n</code> samples. Adding a
+little noise to each equation turns an easy linear-algebra problem into a lattice problem
+(BDD in the lattice generated by the <code>a</code>'s) that is believed to be hard.</p>
+<p><strong>Worst-case hardness.</strong> Regev proved that solving LWE <em>on average</em> (random instances) is at
+least as hard as solving approximate SVP / SIVP <em>in the worst case</em> on any lattice, via a
+quantum reduction. Peikert (2009) and Brakerski et al. (2013) later gave classical reductions.
+This is a much stronger guarantee than RSA has: there, average-case hardness of factoring is
+simply assumed.</p>
+<p><strong>Tiny example</strong> (<code>n = 3</code>, <code>q = 17</code>, secret <code>s = (2, 5, 11)</code>):</p>
+<div class="highlight"><pre><span></span><code>a = (1, 4, 9)    &lt;a,s&gt; = 2 + 20 + 99 = 121 ≡ 2 (mod 17)    e = +1   → b = 3
+a = (6, 0, 13)   &lt;a,s&gt; = 12 + 0 + 143 = 155 ≡ 2 (mod 17)   e = −1   → b = 1
+...
+</code></pre></div>
+
+<p>Given only the <code>(a, b)</code> rows, recover <code>s</code>. With <code>n = 3</code> you can brute-force it. With <code>n = 1024</code>
+and well-chosen <code>q, σ</code>, no known algorithm can.</p>
+<h3 id="lwe-as-an-encryption-scheme-preview-of-chapter-03">LWE as an encryption scheme (preview of chapter 03)<a class="headerlink" href="#lwe-as-an-encryption-scheme-preview-of-chapter-03" title="Link to this section">#</a></h3>
+<p>Encode a message <code>m ∈ Z_t</code> into the <strong>high-order bits</strong> of <code>b</code>, where the noise can't reach it:</p>
+<div class="math-display">\[c = (a,\ b = \langle a, s\rangle + \Delta m + e), \qquad \Delta = \lfloor q / t \rfloor\]</div>
+<p>Decryption computes \(b - \langle a, s\rangle = \Delta m + e\) and rounds away <code>e</code>. By
+decision-LWE, <code>b</code> looks uniformly random, so <code>m</code> is hidden. <strong>Adding two ciphertexts adds the
+messages and adds the noises.</strong> That is the seed of homomorphism.</p>
+<h2 id="3-ring-lwe-the-efficient-version">3. Ring-LWE: the efficient version<a class="headerlink" href="#3-ring-lwe-the-efficient-version" title="Link to this section">#</a></h2>
+<p>Plain LWE is inefficient: a key or ciphertext involves an <code>n × n</code> matrix's worth of random
+<code>a</code>'s, and operations cost \(O(n^2)\). <strong>Ring-LWE</strong> (Lyubashevsky–Peikert–Regev, 2010) replaces
+vectors with <strong>polynomials</strong>.</p>
+<p>The ring used by nearly all FHE schemes is</p>
+<div class="math-display">\[R = \mathbb{Z}[X] / (X^N + 1), \qquad R_q = \mathbb{Z}_q[X] / (X^N + 1), \qquad N = 2^k\]</div>
+<p>Elements are polynomials of degree <code>&lt; N</code> with coefficients mod <code>q</code>. Multiplication is ordinary
+polynomial multiplication followed by the rule \(X^N = -1\), which wraps coefficients around
+with a sign flip ("<strong>negacyclic convolution</strong>"). \(X^N + 1\) is the \(2N\)-th cyclotomic
+polynomial, and this choice gives both nice algebra and fast arithmetic.</p>
+<p><strong>Example</strong> in \(\mathbb{Z}_{17}[X]/(X^4+1)\):</p>
+<div class="highlight"><pre><span></span><code>(1 + 2X + X³) · (3 + X²)
+  = 3 + 6X + X² + 2X³ + 3X³ + X⁵
+  = 3 + 6X + X² + 5X³ + X·X⁴          and X⁴ = −1, so X⁵ = −X
+  = 3 + 5X + X² + 5X³
+</code></pre></div>
+
+<p>An <strong>RLWE sample</strong> is \((a,\ b = a \cdot s + e) \in R_q^2\), where <code>s</code> and <code>e</code> are polynomials
+with small coefficients. One RLWE sample "contains" <code>N</code> correlated LWE samples, so:</p>
+<ul>
+<li>keys and ciphertexts shrink from \(O(N^2)\) to \(O(N)\) numbers;</li>
+<li>multiplication costs \(O(N \log N)\) with the NTT (below);</li>
+<li>the ring structure enables <strong>packing many values into one ciphertext</strong> (SIMD batching, ch. 05).</li>
+</ul>
+<p>The cost is extra algebraic structure that an attacker might exploit. No such attack is known
+for the power-of-two cyclotomics used in FHE: the best attacks on RLWE are the same as on LWE.</p>
+<p><strong>Module-LWE</strong> sits in between (small matrices of ring elements). It is the basis of NIST's
+post-quantum standards ML-KEM (Kyber) and ML-DSA (Dilithium), but FHE schemes mostly use
+RLWE or plain LWE. FHE and post-quantum cryptography share the same hardness foundation.</p>
+<h2 id="4-the-number-theoretic-transform-ntt">4. The Number Theoretic Transform (NTT)<a class="headerlink" href="#4-the-number-theoretic-transform-ntt" title="Link to this section">#</a></h2>
+<p>The NTT is the <strong>FFT over a finite field</strong>, and it is <em>the</em> computational kernel of FHE.</p>
+<p>If <code>q</code> is prime with \(q \equiv 1 \pmod{2N}\), then \(\mathbb{Z}_q\) contains a primitive
+\(2N\)-th root of unity <code>ψ</code>. The <code>N</code> roots of \(X^N + 1\) are then \(\psi, \psi^3, \psi^5, \dots,
+\psi^{2N-1}\), and by the Chinese Remainder Theorem</p>
+<div class="math-display">\[\mathbb{Z}_q[X]/(X^N+1) \;\cong\; \underbrace{\mathbb{Z}_q \times \cdots \times \mathbb{Z}_q}_{N \text{ copies}}, \qquad a(X) \mapsto \big(a(\psi), a(\psi^3), \dots, a(\psi^{2N-1})\big)\]</div>
+<p>In this "evaluation form", polynomial multiplication becomes <strong>pointwise</strong> multiplication. The
+NTT and its inverse take \(O(N \log N)\), so a ring multiplication costs \(O(N \log N)\) instead
+of \(O(N^2)\).</p>
+<p>Profiles of FHE libraries are dominated by NTTs and by <strong>key switching</strong>, which is built on
+NTTs. This is why FHE hardware accelerators (ch. 07) are mostly NTT engines plus a lot of
+memory bandwidth. A runnable NTT, measured against schoolbook multiplication, is in the
+<a href="deep_dives/hardware.html">hardware deep dive §2</a>.</p>
+<p>The same CRT idea over \(\mathbb{Z}_t\) (the <em>plaintext</em> modulus) gives BFV/BGV <strong>batching</strong>.
+Over \(\mathbb{C}\) it gives CKKS's <strong>canonical embedding</strong>. One isomorphism appears three times.</p>
+<h2 id="5-rns-making-1000-bit-moduli-fast">5. RNS: making 1000-bit moduli fast<a class="headerlink" href="#5-rns-making-1000-bit-moduli-fast" title="Link to this section">#</a></h2>
+<p>Practical ciphertext moduli are huge. With \(N = 2^{16}\), \(\log_2 q\) can be over 1500 bits,
+and arithmetic on 1500-bit integers is slow. The fix is the <strong>Residue Number System</strong>:</p>
+<div class="math-display">\[q = q_1 \cdot q_2 \cdots q_L, \qquad q_i \text{ distinct NTT-friendly primes of } 30\text{–}60 \text{ bits}\]</div>
+<p>A polynomial mod <code>q</code> is stored as <code>L</code> polynomials mod \(q_i\) (CRT again). All arithmetic then
+runs on machine words, in parallel across the "RNS limbs". <strong>Dropping a prime</strong> from the chain
+implements modulus switching and CKKS rescaling cheaply (ch. 03). Every modern library (SEAL,
+OpenFHE, Lattigo, HEaaN…) uses RNS variants of the schemes, often called "full-RNS" BFV or
+CKKS.</p>
+<h2 id="6-parameters-security-and-sizes">6. Parameters, security and sizes<a class="headerlink" href="#6-parameters-security-and-sizes" title="Link to this section">#</a></h2>
+<p>The security of (R)LWE depends on <code>N</code> (dimension), <code>q</code> (modulus) and the noise and secret
+distributions. <strong>A larger <code>q</code> makes attacks easier</strong>, since the noise is relatively smaller.
+Each <code>N</code> therefore admits a maximum <code>q</code>. These are the HomomorphicEncryption.org standard
+bounds for <strong>128-bit classical security</strong> with a ternary secret, which SEAL and OpenFHE use
+as defaults:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>N</code> (ring dimension)</th>
+<th>max \(\log_2 q\) (128-bit)</th>
+<th>Roughly enough for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 024</td>
+<td>27</td>
+<td>toy</td>
+</tr>
+<tr>
+<td>2 048</td>
+<td>54</td>
+<td>a couple of additions</td>
+</tr>
+<tr>
+<td>4 096</td>
+<td>109</td>
+<td>1–2 multiplications</td>
+</tr>
+<tr>
+<td>8 192</td>
+<td>218</td>
+<td>~4–5 multiplications</td>
+</tr>
+<tr>
+<td>16 384</td>
+<td>438</td>
+<td>~10 multiplications</td>
+</tr>
+<tr>
+<td>32 768</td>
+<td>881</td>
+<td>~20 mults, or bootstrapping with few levels left</td>
+</tr>
+<tr>
+<td>65 536</td>
+<td>~1 700</td>
+<td>comfortable CKKS bootstrapping</td>
+</tr>
+</tbody>
+</table></div>
+<p>(The <code>N = 65536</code> row is extrapolated from library practice. The other rows are the standard's
+table values. Concrete security is estimated with the <strong>Lattice Estimator</strong> of
+Albrecht et al., which models primal, dual and hybrid attacks.)</p>
+<p><strong>Size example.</strong> With \(N = 2^{14}\) and \(\log q = 438\), a fresh ciphertext is two polynomials:
+\(2 \cdot 16384 \cdot 438\) bits ≈ <strong>1.8 MB</strong>. With batching it holds 8192 CKKS values or 16384
+BFV slots, so the per-value expansion is much smaller than it first looks. Evaluation keys
+(relinearization, rotation, bootstrapping) can add <strong>hundreds of MB to several GB</strong>. Moving
+them through memory is a major bottleneck.</p>
+<p><strong>Secret distributions.</strong> Libraries use ternary secrets (\(\{-1, 0, 1\}\) coefficients), and
+sometimes <strong>sparse</strong> secrets (few non-zeros) because they make bootstrapping cheaper. Sparse
+secrets enable hybrid attacks, so parameters must account for them. The CRYPTO 2026 paper by
+Jain–Lin–Liu–Saha exploits sparse secrets to speed up FHEW/TFHE bootstrapping (ch. 07).</p>
+<h2 id="7-why-this-is-post-quantum">7. Why this is post-quantum<a class="headerlink" href="#7-why-this-is-post-quantum" title="Link to this section">#</a></h2>
+<ul>
+<li>Shor's algorithm breaks factoring and discrete log, and with them RSA, ElGamal, Paillier and
+  pairing-based HE.</li>
+<li>No quantum algorithm is known to solve LWE / RLWE much faster than classical ones. The best
+  quantum speedups for lattice sieving are modest constant-in-the-exponent improvements.</li>
+<li>In April 2024 Yilei Chen posted a claimed polynomial-time quantum algorithm for LWE with
+  certain parameters. Within about ten days a bug was found and the claim was withdrawn. The
+  episode was a useful stress test, and it showed the community scrutinizes these assumptions
+  hard.</li>
+</ul>
+<p><strong>Caveat specific to FHE: circular security.</strong> Bootstrapping publishes an encryption of the
+secret key under itself. Security of that is an <em>extra assumption</em> ("circular security") that
+is not implied by LWE, although no attack is known. Leveled schemes avoid the assumption.</p>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Implement the negacyclic NTT in Python and verify it against schoolbook multiplication.</li>
+<li>How the Lattice Estimator works: primal uSVP attack, BKZ cost models, dual and hybrid attacks.</li>
+<li>The canonical embedding and why CKKS slots are complex numbers.</li>
+<li>Regev's reduction: what "worst-case to average-case" actually buys you.</li>
+</ul>
+</article>
+<footer class="pager"><a href="01_introduction.html">← 01 · Introduction: what homomorphic encryption is</a><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping →</a></footer>
+</main>
+</body>
+</html>

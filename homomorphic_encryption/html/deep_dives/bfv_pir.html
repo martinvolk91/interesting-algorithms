@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dive: BFV and private information retrieval (caller ID)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li class="current"><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#0-the-one-idea">0. The one idea</a><ul>
+<li><a href="#notation">Notation</a></li>
+</ul>
+</li>
+<li><a href="#1-plaintexts-and-batching">1. Plaintexts and batching</a><ul>
+<li><a href="#11-the-plaintext-ring-splits-into-slots">1.1 The plaintext ring splits into slots</a></li>
+<li><a href="#12-rows-and-rotations">1.2 Rows and rotations</a></li>
+<li><a href="#13-choosing-t">1.3 Choosing t</a></li>
+</ul>
+</li>
+<li><a href="#2-encryption-decryption-and-the-noise-budget">2. Encryption, decryption and the noise budget</a><ul>
+<li><a href="#21-encrypt-and-decrypt">2.1 Encrypt and decrypt</a></li>
+<li><a href="#22-the-noise-budget">2.2 The noise budget</a></li>
+</ul>
+</li>
+<li><a href="#3-multiplication">3. Multiplication</a><ul>
+<li><a href="#31-tensor-scale-round">3.1 Tensor, scale, round</a></li>
+<li><a href="#32-in-real-libraries">3.2 In real libraries</a></li>
+<li><a href="#33-bfv-vs-bgv">3.3 BFV vs BGV</a></li>
+</ul>
+</li>
+<li><a href="#4-key-switching-the-digit-size-trade-off">4. Key switching: the digit-size trade-off</a></li>
+<li><a href="#5-rotations-at-work-an-encrypted-inner-product">5. Rotations at work: an encrypted inner product</a></li>
+<li><a href="#6-the-problem">6. The problem</a></li>
+<li><a href="#7-the-toy-caller-id-service">7. The toy caller-ID service</a><ul>
+<li><a href="#71-the-protocol">7.1 The protocol</a></li>
+<li><a href="#72-database-layout-keyword--bucket--slots">7.2 Database layout: keyword → bucket → slots</a></li>
+<li><a href="#73-server-mask-then-lay-the-bucket-out">7.3 Server: mask, then lay the bucket out</a></li>
+<li><a href="#74-client-decrypt-and-match">7.4 Client: decrypt and match</a></li>
+<li><a href="#75-what-the-client-also-learns">7.5 What the client also learns</a></li>
+<li><a href="#76-costs-and-why-pir-only-wins-at-scale">7.6 Costs, and why PIR only wins at scale</a></li>
+</ul>
+</li>
+<li><a href="#8-from-the-toy-to-a-real-deployment">8. From the toy to a real deployment</a><ul>
+<li><a href="#81-scaling-the-database">8.1 Scaling the database</a></li>
+<li><a href="#82-keyword-pir">8.2 Keyword PIR</a></li>
+<li><a href="#83-he-hides-what-not-who-or-when">8.3 HE hides what, not who or when</a></li>
+<li><a href="#84-dont-build-a-decryption-oracle">8.4 Don't build a decryption oracle</a></li>
+<li><a href="#85-the-same-pattern-elsewhere">8.5 The same pattern elsewhere</a></li>
+</ul>
+</li>
+<li><a href="#9-security-notes-on-the-toy">9. Security notes on the toy</a></li>
+<li><a href="#10-exercises">10. Exercises</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="deep-dive-bfv-and-private-information-retrieval-caller-id">Deep dive: BFV and private information retrieval (caller ID)<a class="headerlink" href="#deep-dive-bfv-and-private-information-retrieval-caller-id" title="Link to this section">#</a></h1>
+<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">04 Schemes</a>, <a href="../08_ecosystem_and_applications.html#3-application-areas">08 Applications</a> · siblings: <a href="ckks.html">CKKS</a>, <a href="tfhe.html">TFHE</a>, <a href="ckks_ind_cpa_d.html">IND-CPA-D</a></p>
+<hr />
+<p>BFV (Brakerski 2012, Fan–Vercauteren 2012) does <strong>exact arithmetic on vectors of integers
+mod <code>t</code></strong>. It is the scheme behind the two best-known FHE deployments: Apple's <strong>Live Caller
+ID Lookup</strong> and Microsoft Edge's <strong>Password Monitor</strong>. Both are <em>private lookups</em>: the client
+learns something from a server's database, and the server doesn't learn what was looked up.</p>
+<p>This document has two parts:</p>
+<ul>
+<li><strong>Part I, BFV:</strong> batching, encryption, the noise budget, multiplication, key switching and
+  rotations, all running in <a href="../../code/toy_bfv.py"><code>../code/toy_bfv.py</code></a>.</li>
+<li><strong>Part II, PIR:</strong> a toy <strong>keyword private information retrieval</strong> service for caller ID,
+  in <a href="../../code/pir_caller_id.py"><code>../code/pir_caller_id.py</code></a>, and how real deployments differ.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/toy_bfv.py<span class="w">          </span><span class="c1"># from the homomorphic_encryption/ folder, ~0.1 s</span>
+python3<span class="w"> </span>code/pir_caller_id.py<span class="w">    </span><span class="c1"># ~0.2 s</span>
+</code></pre></div>
+
+<p>Both are pure Python with no dependencies, and they are wildly insecure (<code>N = 64</code>). The phone
+numbers in the demo are in the 555-01xx range reserved for fiction, and the labels are made up.</p>
+<hr />
+<h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
+<blockquote>
+<p>BFV keeps the message in the <strong>top bits</strong> of the ciphertext, <code>Δ·m</code> with <code>Δ = ⌊q/t⌋</code>, and the
+noise below it. Decryption scales by <code>t/q</code> and <strong>rounds the noise away</strong>, so results are
+exact. <strong>Batching</strong> turns one ciphertext into <code>N</code> independent integers mod <code>t</code>.</p>
+<p>PIR then becomes simple: multiply an <strong>encrypted one-hot selector</strong> by the plaintext
+database, and only the requested record survives. That is depth 1, no bootstrapping, and
+every slot is used: a perfect fit for BFV.</p>
+</blockquote>
+<h3 id="notation">Notation<a class="headerlink" href="#notation" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Meaning</th>
+<th>Toy</th>
+<th>Real (order of magnitude)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>N</code></td>
+<td>ring degree, \(R = \mathbb{Z}[X]/(X^N+1)\)</td>
+<td>64</td>
+<td>4096–32768</td>
+</tr>
+<tr>
+<td><code>t</code></td>
+<td>plaintext modulus (prime, \(t \equiv 1 \bmod 2N\))</td>
+<td>257</td>
+<td>e.g. 65537, or a ~20–60-bit prime</td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td>ciphertext modulus</td>
+<td>2¹²⁰</td>
+<td>~100–800 bits, as an RNS product of primes</td>
+</tr>
+<tr>
+<td><code>Δ</code></td>
+<td>⌊q/t⌋</td>
+<td>≈ 2¹¹²</td>
+<td></td>
+</tr>
+<tr>
+<td><code>w</code></td>
+<td>key-switching digit base</td>
+<td>2³⁰ (4 digits)</td>
+<td>replaced by a special modulus (hybrid)</td>
+</tr>
+<tr>
+<td>slots</td>
+<td><code>N</code> values in 2 rows of <code>N/2</code></td>
+<td>2 × 32</td>
+<td>2 × N/2</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h1 id="part-i-bfv">Part I: BFV<a class="headerlink" href="#part-i-bfv" title="Link to this section">#</a></h1>
+<h2 id="1-plaintexts-and-batching">1. Plaintexts and batching<a class="headerlink" href="#1-plaintexts-and-batching" title="Link to this section">#</a></h2>
+<h3 id="11-the-plaintext-ring-splits-into-slots">1.1 The plaintext ring splits into slots<a class="headerlink" href="#11-the-plaintext-ring-splits-into-slots" title="Link to this section">#</a></h3>
+<p>Plaintexts are polynomials in \(R_t = \mathbb{Z}_t[X]/(X^N+1)\). If <code>t</code> is a prime with
+\(t \equiv 1 \pmod{2N}\), then \(\mathbb{Z}_t\) contains a primitive <code>2N</code>-th root of unity <code>ψ</code>,
+and \(X^N + 1\) splits into <code>N</code> linear factors \((X - \psi^{2i+1})\). By the CRT:</p>
+<div class="math-display">\[\mathbb{Z}_t[X]/(X^N+1) \;\cong\; \underbrace{\mathbb{Z}_t \times \cdots \times \mathbb{Z}_t}_{N \text{ slots}}, \qquad m \mapsto \big(m(\psi), m(\psi^3), \dots\big)\]</div>
+<p>This is the same structure as the CKKS encoding (<a href="ckks.html#1-encoding">CKKS §1</a>), but over a
+finite field instead of \(\mathbb{C}\). Nothing is approximated, and all <code>N</code> slots are
+independent. CKKS has only <code>N/2</code> slots because the other half are complex conjugates.</p>
+<p><strong>Toy numbers:</strong> <code>t = 257 = 2⁸ + 1</code> and <code>2N = 128</code> divides <code>t − 1 = 256</code>. 3 is a primitive
+root mod 257, so <code>ψ = 3^(256/128) = 9</code> (indeed <code>9⁶⁴ ≡ −1 mod 257</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="n">PSI</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">_primitive_root</span><span class="p">(),</span> <span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">),</span> <span class="n">T</span><span class="p">)</span>        <span class="c1"># primitive 2N-th root of unity mod T</span>
+<span class="n">SLOT_ROOTS</span> <span class="o">=</span> <span class="p">([</span><span class="nb">pow</span><span class="p">(</span><span class="n">PSI</span><span class="p">,</span> <span class="nb">pow</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">),</span> <span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ROW</span><span class="p">)]</span> <span class="o">+</span>             <span class="c1"># row 0</span>
+              <span class="p">[</span><span class="nb">pow</span><span class="p">(</span><span class="n">PSI</span><span class="p">,</span> <span class="o">-</span><span class="nb">pow</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">),</span> <span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ROW</span><span class="p">)])</span>   <span class="c1"># row 1</span>
+
+<span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;N integers mod T (slot values) -&gt; plaintext polynomial with m(SLOT_ROOTS[i]) = values[i].&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">N_INV</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="nb">pow</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="o">-</span><span class="n">k</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">SLOT_ROOTS</span><span class="p">))</span> <span class="o">%</span> <span class="n">T</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="nb">pow</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">m</span><span class="p">))</span> <span class="o">%</span> <span class="n">T</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">SLOT_ROOTS</span><span class="p">]</span>
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>== batching: 64 integers mod 257 in one plaintext
+slots x[:8]        [96, 151, 165, 45, 172, 211, 68, 17]
+coefficients[:8]   [231, 247, 103, 13, 242, 251, 229, 53]  (scrambled by the CRT)
+decode(encode(x)) == x: True
+</code></pre></div>
+
+<p>Real libraries compute both directions with an NTT in \(O(N \log N)\).</p>
+<h3 id="12-rows-and-rotations">1.2 Rows and rotations<a class="headerlink" href="#12-rows-and-rotations" title="Link to this section">#</a></h3>
+<p>The slots are ordered by the roots \(\psi^{5^j}\) (row 0) and \(\psi^{-5^j}\) (row 1), giving a
+<strong>2 × N/2</strong> grid. As in CKKS, the automorphism \(X \mapsto X^5\) maps the root of slot <code>j</code> to the
+root of slot <code>j+1</code>, so it <strong>rotates both rows left by one</strong>. \(X \mapsto X^{-1}\) <strong>swaps the
+rows</strong>. These are the only data movements available, and each costs a key switch (§4).</p>
+<div class="highlight"><pre><span></span><code>rotate left 1, row 0: [151, 165, 45, 172, 211, 68] ... was [96, 151, 165, 45, 172, 211]
+row swap, row 0     : [158, 35, 30, 26, 44, 29] ... was row 1 [158, 35, 30, 26, 44, 29]
+</code></pre></div>
+
+<p>(If <code>t</code> is not ≡ 1 mod 2N, slots become elements of an extension field and the grid has more
+dimensions. That is HElib's "hypercube" generality. The <code>t ≡ 1 mod 2N</code> case is the common,
+simplest one.)</p>
+<h3 id="13-choosing-t">1.3 Choosing <code>t</code><a class="headerlink" href="#13-choosing-t" title="Link to this section">#</a></h3>
+<ul>
+<li><code>t</code> bounds the values: <strong>all slot arithmetic is mod <code>t</code>.</strong> To compute with ordinary
+  integers, keep every intermediate value below <code>t</code>, or split across several <code>t</code>'s with the CRT.</li>
+<li>A bigger <code>t</code> means more noise per multiplication (§3). Each multiplication costs about
+  <code>log₂(t·N)</code> bits of budget.</li>
+<li>Full batching needs \(t \equiv 1 \pmod{2N}\). The Fermat prime <strong>65537</strong> works for every
+  <code>N ≤ 2¹⁵</code> and is a popular default.</li>
+</ul>
+<hr />
+<h2 id="2-encryption-decryption-and-the-noise-budget">2. Encryption, decryption and the noise budget<a class="headerlink" href="#2-encryption-decryption-and-the-noise-budget" title="Link to this section">#</a></h2>
+<h3 id="21-encrypt-and-decrypt">2.1 Encrypt and decrypt<a class="headerlink" href="#21-encrypt-and-decrypt" title="Link to this section">#</a></h3>
+<p>Keys and encryption are the standard RLWE ones (<a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>):</p>
+<ul>
+<li>secret <code>s</code> ternary; public key <code>pk = (−a·s + e, a)</code>;</li>
+<li><code>Enc(m) = (pk₀·u + e₁ + Δ·m,  pk₁·u + e₂)</code>;</li>
+<li><code>Dec</code>: compute <code>x = c₀ + c₁·s = Δ·m + v (mod q)</code>, then <strong><code>m = round(t·x/q) mod t</code></strong>.</li>
+</ul>
+<p>The rounding is what makes BFV exact and what distinguishes it from CKKS. It also means that
+decrypted outputs reveal nothing about the noise, so exact schemes are IND-CPA-D secure as
+long as decryption never fails (<a href="ckks_ind_cpa_d.html#6-its-not-only-ckks">IND-CPA-D deep dive §6</a>).</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="p">))</span>                  <span class="c1"># = DELTA*m + e  (mod Q)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">round_div</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span> <span class="n">c</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span> <span class="o">%</span> <span class="n">T</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>              <span class="c1"># scale by T/Q and round: the noise vanishes</span>
+</code></pre></div>
+
+<h3 id="22-the-noise-budget">2.2 The noise budget<a class="headerlink" href="#22-the-noise-budget" title="Link to this section">#</a></h3>
+<p>Microsoft SEAL popularized measuring noise as a <strong>budget in bits</strong>. Write
+\(\frac{t}{q}(c_0 + c_1 s) = m + v + t\cdot k\). Decryption is correct while the <em>invariant
+noise</em> satisfies \(|v| &lt; 1/2\). The budget is</p>
+<div class="math-display">\[\text{budget} = -\log_2(2\,\|v\|_\infty) = \log_2\frac{q}{2\,\|t\,(c_0 + c_1 s) \bmod q\|_\infty}\]</div>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">noise_budget</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="p">))</span>
+    <span class="n">worst</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">centre</span><span class="p">([</span><span class="n">T</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">],</span> <span class="n">Q</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">Q</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">worst</span><span class="p">))</span> <span class="k">if</span> <span class="n">worst</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>A fresh ciphertext starts at about \(\log_2(q/t)\) minus the fresh-noise size. Every operation
+spends some budget, and at 0 decryption breaks. Toy measurements:</p>
+<div class="highlight"><pre><span></span><code>== noise budget: what each operation costs
+fresh encryption       budget 102.7 bits
+after an addition      budget 102.0 bits
+after x plaintext      budget  93.0 bits
+after a rotation       budget  74.5 bits
+x^(2^1) (depth 1)    budget  74.1 bits   decrypts correctly: True
+x^(2^2) (depth 2)    budget  61.0 bits   decrypts correctly: True
+x^(2^3) (depth 3)    budget  48.1 bits   decrypts correctly: True
+x^(2^4) (depth 4)    budget  34.1 bits   decrypts correctly: True
+x^(2^5) (depth 5)    budget  20.2 bits   decrypts correctly: True
+x^(2^6) (depth 6)    budget   6.7 bits   decrypts correctly: True
+x^(2^7) (depth 7)    budget   0.0 bits   decrypts correctly: False
+</code></pre></div>
+
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Budget cost (toy)</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>addition</td>
+<td>&lt; 1 bit</td>
+<td>noises add</td>
+</tr>
+<tr>
+<td>× plaintext</td>
+<td>~10 bits</td>
+<td>noise × plaintext polynomial (≤ <code>N·t/2</code>; ~<code>√N·t/4</code> typical)</td>
+</tr>
+<tr>
+<td>rotation</td>
+<td>~28 bits <strong>once</strong> (a floor, not a per-op loss)</td>
+<td>key-switching noise (§4)</td>
+</tr>
+<tr>
+<td>first × ciphertext</td>
+<td>~28 bits</td>
+<td>dominated by the relinearization noise floor</td>
+</tr>
+<tr>
+<td>later × ciphertext</td>
+<td><strong>~13–14 bits each</strong></td>
+<td>noise grows by ≈ <code>t·N</code> per multiplication: <code>log₂(257·64) ≈ 14</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>So the toy supports <strong>depth 6</strong>. With <code>q = 2¹²⁰</code> and <code>t = 257</code>, that is the whole story of
+leveled BFV: <strong>budget ÷ (bits per multiplication) = depth.</strong></p>
+<p><strong>Never share the noise budget.</strong> It is a direct measurement of <code>‖v‖</code>, a function of the
+secret key. Apple's library documentation warns that sending noise budgets or decryption
+results back to the server can act as an oracle revealing the secret key (§8.4).</p>
+<hr />
+<h2 id="3-multiplication">3. Multiplication<a class="headerlink" href="#3-multiplication" title="Link to this section">#</a></h2>
+<h3 id="31-tensor-scale-round">3.1 Tensor, scale, round<a class="headerlink" href="#31-tensor-scale-round" title="Link to this section">#</a></h3>
+<p>Multiply the decryption equations (<a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">03 §4</a>):</p>
+<div class="math-display">\[(c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s) = d_0 + d_1 s + d_2 s^2\]</div>
+<p>In BFV this product must be computed <strong>over the integers</strong>, not mod <code>q</code>. Over the integers,
+\(c_0 + c_1 s = \Delta m + v + q\,k\) for some small polynomial <code>k</code>, and the <code>q·k</code> terms only
+disappear after the scaling step. Scale each \(d_i\) by <code>t/q</code> and round:</p>
+<div class="math-display">\[\tfrac{t}{q}\,(\Delta m + v + qk)(\Delta m&#x27; + v&#x27; + qk&#x27;) \;\approx\; \Delta\, m m&#x27; + \underbrace{t\,(m v&#x27; + m&#x27; v + k v&#x27; + k&#x27; v)}_{\text{new noise}} + \dots \pmod{q}\]</div>
+<p>The message comes back at scale Δ (because \(t\Delta \approx q\)), and the noise grows by a
+factor of about <code>t·‖s‖·N</code>. That is the ~14 bits per multiplication measured above.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">mul</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tensor product over the integers, scale by T/Q and round, then relinearize.&quot;&quot;&quot;</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">centre</span><span class="p">([</span><span class="n">round_div</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span> <span class="n">c</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">a</span><span class="p">],</span> <span class="n">Q</span><span class="p">)</span>
+    <span class="n">d0</span> <span class="o">=</span> <span class="n">scale</span><span class="p">(</span><span class="n">poly_mul_int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">d1</span> <span class="o">=</span> <span class="n">scale</span><span class="p">([</span><span class="n">p</span> <span class="o">+</span> <span class="n">r</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">poly_mul_int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">poly_mul_int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]))])</span>
+    <span class="n">d2</span> <span class="o">=</span> <span class="n">scale</span><span class="p">(</span><span class="n">poly_mul_int</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>                     <span class="c1"># decrypts with (1, s, s^2)</span>
+    <span class="n">k0</span><span class="p">,</span> <span class="n">k1</span> <span class="o">=</span> <span class="n">key_switch</span><span class="p">(</span><span class="n">d2</span><span class="p">,</span> <span class="n">evk</span><span class="p">[</span><span class="s2">&quot;relin&quot;</span><span class="p">])</span>                    <span class="c1"># d2*s^2 -&gt; k0 + k1*s</span>
+    <span class="k">return</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">k0</span><span class="p">),</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="n">k1</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="32-in-real-libraries">3.2 In real libraries<a class="headerlink" href="#32-in-real-libraries" title="Link to this section">#</a></h3>
+<p>The integer tensor product is awkward in RNS, where <code>q</code> is a product of word-sized primes and
+there are no big integers. The two standard RNS variants handle the "scale by <code>t/q</code> and round"
+step with <strong>base extensions</strong>: <strong>BEHZ</strong> (Bajard–Eynard–Hasan–Zucca 2016) and <strong>HPS</strong>
+(Halevi–Polyakov–Shoup 2019).</p>
+<h3 id="33-bfv-vs-bgv">3.3 BFV vs BGV<a class="headerlink" href="#33-bfv-vs-bgv" title="Link to this section">#</a></h3>
+<p>BGV puts the message in the <strong>low</strong> bits (<code>c₀ + c₁s = m + t·e</code>) and controls noise with
+<strong>modulus switching</strong> after each multiplication. BFV is "scale-invariant": it needs no modulus
+switching, at the price of the scaling step. With modern RNS implementations their performance
+is similar. Kim–Polyakov–Zucca (2021) found BFV better for small <code>t</code> and BGV for large <code>t</code>.
+Converting between them is cheap, and OpenFHE implements both.</p>
+<hr />
+<h2 id="4-key-switching-the-digit-size-trade-off">4. Key switching: the digit-size trade-off<a class="headerlink" href="#4-key-switching-the-digit-size-trade-off" title="Link to this section">#</a></h2>
+<p>Relinearization and rotations both use <strong>key switching</strong> (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).
+The toy splits the value being switched into base-<code>w</code> digits:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">key_switch</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return (u0, u1) with u0 + u1*s ~ d * s_from, using key[i] = Enc_s(W^i * s_from).&quot;&quot;&quot;</span>
+    <span class="n">digits</span> <span class="o">=</span> <span class="p">[[(</span><span class="n">c</span> <span class="o">%</span> <span class="n">Q</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">LOG_W</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">((</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">LOG_W</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">d</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">DIGITS</span><span class="p">)]</span>
+    <span class="n">u0</span><span class="p">,</span> <span class="n">u1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">N</span>
+    <span class="k">for</span> <span class="n">di</span><span class="p">,</span> <span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">digits</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="n">u0</span> <span class="o">=</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">u0</span><span class="p">,</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">di</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">u1</span><span class="p">,</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">di</span><span class="p">,</span> <span class="n">a</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u1</span>
+</code></pre></div>
+
+<p>The added noise is about <code>(number of digits) × w × N × σ</code>. The digit size trades noise against
+speed and key size. Measured:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>digit bits</th>
+<th>digits</th>
+<th>budget after a rotation</th>
+<th>after 1st multiplication</th>
+<th>key-switch time</th>
+<th>one Galois key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>12</td>
+<td>94.5</td>
+<td>89.7</td>
+<td>9.5 ms</td>
+<td>22.5 KB</td>
+</tr>
+<tr>
+<td>20</td>
+<td>6</td>
+<td>84.3</td>
+<td>84.1</td>
+<td>4.8 ms</td>
+<td>11.2 KB</td>
+</tr>
+<tr>
+<td><strong>30</strong></td>
+<td><strong>4</strong></td>
+<td><strong>74.6</strong></td>
+<td><strong>74.3</strong></td>
+<td>3.1 ms</td>
+<td>7.5 KB (toy default)</td>
+</tr>
+<tr>
+<td>40</td>
+<td>3</td>
+<td>65.1</td>
+<td>64.5</td>
+<td>2.5 ms</td>
+<td>5.6 KB</td>
+</tr>
+<tr>
+<td>60</td>
+<td>2</td>
+<td>45.3</td>
+<td>45.6</td>
+<td>1.7 ms</td>
+<td>3.8 KB</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each extra 10 bits of digit costs about 10 bits of budget. This noise is a <strong>floor</strong>: added
+once per key switch, independent of the input's noise. That is why the first multiplication
+and a single rotation both cost ~28 bits in the toy.</p>
+<p>Real libraries mostly use <strong>hybrid key switching</strong> instead: a few RNS "digits" plus a
+temporary <strong>special modulus <code>P</code></strong> that divides the added noise away, as in the CKKS toy
+(<a href="ckks.html#31-multiplication-and-relinearization">CKKS §3.1</a>). The floor almost vanishes, at the
+cost of a larger key modulus <code>P·q</code>.</p>
+<h2 id="5-rotations-at-work-an-encrypted-inner-product">5. Rotations at work: an encrypted inner product<a class="headerlink" href="#5-rotations-at-work-an-encrypted-inner-product" title="Link to this section">#</a></h2>
+<p>Multiply slot-wise, then <strong>rotate and add</strong> with power-of-two shifts: <code>log₂(N/2)</code> rotations
+sum each row, and one row swap combines the two rows.</p>
+<div class="highlight"><pre><span></span><code><span class="n">acc</span> <span class="o">=</span> <span class="n">mul</span><span class="p">(</span><span class="n">cx</span><span class="p">,</span> <span class="n">cy</span><span class="p">,</span> <span class="n">evk</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;swap&quot;</span><span class="p">):</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="n">add</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">rotate</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">evk</span><span class="p">))</span>
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>== inner product of two encrypted vectors: multiply, then rotate-and-add
+every slot holds 46   expected 46
+</code></pre></div>
+
+<p>Each rotation amount needs its own <strong>Galois key</strong>. The usual compromise is keys for the powers
+of two only, composing any other rotation from at most <code>log₂(N/2)</code> of them. That trades key
+size against rotation count.</p>
+<hr />
+<h1 id="part-ii-private-information-retrieval">Part II: Private information retrieval<a class="headerlink" href="#part-ii-private-information-retrieval" title="Link to this section">#</a></h1>
+<h2 id="6-the-problem">6. The problem<a class="headerlink" href="#6-the-problem" title="Link to this section">#</a></h2>
+<p>A phone receives a call from an unknown number and wants to show "Spam" or "Pizza Napoli"
+from a provider's database <strong>without telling the provider who is calling</strong> the user.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Privacy</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Send the number to the server</td>
+<td>none: the server learns the user's call log</td>
+<td>tiny</td>
+</tr>
+<tr>
+<td><strong>Trivial PIR</strong>: download the whole database</td>
+<td>perfect</td>
+<td>the whole database, re-synced as it changes (spam lists change constantly)</td>
+</tr>
+<tr>
+<td><strong>Single-server PIR with HE</strong></td>
+<td>the server learns nothing about the number (IND-CPA)</td>
+<td>one query plus one response, and server work proportional to the database</td>
+</tr>
+</tbody>
+</table></div>
+<p>Single-server computational PIR goes back to Kushilevitz–Ostrovsky (1997). Two facts hold for
+<em>every</em> PIR scheme, and the toy makes both visible:</p>
+<ol>
+<li><strong>The server must touch every record for every query.</strong> If it skipped some, it would learn
+   that they weren't requested. Server work is \(\Omega(\text{database size})\).</li>
+<li><strong>PIR protects the client, not the database.</strong> The client may learn more than it asked
+   for. Preventing that is <em>symmetric</em> PIR, which needs extra machinery.</li>
+</ol>
+<p><strong>Why BFV fits:</strong> the answer must be exact (labels, IDs), the computation is
+plaintext × ciphertext plus rotations (<strong>depth 1</strong>, no bootstrapping, small parameters), and
+batching processes <code>N</code> records per operation.</p>
+<h2 id="7-the-toy-caller-id-service">7. The toy caller-ID service<a class="headerlink" href="#7-the-toy-caller-id-service" title="Link to this section">#</a></h2>
+<h3 id="71-the-protocol">7.1 The protocol<a class="headerlink" href="#71-the-protocol" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>CLIENT (phone)                                      SERVER (caller-ID provider)
+──────────────                                      ──────────────────────────
+once: keygen → s, pk, Galois keys ───────────────▶  stores pk + Galois keys (never s)
+
+number = &quot;+1-202-555-0157&quot;
+b   = H₁(number) mod 64          (bucket)
+tag = H₂(number) mod 256 + 1     (to recognise our entry)
+query = Enc(one-hot vector with a 1 in slot b) ──▶  for w = 0..7:
+                                                       part_w = query ⊙ P_w     (mask: only bucket b survives)
+                                                     response = Σ_w rotate_right(part_w, w)
+                                      ◀──────────── response (one ciphertext)
+decrypt → slots b, b+1, …, b+7 of b&#39;s row
+       = 4 (tag, label) pairs of bucket b
+label = the one whose tag matches, else &quot;unknown&quot;
+</code></pre></div>
+
+<h3 id="72-database-layout-keyword--bucket--slots">7.2 Database layout: keyword → bucket → slots<a class="headerlink" href="#72-database-layout-keyword--bucket--slots" title="Link to this section">#</a></h3>
+<p>A phone number is a <strong>keyword</strong>, not an index, so the server first hashes every number into
+one of 64 <strong>buckets</strong>, one per slot. Each bucket holds up to 4 <code>(tag, label)</code> entries, i.e. 8
+words. The server stores <strong>word <code>w</code> of every bucket in plaintext <code>P_w</code></strong>:</p>
+<div class="highlight"><pre><span></span><code>                    slot:  0     1     2    …    b (= 38)       …   63
+P_0  (tag   of entry 1)   t     t     0         141                 t
+P_1  (label of entry 1)   l     l     0           1  (Spam)          l
+P_2  (tag   of entry 2)   t     0     0         168                 0
+P_3  (label of entry 2)   l     0     0           4  (Dr. Weber&#39;s)   0
+ …                                               …
+P_7  (label of entry 4)   0     0     0           5  (City Library)  0
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">build_database</span><span class="p">(</span><span class="n">entries</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Hash every number into a bucket, then store word w of every bucket in plaintext w.&quot;&quot;&quot;</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">BUCKETS</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">entries</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">bucket_of</span><span class="p">(</span><span class="n">number</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">b</span><span class="p">])</span> <span class="o">==</span> <span class="n">ENTRIES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bucket </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> overflows (real systems use cuckoo hashing)&quot;</span><span class="p">)</span>
+        <span class="n">table</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">tag_of</span><span class="p">(</span><span class="n">number</span><span class="p">),</span> <span class="n">label</span><span class="p">))</span>
+    <span class="o">...</span>
+</code></pre></div>
+
+<p>The <em>tag</em> is a second hash of the number. It lets the client find its own entry among the
+bucket's four. With an 8-bit tag, a lookup of a number that isn't in the database still
+matches someone else's tag with probability up to 4/256. Real systems use longer tags or the
+full keyword.</p>
+<h3 id="73-server-mask-then-lay-the-bucket-out">7.3 Server: mask, then lay the bucket out<a class="headerlink" href="#73-server-mask-then-lay-the-bucket-out" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">answer</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">plaintexts</span><span class="p">,</span> <span class="n">evk</span><span class="p">):</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">mul_plain</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">plaintexts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">WORDS</span><span class="p">):</span>
+        <span class="n">part</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">mul_plain</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">plaintexts</span><span class="p">[</span><span class="n">w</span><span class="p">])</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">bfv</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">bfv</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">bfv</span><span class="o">.</span><span class="n">ROW</span> <span class="o">-</span> <span class="n">w</span><span class="p">,</span> <span class="n">evk</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">response</span>
+</code></pre></div>
+
+<ul>
+<li><code>query ⊙ P_w</code> is slot-wise multiplication by a one-hot vector: <strong>every bucket except <code>b</code>
+  becomes 0</strong>. The server can't tell which one survived. All it sees is IND-CPA ciphertexts.</li>
+<li>Rotating <code>part_w</code> right by <code>w</code> moves word <code>w</code> of bucket <code>b</code> into column <code>b + w</code>. Since only
+  bucket <code>b</code> is non-zero, the shifted copies never collide. The sum is <strong>one ciphertext
+  holding the whole bucket</strong>: slots <code>b … b+7</code> of <code>b</code>'s row, zeros elsewhere.</li>
+<li><strong>The server's work is identical for every query:</strong> 8 plaintext multiplications and 7
+  rotations, touching every bucket.</li>
+</ul>
+<h3 id="74-client-decrypt-and-match">7.4 Client: decrypt and match<a class="headerlink" href="#74-client-decrypt-and-match" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>== lookups
++1-202-555-0157: bucket 38 -&gt; Spam                  (truth: Spam                  ) response budget 73.4 bits
++1-202-555-0171: bucket 12 -&gt; Pizza Napoli          (truth: Pizza Napoli          ) response budget 73.9 bits
++1-202-555-0159: bucket 38 -&gt; Dr. Weber&#39;s practice  (truth: Dr. Weber&#39;s practice  ) response budget 74.0 bits
++1-202-555-0102: bucket 28 -&gt; unknown               (truth: unknown               ) response budget 74.2 bits
+</code></pre></div>
+
+<p>Two numbers share bucket 38, and the tags tell them apart. The unknown number finds no
+matching tag.</p>
+<h3 id="75-what-the-client-also-learns">7.5 What the client also learns<a class="headerlink" href="#75-what-the-client-also-learns" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>bucket 38 as (tag, label) pairs: [(141, 1), (168, 4), (81, 4), (98, 5)]
+</code></pre></div>
+
+<p>The client receives the <strong>whole bucket</strong>: three other numbers' tags and labels. Here the tags
+are 8-bit hashes, and phone numbers come from a small space, so a client could brute-force
+which numbers they belong to. This is PIR's asymmetry, and Apple's library documentation
+states it plainly: the client may learn keyword–value pairs it didn't request. Fixes include
+deriving keywords with a server-keyed function (an OPRF) so that other tags can't be inverted,
+or full symmetric PIR.</p>
+<h3 id="76-costs-and-why-pir-only-wins-at-scale">7.6 Costs, and why PIR only wins at scale<a class="headerlink" href="#76-costs-and-why-pir-only-wins-at-scale" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>database: 60 numbers in 64 buckets of 4, 8 plaintexts of 64 slots
+query 1920 B, response 1920 B, Galois keys (sent once) 52 KB
+</code></pre></div>
+
+<p>The toy's query and response are each <strong>bigger than its whole database</strong> (60 entries of 2
+bytes). That is expected: PIR pays off only when the database is large, because query and
+response sizes grow much more slowly than the database does (§8.1). The server's cost per
+query, though, always grows linearly with the database.</p>
+<p>The response still has <strong>~74 bits of noise budget</strong> after the whole computation. PIR barely
+uses the budget, so real deployments pick small parameters and <strong>modulus-switch the response
+down</strong> to shrink it before sending.</p>
+<hr />
+<h2 id="8-from-the-toy-to-a-real-deployment">8. From the toy to a real deployment<a class="headerlink" href="#8-from-the-toy-to-a-real-deployment" title="Link to this section">#</a></h2>
+<p>Apple has published the overall architecture of Live Caller ID Lookup, the
+<code>swift-homomorphic-encryption</code> library (BFV, with a <code>PrivateInformationRetrieval</code> module), and
+an example backend. In the sources I checked it has <strong>not</strong> published the exact production
+protocol and parameters. The techniques below are the standard ones from the PIR literature;
+treat any mapping to Apple's internals as indicative.</p>
+<h3 id="81-scaling-the-database">8.1 Scaling the database<a class="headerlink" href="#81-scaling-the-database" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Many plaintexts.</strong> A real database fills thousands of plaintexts. A one-hot selector over
+  all of them would mean thousands of query ciphertexts.</li>
+<li><strong>Query compression / oblivious expansion</strong> (SealPIR, Angel–Chen–Laine–Setty 2018): the
+  client sends <strong>one</strong> ciphertext encrypting \(X^i\). The server expands it into many encrypted
+  0/1 selectors itself, using automorphisms \(X \mapsto X^{N/2^j + 1}\) and key switching.</li>
+<li><strong>Multi-dimensional databases</strong> (MulPIR, Ali et al. 2021): arrange the plaintexts as a
+  <code>d₁ × d₂</code> grid. Select a column with plaintext × ciphertext products, then a row with
+  <strong>ciphertext × ciphertext</strong> products. This is where BFV multiplication and relinearization
+  earn their keep. Communication drops to about \(O(\sqrt{\text{DB}})\) selectors, or less with
+  expansion.</li>
+<li><strong>Response compression:</strong> modulus-switch the response to a small modulus before sending.</li>
+</ul>
+<h3 id="82-keyword-pir">8.2 Keyword PIR<a class="headerlink" href="#82-keyword-pir" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Cuckoo hashing</strong> instead of one hash: each keyword has 2–3 candidate buckets, so tables
+  fill up without overflow (the toy simply raises an error on overflow).</li>
+<li><strong>Sharding:</strong> large databases are split into shards, each served by an index-PIR instance.
+  Apple's library ships database tools named <code>PIRGenerateDatabase</code>, <code>PIRProcessDatabase</code> and
+  <code>PIRShardDatabase</code>, and Apple says the client only needs to sync "a small amount of database
+  metadata", such as the table configuration. If the shard is chosen by a hash of the keyword,
+  the server learns which shard was queried. How much that reveals depends on the shard size.</li>
+</ul>
+<h3 id="83-he-hides-what-not-who-or-when">8.3 HE hides <em>what</em>, not <em>who</em> or <em>when</em><a class="headerlink" href="#83-he-hides-what-not-who-or-when" title="Link to this section">#</a></h3>
+<p>Apple's documentation describes three layers of protection:</p>
+<ul>
+<li><strong>Oblivious HTTP</strong>: requests pass through two relays run by different parties. The first
+  removes the IP address but can't see the destination.</li>
+<li><strong>Privacy Pass</strong>: anonymous tokens let the provider authenticate requests without linking
+  them to a user.</li>
+<li><strong>Keyword PIR</strong>: hides the phone number itself.</li>
+</ul>
+<p>HE alone would still leave the server knowing <em>which device</em> asked <em>when</em>. Real privacy needs
+all three.</p>
+<h3 id="84-dont-build-a-decryption-oracle">8.4 Don't build a decryption oracle<a class="headerlink" href="#84-dont-build-a-decryption-oracle" title="Link to this section">#</a></h3>
+<p>Apple's library README warns that the client must not send information about decrypted
+ciphertexts, including the <strong>noise budget</strong>, back to the server. That information can act as
+an oracle that reveals the secret key. It is the IND-CPA-D lesson
+(<a href="ckks_ind_cpa_d.html">deep dive</a>) applied to an exact scheme. The README also tells clients to
+<strong>validate the decrypted format</strong>, because a malicious server can return garbage, and FHE
+gives no integrity.</p>
+<h3 id="85-the-same-pattern-elsewhere">8.5 The same pattern elsewhere<a class="headerlink" href="#85-the-same-pattern-elsewhere" title="Link to this section">#</a></h3>
+<p><strong>Microsoft Edge Password Monitor</strong> checks saved passwords against breach lists with a
+private set intersection protocol: an OPRF, hashing into buckets, and BFV (SEAL) for the
+encrypted lookup. <strong>Apple's Enhanced Visual Search</strong> uses a related private nearest-neighbour
+search. Same shape: shallow, exact, batched lookups against a big server-side database.</p>
+<hr />
+<h2 id="9-security-notes-on-the-toy">9. Security notes on the toy<a class="headerlink" href="#9-security-notes-on-the-toy" title="Link to this section">#</a></h2>
+<ul>
+<li><code>N = 64</code> with <code>q = 2¹²⁰</code> is nowhere near secure. The HE standard allows only ~27 bits of <code>q</code>
+  at <code>N = 1024</code> (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>). Real
+  PIR uses <code>N</code> in the thousands with a <code>q</code> matched to it.</li>
+<li>The hashes are SHA-256-based but un-keyed, so the client can invert other tags (§7.5).</li>
+<li>No rate limiting or authentication: that's §8.3's job.</li>
+</ul>
+<h2 id="10-exercises">10. Exercises<a class="headerlink" href="#10-exercises" title="Link to this section">#</a></h2>
+<ol>
+<li><strong>BGV:</strong> put the message in the low bits, add modulus switching, and compare noise growth
+   with BFV.</li>
+<li><strong>Hybrid key switching:</strong> replace the base-<code>w</code> digits with a special modulus <code>P</code> and watch
+   the 28-bit floor disappear.</li>
+<li><strong>Oblivious query expansion:</strong> send <code>Enc(X^i)</code> and expand it server-side into selectors
+   (SealPIR).</li>
+<li><strong>2-D PIR:</strong> arrange several plaintexts in a grid and select a row with a ciphertext ×
+   ciphertext product (MulPIR).</li>
+<li><strong>Cuckoo hashing</strong> for the keyword layer: no more overflow errors.</li>
+<li><strong>Response compression:</strong> modulus-switch the response to ~30 bits and measure the size and
+   remaining budget.</li>
+<li><strong>Password breach check:</strong> turn the demo into private set membership ("is this password
+   hash in the breach list?").</li>
+</ol>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
+<ul>
+<li>Brakerski. <em>Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></li>
+<li>Fan, Vercauteren. <em>Somewhat Practical Fully Homomorphic Encryption</em>. <a href="https://eprint.iacr.org/2012/144">ePrint 2012/144</a></li>
+<li>Smart, Vercauteren. <em>Fully Homomorphic SIMD Operations</em>. Designs, Codes and Cryptography 2014. <a href="https://eprint.iacr.org/2011/133">ePrint 2011/133</a></li>
+<li>Gentry, Halevi, Smart. <em>Homomorphic Evaluation of the AES Circuit</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (slots, automorphisms, the hypercube)</li>
+<li>Bajard, Eynard, Hasan, Zucca. <em>A Full RNS Variant of FV-like Somewhat Homomorphic Encryption Schemes</em>. SAC 2016. <a href="https://eprint.iacr.org/2016/510">ePrint 2016/510</a></li>
+<li>Halevi, Polyakov, Shoup. <em>An Improved RNS Variant of the BFV Homomorphic Encryption Scheme</em>. CT-RSA 2019. <a href="https://eprint.iacr.org/2018/117">ePrint 2018/117</a></li>
+<li>Kim, Polyakov, Zucca. <em>Revisiting Homomorphic Encryption Schemes for Finite Fields</em>. Asiacrypt 2021. <a href="https://eprint.iacr.org/2021/204">ePrint 2021/204</a></li>
+<li>Kushilevitz, Ostrovsky. <em>Replication Is Not Needed: Single Database, Computationally-Private Information Retrieval</em>. FOCS 1997.</li>
+<li>Angel, Chen, Laine, Setty. <em>PIR with Compressed Queries and Amortized Query Processing</em> (SealPIR). IEEE S&amp;P 2018. <a href="https://eprint.iacr.org/2017/1142">ePrint 2017/1142</a></li>
+<li>Ali, Lepoint, Patel, Raykova, Schoppmann, Seth, Yeo. <em>Communication–Computation Trade-offs in PIR</em> (MulPIR). USENIX Security 2021. <a href="https://eprint.iacr.org/2019/1483">ePrint 2019/1483</a></li>
+<li>Apple. <a href="https://developer.apple.com/documentation/identitylookup/understanding-how-live-caller-id-lookup-preserves-privacy"><em>Understanding how Live Caller ID Lookup preserves privacy</em></a> (Oblivious HTTP, Privacy Pass, keyword PIR)</li>
+<li>Apple / Swift.org. <a href="https://swift.org/blog/announcing-swift-homomorphic-encryption/"><em>Announcing Swift Homomorphic Encryption</em></a> and <a href="https://github.com/apple/swift-homomorphic-encryption">swift-homomorphic-encryption</a> (PIR module, database tools, security warnings); <a href="https://github.com/apple/live-caller-id-lookup-example">live-caller-id-lookup-example</a></li>
+</ul>
+<blockquote>
+<p>Several ePrint numbers above are cited from memory. If a link doesn't match its title,
+search the title on <a href="https://eprint.iacr.org">eprint.iacr.org</a>.</p>
+</blockquote>
+</article>
+<footer class="pager"><a href="../deep_dives/tfhe.html">← Deep dive: TFHE and programmable bootstrapping</a><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol) →</a></footer>
+</main>
+</body>
+</html>

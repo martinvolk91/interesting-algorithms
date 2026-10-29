@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 · Security: what HE guarantees, and where it breaks</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="index.html">Overview</a></li>
+<li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li class="current"><a href="06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-the-baseline-guarantee-ind-cpa">1. The baseline guarantee: IND-CPA</a></li>
+<li><a href="#2-parameter-selection-dont-roll-your-own">2. Parameter selection: don't roll your own</a></li>
+<li><a href="#3-ind-cpa-d-when-decryption-leaks-the-key">3. IND-CPA-D: when decryption leaks the key</a><ul>
+<li><a href="#the-attack-limicciancio-eurocrypt-2021">The attack (Li–Micciancio, Eurocrypt 2021)</a></li>
+<li><a href="#the-fix-and-its-cost">The fix and its cost</a></li>
+<li><a href="#the-attacks-spread-20242026">The attacks spread (2024–2026)</a></li>
+<li><a href="#practical-rule">Practical rule</a></li>
+</ul>
+</li>
+<li><a href="#4-circuit-privacy-and-sanitization">4. Circuit privacy and sanitization</a></li>
+<li><a href="#5-implementation-attacks">5. Implementation attacks</a></li>
+<li><a href="#6-quantum-security">6. Quantum security</a></li>
+<li><a href="#7-threat-model-summary">7. Threat model summary</a><ul>
+<li><a href="#deep-dive-candidates">Deep-dive candidates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="06--security-what-he-guarantees-and-where-it-breaks">06 · Security: what HE guarantees, and where it breaks<a class="headerlink" href="#06--security-what-he-guarantees-and-where-it-breaks" title="Link to this section">#</a></h1>
+<p><a href="05_core_techniques.html">← 05 Core techniques</a> · <a href="index.html">index</a> · next: <a href="07_state_of_the_art_2026.html">07 State of the art →</a></p>
+<hr />
+<h2 id="1-the-baseline-guarantee-ind-cpa">1. The baseline guarantee: IND-CPA<a class="headerlink" href="#1-the-baseline-guarantee-ind-cpa" title="Link to this section">#</a></h2>
+<p>All the lattice schemes are <strong>IND-CPA secure</strong> under (R)LWE: an attacker who sees ciphertexts,
+public keys and evaluation keys learns nothing about the plaintexts. For FHE (with
+bootstrapping) this additionally assumes <strong>circular security</strong> (ch. 02 §7).</p>
+<p>What IND-CPA does <strong>not</strong> cover:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Not covered</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chosen-ciphertext attacks (CCA)</strong></td>
+<td>FHE is malleable <em>by design</em>, so CCA2 is impossible. Even CCA1 (decryption queries before the challenge) breaks most lattice schemes: there are key-recovery attacks with a few thousand decryption queries. <strong>The key owner must never act as a decryption oracle</strong> for ciphertexts it didn't produce or check.</td>
+</tr>
+<tr>
+<td><strong>Leakage through decrypted results</strong></td>
+<td>The IND-CPA-D problem (§3)</td>
+</tr>
+<tr>
+<td><strong>Function privacy</strong></td>
+<td>Ciphertext noise can reveal <em>which</em> circuit was evaluated (§4)</td>
+</tr>
+<tr>
+<td><strong>Integrity</strong></td>
+<td>The server can compute something else. Nothing in HE detects it (ch. 05 §11)</td>
+</tr>
+<tr>
+<td><strong>Side channels</strong></td>
+<td>Timing or power leakage in key generation, encryption or sampling (§5)</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="2-parameter-selection-dont-roll-your-own">2. Parameter selection: don't roll your own<a class="headerlink" href="#2-parameter-selection-dont-roll-your-own" title="Link to this section">#</a></h2>
+<p>The concrete security of (R)LWE depends on <code>N</code>, <code>q</code>, the error distribution (usually a discrete
+Gaussian with σ ≈ 3.2) and the secret distribution (ternary, or sparse).</p>
+<ul>
+<li>The <strong>HomomorphicEncryption.org Security Standard</strong> (2018) gives tables of maximum <code>log q</code>
+  per <code>N</code> for 128-, 192- and 256-bit security (ch. 02 §6). SEAL, OpenFHE and Lattigo enforce
+  these by default.</li>
+<li>Security is estimated with the <strong>Lattice Estimator</strong> (Albrecht et al.), which models the
+  best known attacks: primal (uSVP via BKZ), dual, and hybrid / meet-in-the-middle (relevant
+  for sparse secrets).</li>
+<li><strong>Sparse secrets</strong> make bootstrapping cheaper but lower security for a given <code>(N, q)</code>. They
+  need their own parameter analysis.</li>
+<li>Libraries let you switch security checks off ("HEStd_NotSet"). Benchmarks sometimes do this,
+  which makes the reported numbers meaningless.</li>
+</ul>
+<h2 id="3-ind-cpa-d-when-decryption-leaks-the-key">3. IND-CPA-D: when decryption leaks the key<a class="headerlink" href="#3-ind-cpa-d-when-decryption-leaks-the-key" title="Link to this section">#</a></h2>
+<h3 id="the-attack-limicciancio-eurocrypt-2021">The attack (Li–Micciancio, Eurocrypt 2021)<a class="headerlink" href="#the-attack-limicciancio-eurocrypt-2021" title="Link to this section">#</a></h3>
+<p>IND-CPA assumes the attacker never sees decryptions. In real applications <strong>decrypted
+results are often shared</strong>: the client sends a result back to the server, publishes it, or
+acts on it. The new notion <strong>IND-CPA-D</strong> gives the attacker access to decryptions of
+<em>honestly evaluated</em> ciphertexts.</p>
+<p>CKKS fails it badly. Decryption outputs <code>m' = c₀ + c₁·s mod q</code>, <strong>including the noise</strong>,
+because in CKKS the noise is part of the approximate result. Anyone who learns <code>m'</code> and saw
+the ciphertext <code>(c₀, c₁)</code> knows</p>
+<div class="math-display">\[c_1 \cdot s = m&#x27; - c_0 \pmod q\]</div>
+<p>This is a linear equation over the ring, and solving it gives the <strong>secret key</strong> from a
+single decryption: a passive key recovery against a scheme that is provably IND-CPA secure.</p>
+<blockquote>
+<p><strong>Deep dive:</strong> <a href="deep_dives/ckks_ind_cpa_d.html">deep_dives/ckks_ind_cpa_d.md</a> reproduces the
+attack on the toy CKKS, then shows noise flooding fixing it and an averaging attack
+breaking weak flooding (<a href="../code/ckks_attack.py">code/ckks_attack.py</a>).</p>
+</blockquote>
+<h3 id="the-fix-and-its-cost">The fix and its cost<a class="headerlink" href="#the-fix-and-its-cost" title="Link to this section">#</a></h3>
+<p><strong>Noise flooding</strong>: before releasing a decryption, add fresh noise that is much larger than the
+computation noise, so the output no longer reveals <code>e</code>. Li–Micciancio–Schultz–Sorrell (CRYPTO
+2022) analysed this with differential-privacy techniques. The flooding noise must be large,
+roughly 30–60 extra bits depending on the analysis, which eats precision and forces bigger
+parameters. Choe–Kim–Stehlé–Suvanto (2025) use <strong>discrete CKKS</strong> to bootstrap at the ~80-bit
+precision that flooding needs.</p>
+<h3 id="the-attacks-spread-20242026">The attacks spread (2024–2026)<a class="headerlink" href="#the-attacks-spread-20242026" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Guo–Nabokov–Suvanto–Johansson (USENIX Security 2024):</strong> key recovery against libraries
+  (including OpenFHE) whose noise-flooding level was set from <em>average-case</em> noise estimates.
+  The conclusion is that worst-case noise estimation is necessary when results are shared.</li>
+<li><strong>Alexandru–Al Badawi–Micciancio–Polyakov (ePrint 2024/203)</strong> argued these attacks rely on
+  running a different circuit than the one the parameters were estimated for. They proposed
+  an <strong>application-aware</strong> security model. OpenFHE now offers a two-phase noise-flooding mode
+  for provable IND-CPA-D security.</li>
+<li><strong>Cheon–Choe–Passelègue–Stehlé–Suvanto (CCS 2024):</strong> IND-CPA-D attacks on <strong>exact</strong> schemes
+  (BFV, BGV, TFHE). The trigger is <strong>decryption failures</strong>: if the failure probability is not
+  negligible (e.g. 2⁻³² rather than 2⁻¹²⁸), observed failures leak information about the key.</li>
+<li><strong>Bergamaschi et al. (PKC 2025):</strong> revisited the security of noise-flooding countermeasures.</li>
+<li><strong>Santato–Zanotto (ePrint 2026/285):</strong> <strong>scheme switching</strong> (PEGASUS-style CKKS ↔ FHEW) is
+  not IND-CPA-D secure, with a proof-of-concept key recovery against OpenFHE's CKKS→FHEW path.</li>
+<li><strong>ePrint 2026/2546:</strong> new attacks on BFV, one of which fully recovers the secret key in
+  OpenFHE in minutes to hours depending on parameters.</li>
+</ul>
+<h3 id="practical-rule">Practical rule<a class="headerlink" href="#practical-rule" title="Link to this section">#</a></h3>
+<blockquote>
+<p>If <strong>anyone other than the key owner</strong> sees decrypted outputs, or if decrypted outputs
+<strong>influence anything</strong> the adversary can observe, you need IND-CPA-D-aware parameters:
+worst-case noise bounds, negligible decryption-failure probability, and (for CKKS) noise
+flooding on decryption. Check your library's security notes. OpenFHE's
+<a href="https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/security.html">"Security Notes for Homomorphic Encryption"</a>
+is the best starting point.</p>
+</blockquote>
+<p>This is arguably <strong>the most important practical security lesson of the last five years</strong> in
+FHE, and it is still an active research area.</p>
+<h2 id="4-circuit-privacy-and-sanitization">4. Circuit privacy and sanitization<a class="headerlink" href="#4-circuit-privacy-and-sanitization" title="Link to this section">#</a></h2>
+<p>The noise in an output ciphertext depends on the computation. A curious <em>client</em> might learn
+something about the server's <strong>function</strong>, for example a proprietary model's weights. To
+hide the function, the server <strong>sanitizes</strong> the result: it bootstraps and then floods with
+noise, or re-randomizes (Ducas–Stehlé 2016, "Sanitization of FHE ciphertexts"). This matters
+whenever the server's model or algorithm is itself secret, as in ML-as-a-service.</p>
+<h2 id="5-implementation-attacks">5. Implementation attacks<a class="headerlink" href="#5-implementation-attacks" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Side channels on encryption:</strong> RevEAL (2022) recovered messages from a <strong>single power
+  trace</strong> of Microsoft SEAL's Gaussian sampler. Client-side sampling must be constant time.</li>
+<li><strong>Floating-point pitfalls</strong> in CKKS encoding/decoding (FFT precision) and non-constant-time
+  modular reduction.</li>
+<li><strong>Bad randomness</strong> destroys LWE security immediately: reused <code>a</code> or <code>e</code>, or a weak PRNG for
+  seeded ciphertexts.</li>
+<li><strong>Reaction attacks:</strong> if the client visibly <em>behaves</em> differently depending on a decrypted
+  value (retries, errors), that is a decryption oracle.</li>
+</ul>
+<h2 id="6-quantum-security">6. Quantum security<a class="headerlink" href="#6-quantum-security" title="Link to this section">#</a></h2>
+<p>LWE/RLWE are believed quantum-hard. They are the same family as NIST's ML-KEM (FIPS 203).
+Partially homomorphic schemes based on factoring or discrete log (RSA, Paillier, ElGamal) are
+<strong>broken by Shor's algorithm</strong>. Lattice FHE is therefore the only HE family with a credible
+post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 02 §7).</p>
+<h2 id="7-threat-model-summary">7. Threat model summary<a class="headerlink" href="#7-threat-model-summary" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Threat</th>
+<th>Covered by plain FHE?</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Server reads your data</td>
+<td>✅ yes</td>
+<td>that's the point</td>
+</tr>
+<tr>
+<td>Server learns the result</td>
+<td>✅ yes (unless you share it)</td>
+<td></td>
+</tr>
+<tr>
+<td>Network eavesdropper</td>
+<td>✅ yes</td>
+<td></td>
+</tr>
+<tr>
+<td>Decrypted results leak the key</td>
+<td>❌ (IND-CPA-D)</td>
+<td>noise flooding, worst-case params</td>
+</tr>
+<tr>
+<td>Server computes the wrong thing</td>
+<td>❌</td>
+<td>verifiable FHE, replication, TEE</td>
+</tr>
+<tr>
+<td>Client learns the server's function</td>
+<td>❌</td>
+<td>sanitization, circuit privacy</td>
+</tr>
+<tr>
+<td>Key owner decrypts arbitrary ciphertexts</td>
+<td>❌ (CCA1 key recovery)</td>
+<td>never be a decryption oracle; ZK proofs of well-formedness</td>
+</tr>
+<tr>
+<td>Access patterns / sizes / timing of queries</td>
+<td>❌ partly</td>
+<td>fixed-size, oblivious protocols (e.g. PIR scans the whole DB)</td>
+</tr>
+<tr>
+<td>Quantum adversary</td>
+<td>✅ (lattice schemes)</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
+<ul>
+<li>Reproduce the Li–Micciancio attack on a toy CKKS in Python. It takes about 20 lines once CKKS exists.</li>
+<li>How OpenFHE's two-phase noise flooding works and what it costs in precision.</li>
+<li>Decryption-failure attacks on BFV/TFHE: why 2⁻⁴⁰ failure probability isn't enough.</li>
+<li>How the Lattice Estimator decides that <code>N = 16384, log q = 438</code> is "128-bit secure".</li>
+</ul>
+</article>
+<footer class="pager"><a href="05_core_techniques.html">← 05 · Core techniques: what makes FHE practical</a><a href="07_state_of_the_art_2026.html">07 · State of the art (as of October 2026) →</a></footer>
+</main>
+</body>
+</html>
