@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P5 · What &quot;secure&quot; means: attack models and IND-CPA</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="../primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="../primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="../primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="../primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li class="current"><a href="../primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="../primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="../primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="../primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="../primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-why-secure-needs-a-definition">1. Why "secure" needs a definition</a></li>
+<li><a href="#2-attacker-models-what-the-attacker-can-do">2. Attacker models: what the attacker can do</a></li>
+<li><a href="#3-how-much-work-an-attacker-may-do">3. How much work an attacker may do</a><ul>
+<li><a href="#the-security-parameter">The security parameter</a></li>
+<li><a href="#efficient-means-probabilistic-polynomial-time">Efficient means probabilistic polynomial time</a></li>
+<li><a href="#negligible-functions">Negligible functions</a></li>
+<li><a href="#concrete-security-what-128-bit-security-means">Concrete security: what "128-bit security" means</a></li>
+</ul>
+</li>
+<li><a href="#4-security-as-a-game-ind-cpa">4. Security as a game: IND-CPA</a><ul>
+<li><a href="#the-game">The game</a></li>
+<li><a href="#deterministic-encryption-always-loses">Deterministic encryption always loses</a></li>
+<li><a href="#randomized-encryption-this-adversary-learns-nothing">Randomized encryption: this adversary learns nothing</a></li>
+<li><a href="#a-subtle-failure-elgamal-in-the-wrong-group">A subtle failure: ElGamal in the wrong group</a></li>
+</ul>
+</li>
+<li><a href="#5-semantic-security">5. Semantic security</a></li>
+<li><a href="#6-proofs-by-reduction">6. Proofs by reduction</a><ul>
+<li><a href="#the-shape-of-a-reduction">The shape of a reduction</a></li>
+<li><a href="#elgamal-is-ind-cpa-secure-if-ddh-is-hard">ElGamal is IND-CPA secure if DDH is hard</a></li>
+<li><a href="#lwe-based-encryption-is-ind-cpa-secure-if-decision-lwe-is-hard">LWE-based encryption is IND-CPA secure if decision-LWE is hard</a></li>
+</ul>
+</li>
+<li><a href="#7-chosen-ciphertext-security-and-malleability">7. Chosen-ciphertext security and malleability</a><ul>
+<li><a href="#the-ind-cca2-game">The IND-CCA2 game</a></li>
+<li><a href="#malleability-breaks-cca2">Malleability breaks CCA2</a></li>
+<li><a href="#cca1-and-homomorphic-encryption">CCA1 and homomorphic encryption</a></li>
+</ul>
+</li>
+<li><a href="#8-what-ind-cpa-does-not-cover">8. What IND-CPA does not cover</a></li>
+<li><a href="#9-try-it">9. Try it</a></li>
+<li><a href="#10-how-this-connects-to-homomorphic-encryption">10. How this connects to homomorphic encryption</a></li>
+<li><a href="#11-check-yourself">11. Check yourself</a><ul>
+<li><a href="#answers">Answers</a></li>
+</ul>
+</li>
+<li><a href="#12-key-terms">12. Key terms</a></li>
+<li><a href="#13-sources-and-further-reading">13. Sources and further reading</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="p5--what-secure-means-attack-models-and-ind-cpa">P5 · What "secure" means: attack models and IND-CPA<a class="headerlink" href="#p5--what-secure-means-attack-models-and-ind-cpa" title="Link to this section">#</a></h1>
+<p><a href="p4_public_key.html">← P4 Public-key cryptography</a> · <a href="../index.html">index</a> · next: <a href="p6_computing_on_ciphertexts.html">P6 Computing on ciphertexts →</a></p>
+<hr />
+<p>Every HE paper says its scheme is "IND-CPA secure under RLWE". This chapter unpacks both halves
+of that sentence. IND-CPA is a game that no efficient attacker may win noticeably more often
+than a coin flip; "under RLWE" is a reduction that turns any winning attacker into a solver for
+a lattice problem. On the way you will see why encryption must be randomized, why HE can never
+reach the stronger CCA2 notion, and what the definition leaves out. Chapter 01 has a one-page
+summary (<a href="../01_introduction.html#what-ind-cpa-means">01 §2</a>); this is the long, gentle version.</p>
+<p><strong>In this chapter</strong> you will learn to:</p>
+<ul>
+<li>name the five classic attacker models and give a real attack for each;</li>
+<li>say what the security parameter λ, "efficient", "negligible" and "128-bit security" mean;</li>
+<li>play the IND-CPA game, compute an adversary's advantage, and show that deterministic
+  encryption always loses;</li>
+<li>state semantic security and explain why it is equivalent to IND-CPA;</li>
+<li>read "secure under DDH" or "secure under LWE" as a proof by reduction, and sketch the one for
+  ElGamal;</li>
+<li>explain why every homomorphic scheme fails IND-CCA2, and list what IND-CPA does not cover.</li>
+</ul>
+<h2 id="1-why-secure-needs-a-definition">1. Why "secure" needs a definition<a class="headerlink" href="#1-why-secure-needs-a-definition" title="Link to this section">#</a></h2>
+<p>Try to say what a secure encryption scheme is, and the obvious attempts fail:</p>
+<ul>
+<li><em>"The attacker cannot find the key."</em> The scheme \(\mathrm{Enc}_k(m) = m\) never reveals the key.</li>
+<li><em>"The attacker cannot recover the message."</em> A scheme that leaks the first half of every
+  message passes.</li>
+<li><em>"The attacker cannot recover any single bit of the message."</em> A scheme can protect every bit
+  and still leak whether your salary is above $100,000, or whether two messages are equal.</li>
+</ul>
+<p>What we want is stronger: the ciphertext reveals <strong>nothing</strong> about the message beyond its length,
+even to an attacker who already knows a lot (say, that the message is either "yes" or "no").
+P1's perfect secrecy said exactly this for attackers with unlimited computing power, and paid for
+it with keys as long as the data. Modern definitions keep the idea and relax two things: the
+attacker is <strong>efficient</strong>, and it may have a <strong>negligible</strong> edge.</p>
+<p>Goldwasser and Micali made this precise in 1982. A modern security definition has three parts:</p>
+<ol>
+<li><strong>What the attacker can do</strong>: what it sees and what it may ask for (§2).</li>
+<li><strong>How much work it may spend</strong> (§3).</li>
+<li><strong>What counts as a win</strong> (§4).</li>
+</ol>
+<p>A notion's name combines a goal with a power: <strong>IND-CPA</strong> is <em>indistinguishability</em> under
+<em>chosen-plaintext attack</em>, <strong>IND-CCA2</strong> is indistinguishability under <em>adaptive
+chosen-ciphertext attack</em>.</p>
+<h2 id="2-attacker-models-what-the-attacker-can-do">2. Attacker models: what the attacker can do<a class="headerlink" href="#2-attacker-models-what-the-attacker-can-do" title="Link to this section">#</a></h2>
+<p>From weakest to strongest attacker:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>The attacker gets</th>
+<th>A real example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ciphertext-only</strong> (COA)</td>
+<td>Ciphertexts only</td>
+<td>Frequency analysis of substitution and Vigenère ciphers (P1)</td>
+</tr>
+<tr>
+<td><strong>Known-plaintext</strong> (KPA)</td>
+<td>Some plaintext–ciphertext pairs it did not choose</td>
+<td>Bletchley Park's "cribs" (predictable phrases such as weather reports) against Enigma; the two-time pad (P1)</td>
+</tr>
+<tr>
+<td><strong>Chosen-plaintext</strong> (CPA)</td>
+<td>Encryptions of messages of its choice</td>
+<td>Midway 1942; BEAST against TLS 1.0 (2011); every public-key scheme</td>
+</tr>
+<tr>
+<td><strong>Non-adaptive chosen-ciphertext</strong> (CCA1)</td>
+<td>Decryptions of ciphertexts of its choice, but only before it sees the target</td>
+<td>"Lunchtime" access to a decryption device; key recovery on lattice-based homomorphic schemes (§7)</td>
+</tr>
+<tr>
+<td><strong>Adaptive chosen-ciphertext</strong> (CCA2)</td>
+<td>Decryptions of anything except the target, before and after seeing it</td>
+<td>Bleichenbacher's attack on RSA PKCS #1 v1.5 in SSL (1998), still found in many servers by ROBOT (2018)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Some detail on the stronger three:</p>
+<ul>
+<li><strong>Chosen plaintext.</strong> In May 1942 US Navy codebreakers suspected that "AF" in Japanese traffic
+  meant Midway. Midway was told to report, in plain language, that its water supply had broken
+  down; a decrypted Japanese message soon reported that "AF" was short of water. The
+  codebreakers had chosen part of a plaintext and watched it being encrypted. In 2011 the BEAST
+  attack had JavaScript in the victim's browser choose plaintexts inside a TLS 1.0 connection,
+  whose CBC mode used predictable IVs (P3). For <strong>public-key</strong> encryption CPA is free: the public
+  key is an encryption machine anyone can use. So CPA is the weakest model that even makes sense
+  for public-key schemes.</li>
+<li><strong>CCA1, the "lunchtime attack".</strong> The attacker can use a decryption box while its owner is at
+  lunch, then must work alone. Loftus, May, Smart and Vercauteren (2011) showed that this is
+  enough to recover the key of Gentry's original somewhat-homomorphic scheme (§7).</li>
+<li><strong>CCA2.</strong> The attacker can keep asking for decryptions after it has the target, as long as it
+  does not submit the target itself. This sounds artificial, but servers do it all the time:
+  they decrypt what clients send and react. Bleichenbacher's SSL servers answered differently
+  when a decrypted message had invalid padding, and about a million crafted ciphertexts were
+  enough to decrypt the key exchange of a recorded session. Twenty years later ROBOT found the same oracle in
+  products from nine vendors and on almost a third of the top 100 web domains.</li>
+</ul>
+<p>Each model contains the one above it, so a scheme secure against a stronger attacker is secure
+against every weaker one. The attacker's <strong>goal</strong> can also vary, from recovering the key (the
+hardest goal) through recovering a whole message down to telling two messages apart (the
+easiest). Security definitions pick the <strong>easiest goal and the strongest power</strong> they can
+afford: if even distinguishing is impossible, everything harder is impossible too.</p>
+<h2 id="3-how-much-work-an-attacker-may-do">3. How much work an attacker may do<a class="headerlink" href="#3-how-much-work-an-attacker-may-do" title="Link to this section">#</a></h2>
+<h3 id="the-security-parameter">The security parameter<a class="headerlink" href="#the-security-parameter" title="Link to this section">#</a></h3>
+<p>Key generation takes a <strong>security parameter</strong> λ, written <code>KeyGen(1^λ)</code> in papers: λ in unary,
+so that "polynomial in the input length" means "polynomial in λ". λ is a knob. Turning it up
+makes keys longer and parameters larger, and everything else is measured as a function of it:
+honest parties' work, the attacker's work, the attacker's success probability. In HE,
+<code>KeyGen(λ)</code> picks the ring dimension <code>N</code> and modulus <code>q</code> (the size and modulus of the lattice
+problem, <a href="p7_lattices_and_lwe.html">P7</a>) from tables for λ = 128 (ch. 01 §2, 06 §2).</p>
+<h3 id="efficient-means-probabilistic-polynomial-time">Efficient means probabilistic polynomial time<a class="headerlink" href="#efficient-means-probabilistic-polynomial-time" title="Link to this section">#</a></h3>
+<p>The attacker is any <strong>probabilistic polynomial-time</strong> (PPT) algorithm: it may flip coins, and its
+running time is at most \(p(\lambda)\) for some polynomial \(p\). Polynomials are used because they are
+robust. A polynomial-time attacker that calls a polynomial-time subroutine polynomially many
+times is still polynomial time, and the class does not depend on the machine model. The
+attacker may use a far bigger polynomial than the honest parties (\(\lambda^{10}\) against
+\(\lambda^2\)). What makes cryptography possible is the gap between the polynomial work of using a
+scheme and the exponential work, like \(2^\lambda\), of breaking it.</p>
+<h3 id="negligible-functions">Negligible functions<a class="headerlink" href="#negligible-functions" title="Link to this section">#</a></h3>
+<p>A function \(\varepsilon(\lambda)\) is <strong>negligible</strong> if it eventually drops below the inverse of
+every polynomial: for every polynomial \(p\) there is a \(\lambda_0\) such that
+\(\varepsilon(\lambda) &lt; 1/p(\lambda)\) for all \(\lambda &gt; \lambda_0\).</p>
+<ul>
+<li>\(2^{-\lambda}\), \(2^{-\sqrt{\lambda}}\) and \(\lambda^{-\log \lambda}\) are negligible.</li>
+<li>\(\lambda^{-10}\) is not: it never drops below \(1/\lambda^{11}\).</li>
+</ul>
+<p>The reason for this definition is closure. A polynomial times a negligible function is still
+negligible, so an attacker that repeats a negligible-chance attack polynomially many times still
+has a negligible chance. A non-negligible chance \(\varepsilon\), on the other hand, can be
+amplified when success is recognizable (a recovered key can be tested): about \(1/\varepsilon\)
+repetitions, a polynomial number, give a constant success rate.</p>
+<p><em>Optional on a first read: the table and the paragraph after it.</em> The definition is
+asymptotic, and the numbers show what that means:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>λ</th>
+<th>\(2^{-\lambda}\) (negligible)</th>
+<th>\(\lambda^{-10}\) (not negligible)</th>
+<th>\(2^{-\sqrt{\lambda}}\) (negligible)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>20</td>
+<td>\(9.5 \times 10^{-7}\)</td>
+<td>\(9.8 \times 10^{-14}\)</td>
+<td>0.045</td>
+</tr>
+<tr>
+<td>58</td>
+<td>\(3.5 \times 10^{-18}\)</td>
+<td>\(2.3 \times 10^{-18}\)</td>
+<td>0.0051</td>
+</tr>
+<tr>
+<td>59</td>
+<td>\(1.7 \times 10^{-18}\)</td>
+<td>\(2.0 \times 10^{-18}\)</td>
+<td>0.0049</td>
+</tr>
+<tr>
+<td>128</td>
+<td>\(2.9 \times 10^{-39}\)</td>
+<td>\(8.5 \times 10^{-22}\)</td>
+<td>0.00039</td>
+</tr>
+</tbody>
+</table></div>
+<p>From λ = 2 up to λ = 58 the non-negligible \(\lambda^{-10}\) is the smaller one. From λ = 59 on,
+\(2^{-\lambda}\) wins, by more every step. And \(2^{-\sqrt{\lambda}}\) is negligible, yet at λ = 128 it is one chance in
+2,500. Negligible is about the trend, not about any particular key size.</p>
+<h3 id="concrete-security-what-128-bit-security-means">Concrete security: what "128-bit security" means<a class="headerlink" href="#concrete-security-what-128-bit-security-means" title="Link to this section">#</a></h3>
+<p>Practitioners therefore also use <strong>concrete security</strong>. A scheme instance has <strong>κ-bit security</strong>
+if every known attack needs about \(2^\kappa\) operations to succeed; more carefully, an attacker that
+runs in time \(t\) and succeeds with probability \(\varepsilon\) has roughly \(t / \varepsilon \ge 2^\kappa\).
+Guessing a 128-bit key on the first try (\(t = 1\), \(\varepsilon = 2^{-128}\)) and searching all keys
+(\(t = 2^{128}\), \(\varepsilon = 1\)) both cost \(2^{128}\) in this sense. P1 explained what \(2^{128}\)
+operations mean physically.</p>
+<p>In practice λ is set to the target: pick λ = 128 and choose parameters so that the best known
+attacks cost at least \(2^{128}\). That means AES-128, RSA-3072 or a 256-bit elliptic curve (P4 §8),
+and for HE the ring dimension and modulus from the HomomorphicEncryption.org tables, checked
+with the Lattice Estimator (<a href="../06_security.html#2-parameter-selection-dont-roll-your-own">06 §2</a>).</p>
+<h2 id="4-security-as-a-game-ind-cpa">4. Security as a game: IND-CPA<a class="headerlink" href="#4-security-as-a-game-ind-cpa" title="Link to this section">#</a></h2>
+<h3 id="the-game">The game<a class="headerlink" href="#the-game" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code>        Challenger                                         Adversary A
+        ----------                                         -----------
+  (pk, sk) &lt;- KeyGen(1^λ)
+  b &lt;- {0, 1}   (secret coin)
+                        ---------------- pk --------------&gt;
+                                                            encrypts anything it likes
+                                                            with pk (chosen plaintexts)
+                        &lt;----------- m0, m1 ---------------  any two messages of equal length
+  c* = Enc(pk, m_b)
+                        ---------------- c* --------------&gt;
+                                                            more encryptions, any computation
+                        &lt;--------------- b&#39; ---------------
+  A wins if b&#39; = b
+</code></pre></div>
+
+<ol>
+<li>The challenger generates the keys, flips a secret coin \(b\), and gives the adversary <code>pk</code>. For a
+   secret-key scheme it gives an <strong>encryption oracle</strong> instead: a box that encrypts any message
+   the adversary submits.</li>
+<li>The adversary picks two messages \(m_0, m_1\) of the same length. It chooses them, so it can pick
+   the pair that is easiest to tell apart.</li>
+<li>The challenger returns the <strong>challenge</strong> \(c^* = \mathrm{Enc}(pk, m_b)\).</li>
+<li>The adversary may keep computing and encrypting, then outputs a guess \(b&#x27;\).</li>
+</ol>
+<p>Equal lengths are required because a scheme cannot hide the length of an arbitrarily long
+message. Length leaks are real, though: the CRIME attack on TLS (2012) read secrets from the
+length of compressed-then-encrypted data. The definition simply declares them out of scope.</p>
+<p>The adversary's <strong>advantage</strong> measures its edge over guessing:</p>
+<div class="math-display">\[\mathrm{Adv}^{\text{IND-CPA}}(\mathcal{A}) = \Big\lvert \Pr[b&#x27; = b] - \tfrac{1}{2} \Big\rvert\]</div>
+<p>A scheme is <strong>IND-CPA secure</strong> if every PPT adversary has negligible advantage. A few remarks:</p>
+<ul>
+<li>Probability \(\tfrac12\) is free: a coin flip gets it. Advantage counts only what the ciphertext
+  gave away.</li>
+<li>An adversary that is right with probability 0 has advantage \(\tfrac12\): flipping its answers
+  makes it always right. That is why the definition uses the absolute value.</li>
+<li>Some books define the advantage as \(\lvert \Pr[b&#x27; = 1 \mid b = 1] - \Pr[b&#x27; = 1 \mid b = 0] \rvert\),
+  which is exactly twice ours. Same notion, different scale.</li>
+<li>The game gives the attacker everything except \(b\): the public key, the choice of messages, as
+  much encryption as it likes. If it still cannot tell which of <strong>its own two messages</strong> was
+  encrypted, it cannot learn any property in which they differ.</li>
+</ul>
+<h3 id="deterministic-encryption-always-loses">Deterministic encryption always loses<a class="headerlink" href="#deterministic-encryption-always-loses" title="Link to this section">#</a></h3>
+<p>Here is an adversary that needs no cleverness:</p>
+<ol>
+<li>Pick any \(m_0 \ne m_1\).</li>
+<li>On receiving \(c^*\), compute \(\mathrm{Enc}(pk, m_0)\) yourself.</li>
+<li>Output \(b&#x27; = 0\) if it equals \(c^*\), otherwise \(b&#x27; = 1\).</li>
+</ol>
+<p>If encryption is deterministic, \(\mathrm{Enc}(pk, m_0) = c^*\) exactly when \(b = 0\), so the adversary
+is always right: advantage \(\tfrac12\), the maximum. By hand with textbook RSA (\(n = 3233\), \(e = 17\),
+P4 §4): the adversary picks \(m_0 = 2\), \(m_1 = 3\). The challenger flips \(b = 1\) and sends
+\(c^* = 3^{17} \bmod 3233 = 1211\). The adversary computes \(\mathrm{Enc}(2) = 1752 \ne 1211\) and answers
+\(b&#x27; = 1\). Correct, and it would have been correct for \(b = 0\) too.</p>
+<p>So <strong>no deterministic public-key scheme is IND-CPA secure</strong>, however hard its underlying problem.
+For secret-key schemes the same adversary uses the encryption oracle. Three consequences:</p>
+<ol>
+<li><strong>Encryption must be randomized</strong>, or at least stateful: nonce-based symmetric encryption
+   (CTR, GCM in <a href="p3_modes_and_integrity.html#6-why-encryption-must-be-randomized">P3 §6</a>) gets its variation from a nonce that must never repeat, and its version of
+   the game forbids the adversary from repeating nonces.</li>
+<li><strong>Ciphertexts must expand.</strong> Each message needs many possible ciphertexts, so ciphertexts are
+   longer than messages: twice as long for ElGamal, much more for LWE (P7).</li>
+<li><strong>Determinism also leaks inside one message.</strong> ECB mode (P3) encrypts equal blocks to equal
+   blocks. An adversary that submits \(m_0\) = <code>ABAB</code> (two equal 2-byte blocks) and
+   \(m_1\) = <code>ABCD</code> only has to check whether the two halves of \(c^*\) are equal. It does not even
+   need the oracle.</li>
+</ol>
+<h3 id="randomized-encryption-this-adversary-learns-nothing">Randomized encryption: this adversary learns nothing<a class="headerlink" href="#randomized-encryption-this-adversary-learns-nothing" title="Link to this section">#</a></h3>
+<p>Against ElGamal the same adversary fails. Its own \(\mathrm{Enc}(m_0)\) uses a fresh random \(y\), so it
+matches \(c^*\) only with probability about \(1/q\), whatever \(b\) is. Its guess is a coin flip. In
+the script it wins 49.6 % of 2,000 games, inside the sampling noise of about ±2.2 %.</p>
+<p>That is <strong>not</strong> a proof of security, and no simulation can be. The definition talks about
+<strong>every</strong> efficient adversary, and a script can only try a few. One winning adversary proves a
+scheme insecure; security needs a proof (§6). The next example shows why the difference matters.</p>
+<h3 id="a-subtle-failure-elgamal-in-the-wrong-group">A subtle failure: ElGamal in the wrong group<a class="headerlink" href="#a-subtle-failure-elgamal-in-the-wrong-group" title="Link to this section">#</a></h3>
+<p>Randomization is necessary, not sufficient. Run ElGamal in all of \(\mathbb{Z}_p^*\), with \(g\) a
+generator of the whole group, instead of in the subgroup of squares (P4 §3). The tool is the
+<strong>Legendre symbol</strong>: by Euler's criterion \(x^{(p-1)/2} \bmod p\) is \(+1\) if \(x\) is a square and \(-1\)
+otherwise, and the symbol is multiplicative. A generator of the whole group is a non-square, so
+the symbol of \(g^k\) is \((-1)^k\): it reveals the parity of \(k\). The adversary:</p>
+<ol>
+<li>picks \(m_0\) a square and \(m_1\) a non-square;</li>
+<li>reads the parity of \(x\) from the symbol of \(h = g^x\), and the parity of \(y\) from the symbol of
+   \(c_1 = g^y\);</li>
+<li>computes the symbol of the pad \(h^y = g^{xy}\), which is \((-1)^{xy}\);</li>
+<li>divides it out of the symbol of \(c_2 = m_b h^y\). The result is the symbol of \(m_b\): \(+1\) means
+   \(m_0\), \(-1\) means \(m_1\).</li>
+</ol>
+<p>By hand with \(p = 23\) and \(g = 5\), which generates all 22 non-zero residues: Bob's \(x = 3\) gives
+\(h = 5^3 = 125 \equiv 10\), a non-square, so \(x\) is odd. The adversary picks \(m_0 = 2\) (a square,
+\(5^2 \equiv 2\)) and \(m_1 = 5\) (a non-square). The challenger flips \(b = 0\), picks \(y = 7\) and sends
+\(c^* = (5^7,\ 2 \cdot 10^7) \equiv (17, 5)\). The adversary sees that 17 is a non-square, so \(y\) is odd
+and the pad's symbol is \((-1)^{\text{odd} \cdot \text{odd}} = -1\). Then \(c_2 = 5\) has symbol \(-1\), and
+\((-1)/(-1) = +1\): the message is a square, so \(b&#x27; = 0\). Correct, and it always will be.</p>
+<p>In the subgroup of squares every element has symbol \(+1\), so the same adversary sees nothing: it
+always answers 0 and wins exactly when the coin is 0 (the script: 50.1 %). This is DDH failing in \(\mathbb{Z}_p^*\), and it is why the proof in §6
+needs a group in which DDH is believed hard.</p>
+<h2 id="5-semantic-security">5. Semantic security<a class="headerlink" href="#5-semantic-security" title="Link to this section">#</a></h2>
+<p><em>Optional on a first read.</em> Chapter 01 needs only the conclusion of this section: <strong>semantic
+security and IND-CPA are equivalent</strong>, so "IND-CPA" really means "the ciphertext reveals
+nothing".</p>
+<p>IND-CPA is a game; the property we actually want sounds different. <strong>Semantic security</strong>
+(Goldwasser and Micali) says: whatever an efficient attacker can compute about the message from
+the ciphertext, it could compute without the ciphertext. Formally, for every PPT adversary
+\(\mathcal{A}\) there is a PPT <strong>simulator</strong> \(\mathcal{S}\) that sees only <code>pk</code> and the length of the
+message, such that for every efficiently samplable message distribution, every target function
+\(f\) and every piece of side information \(\mathrm{aux}(m)\) (what the attacker knew beforehand):</p>
+<div class="math-display">\[\Big\lvert \Pr\big[\mathcal{A}(pk, \mathrm{Enc}(pk, m), \mathrm{aux}(m)) = f(m)\big] - \Pr\big[\mathcal{S}(pk, \lvert m \rvert, \mathrm{aux}(m)) = f(m)\big] \Big\rvert \le \mathrm{negl}(\lambda)\]</div>
+<p>It is the computational version of P1's perfect secrecy: seeing the ciphertext does not change
+what an efficient attacker can work out. Goldwasser and Micali proved (1984) that their
+indistinguishability notion implies semantic security; Micali, Rackoff and Sloan (1988) showed
+the converse, so <strong>semantic security and IND-CPA are equivalent</strong>. The intuition for each
+direction:</p>
+<ul>
+<li><strong>Semantic ⇒ IND-CPA.</strong> Suppose \(\mathcal{A}\) tells \(\mathrm{Enc}(m_0)\) from \(\mathrm{Enc}(m_1)\) with
+  advantage \(\varepsilon\). Take the message distribution "\(m_0\) or \(m_1\), each with probability
+  \(\tfrac12\)" and \(f(m)\) = "which one". \(\mathcal{A}\) (with its answers flipped if it is reliably
+  wrong) computes \(f\) with probability \(\tfrac12 + \varepsilon\). A simulator without the
+  ciphertext has no information about the choice and cannot beat \(\tfrac12\). So semantic
+  security fails.</li>
+<li><strong>IND-CPA ⇒ semantic.</strong> Given any \(\mathcal{A}\), build the simulator: encrypt a dummy message
+  \(0 \dots 0\) of the right length yourself and run \(\mathcal{A}\) on that. If \(\mathcal{A}\) computed
+  \(f(m)\) noticeably better from \(\mathrm{Enc}(m)\) than from \(\mathrm{Enc}(0 \dots 0)\), it would be a
+  distinguisher between encryptions of \(m\) and of \(0 \dots 0\): an IND-CPA adversary that samples
+  \(m\) itself, submits \(m_0 = m\) and \(m_1 = 0 \dots 0\), and guesses "\(m_0\)" when \(\mathcal{A}\)'s output
+  equals \(f(m)\). IND-CPA rules that out, so the simulator does as well as \(\mathcal{A}\).</li>
+</ul>
+<p>Papers use IND-CPA because a one-bit guessing game is far easier to analyse; semantic security is
+the reassurance that the game captures what we care about. One more useful fact: for public-key
+schemes, security for one challenge implies security for many challenges, with a loss
+proportional to their number (a "hybrid argument"). Encrypting a million values is no weaker
+than encrypting one.</p>
+<h2 id="6-proofs-by-reduction">6. Proofs by reduction<a class="headerlink" href="#6-proofs-by-reduction" title="Link to this section">#</a></h2>
+<h3 id="the-shape-of-a-reduction">The shape of a reduction<a class="headerlink" href="#the-shape-of-a-reduction" title="Link to this section">#</a></h3>
+<p>Nobody can prove that a practical scheme is secure outright: that would prove one-way functions
+exist, and with them P ≠ NP (P4 §2). What cryptographers prove instead is a <strong>reduction</strong>:</p>
+<blockquote>
+<p>If problem X is hard, then scheme S is IND-CPA secure.</p>
+</blockquote>
+<p>The proof goes by contraposition. Take any efficient adversary \(\mathcal{A}\) with advantage
+\(\varepsilon\) against S, and build from it an efficient algorithm \(\mathcal{B}\) that solves X with
+advantage related to \(\varepsilon\). If X is hard, \(\varepsilon\) must be negligible. In a picture,
+\(\mathcal{B}\) wraps \(\mathcal{A}\) and plays the challenger for it:</p>
+<div class="highlight"><pre><span></span><code>                      instance of problem X
+                               |
+                               v
+   +---------------------- B (the reduction) -----------------------+
+   |   builds a public key from the instance  ---------&gt;  +------+  |
+   |                                                      |  A   |  |
+   |   &lt;------------------------------------- m0, m1 ---  |      |  |
+   |   builds c* from the instance and m_b  -----------&gt;  |      |  |
+   |   &lt;----------------------------------------- b&#39; ---  +------+  |
+   |   answers X using whether A guessed right                      |
+   +----------------------------------------------------------------+
+</code></pre></div>
+
+<p>\(\mathcal{B}\) has three obligations: its simulation must look exactly like the real game to
+\(\mathcal{A}\) (or \(\mathcal{A}\) might behave differently), \(\mathcal{A}\)'s success must translate into
+\(\mathcal{B}\)'s, and \(\mathcal{B}\) must be efficient. A reduction that loses a large factor, say an
+advantage of \(\varepsilon / 2^{20}\), is called <strong>loose</strong>, and the parameters need extra margin.
+And a reduction says nothing about attacks the model leaves out (§8).</p>
+<h3 id="elgamal-is-ind-cpa-secure-if-ddh-is-hard">ElGamal is IND-CPA secure if DDH is hard<a class="headerlink" href="#elgamal-is-ind-cpa-secure-if-ddh-is-hard" title="Link to this section">#</a></h3>
+<p>\(\mathcal{B}\) receives a DDH instance \((g, X = g^x, Y = g^y, Z)\), where either \(Z = g^{xy}\) (a "real"
+Diffie–Hellman triple) or \(Z = g^z\) for a random \(z\). It does not know which. It plays the challenger:</p>
+<ol>
+<li>Give \(\mathcal{A}\) the public key \(h = X\).</li>
+<li>\(\mathcal{A}\) outputs \(m_0, m_1\). Flip a coin \(b\) and send \(c^* = (Y,\ m_b \cdot Z)\).</li>
+<li>\(\mathcal{A}\) outputs \(b&#x27;\). Answer "real" if \(b&#x27; = b\), otherwise "random".</li>
+</ol>
+<ul>
+<li><strong>If \(Z = g^{xy}\):</strong> \(c^* = (g^y,\ m_b h^y)\) is exactly an ElGamal encryption of \(m_b\) with randomness
+  \(y\). \(\mathcal{A}\) is in the real game and wins with probability \(\tfrac12 \pm \varepsilon\).</li>
+<li><strong>If \(Z\) is random:</strong> \(Z\) is a uniform group element independent of everything else, so
+  \(m_b \cdot Z\) is uniform whatever \(b\) is. That is a one-time pad in the group (P1).
+  \(\mathcal{A}\)'s view does not depend on \(b\), and it wins with probability exactly \(\tfrac12\).</li>
+</ul>
+<p>So \(\mathcal{B}\) says "real" with probability \(\tfrac12 \pm \varepsilon\) on real triples and exactly
+\(\tfrac12\) on random ones. The gap between those two probabilities, \(\varepsilon\), is its
+advantage at DDH, bought at the cost of one extra multiplication. If DDH is hard, \(\varepsilon\)
+is negligible and ElGamal is IND-CPA secure. (The converse holds too: Tsiounis and Yung showed
+in 1998 that ElGamal's semantic security is equivalent to DDH.)</p>
+<p>The proof in one line: <strong>DDH says the pad \(h^y\) looks random, and a random pad is a one-time pad.</strong></p>
+<h3 id="lwe-based-encryption-is-ind-cpa-secure-if-decision-lwe-is-hard">LWE-based encryption is IND-CPA secure if decision-LWE is hard<a class="headerlink" href="#lwe-based-encryption-is-ind-cpa-secure-if-decision-lwe-is-hard" title="Link to this section">#</a></h3>
+<blockquote>
+<p><strong>Preview of <a href="p7_lattices_and_lwe.html#5-building-encryption-the-noisy-one-time-pad">P7</a>.</strong> An
+LWE ciphertext is a pair \((a, b)\) where \(a\) is a random vector mod \(q\) and
+\(b = \langle a, s \rangle + \Delta \cdot m + e \pmod q\). Here \(s\) is the secret key (a vector),
+\(\Delta\) is a large constant that lifts the message into the top bits, and \(e\) is a small
+random error, the <strong>noise</strong>. Decision-LWE (stated precisely below) says such pairs look
+uniformly random. P7 builds all of this slowly; here only its shape matters.</p>
+</blockquote>
+<p>The same template gives the security of the LWE scheme of
+<a href="p7_lattices_and_lwe.html#5-building-encryption-the-noisy-one-time-pad">P7 §5</a> and
+<a href="../../code/toy_lwe.py"><code>../code/toy_lwe.py</code></a>, whose ciphertexts are
+\((a,\ \langle a, s \rangle + \Delta m + e)\). <strong>Decision-LWE</strong> says that samples
+\((a_i,\ \langle a_i, s \rangle + e_i)\) with small noise \(e_i\) cannot be told apart from uniform pairs
+\((a_i, u_i)\). \(\mathcal{B}\) gets a supply of samples of one kind or the other and plays the
+challenger:</p>
+<ul>
+<li>For each encryption query \(m\), it takes a fresh sample \((a, u)\) and returns \((a,\ u + \Delta m)\).</li>
+<li>For the challenge, it does the same with \(m_b\).</li>
+</ul>
+<p>With LWE samples this is exactly the real scheme. With uniform samples every \(u + \Delta m\) is
+uniform whatever \(m\) is, a one-time pad again, and \(\mathcal{A}\) wins with probability exactly
+\(\tfrac12\). So \(\mathcal{B}\) inherits \(\mathcal{A}\)'s advantage. The public-key version (Regev's scheme,
+<a href="p7_lattices_and_lwe.html#7-public-key-encryption-regevs-trick">P7 §7</a>) needs one more step,
+because the public key itself must first be shown to look random.</p>
+<p>The script shows the other side of this proof. Remove the noise and the pad \(\langle a, s \rangle\) is
+no longer pseudorandom: 16 encryptions of 0 give 16 linear equations in <code>s</code>, Gaussian
+elimination solves them, and the adversary wins 100 % of the games. With noise in \([-20, 20]\) the
+same elimination returns garbage and the adversary is back to 49 %. The noise is what makes LWE
+secure (P7), and later what limits computation (P8, P9).</p>
+<p>When an HE paper says "IND-CPA secure under RLWE", it means a reduction of exactly this shape,
+plus the <strong>circular security</strong> assumption for the evaluation keys, above all the bootstrapping
+key: they are encryptions of the secret key (or of functions of it, such as \(s^2\)) under
+itself, which the reduction does not cover
+(<a href="p9_bootstrapping.html#7-circular-security">P9 §7</a>,
+<a href="../02_math_foundations.html#7-why-this-is-post-quantum">02 §7</a>).</p>
+<h2 id="7-chosen-ciphertext-security-and-malleability">7. Chosen-ciphertext security and malleability<a class="headerlink" href="#7-chosen-ciphertext-security-and-malleability" title="Link to this section">#</a></h2>
+<h3 id="the-ind-cca2-game">The IND-CCA2 game<a class="headerlink" href="#the-ind-cca2-game" title="Link to this section">#</a></h3>
+<p>IND-CCA2 is the IND-CPA game plus a <strong>decryption oracle</strong>: the adversary may submit any ciphertext
+except \(c^*\) itself, before and after the challenge, and gets its decryption. (In IND-CCA1 the
+oracle closes when the challenge arrives.) The one exclusion is necessary, since decrypting \(c^*\)
+would win trivially. As §2 showed, the oracle models servers that decrypt and react, so this is
+the standard target for ordinary encryption: RSA-OAEP, ML-KEM and AES-GCM (with unique nonces)
+all aim for it.</p>
+<h3 id="malleability-breaks-cca2">Malleability breaks CCA2<a class="headerlink" href="#malleability-breaks-cca2" title="Link to this section">#</a></h3>
+<p>Against ElGamal, the adversary does not need to decrypt \(c^*\); a relative will do:</p>
+<ol>
+<li>Receive \(c^* = (c_1, c_2)\) and make a fresh \(\mathrm{Enc}(2) = (g^{y&#x27;}, 2h^{y&#x27;})\) with its own
+   random \(y&#x27;\).</li>
+<li>Submit \(c&#x27; = c^* \cdot \mathrm{Enc}(2) = (c_1 g^{y&#x27;},\ 2 c_2 h^{y&#x27;})\). It differs from \(c^*\), so the
+   oracle answers: \(2 m_b\).</li>
+<li>Divide by 2 and compare with \(m_0\).</li>
+</ol>
+<p>By hand, with the P4 key (\(p = 23\), \(g = 2\), \(x = 3\), \(h = 8\)): the adversary picks \(m_0 = 3\) and
+\(m_1 = 4\). The challenger flips \(b = 0\) and sends \(c^* = (16, 6)\), the encryption of 3 from P4 §5.
+The adversary picks \(y&#x27; = 2\), makes \(\mathrm{Enc}(2) = (2^2,\ 2 \cdot 8^2) = (4, 128) \equiv (4, 13)\)
+and submits
+\(c&#x27; = (16 \cdot 4,\ 6 \cdot 13) = (64, 78) \equiv (18, 9)\). The oracle computes \(18^3 \equiv 13\),
+\(13^{-1} \equiv 16\), \(9 \cdot 16 = 144 \equiv 6\) and returns 6. The adversary computes
+\(6 \cdot 2^{-1} = 6 \cdot 12 = 72 \equiv 3 = m_0\) and answers \(b&#x27; = 0\). It wins every time.</p>
+<p>The principle is general. If anyone can turn \(c^*\) into a <strong>different</strong> ciphertext whose plaintext
+is a known, invertible function of \(m\), the scheme is not IND-CCA2 secure. A homomorphic scheme
+provides exactly such operations, by definition:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Scheme</th>
+<th>Mauled ciphertext</th>
+<th>Its plaintext</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Textbook RSA</td>
+<td>\(c^* \cdot 2^e \bmod n\)</td>
+<td>\(2m\)</td>
+</tr>
+<tr>
+<td>ElGamal</td>
+<td>\(c^* \cdot \mathrm{Enc}(2)\), or just \(c^* \cdot \mathrm{Enc}(1)\)</td>
+<td>\(2m\), or \(m\) itself</td>
+</tr>
+<tr>
+<td>LWE, BFV, CKKS (P7–P8)</td>
+<td>\(c^* + \mathrm{Enc}(1)\), or just \(c^* + \mathrm{Enc}(0)\)</td>
+<td>\(m + 1\), or \(m\) itself</td>
+</tr>
+</tbody>
+</table></div>
+<p>So <strong>homomorphic implies malleable implies not IND-CCA2</strong>. This is not a weakness of particular
+schemes; it is built into the goal. Computing on ciphertexts means producing new valid
+ciphertexts related to old ones, and that is precisely what the CCA2 adversary needs.
+(Non-malleability was formalized by Dolev, Dwork and Naor in 1991; Bellare, Desai, Pointcheval
+and Rogaway showed in 1998 that under adaptive chosen-ciphertext attack it is equivalent to
+IND-CCA2.) The argument assumes what every standard HE scheme provides: <em>anyone</em> holding the
+public keys can compute. Research variants that reserve computing for holders of a separate
+secret evaluation key (keyed-homomorphic encryption, Emura et al., 2013) can be CCA2 secure
+against everyone else.</p>
+<p>Ordinary encryption reaches CCA2 by <strong>rejecting</strong> everything that honest encryption did not
+produce: encrypt-then-MAC and AEAD (<a href="p3_modes_and_integrity.html#9-encrypt-then-mac">P3 §9</a>),
+OAEP for RSA and the Fujisaki–Okamoto transform for ML-KEM (P4). The script's last two CCA2
+rows show the effect. Hybrid encryption (P4 §6) without a MAC loses every game to P3's bit
+flip: flip a bit of the body, ask for the decryption, flip it back. With an HMAC tag the modified ciphertext is rejected, and the adversary is back to a coin
+flip (49.8 %).</p>
+<h3 id="cca1-and-homomorphic-encryption">CCA1 and homomorphic encryption<a class="headerlink" href="#cca1-and-homomorphic-encryption" title="Link to this section">#</a></h3>
+<p>In the CCA1 game the oracle closes before the challenge arrives, so mauling \(c^*\) is impossible.
+The standard lattice HE schemes still fall, by <strong>key recovery</strong>. The attacker submits crafted
+ciphertexts that sit right on the edge between decrypting to 0 and decrypting to 1 (in P7's
+terms, their phase is near a decryption boundary). Which way each one falls depends on <code>s</code>, so
+each answer reveals a little about <code>s</code>, and enough answers reveal all of it. Loftus, May, Smart
+and Vercauteren did this to Gentry's scheme in 2011, Chenal and Tang (2014) extended such
+attacks to the later LWE- and RLWE-based schemes, and similar attacks apply to most lattice
+schemes (<a href="../06_security.html#1-the-baseline-guarantee-ind-cpa">06 §1</a>). CCA1 is not impossible
+in principle: there are theoretical CCA1-secure FHE constructions (Canetti, Raghuraman,
+Richelson and Vaikuntanathan, 2017), but the schemes used in practice do not have it. The
+practical rule: <strong>the key owner must never act as a decryption oracle</strong> for ciphertexts it did
+not produce or check.</p>
+<h2 id="8-what-ind-cpa-does-not-cover">8. What IND-CPA does not cover<a class="headerlink" href="#8-what-ind-cpa-does-not-cover" title="Link to this section">#</a></h2>
+<p>IND-CPA is the right target for HE, but it is a statement about one game. Everything outside that
+game is outside the guarantee:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Not covered</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Integrity</strong></td>
+<td>IND-CPA is about reading, not changing. An HE server can compute the wrong function, or garbage, undetected (<a href="../01_introduction.html#5-what-he-does-not-give-you">01 §5</a>, <a href="../06_security.html#1-the-baseline-guarantee-ind-cpa">06 §1</a>)</td>
+</tr>
+<tr>
+<td><strong>Chosen ciphertexts</strong></td>
+<td>Impossible for HE (§7). The key owner must not decrypt untrusted ciphertexts</td>
+</tr>
+<tr>
+<td><strong>Side channels</strong></td>
+<td>The game treats algorithms as black boxes. Real code leaks through timing and power: Kocher's 1996 timing attacks on RSA and Diffie–Hellman, RevEAL's single-trace attack on SEAL's noise sampler (2022) (<a href="../06_security.html#5-implementation-attacks">06 §5</a>)</td>
+</tr>
+<tr>
+<td><strong>Message length</strong></td>
+<td>Equal lengths are part of the rules, so lengths may leak (CRIME)</td>
+</tr>
+<tr>
+<td><strong>Bad randomness</strong></td>
+<td>The proofs assume fresh, uniform randomness. Reuse \(y\) in ElGamal and \(c_2 / c_2&#x27; = m / m&#x27;\) leaks; reuse <code>a</code> or <code>e</code> in LWE and differences of ciphertexts leak</td>
+</tr>
+<tr>
+<td><strong>Key-dependent messages</strong></td>
+<td>The game's messages do not depend on <code>sk</code>. Bootstrapping keys encrypt <code>s</code> under itself, which needs circular security (P9)</td>
+</tr>
+<tr>
+<td><strong>Decrypted results</strong></td>
+<td>The adversary never sees a decryption. In practice results get shared</td>
+</tr>
+</tbody>
+</table></div>
+<p>The last row is the most important lesson of recent HE research. Li and Micciancio (2021)
+defined <strong>IND-CPA-D</strong>: the attacker may also see decryptions of honestly computed ciphertexts.
+For exact schemes (BFV, BGV, TFHE) with negligible decryption-failure probability those
+decryptions contain only the answer, which the attacker could predict, so IND-CPA implies
+IND-CPA-D. CKKS, however, is an approximate scheme: decryption does not round the noise away
+but returns the message <strong>plus the noise</strong>, \(m + e\), treating the noise as a small rounding error
+(<a href="p8_multiplication_and_relinearization.html#93-ckks-rescaling-in-one-paragraph">P8 §9.3</a>).
+Whoever holds the ciphertext \((a, b)\) and sees that unrounded output, the phase
+\(b - \langle a, s \rangle\), learns \(\langle a, s \rangle\): one shared decryption gives a linear
+equation in the secret key. A scheme with a valid IND-CPA proof falls to a passive key-recovery attack. The fix is
+<strong>noise flooding</strong>: add large fresh noise before revealing a decryption, so the original noise
+is drowned out. The fix and the later attacks on exact schemes are in <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a> and the
+<a href="../deep_dives/ckks_ind_cpa_d.html">IND-CPA-D deep dive</a>, which reproduces the attack on the toy
+CKKS.</p>
+<h2 id="9-try-it">9. Try it<a class="headerlink" href="#9-try-it" title="Link to this section">#</a></h2>
+<p>From the <code>homomorphic_encryption/</code> folder (about 2 s):</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p5_ind_cpa_game.py
+</code></pre></div>
+
+<p>The script is <a href="../../code/primer/p5_ind_cpa_game.py"><code>../code/primer/p5_ind_cpa_game.py</code></a>. It
+implements the IND-CPA and IND-CCA2 challengers as small functions, five toy schemes (textbook
+RSA with 40-bit keys, a 16-bit Feistel block cipher in ECB mode, ElGamal over a 64-bit safe prime
+in two groups, secret-key LWE with \(n = 16\) and \(q = 32749\) with and without noise, and hybrid DH
+encryption with and without HMAC), and one function per adversary. Every game uses fresh keys
+and a fresh coin. Real output:</p>
+<div class="highlight"><pre><span></span><code>=== One IND-CPA round against textbook RSA, narrated ===
+challenger: key pair made, public key (n, e) = (795476369977, 65537); secret coin b = 1
+adversary:  chooses m0 = 5, m1 = 9
+challenger: sends c* = Enc(m_b) = 283441881666
+adversary:  computes Enc(m0) = 498827062109 itself: different -&gt; guesses b&#39; = 1
+
+=== One IND-CPA round against ElGamal (squares mod a 64-bit safe prime), narrated ===
+challenger: public h = 17585087522247332762; secret coin b = 0
+challenger: sends c* = (973970763225649010, 15826388665970720937)
+adversary:  its own Enc(m0) = (2663760491608038420, 11372461214322932733)
+            different from c* whatever b is: the comparison tells it nothing
+
+=== IND-CPA game, 2000 rounds per row (sampling noise on Pr[win]: about +-0.022) ===
+scheme / adversary                                             Pr[win] advantage
+textbook RSA            / encrypt m0 and compare                 1.000     0.500
+ECB block cipher        / encrypt m0 and compare                 1.000     0.500
+ECB block cipher        / look for repeated blocks               1.000     0.500
+ElGamal, squares mod p  / encrypt m0 and compare                 0.496     0.004
+ElGamal, squares mod p  / Legendre symbol                        0.501     0.001
+ElGamal, all of Z_p^*   / Legendre symbol                        1.000     0.500
+LWE, noise in [-20, 20] / encrypt m0 and compare                 0.504     0.004
+LWE, noise in [-20, 20] / solve the linear system                0.491     0.009
+LWE, NO noise           / solve the linear system                1.000     0.500
+
+=== IND-CCA2 game: adversary may decrypt anything except c*, 2000 rounds per row ===
+scheme / adversary                                             Pr[win] advantage
+textbook RSA            / ask for Dec(c* x Enc(2)), halve        1.000     0.500
+ElGamal, squares mod p  / ask for Dec(c* x Enc(2)), halve        1.000     0.500
+LWE, noise in [-20, 20] / ask for Dec(c* + Enc(1)), minus 1      1.000     0.500
+hybrid DH, no MAC       / flip a bit, ask, flip back             1.000     0.500
+hybrid DH + HMAC        / flip a bit, ask, flip back             0.498     0.002
+
+=== One IND-CCA2 round against ElGamal, narrated ===
+challenger: secret coin b = 0; c* = (17493699661528193330, 15275104027295005209)
+adversary:  Enc(2) = (16711879198763622491, 8739081377446984255)
+adversary:  asks for Dec(c* x Enc(2)) = Dec((17248348893446929763, 7500599965078200711))   (not c*, so allowed)
+challenger: returns 10, which decodes to 10
+adversary:  divides by 2 -&gt; 5 -&gt; guesses b&#39; = 0
+</code></pre></div>
+
+<p>What to look for:</p>
+<ul>
+<li><strong>Advantages near 0 are sampling noise.</strong> With 2,000 games, \(\Pr[\text{win}]\) wanders about
+  ±0.022 around 0.5 (two standard deviations of \(\sqrt{0.25 / 2000}\)), so 0.496, 0.501, 0.504 and
+  0.491 are coin flips. Advantage 0.5 is the maximum: RSA, ECB and ElGamal in the wrong group.</li>
+<li><strong>The noise is the security.</strong> The same LWE adversary goes from 49 % to 100 % without noise.</li>
+<li><strong>Malleability is the dividing line</strong> in the CCA2 table: every homomorphic scheme loses, the
+  authenticated hybrid scheme does not.</li>
+<li><strong>What the table cannot show</strong> is that <em>no</em> adversary wins against ElGamal or LWE. Only the
+  reductions in §6 say that, and only under DDH and decision-LWE.</li>
+</ul>
+<h2 id="10-how-this-connects-to-homomorphic-encryption">10. How this connects to homomorphic encryption<a class="headerlink" href="#10-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>The HE server is the IND-CPA adversary.</strong> It holds the public key and the evaluation keys,
+  sees every ciphertext and computes on them, but never sees a decryption. IND-CPA says it learns
+  nothing about the data, which is exactly the promise of HE (ch. 01 §1).</li>
+<li><strong>Randomized encryption.</strong> IND-CPA forces it, and LWE provides it through the random mask <code>a</code>
+  and the noise <code>e</code>: encrypting 0 twice gives two unrelated ciphertexts.</li>
+<li><strong>"Secure under RLWE" decoded.</strong> It is a reduction like §6: the pad \(\langle a, s \rangle + e\) looks
+  uniform, so the ciphertext is a one-time pad (P1). The noise that makes this work is the same
+  noise that grows with every operation (P7–P9).</li>
+<li><strong>Malleability is the price of computing.</strong> It was a bug in P3 and P4; here it is the reason HE
+  can never be IND-CCA2. HE deployments compensate at the protocol level: the key owner does not
+  decrypt untrusted ciphertexts, and integrity comes from elsewhere (proofs, replication, TEEs).</li>
+<li><strong>Know the gaps.</strong> Circular security for bootstrapping (P9), and IND-CPA-D whenever decrypted
+  results are shared (<a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>).</li>
+</ul>
+<h2 id="11-check-yourself">11. Check yourself<a class="headerlink" href="#11-check-yourself" title="Link to this section">#</a></h2>
+<ol>
+<li>A developer makes AES-CTR "safer" by deriving the nonce from the message:
+   <code>nonce = SHA-256(m)[:12]</code>. Is the result IND-CPA secure?</li>
+<li>Which of these are negligible: \(2^{-\lambda/2}\), \(\lambda^{-100}\), \(2^{-\log_2 \lambda}\),
+   \(\lambda^{-\log \lambda}\)?</li>
+<li>An adversary wins the IND-CPA game with probability 0.2. What is its advantage, and should the
+   scheme's designer worry?</li>
+<li>In the reduction from DDH to ElGamal, why does \(\mathcal{A}\) win with probability exactly \(\tfrac12\)
+   when \(Z\) is random? What breaks if the group is all of \(\mathbb{Z}_p^*\)?</li>
+<li>Paillier encryption (<a href="p6_computing_on_ciphertexts.html#3-paillier-addition-with-a-public-key">P6 §3</a>)
+   is IND-CPA secure (under the decisional composite residuosity assumption)
+   and satisfies \(\mathrm{Enc}(a) \cdot \mathrm{Enc}(b) = \mathrm{Enc}(a + b)\). Show that it is not
+   IND-CCA2 secure.</li>
+<li>A CKKS-based analytics service publishes every decrypted result. The scheme is IND-CPA secure.
+   Is the secret key safe?</li>
+</ol>
+<h3 id="answers">Answers<a class="headerlink" href="#answers" title="Link to this section">#</a></h3>
+<ol>
+<li>No. Encryption is now deterministic: the same message always gets the same nonce and the same
+   ciphertext. The adversary asks the oracle for \(\mathrm{Enc}(m_0)\) and compares it with \(c^*\),
+   winning every time.</li>
+<li>\(2^{-\lambda/2}\) and \(\lambda^{-\log \lambda}\) are negligible: both eventually fall below every
+   \(1/\lambda^c\). \(\lambda^{-100}\) is not (it never falls below \(1/\lambda^{101}\)), and
+   \(2^{-\log_2 \lambda} = 1/\lambda\) is not either.</li>
+<li>\(\lvert 0.2 - 0.5 \rvert = 0.3\). Yes: flipping its answers gives an adversary that wins with
+   probability 0.8. Being reliably wrong is as informative as being reliably right.</li>
+<li>\(Z\) is a uniform group element independent of \(b\), so \(m_b \cdot Z\) is uniform for either value of
+   \(b\): a one-time pad. Nothing in \(\mathcal{A}\)'s view depends on \(b\). In all of \(\mathbb{Z}_p^*\) a
+   real triple can be told from a random one with the Legendre symbol (DDH is easy), so the
+   reduction would rest on a false assumption, and §4 shows an adversary that really wins.</li>
+<li>Given \(c^*\), compute \(c&#x27; = c^* \cdot \mathrm{Enc}(1)\), which is a different ciphertext. The oracle
+   returns \(m_b + 1\); subtract 1 and compare with \(m_0\). Advantage \(\tfrac12\). Any additively
+   homomorphic scheme falls the same way.</li>
+<li>No. IND-CPA says nothing about shared decryptions. CKKS decryption returns the message plus the
+   noise, and anyone who holds the ciphertext (the service computed it) can turn one published
+   result into a linear equation for the secret key. That is the IND-CPA-D attack; the service
+   needs noise flooding on decryption, or must stop publishing raw decryptions.</li>
+</ol>
+<h2 id="12-key-terms">12. Key terms<a class="headerlink" href="#12-key-terms" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attacker model</td>
+<td>What the attacker may see and ask for (COA, KPA, CPA, CCA1, CCA2)</td>
+</tr>
+<tr>
+<td>Encryption oracle</td>
+<td>A box that encrypts any message the attacker submits</td>
+</tr>
+<tr>
+<td>Decryption oracle</td>
+<td>A box that decrypts any ciphertext the attacker submits (except the challenge)</td>
+</tr>
+<tr>
+<td>Lunchtime attack</td>
+<td>Another name for CCA1: decryption access only before the challenge</td>
+</tr>
+<tr>
+<td>Security parameter λ</td>
+<td>The knob that sizes keys and parameters; costs are measured as functions of it</td>
+</tr>
+<tr>
+<td>PPT</td>
+<td>Probabilistic polynomial time: the class of "efficient" attackers</td>
+</tr>
+<tr>
+<td>Negligible function</td>
+<td>Eventually smaller than \(1/p(\lambda)\) for every polynomial \(p\)</td>
+</tr>
+<tr>
+<td>κ-bit security</td>
+<td>Every known attack costs about \(2^\kappa\) operations (time divided by success probability)</td>
+</tr>
+<tr>
+<td>IND-CPA game</td>
+<td>The attacker picks \(m_0, m_1\), gets \(\mathrm{Enc}(m_b)\), and must guess \(b\)</td>
+</tr>
+<tr>
+<td>Challenge ciphertext \(c^*\)</td>
+<td>The encryption of \(m_b\) that the attacker must classify</td>
+</tr>
+<tr>
+<td>Advantage</td>
+<td>\(\lvert \Pr[b&#x27; = b] - \tfrac12 \rvert\): the edge over guessing</td>
+</tr>
+<tr>
+<td>Randomized encryption</td>
+<td>Each message has many possible ciphertexts; required for IND-CPA</td>
+</tr>
+<tr>
+<td>Semantic security</td>
+<td>Whatever is computable from the ciphertext is computable without it; equivalent to IND-CPA</td>
+</tr>
+<tr>
+<td>Simulator</td>
+<td>The ciphertext-free algorithm in the semantic-security definition</td>
+</tr>
+<tr>
+<td>Reduction</td>
+<td>An algorithm that uses any attacker on a scheme to solve a hard problem</td>
+</tr>
+<tr>
+<td>Legendre symbol</td>
+<td>\(x^{(p-1)/2} \bmod p = \pm 1\): whether \(x\) is a square mod \(p\)</td>
+</tr>
+<tr>
+<td>Decision-LWE</td>
+<td>Telling LWE samples \((a, \langle a, s \rangle + e)\) from uniform pairs</td>
+</tr>
+<tr>
+<td>IND-CCA2</td>
+<td>IND-CPA plus a decryption oracle for everything except \(c^*\)</td>
+</tr>
+<tr>
+<td>Non-malleability</td>
+<td>Nobody can turn a ciphertext into one of a related message</td>
+</tr>
+<tr>
+<td>Circular security</td>
+<td>Security even when the secret key is encrypted under itself</td>
+</tr>
+<tr>
+<td>IND-CPA-D</td>
+<td>IND-CPA plus decryptions of honestly computed ciphertexts</td>
+</tr>
+<tr>
+<td>Noise flooding</td>
+<td>Adding large fresh noise before revealing a decryption, so the original noise is drowned out</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="13-sources-and-further-reading">13. Sources and further reading<a class="headerlink" href="#13-sources-and-further-reading" title="Link to this section">#</a></h2>
+<ul>
+<li>S. Goldwasser, S. Micali, "Probabilistic Encryption", <em>Journal of Computer and System
+  Sciences</em> 28(2), 270–299, 1984 (STOC 1982 version: "Probabilistic Encryption &amp; How to Play
+  Mental Poker Keeping Secret All Partial Information"). Semantic security, and the proof that
+  indistinguishability implies it. <a href="https://doi.org/10.1016/0022-0000(84)90070-9">https://doi.org/10.1016/0022-0000(84)90070-9</a></li>
+<li>M. Naor, M. Yung, "Public-key Cryptosystems Provably Secure against Chosen Ciphertext Attacks",
+  STOC 1990 (CCA1). <a href="https://doi.org/10.1145/100216.100273">https://doi.org/10.1145/100216.100273</a></li>
+<li>C. Rackoff, D. R. Simon, "Non-Interactive Zero-Knowledge Proof of Knowledge and Chosen
+  Ciphertext Attack", CRYPTO 1991 (CCA2). <a href="https://doi.org/10.1007/3-540-46766-1_35">https://doi.org/10.1007/3-540-46766-1_35</a></li>
+<li>S. Micali, C. Rackoff, B. Sloan, "The Notion of Security for Probabilistic Cryptosystems",
+  <em>SIAM Journal on Computing</em> 17(2), 412–426, 1988 (equivalence of the definitions).
+  <a href="https://doi.org/10.1137/0217025">https://doi.org/10.1137/0217025</a></li>
+<li>D. Dolev, C. Dwork, M. Naor, "Non-Malleable Cryptography", STOC 1991; <em>SIAM Journal on
+  Computing</em> 30(2), 2000. <a href="https://doi.org/10.1137/S0097539795291562">https://doi.org/10.1137/S0097539795291562</a></li>
+<li>M. Bellare, A. Desai, D. Pointcheval, P. Rogaway, "Relations Among Notions of Security for
+  Public-Key Encryption Schemes", CRYPTO 1998. <a href="https://doi.org/10.1007/BFb0055718">https://doi.org/10.1007/BFb0055718</a></li>
+<li>Y. Tsiounis, M. Yung, "On the Security of ElGamal Based Encryption", PKC 1998.
+  <a href="https://doi.org/10.1007/BFb0054019">https://doi.org/10.1007/BFb0054019</a></li>
+<li>D. Boneh, "The Decision Diffie–Hellman Problem", ANTS-III, 1998.
+  <a href="https://doi.org/10.1007/BFb0054851">https://doi.org/10.1007/BFb0054851</a></li>
+<li>D. Bleichenbacher, "Chosen Ciphertext Attacks Against Protocols Based on the RSA Encryption
+  Standard PKCS #1", CRYPTO 1998. <a href="https://doi.org/10.1007/BFb0055716">https://doi.org/10.1007/BFb0055716</a></li>
+<li>H. Böck, J. Somorovsky, C. Young, "Return Of Bleichenbacher's Oracle Threat (ROBOT)", USENIX
+  Security 2018. <a href="https://www.usenix.org/conference/usenixsecurity18/presentation/bock">https://www.usenix.org/conference/usenixsecurity18/presentation/bock</a></li>
+<li>Y. Sheffer, R. Holz, P. Saint-Andre, RFC 7457, <em>Summarizing Known Attacks on TLS and DTLS</em>,
+  2015 (BEAST, CRIME, padding oracles). <a href="https://www.rfc-editor.org/rfc/rfc7457">https://www.rfc-editor.org/rfc/rfc7457</a></li>
+<li>NSA Center for Cryptologic History, <em>The Battle of Midway</em> (the "AF is short of water" ruse).
+  <a href="https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF">https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF</a></li>
+<li>J. Loftus, A. May, N. P. Smart, F. Vercauteren, "On CCA-Secure Somewhat Homomorphic
+  Encryption", SAC 2011. <a href="https://eprint.iacr.org/2010/560">https://eprint.iacr.org/2010/560</a></li>
+<li>M. Chenal, Q. Tang, "On Key Recovery Attacks Against Existing Somewhat Homomorphic Encryption
+  Schemes", LATINCRYPT 2014. <a href="https://eprint.iacr.org/2014/535">https://eprint.iacr.org/2014/535</a></li>
+<li>R. Canetti, S. Raghuraman, S. Richelson, V. Vaikuntanathan, "Chosen-Ciphertext Secure Fully
+  Homomorphic Encryption", PKC 2017 (CCA1-secure FHE in theory).
+  <a href="https://doi.org/10.1007/978-3-662-54388-7_8">https://doi.org/10.1007/978-3-662-54388-7_8</a></li>
+<li>K. Emura, G. Hanaoka, K. Nuida, G. Ohtake, T. Matsuda, S. Yamada, "Chosen Ciphertext Secure
+  Keyed-Homomorphic Public-Key Encryption", PKC 2013. <a href="https://doi.org/10.1007/978-3-642-36362-7_3">https://doi.org/10.1007/978-3-642-36362-7_3</a>;
+  corrected version <a href="https://eprint.iacr.org/2013/390">https://eprint.iacr.org/2013/390</a></li>
+<li>P. C. Kocher, "Timing Attacks on Implementations of Diffie-Hellman, RSA, DSS, and Other
+  Systems", CRYPTO 1996. <a href="https://doi.org/10.1007/3-540-68697-5_9">https://doi.org/10.1007/3-540-68697-5_9</a></li>
+<li>O. Regev, "On Lattices, Learning with Errors, Random Linear Codes, and Cryptography", STOC 2005
+  (decision-LWE and its encryption scheme). <a href="https://doi.org/10.1145/1060590.1060603">https://doi.org/10.1145/1060590.1060603</a></li>
+<li>B. Li, D. Micciancio, "On the Security of Homomorphic Encryption on Approximate Numbers",
+  EUROCRYPT 2021 (IND-CPA-D). <a href="https://eprint.iacr.org/2020/1533">https://eprint.iacr.org/2020/1533</a></li>
+<li>Textbooks: J. Katz and Y. Lindell, <em>Introduction to Modern Cryptography</em> (3rd ed., 2020),
+  chapters 3, 5 and 11 (definitions, CCA, public-key security); D. Boneh and V. Shoup, <em>A Graduate
+  Course in Applied Cryptography</em> (<a href="https://toc.cryptobook.us/">https://toc.cryptobook.us/</a>), chapters 2, 9, 11 and 12.</li>
+</ul>
+</article>
+<footer class="pager"><a href="../primer/p4_public_key.html">← P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a><a href="../primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits →</a></footer>
+</main>
+</body>
+</html>

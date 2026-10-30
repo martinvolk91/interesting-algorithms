@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P3 · Using AES safely: modes, nonces and integrity</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="../primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="../primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li class="current"><a href="../primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="../primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="../primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="../primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="../primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="../primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="../primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-what-a-block-cipher-alone-cannot-do">1. What a block cipher alone cannot do</a></li>
+<li><a href="#2-ecb-and-the-penguin">2. ECB and the penguin</a></li>
+<li><a href="#3-cbc-chaining-with-a-random-iv">3. CBC: chaining with a random IV</a></li>
+<li><a href="#4-ctr-a-block-cipher-becomes-a-stream-cipher">4. CTR: a block cipher becomes a stream cipher</a></li>
+<li><a href="#5-nonce-reuse-the-two-time-pad-returns">5. Nonce reuse: the two-time pad returns</a></li>
+<li><a href="#6-why-encryption-must-be-randomized">6. Why encryption must be randomized</a></li>
+<li><a href="#7-malleability-changing-a-message-without-reading-it">7. Malleability: changing a message without reading it</a></li>
+<li><a href="#8-macs-and-hmac">8. MACs and HMAC</a></li>
+<li><a href="#9-encrypt-then-mac">9. Encrypt-then-MAC</a></li>
+<li><a href="#10-authenticated-encryption-in-practice-aes-gcm-and-chacha20-poly1305">10. Authenticated encryption in practice: AES-GCM and ChaCha20-Poly1305</a></li>
+<li><a href="#11-try-it">11. Try it</a></li>
+<li><a href="#12-how-this-connects-to-homomorphic-encryption">12. How this connects to homomorphic encryption</a></li>
+<li><a href="#13-check-yourself">13. Check yourself</a><ul>
+<li><a href="#answers">Answers</a></li>
+</ul>
+</li>
+<li><a href="#14-key-terms">14. Key terms</a></li>
+<li><a href="#15-sources-and-further-reading">15. Sources and further reading</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="p3--using-aes-safely-modes-nonces-and-integrity">P3 · Using AES safely: modes, nonces and integrity<a class="headerlink" href="#p3--using-aes-safely-modes-nonces-and-integrity" title="Link to this section">#</a></h1>
+<p><a href="p2_aes.html">← P2 Block ciphers and AES</a> · <a href="../index.html">index</a> · next: <a href="p4_public_key.html">P4 Public-key cryptography →</a></p>
+<hr />
+<p>AES encrypts exactly one 16-byte block, and always the same way. Turning it into encryption of
+real messages brings out two ideas that are central to homomorphic encryption. First,
+encryption must be <strong>randomized</strong>: encrypting the same message twice must give different
+ciphertexts. Second, ciphertexts can be <strong>malleable</strong>: changed in a way that changes the
+plaintext predictably. For ordinary encryption malleability is an attack, stopped with a MAC.
+For HE it is the whole point.</p>
+<p><strong>In this chapter</strong> you will learn to:</p>
+<ul>
+<li>explain why encrypting block by block (ECB) leaks, and see the leak in a picture;</li>
+<li>use CBC and CTR correctly, and say what an IV and a nonce must each satisfy;</li>
+<li>recover a secret message when a CTR nonce is reused;</li>
+<li>turn "pay $100 to Bob" into "pay $900 to Bob" without the key;</li>
+<li>build encrypt-then-MAC with HMAC, and say what AES-GCM and ChaCha20-Poly1305 provide;</li>
+<li>explain why HE ciphertexts must be malleable, and why that rules out this kind of integrity.</li>
+</ul>
+<h2 id="1-what-a-block-cipher-alone-cannot-do">1. What a block cipher alone cannot do<a class="headerlink" href="#1-what-a-block-cipher-alone-cannot-do" title="Link to this section">#</a></h2>
+<p>A block cipher (<a href="p2_aes.html">P2</a>) is a keyed permutation of 16-byte blocks. Two things are
+missing before it can encrypt messages:</p>
+<ul>
+<li><strong>Length.</strong> Messages have any length. They must be cut into blocks, and the last block must
+  be filled up.</li>
+<li><strong>Repetition.</strong> \(E_K\) is a fixed function. Encrypt the same block twice and you get the same
+  ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat.
+  Think of a "yes"/"no" vote, a status field, or a file header.</li>
+</ul>
+<p>A <strong>mode of operation</strong> fixes both. NIST SP 800-38A (2001) standardizes five confidentiality
+modes: ECB, CBC, CFB, OFB and CTR. This chapter covers ECB (what not to do), CBC and CTR. CFB
+and OFB are close relatives of CBC and CTR.</p>
+<p><strong>Padding.</strong> Modes that work on whole blocks (ECB, CBC) need padding. The usual rule,
+<strong>PKCS#7</strong>, appends \(n\) bytes each of value \(n\), where \(1 \le n \le 16\) is the number needed
+to reach a multiple of 16. "attack at dawn" has 14 bytes, so it gets <code>02 02</code>. A message that
+already fills whole blocks gets a full extra block of sixteen <code>10</code> bytes (hex 10 = 16), so the
+receiver can always remove the padding unambiguously.</p>
+<h2 id="2-ecb-and-the-penguin">2. ECB and the penguin<a class="headerlink" href="#2-ecb-and-the-penguin" title="Link to this section">#</a></h2>
+<p>The obvious mode is <strong>electronic codebook (ECB)</strong>: encrypt each block on its own.</p>
+<div class="highlight"><pre><span></span><code>     P1          P2          P3
+     |           |           |
+   [E_K]       [E_K]       [E_K]
+     |           |           |
+     C1          C2          C3          C_i = E_K(P_i)
+</code></pre></div>
+
+<p>ECB is a giant codebook: each 16-byte plaintext block always maps to the same 16-byte
+ciphertext block. Equal plaintext blocks give equal ciphertext blocks, anywhere in a message and
+across all messages under the same key. The famous illustration is the "ECB penguin": a bitmap
+of the Linux mascot encrypted in ECB mode is still plainly a penguin, because large areas of the
+same colour become large areas of the same ciphertext.</p>
+<p>The script does the same with a small padlock. To keep the picture tiny, each pixel is a whole
+16-byte block (in a real bitmap, one block covers a few neighbouring pixels, and uniform areas
+still give identical blocks). Each ciphertext block is drawn as one character chosen by its
+first byte:</p>
+<div class="highlight"><pre><span></span><code>plaintext                    ECB ciphertext               CBC ciphertext
+..........................   @@@@@@@@@@@@@@@@@@@@@@@@@@   &lt;+8??|&#39;!?,.8\/oX)&amp;&#39;^o?O)%+
+..........######..........   @@@@@@@@@@//////@@@@@@@@@@   O|&lt;:):^&amp;+-,@@#&lt;`&amp;&gt;-?ooO(o~
+........##......##........   @@@@@@@@//@@@@@@//@@@@@@@@   X(`?)8??OO,~(8~&gt;|&amp;&#39;|+&lt;).@:
+........##......##........   @@@@@@@@//@@@@@@//@@@@@@@@   =#Oo|&#39;:\\,|x,;&amp;+-8:#+^+$,:
+......##############......   @@@@@@//////////////@@@@@@   &amp;,,^`&amp;$ooX+;x\`/!.(X8=/%:~
+......######..######......   @@@@@@//////@@//////@@@@@@   :/$(8o^:^-,,X*@=.o^X^!=%o&amp;
+......######..######......   @@@@@@//////@@//////@@@@@@   ,:+o=!o\&gt;&#39;/,=~%&lt;$O,o-Xo?%8
+......##############......   @@@@@@//////////////@@@@@@   ,O&amp;?|+=.^?&amp;&amp;^#~+-,=+*&amp;&#39;\x|
+..........................   @@@@@@@@@@@@@@@@@@@@@@@@@@   #\+\(o(~0&lt;%&amp;&amp;\:?;/,=/@|)!O
+distinct ciphertext blocks: ECB 2 of 234, CBC 234 of 234
+</code></pre></div>
+
+<p>AES did its job perfectly here: each ciphertext block on its own reveals nothing about its
+plaintext block. The leak is in the <em>pattern</em> of equal blocks, which ECB passes through
+untouched. In 2023 NIST announced that the revision of SP 800-38A will restrict ECB to the few
+uses other NIST standards explicitly allow.</p>
+<h2 id="3-cbc-chaining-with-a-random-iv">3. CBC: chaining with a random IV<a class="headerlink" href="#3-cbc-chaining-with-a-random-iv" title="Link to this section">#</a></h2>
+<p><strong>Cipher block chaining (CBC)</strong> XORs each plaintext block with the previous ciphertext block
+before encrypting it. The first block is XORed with an <strong>initialization vector (IV)</strong>, a fresh
+random block for every message:</p>
+<div class="highlight"><pre><span></span><code>           P1              P2              P3
+           |               |               |
+  IV ----&gt;(+)     +------&gt;(+)     +------&gt;(+)
+           |      |        |      |        |
+         [E_K]    |      [E_K]    |      [E_K]
+           |      |        |      |        |
+           C1 ----+        C2 ----+        C3
+</code></pre></div>
+
+<div class="math-display">\[C_0 = \mathit{IV}, \qquad C_i = E_K(P_i \oplus C_{i-1}), \qquad P_i = D_K(C_i) \oplus C_{i-1}.\]</div>
+<p>The IV is sent in the clear with the ciphertext. Because it is random, the same message
+encrypts differently every time, and equal plaintext blocks inside a message are blended with
+different predecessors. In the picture above, all 234 CBC blocks are different.</p>
+<p>What CBC needs and what it costs:</p>
+<ul>
+<li><strong>The IV must be unpredictable</strong> (SP 800-38A, Appendix C): not secret, but impossible to guess
+  before it is used. TLS 1.0 used the last ciphertext block of the previous record as the next
+  IV, which an attacker could predict; the BEAST attack (2011) exploited exactly that.</li>
+<li><strong>Encryption is sequential</strong> (each block waits for the previous one); decryption can run in
+  parallel.</li>
+<li><strong>Padding is needed, and padding errors leak.</strong> Vaudenay (2002) showed that if a receiver
+  reveals whether the padding of a decrypted message was valid (by an error message, or just by
+  timing), an attacker can decrypt any ciphertext byte by byte by submitting modified versions.
+  These <strong>padding oracle</strong> attacks hit SSL/TLS, IPsec and many web frameworks. They are a first
+  hint of §7: the attacker succeeds by <em>modifying</em> ciphertexts.</li>
+</ul>
+<h2 id="4-ctr-a-block-cipher-becomes-a-stream-cipher">4. CTR: a block cipher becomes a stream cipher<a class="headerlink" href="#4-ctr-a-block-cipher-becomes-a-stream-cipher" title="Link to this section">#</a></h2>
+<p><strong>Counter mode (CTR)</strong> never encrypts the message with AES at all. It encrypts a counter, and
+uses the output as a pad:</p>
+<div class="highlight"><pre><span></span><code>   nonce||0       nonce||1       nonce||2
+      |              |              |
+    [E_K]          [E_K]          [E_K]
+      |              |              |
+      S0             S1             S2          keystream S_i = E_K(nonce || i)
+      |              |              |
+P0 -&gt;(+)       P1 -&gt;(+)       P2 -&gt;(+)
+      |              |              |
+      C0             C1             C2          C_i = P_i XOR S_i
+</code></pre></div>
+
+<p>(Blocks are numbered from 0 here, to match the counter.)</p>
+<p>This is the stream cipher of
+<a href="p1_encryption_basics.html#7-stream-ciphers-growing-a-short-key-into-a-long-pad">P1 §7</a>: a short
+key stretched into a long pseudorandom pad, then XORed with the message, a computational
+one-time pad. Decryption is the same operation (XOR the same keystream again). Practical
+advantages: no padding (cut the last keystream block short), every block is independent
+(parallel, random access), and only \(E_K\) is ever used, never \(D_K\).</p>
+<p>The <strong>counter block</strong> must never repeat under one key. Each message gets a <strong>nonce</strong> ("number
+used once"), and the block counter runs within the message. The toy uses an 8-byte nonce and an
+8-byte block counter; AES-GCM uses a 12-byte nonce and a 4-byte counter. A nonce need not be
+random or secret, only unique: a message counter is fine.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Per-message value</th>
+<th>Requirement</th>
+<th>Padding</th>
+<th>Parallel encryption</th>
+<th>Malleable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ECB</td>
+<td>none</td>
+<td>(deterministic)</td>
+<td>yes</td>
+<td>yes</td>
+<td>blocks can be swapped or replayed</td>
+</tr>
+<tr>
+<td>CBC</td>
+<td>IV, 16 bytes</td>
+<td>unpredictable</td>
+<td>yes</td>
+<td>no (decryption yes)</td>
+<td>yes, with collateral damage</td>
+</tr>
+<tr>
+<td>CTR</td>
+<td>nonce</td>
+<td>unique</td>
+<td>no</td>
+<td>yes</td>
+<td>yes, bit by bit</td>
+</tr>
+</tbody>
+</table></div>
+<p>The script checks its CBC and CTR against the official test vectors of SP 800-38A (F.2.1 and
+F.5.1), then shows that both modes randomize:</p>
+<div class="highlight"><pre><span></span><code>=== the same message encrypted twice ===
+ECB: cfdbd35092fa47bdd91304bd55640088
+     cfdbd35092fa47bdd91304bd55640088   IDENTICAL
+CBC: a6342fa0fdb8b294d97fc6103d92089be44044064dee000046227f6a00dde83b
+     25fa5e039f52a8e8a95f64d6589c1f78c8d3280f34452da7db38931a72dd5d26   different
+CTR: 44066542ec38008d4483031d5183e49d609a6d9bcb3f
+     331dfd3b2724163101c79937fe6c7cae483ef5740c4b   different
+</code></pre></div>
+
+<p>Note the lengths. ECB: one padded block, 16 bytes. CBC: 16-byte IV plus one block. CTR: 8-byte
+nonce plus exactly 14 bytes, no padding. Randomized ciphertexts are longer than the plaintext:
+the randomness has to travel with them (unless both sides can derive the nonce themselves, for
+example from a shared message counter, as TLS 1.3 does).</p>
+<h2 id="5-nonce-reuse-the-two-time-pad-returns">5. Nonce reuse: the two-time pad returns<a class="headerlink" href="#5-nonce-reuse-the-two-time-pad-returns" title="Link to this section">#</a></h2>
+<p>If two messages are encrypted under the same key <strong>and the same nonce</strong>, they use the same
+keystream \(S\):</p>
+<div class="math-display">\[C_1 = P_1 \oplus S, \quad C_2 = P_2 \oplus S \quad\Longrightarrow\quad C_1 \oplus C_2 = P_1 \oplus P_2.\]</div>
+<p>The keystream cancels, exactly as in the
+<a href="p1_encryption_basics.html#the-key-must-never-be-reused-the-two-time-pad">two-time pad of P1</a>.
+With one byte: \(P_1\) = 'A' = {41}, \(P_2\) = 'B' = {42}, keystream byte {9c}. Then
+\(C_1\) = {dd}, \(C_2\) = {de}, and \(C_1 \oplus C_2\) = {03} = 'A' ⊕ 'B', with no trace of the key.
+Anyone who knows or guesses \(P_1\) reads \(P_2\), and even without that, the XOR of two English
+texts is usually enough to recover both. The script:</p>
+<div class="highlight"><pre><span></span><code>=== CTR nonce reuse = two-time pad ===
+C1 xor C2 == P1 xor P2 ? True
+attacker knows P1 (a public notice) and recovers P2 without the key:
+   b&#39;New vault code is 7341; tell no one!!!&#39;
+</code></pre></div>
+
+<p>This is not hypothetical. The KRACK attacks on WPA2 Wi-Fi (Vanhoef and Piessens, 2017) tricked
+devices into reinstalling a key and resetting their nonces. For AES-GCM, nonce reuse is worse
+still: it also destroys authentication (§10).</p>
+<p>Random nonces have their own limit. By the birthday bound, random \(b\)-bit nonces are likely to
+collide after about \(2^{b/2}\) messages: for 96-bit nonces, around \(2^{48}\). NIST wants the
+chance of any repetition to stay below \(2^{-32}\), so it limits a single AES-GCM key used with
+random IVs to \(2^{32}\) encryptions (SP 800-38D, §8.3).</p>
+<h2 id="6-why-encryption-must-be-randomized">6. Why encryption must be randomized<a class="headerlink" href="#6-why-encryption-must-be-randomized" title="Link to this section">#</a></h2>
+<p>Everything so far points to one rule: <strong>a secure encryption scheme cannot be deterministic.</strong></p>
+<p>The precise version is <strong>IND-CPA</strong> (indistinguishability under chosen-plaintext attack),
+defined in full in <a href="p5_security_definitions.html#4-security-as-a-game-ind-cpa">P5 §4</a> and summarized in
+<a href="../01_introduction.html#what-ind-cpa-means">01 §2</a>. Informally: the attacker may get
+encryptions of any messages it likes; it then picks two messages \(m_0, m_1\), receives the
+encryption of one of them, and must guess which. The scheme is secure if no efficient attacker
+does noticeably better than a coin flip.</p>
+<ul>
+<li><strong>Deterministic encryption always fails.</strong> The attacker asks for the encryption of \(m_0\) and
+  compares it with the challenge. ECB fails this way, and so does CBC with a fixed IV.</li>
+<li><strong>CBC with a random IV and CTR with unique nonces pass</strong>, assuming AES is a pseudorandom
+  permutation. Bellare, Desai, Jokipii and Rogaway proved this in 1997.</li>
+<li><strong>IND-CPA says nothing about tampering.</strong> CTR is IND-CPA secure and, as the next section
+  shows, trivially malleable. Confidentiality and integrity are different goals.</li>
+</ul>
+<h2 id="7-malleability-changing-a-message-without-reading-it">7. Malleability: changing a message without reading it<a class="headerlink" href="#7-malleability-changing-a-message-without-reading-it" title="Link to this section">#</a></h2>
+<p>A scheme is <strong>malleable</strong> if, given a ciphertext of an unknown message \(m\), an attacker can
+produce a ciphertext of a related message, such as \(m \oplus \delta\) for a bit mask \(\delta\)
+of its choice, without the key.</p>
+<p>CTR is malleable bit by bit. Flip bit \(j\) of the ciphertext and bit \(j\) of the decrypted
+plaintext flips, because the keystream cancels either way:</p>
+<div class="math-display">\[(P \oplus S \oplus \delta) \oplus S = P \oplus \delta.\]</div>
+<p><strong>The bit-flipping attack.</strong> A bank sends the order <code>pay $100 to Bob</code> encrypted in CTR mode. The
+attacker cannot read it, but knows the format: byte 5 (counting from 0) is the first digit of
+the amount. To turn '1' into '9', it needs \(\delta\) = '1' ⊕ '9':</p>
+<div class="highlight"><pre><span></span><code>&#39;1&#39;  = {31} = 0011 0001
+&#39;9&#39;  = {39} = 0011 1001
+XOR  = {08} = 0000 1000      -&gt; flip bit 3 of ciphertext byte 5
+</code></pre></div>
+
+<p>With the script's numbers: ciphertext byte 5 is {d4}. The keystream byte, unknown to the
+attacker, is {d4} ⊕ {31} = {e5}. The attacker sends {d4} ⊕ {08} = {dc}, and the bank decrypts
+{dc} ⊕ {e5} = {39} = '9'.</p>
+<div class="highlight"><pre><span></span><code>=== malleability: the CTR bit-flipping attack ===
+bank sends     : 2af899a3e1f16bdce8fafcc617d4be8b6de5dbb4370708
+attacker sends : 2af899a3e1f16bdce8fafcc617dcbe8b6de5dbb4370708   (one byte changed, no key used)
+bank decrypts  : b&#39;pay $900 to Bob&#39;
+and with &#39;Bob&#39; -&gt; &#39;Eve&#39; as well: b&#39;pay $900 to Eve&#39;
+CBC is malleable too (flip IV byte 5): b&#39;pay $900 to Bob&#39;
+</code></pre></div>
+
+<p>(The first 8 bytes of each ciphertext are the nonce.) The attacker needed no key and broke no
+cryptography, only knowledge of the message format, which is rarely secret.</p>
+<p>CBC is malleable too. Flipping a bit of \(C_{i-1}\) flips the same bit of \(P_i\), at the price of
+turning \(P_{i-1}\) into garbage; flipping a bit of the IV flips the same bit of \(P_1\) cleanly, as
+the last line shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls CTR
+ciphertext "malleable" and gives this as the reason to combine it with authentication.</p>
+<p>Look at the attack from the other side: \(\mathrm{Dec}(C \oplus \delta) = \mathrm{Dec}(C) \oplus \delta\).
+That is a <strong>homomorphism</strong>: an operation on ciphertexts that performs a known operation on the
+hidden plaintexts. CTR has only this one (XOR with a public constant), and here it is a weapon.
+Hold on to that thought for §12.</p>
+<h2 id="8-macs-and-hmac">8. MACs and HMAC<a class="headerlink" href="#8-macs-and-hmac" title="Link to this section">#</a></h2>
+<p>A <strong>message authentication code (MAC)</strong> is a keyed checksum. The sender computes a <strong>tag</strong>
+\(T = \mathrm{MAC}(K, m)\) and sends \((m, T)\); the receiver recomputes the tag with the same key
+and rejects the message if it differs. The security goal (<strong>unforgeability</strong>): even after seeing
+valid tags on many messages of its choice, an attacker cannot produce a valid tag for any new
+message. A MAC gives integrity and authenticity, since only key holders can make valid tags. It
+gives no confidentiality.</p>
+<p><strong>Why not just \(\mathrm{SHA\text{-}256}(K \,\|\, m)\)?</strong> SHA-256 processes its input block by
+block and outputs its internal state. Given \(H(K \,\|\, m)\), anyone can continue hashing and
+compute \(H(K \,\|\, m \,\|\, \text{pad} \,\|\, m&#x27;)\) for a chosen \(m&#x27;\) without knowing \(K\): a
+<strong>length-extension</strong> forgery. (Here "pad" is SHA-256's own fixed length padding, which the
+attacker can compute from the length of \(K \,\|\, m\); it has nothing to do with a one-time
+pad.)</p>
+<p><strong>HMAC</strong> (Bellare, Canetti and Krawczyk, 1996; RFC 2104, 1997) hashes twice with two derived
+keys:</p>
+<div class="math-display">\[\mathrm{HMAC}(K, m) = H\big((K&#x27; \oplus \mathit{opad}) \,\|\, H((K&#x27; \oplus \mathit{ipad}) \,\|\, m)\big)\]</div>
+<ul>
+<li>\(K&#x27;\) is the key padded with zero bytes to the hash's block size \(B\) (64 bytes for SHA-256),
+  or first hashed if it is longer than \(B\);</li>
+<li>\(\mathit{ipad}\) is the byte {36} repeated \(B\) times, \(\mathit{opad}\) the byte {5c} repeated
+  \(B\) times.</li>
+</ul>
+<p>The outer hash seals the inner one, so length extension no longer works. The script implements
+this formula in a few lines and checks it against Python's <code>hmac</code> module and the official test
+vector of RFC 4231:</p>
+<div class="highlight"><pre><span></span><code>=== HMAC-SHA256 (RFC 2104) ===
+stdlib hmac : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
+by hand     : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
+RFC 4231 test case 2: OK
+</code></pre></div>
+
+<p>One practical detail: compare tags with a <strong>constant-time</strong> function (<code>hmac.compare_digest</code>),
+not <code>==</code>. An ordinary comparison stops at the first differing byte, and its timing tells an
+attacker how many leading bytes of a forged tag are right, so it can find the tag byte by byte.</p>
+<h2 id="9-encrypt-then-mac">9. Encrypt-then-MAC<a class="headerlink" href="#9-encrypt-then-mac" title="Link to this section">#</a></h2>
+<p>To get both confidentiality and integrity, combine an IND-CPA mode with a MAC, using two
+independent keys \(K_e\) and \(K_m\):</p>
+<div class="highlight"><pre><span></span><code>sender:    C = nonce || CTR_Ke(nonce, m)        T = HMAC(Km, C)        send C || T
+receiver:  recompute HMAC(Km, C); if it differs from T: reject; else decrypt C
+</code></pre></div>
+
+<p>The tag covers the whole ciphertext including the nonce, and the receiver checks it <em>before</em>
+decrypting. A tampered ciphertext never reaches the decryption code, so there is nothing for a
+padding oracle or a bit-flipping attack to exploit.</p>
+<p>There are three ways to combine the two, and they are not equally good. Bellare and Namprempre
+(2000) analysed them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Composition</th>
+<th>Used historically in</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Encrypt-then-MAC: MAC the ciphertext</td>
+<td>IPsec ESP</td>
+<td>secure for any IND-CPA encryption and any strongly unforgeable MAC (not even a new tag for an old message can be forged; HMAC qualifies)</td>
+</tr>
+<tr>
+<td>MAC-then-encrypt: encrypt message and tag</td>
+<td>SSL/TLS up to 1.2 (CBC suites)</td>
+<td>not secure in general; Lucky Thirteen (2013) is a padding-oracle attack on it</td>
+</tr>
+<tr>
+<td>Encrypt-and-MAC: MAC the plaintext, send it alongside</td>
+<td>SSH</td>
+<td>the tag can leak, e.g. whether two plaintexts are equal</td>
+</tr>
+</tbody>
+</table></div>
+<p>The script's encrypt-then-MAC stops the attack of §7:</p>
+<div class="highlight"><pre><span></span><code>=== encrypt-then-MAC stops the bit-flipping attack ===
+nonce | ciphertext | tag : 6a4d5297d238f40a f5e3070ec8002e3beccba9f2dc96d0 ffd4e9e7acfb75d9...
+honest message decrypts to: b&#39;pay $100 to Bob&#39;
+forged message: authentication failed: ciphertext or tag was modified
+forged message with a tag made under a guessed key: authentication failed: ciphertext or tag was modified
+</code></pre></div>
+
+<p>The attacker can still flip bits, but cannot make a valid tag for the result without \(K_m\).</p>
+<h2 id="10-authenticated-encryption-in-practice-aes-gcm-and-chacha20-poly1305">10. Authenticated encryption in practice: AES-GCM and ChaCha20-Poly1305<a class="headerlink" href="#10-authenticated-encryption-in-practice-aes-gcm-and-chacha20-poly1305" title="Link to this section">#</a></h2>
+<p>In practice nobody assembles encryption and MAC by hand. Modern libraries offer <strong>authenticated
+encryption with associated data (AEAD)</strong> as one primitive:</p>
+<div class="math-display">\[\mathrm{Enc}(K, \mathit{nonce}, \mathit{AD}, m) \to (C, T), \qquad \mathrm{Dec}(K, \mathit{nonce}, \mathit{AD}, C, T) \to m \text{ or } \bot.\]</div>
+<p>The <strong>associated data</strong> AD (say, a packet header) is authenticated but not encrypted. Decryption
+either returns the message or fails; it never returns a tampered plaintext.</p>
+<ul>
+<li><strong>AES-GCM</strong> (Galois/Counter Mode, NIST SP 800-38D, 2007) is CTR mode plus <strong>GHASH</strong>, a
+  keyed hash that treats the associated data and ciphertext blocks as the coefficients of a
+  polynomial and evaluates it at a secret point \(H = E_K(0)\) in the field
+  \(\mathrm{GF}(2^{128})\), the 128-bit cousin of the field in <a href="p2_aes.html">P2</a>. The result,
+  masked with one more AES output, is the tag. With AES-NI and the CPU's carry-less
+  multiplication instruction it runs at gigabytes per second. Its weak spot is the nonce (96
+  bits recommended): if a nonce is ever repeated under a key, an attacker can usually recover
+  \(H\) and then forge tags for any ciphertext (Joux, 2006; SP 800-38D, Appendix A).</li>
+<li><strong>ChaCha20-Poly1305</strong> (RFC 8439, 2018, which replaced RFC 7539) combines Bernstein's ChaCha20
+  stream cipher with the Poly1305 MAC. It needs no special hardware; RFC 8439 estimates it at
+  about three times the speed of AES on platforms without AES instructions. It also uses a
+  96-bit nonce, and repeating one is just as fatal.</li>
+<li><strong>TLS 1.3</strong> (RFC 8446, 2018) allows only AEAD ciphers: AES-GCM, ChaCha20-Poly1305 and AES-CCM.</li>
+<li><strong>AES-GCM-SIV</strong> (RFC 8452, 2019) is <strong>nonce-misuse resistant</strong>: a repeated nonce only reveals
+  whether two messages were identical, instead of breaking everything.</li>
+</ul>
+<p>The rule for real code: use a vetted library's AEAD, generate keys and nonces with the
+operating system's random generator, and never reuse a nonce. The modes in this chapter's script
+are for understanding only.</p>
+<h2 id="11-try-it">11. Try it<a class="headerlink" href="#11-try-it" title="Link to this section">#</a></h2>
+<p>Run from <code>homomorphic_encryption/</code>:</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p3_modes.py
+</code></pre></div>
+
+<p>The script imports the AES of <a href="p2_aes.html">P2</a> (<code>code/primer/p2_mini_aes.py</code>), builds ECB, CBC,
+CTR, PKCS#7 padding, HMAC and encrypt-then-MAC on top of it, checks itself against the NIST and
+RFC test vectors, and runs every demo of this chapter in well under a second. Its full output
+appears in §2 to §9 above; the remaining lines are:</p>
+<div class="highlight"><pre><span></span><code>=== official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===
+F.2.1 CBC-AES128.Encrypt: OK
+F.5.1 CTR-AES128.Encrypt: OK
+...
+decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack at dawn&#39;
+</code></pre></div>
+
+<p>Things to try:</p>
+<ul>
+<li>Encrypt the padlock with CTR instead of CBC. Does the picture survive? Now encrypt it twice
+  with the <em>same</em> nonce and XOR the two ciphertexts.</li>
+<li>In the bit-flipping demo, change the amount to $999 by flipping two more bytes. Which bytes,
+  and with which values of \(\delta\)?</li>
+<li>Use CBC and flip a bit of the first ciphertext block instead of the IV. Which plaintext block
+  changes predictably, and which turns into garbage?</li>
+<li>Replace <code>hmac.compare_digest</code> by <code>==</code> and think about what a timing-measuring attacker could
+  do with it.</li>
+</ul>
+<h2 id="12-how-this-connects-to-homomorphic-encryption">12. How this connects to homomorphic encryption<a class="headerlink" href="#12-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>HE encryption is randomized, for the same reason as CBC and CTR.</strong> Every HE scheme in these
+  notes is IND-CPA secure, so it cannot be deterministic. In LWE (<a href="p7_lattices_and_lwe.html">P7</a>)
+  each encryption draws a fresh random mask <code>a</code> and fresh noise <code>e</code>, which play the role of the
+  IV or nonce: encrypting 0 twice gives two completely different ciphertexts. HE ciphertexts
+  are also much larger than their plaintexts, partly for the same reason: the random mask
+  travels with the ciphertext.</li>
+<li><strong>Malleability is the feature.</strong> This chapter treated malleability as an attack: the
+  attacker turned \(\mathrm{Enc}(m)\) into \(\mathrm{Enc}(m \oplus \delta)\). Homomorphic encryption
+  is malleability made rich and controllable: anyone holding \(\mathrm{Enc}(a)\) and
+  \(\mathrm{Enc}(b)\) can make \(\mathrm{Enc}(a + b)\) and \(\mathrm{Enc}(a \cdot b)\), and from
+  those any circuit (<a href="p6_computing_on_ciphertexts.html">P6</a>). CTR's "flip a ciphertext bit, flip
+  a plaintext bit" is a tiny homomorphism; HE extends it to arbitrary computation.</li>
+<li><strong>So HE results cannot carry a MAC.</strong> A MAC or AEAD rejects every ciphertext that the key
+  holder did not produce. But producing <em>new</em> ciphertexts is exactly the server's job, and the
+  server has no MAC key (if it had one, it could forge anything). The integrity check would
+  reject every honest result. HE therefore has no built-in integrity: a malicious server can
+  evaluate the wrong function or return an encryption of garbage, and decryption will not
+  notice. See <a href="../01_introduction.html#5-what-he-does-not-give-you">01 §5</a>. Remedies come from
+  outside HE (<a href="../05_core_techniques.html#11-integrity-and-verifiability">05 §11</a>). The umbrella
+  term is <strong>verifiable computation</strong>: ways to check that a computation was done correctly
+  without redoing it. The main tools:<ul>
+<li>a <strong>zero-knowledge (ZK) proof</strong>: a proof that the computation was done correctly that
+  reveals nothing else (succinct versions, SNARKs and STARKs, are cheap to check);</li>
+<li><strong>redundancy</strong>: several independent servers compute the same result, and the client
+  accepts only if they agree;</li>
+<li>a <strong>trusted execution environment (TEE)</strong>: a hardware enclave that computes on plaintext
+  in protected memory; running the HE evaluator inside one adds a second line of defence;</li>
+<li><strong>secure multi-party computation (MPC)</strong>: several parties compute jointly on secret
+  shares of the data; versions secure against cheating parties detect a wrong result
+  unless too many of them collude.</li>
+</ul>
+</li>
+<li><strong>And HE can never be IND-CCA2</strong>, the stronger notion in which the attacker may also ask for
+  decryptions: it would maul the challenge and ask for the decryption of the result.
+  <a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a> gives the argument.</li>
+<li><strong>AEAD still has a place around HE.</strong> HE ciphertexts travel over TLS like any other data, and
+  the transport layer's AEAD protects them in transit. What no MAC can cover is the computation
+  itself.</li>
+</ul>
+<h2 id="13-check-yourself">13. Check yourself<a class="headerlink" href="#13-check-yourself" title="Link to this section">#</a></h2>
+<ol>
+<li>Give a concrete IND-CPA attack on ECB. Does it need more than one block?</li>
+<li>CBC needs an <em>unpredictable</em> IV, CTR only a <em>unique</em> nonce. Why the difference? What goes
+   wrong in each mode when the requirement is violated?</li>
+<li>Two messages were encrypted with CTR under the same key and nonce. You know the first one is
+   <code>HELLO</code>. What do you learn about the second, and what do you not learn?</li>
+<li>A CTR ciphertext encrypts <code>pay $100 to Bob</code>. Which ciphertext byte do you change, and by
+   XOR with which value, to make it <code>pay $500 to Bob</code>?</li>
+<li>Why encrypt-then-MAC rather than MAC-then-encrypt? Why two separate keys?</li>
+<li>Why can't a server that computes on HE ciphertexts return results protected by AES-GCM-style
+   authentication? What does that mean for a client that does not trust the server?</li>
+</ol>
+<h3 id="answers">Answers<a class="headerlink" href="#answers" title="Link to this section">#</a></h3>
+<ol>
+<li>Choose \(m_0\) = two equal blocks \(X \| X\) and \(m_1\) = two different blocks \(X \| Y\). Under ECB
+   the challenge ciphertext has two equal blocks exactly when it encrypts \(m_0\). With one-block
+   messages it is even simpler: ask the encryption oracle for \(\mathrm{Enc}(m_0)\) and compare it
+   with the challenge. Any deterministic scheme falls to this.</li>
+<li>In CBC the IV is XORed into the first plaintext block before AES. Suppose an earlier block
+   was encrypted as \(C_j = E_K(P_j \oplus C_{j-1})\) and the attacker wants to test a guess \(G\)
+   for \(P_j\). If it can predict the next IV, it submits \(P_1 = \mathit{IV} \oplus C_{j-1} \oplus G\),
+   which is encrypted as \(E_K(C_{j-1} \oplus G)\): equal to \(C_j\) exactly when the guess is right.
+   That is what BEAST did. In CTR the nonce never mixes with the plaintext; it only selects the
+   keystream. Predicting it does not help, but repeating it reuses the keystream, a two-time
+   pad.</li>
+<li>XOR the two ciphertexts and then XOR with <code>HELLO</code>: you get the first 5 bytes of the second
+   message exactly. You learn nothing about bytes beyond the known length of the first message,
+   and nothing about the key, which remains safe for messages with other nonces.</li>
+<li>Byte 5 (counting from 0, after the nonce): '1' = {31} and '5' = {35}, so XOR that ciphertext
+   byte with {31} ⊕ {35} = {04}.</li>
+<li>Encrypt-then-MAC checks integrity before any decryption happens, so tampered ciphertexts are
+   rejected without ever touching padding checks or decryption code that might leak (Lucky
+   Thirteen attacked MAC-then-encrypt this way), and Bellare and Namprempre proved it secure
+   generically. Separate keys avoid unwanted interaction between two algorithms that were each
+   analysed on their own with an independent key.</li>
+<li>Authentication rejects any ciphertext that the key holder did not create, but the server's
+   whole job is to create new ciphertexts by computing on old ones; the client never saw them,
+   and giving the server the MAC key would let it forge anything. So HE outputs carry no
+   integrity guarantee. A client that does not trust the server needs extra machinery:
+   verifiable computation (proofs of correct evaluation), redundancy across independent
+   servers, or trusted hardware.</li>
+</ol>
+<h2 id="14-key-terms">14. Key terms<a class="headerlink" href="#14-key-terms" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode of operation</td>
+<td>Rule for using a block cipher on messages of any length</td>
+</tr>
+<tr>
+<td>PKCS#7 padding</td>
+<td>Append \(n\) bytes of value \(n\) to reach a whole number of blocks</td>
+</tr>
+<tr>
+<td>ECB</td>
+<td>Encrypt each block independently; deterministic, leaks equal blocks</td>
+</tr>
+<tr>
+<td>CBC</td>
+<td>XOR each block with the previous ciphertext block before encrypting; needs a random IV</td>
+</tr>
+<tr>
+<td>Initialization vector (IV)</td>
+<td>Per-message random block for CBC; public but unpredictable</td>
+</tr>
+<tr>
+<td>CTR</td>
+<td>Encrypt a counter to make a keystream and XOR it with the message</td>
+</tr>
+<tr>
+<td>Nonce</td>
+<td>Per-message value that must never repeat under a key; need not be random</td>
+</tr>
+<tr>
+<td>Keystream</td>
+<td>The pad \(E_K(\mathit{nonce} \Vert i)\) that CTR XORs with the message</td>
+</tr>
+<tr>
+<td>Two-time pad</td>
+<td>Reusing a keystream: \(C_1 \oplus C_2 = P_1 \oplus P_2\)</td>
+</tr>
+<tr>
+<td>Randomized encryption</td>
+<td>Encrypting the same message twice gives different ciphertexts; required for IND-CPA</td>
+</tr>
+<tr>
+<td>Padding oracle</td>
+<td>Leak of whether decrypted padding was valid; enough to decrypt CBC ciphertexts</td>
+</tr>
+<tr>
+<td>Malleability</td>
+<td>Ability to turn a ciphertext of \(m\) into one of a related message without the key</td>
+</tr>
+<tr>
+<td>Bit-flipping attack</td>
+<td>Exploiting CTR or CBC malleability to change chosen plaintext bits</td>
+</tr>
+<tr>
+<td>MAC / tag</td>
+<td>Keyed checksum that only key holders can compute; gives integrity and authenticity</td>
+</tr>
+<tr>
+<td>Length extension</td>
+<td>Forging \(H(K \Vert m \Vert \text{pad} \Vert m&#x27;)\) from \(H(K \Vert m)\); breaks naive hash MACs</td>
+</tr>
+<tr>
+<td>HMAC</td>
+<td>Hash-based MAC, \(H((K&#x27; \oplus \mathit{opad}) \Vert H((K&#x27; \oplus \mathit{ipad}) \Vert m))\) (RFC 2104)</td>
+</tr>
+<tr>
+<td>Encrypt-then-MAC</td>
+<td>Encrypt, then MAC the ciphertext; check the tag before decrypting</td>
+</tr>
+<tr>
+<td>AEAD</td>
+<td>Authenticated encryption with associated data: one primitive for secrecy and integrity</td>
+</tr>
+<tr>
+<td>AES-GCM</td>
+<td>AEAD from CTR mode plus the GHASH polynomial MAC (SP 800-38D)</td>
+</tr>
+<tr>
+<td>ChaCha20-Poly1305</td>
+<td>AEAD from the ChaCha20 stream cipher and the Poly1305 MAC (RFC 8439)</td>
+</tr>
+<tr>
+<td>Nonce-misuse resistance</td>
+<td>Repeating a nonce leaks only message equality (e.g. AES-GCM-SIV)</td>
+</tr>
+<tr>
+<td>Verifiable computation</td>
+<td>Checking that a computation was done correctly without redoing it</td>
+</tr>
+<tr>
+<td>Zero-knowledge (ZK) proof</td>
+<td>Proof that a computation was done correctly that reveals nothing else</td>
+</tr>
+<tr>
+<td>TEE</td>
+<td>Trusted execution environment: a hardware enclave computing on plaintext in protected memory</td>
+</tr>
+<tr>
+<td>MPC</td>
+<td>Secure multi-party computation: several parties compute jointly on secret shares</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="15-sources-and-further-reading">15. Sources and further reading<a class="headerlink" href="#15-sources-and-further-reading" title="Link to this section">#</a></h2>
+<ul>
+<li>NIST, <em>SP 800-38A: Recommendation for Block Cipher Modes of Operation: Methods and
+  Techniques</em>, December 2001 (ECB, CBC, CFB, OFB, CTR; IV requirements in Appendix C; test
+  vectors F.2.1 and F.5.1):
+  <a href="https://csrc.nist.gov/pubs/sp/800/38/a/final">csrc.nist.gov/pubs/sp/800/38/a/final</a>.</li>
+<li>NIST, <em>Decision to Revise SP 800-38A</em> (restricting ECB), April 2023:
+  <a href="https://csrc.nist.gov/News/2023/decision-to-revise-nist-sp-800-38a">csrc.nist.gov/News/2023/decision-to-revise-nist-sp-800-38a</a>.</li>
+<li>NIST, <em>SP 800-38D: Galois/Counter Mode (GCM) and GMAC</em>, November 2007 (nonce uniqueness §8,
+  invocation limit §8.3, Appendix A on nonce reuse and CTR malleability):
+  <a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">csrc.nist.gov/pubs/sp/800/38/d/final</a>.
+  A revision was announced in 2024; it was still at the pre-draft stage in mid-2026.</li>
+<li>H. Krawczyk, M. Bellare, R. Canetti, <em>RFC 2104: HMAC: Keyed-Hashing for Message
+  Authentication</em>, February 1997: <a href="https://www.rfc-editor.org/rfc/rfc2104">rfc-editor.org/rfc/rfc2104</a>.
+  M. Bellare, R. Canetti, H. Krawczyk, "Keying Hash Functions for Message Authentication",
+  CRYPTO 1996.</li>
+<li>M. Nystrom, <em>RFC 4231: Identifiers and Test Vectors for HMAC-SHA-224, -256, -384, and -512</em>,
+  2005: <a href="https://www.rfc-editor.org/rfc/rfc4231">rfc-editor.org/rfc/rfc4231</a>.</li>
+<li>Y. Nir, A. Langley, <em>RFC 8439: ChaCha20 and Poly1305 for IETF Protocols</em>, June 2018:
+  <a href="https://www.rfc-editor.org/rfc/rfc8439">rfc-editor.org/rfc/rfc8439</a>.</li>
+<li>E. Rescorla, <em>RFC 8446: The Transport Layer Security (TLS) Protocol Version 1.3</em>, August 2018:
+  <a href="https://www.rfc-editor.org/rfc/rfc8446">rfc-editor.org/rfc/rfc8446</a>.</li>
+<li>S. Gueron, A. Langley, Y. Lindell, <em>RFC 8452: AES-GCM-SIV</em>, April 2019:
+  <a href="https://www.rfc-editor.org/rfc/rfc8452">rfc-editor.org/rfc/rfc8452</a>.</li>
+<li>M. Bellare, A. Desai, E. Jokipii, P. Rogaway, "A Concrete Security Treatment of Symmetric
+  Encryption", FOCS 1997: <a href="https://doi.org/10.1109/SFCS.1997.646128">doi:10.1109/SFCS.1997.646128</a>.</li>
+<li>M. Bellare, C. Namprempre, "Authenticated Encryption: Relations among Notions and Analysis of
+  the Generic Composition Paradigm", ASIACRYPT 2000: <a href="https://eprint.iacr.org/2000/025">ePrint 2000/025</a>.</li>
+<li>S. Vaudenay, "Security Flaws Induced by CBC Padding: Applications to SSL, IPSEC, WTLS…",
+  EUROCRYPT 2002: <a href="https://doi.org/10.1007/3-540-46035-7_35">doi:10.1007/3-540-46035-7_35</a>.</li>
+<li>N. J. AlFardan, K. G. Paterson, "Lucky Thirteen: Breaking the TLS and DTLS Record Protocols",
+  IEEE S&amp;P 2013: <a href="https://doi.org/10.1109/SP.2013.42">doi:10.1109/SP.2013.42</a>.</li>
+<li>M. Vanhoef, F. Piessens, "Key Reinstallation Attacks: Forcing Nonce Reuse in WPA2", ACM CCS
+  2017: <a href="https://doi.org/10.1145/3133956.3134027">doi:10.1145/3133956.3134027</a>.</li>
+<li>A. Joux, "Authentication Failures in NIST version of GCM", comment to NIST, 2006 (cited as
+  reference [5] in SP 800-38D).</li>
+</ul>
+</article>
+<footer class="pager"><a href="../primer/p2_aes.html">← P2 · Block ciphers: how AES works inside</a><a href="../primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal →</a></footer>
+</main>
+</body>
+</html>

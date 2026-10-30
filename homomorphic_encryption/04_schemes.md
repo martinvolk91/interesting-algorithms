@@ -129,7 +129,7 @@ prime, ch. 03 §7), and rotate slots with Galois keys. Noise *is* rounding error
 is managed like floating point.
 
 **Bootstrapping.** Cheon–Han–Kim–Kim–Song (2018). ModRaise → CoeffToSlot → EvalMod (sine
-approximation) → SlotToCoeff. It costs ~10–15 levels and is approximate. On CPUs it takes
+approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On CPUs it takes
 seconds per (fully packed) ciphertext. GPU implementations bring it to the tens to hundreds
 of milliseconds; FIDESlib reports ≥ 70× over AVX-optimized OpenFHE. Because it refreshes
 **tens of thousands of values at once**, the amortized cost per value is tiny.

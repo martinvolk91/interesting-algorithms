@@ -18,6 +18,10 @@ ROOT = Path(__file__).parent
 OUT = ROOT / "html"
 PAGES = [                                   # navigation order
     "README.md",
+    "primer/p1_encryption_basics.md", "primer/p2_aes.md", "primer/p3_modes_and_integrity.md",
+    "primer/p4_public_key.md", "primer/p5_security_definitions.md",
+    "primer/p6_computing_on_ciphertexts.md", "primer/p7_lattices_and_lwe.md",
+    "primer/p8_multiplication_and_relinearization.md", "primer/p9_bootstrapping.md",
     "01_introduction.md", "02_math_foundations.md", "03_how_it_works.md", "04_schemes.md",
     "05_core_techniques.md", "06_security.md", "07_state_of_the_art_2026.md",
     "08_ecosystem_and_applications.md", "09_glossary_and_reading_list.md",
@@ -176,8 +180,10 @@ def title_of(page):
 def nav(page, titles):
     items = []
     for p in PAGES:
-        if p == "deep_dives/ckks.md":
-            items.append('<li class="nav-group">Deep dives</li>')
+        group = {"primer/p1_encryption_basics.md": "Primer", "01_introduction.md": "Notes",
+                 "deep_dives/ckks.md": "Deep dives"}.get(p)
+        if group:
+            items.append(f'<li class="nav-group">{group}</li>')
         cls = ' class="current"' if p == page else ""
         label = "Overview" if p == "README.md" else titles[p]
         items.append(f'<li{cls}><a href="{rel(page, p)}">{html.escape(label)}</a></li>')

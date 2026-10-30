@@ -24,6 +24,17 @@ function renderMath() {
 <a class="brand" href="index.html">Homomorphic Encryption</a>
 <ul>
 <li class="current"><a href="index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
 <li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
 <li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
 <li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
@@ -45,6 +56,7 @@ function renderMath() {
 <main>
 <details class="page-toc"><summary>On this page</summary><div class="toc">
 <ul>
+<li><a href="#new-to-cryptography-start-with-the-primer">New to cryptography? Start with the primer</a></li>
 <li><a href="#reading-order">Reading order</a></li>
 <li><a href="#the-60-second-version">The 60-second version</a></li>
 <li><a href="#suggested-deep-dives-pick-one-and-ask">Suggested deep dives (pick one and ask)</a></li>
@@ -70,6 +82,72 @@ documents later.</p>
 
 <p>It needs only Python-Markdown and Pygments. Formulas are rendered by KaTeX, loaded from a CDN,
 so they need an internet connection; everything else works offline.</p>
+<hr />
+<h2 id="new-to-cryptography-start-with-the-primer">New to cryptography? Start with the primer<a class="headerlink" href="#new-to-cryptography-start-with-the-primer" title="Link to this section">#</a></h2>
+<p>The chapters below assume you already know what IND-CPA, noise, relinearization and
+bootstrapping mean. The primer builds all of that up for a reader who knows programming and
+basic math (modular arithmetic, linear algebra, polynomials, probability) and has used crypto
+libraries, but has not studied cryptography itself. Every chapter has hand-worked examples, a
+runnable script in <a href="../code/primer/"><code>code/primer/</code></a> and self-check questions.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Chapter</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td><a href="primer/p1_encryption_basics.html">What encryption is</a></td>
+<td>Keys and vocabulary, Kerckhoffs's principle, the one-time pad and perfect secrecy, the two-time pad, stream ciphers, what "128-bit security" means</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><a href="primer/p2_aes.html">How AES works inside</a></td>
+<td>Block ciphers, confusion and diffusion, GF(2⁸), every AES step computed by a from-scratch AES-128, the avalanche effect, why AES is useless for HE</td>
+</tr>
+<tr>
+<td>P3</td>
+<td><a href="primer/p3_modes_and_integrity.html">Modes, nonces and integrity</a></td>
+<td>ECB's leaks, CBC, CTR, nonce reuse, malleability and the bit-flipping attack, MACs and authenticated encryption</td>
+</tr>
+<tr>
+<td>P4</td>
+<td><a href="primer/p4_public_key.html">Public-key cryptography</a></td>
+<td>Diffie–Hellman, RSA through HE eyes, ElGamal, hybrid encryption (TLS), quantum computers and post-quantum lattices</td>
+</tr>
+<tr>
+<td>P5</td>
+<td><a href="primer/p5_security_definitions.html">What "secure" means</a></td>
+<td>Attack models, the IND-CPA game played in code, semantic security, reductions, why homomorphic schemes can never be CCA2 secure</td>
+</tr>
+<tr>
+<td>P6</td>
+<td><a href="primer/p6_computing_on_ciphertexts.html">Computing on ciphertexts</a></td>
+<td>Homomorphisms, Paillier and friends, circuits, multiplicative depth, SHE / LHE / FHE</td>
+</tr>
+<tr>
+<td>P7</td>
+<td><a href="primer/p7_lattices_and_lwe.html">Lattices and LWE</a></td>
+<td>Noisy linear equations, LWE encryption by hand, noise and the noise budget, public-key LWE, Ring-LWE</td>
+</tr>
+<tr>
+<td>P8</td>
+<td><a href="primer/p8_multiplication_and_relinearization.html">Relinearization and modulus switching</a></td>
+<td>Multiplying ciphertexts, why they grow, relinearization keys, digit decomposition, key switching, modulus switching, levels</td>
+</tr>
+<tr>
+<td>P9</td>
+<td><a href="primer/p9_bootstrapping.html">Bootstrapping</a></td>
+<td>Gentry's idea step by step, circular security, bootstrapping in a running toy, and a map from every term in chapters 01–03 to its explanation</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Short on time?</strong> P1–P5 are background, and only parts of them are needed for HE. The
+minimum path is P1 §1–2 and §4–6, the fast path marked at the top of P2, P3 §6–7, P4 §4–5,
+P5 §4 and §6–7, and then P6–P9 in full.</p>
 <hr />
 <h2 id="reading-order">Reading order<a class="headerlink" href="#reading-order" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
@@ -165,6 +243,7 @@ so they need an internet connection; everything else works offline.</p>
 </table></div>
 <p>Code (pure Python, no dependencies, <strong>not secure</strong>):</p>
 <ul>
+<li><a href="../code/primer/"><code>code/primer/</code></a>: one small script per primer chapter (one-time pad, AES-128 from scratch, modes and tampering, Diffie–Hellman / RSA / ElGamal, the IND-CPA game, Paillier and circuits, LWE by hand, relinearization, bootstrapping).</li>
 <li><a href="../code/toy_lwe.py"><code>code/toy_lwe.py</code></a>: a ~50-line toy LWE scheme showing homomorphic addition and how noise eventually breaks decryption.</li>
 <li><a href="../code/toy_ckks.py"><code>code/toy_ckks.py</code></a>: a complete toy CKKS (encode, encrypt, multiply, relinearize, rescale, rotate, conjugate) <strong>including a working homomorphic bootstrapping</strong>.</li>
 <li><a href="../code/toy_bfv.py"><code>code/toy_bfv.py</code></a>: a toy BFV with batching, exact slot-wise arithmetic, relinearization, rotations and noise-budget measurement.</li>
@@ -220,7 +299,7 @@ so they need an internet connection; everything else works offline.</p>
 <li><del><strong>Threshold / multiparty FHE</strong> and Zama</del> → done: <a href="deep_dives/threshold_fhe.html">deep_dives/threshold_fhe.md</a>.</li>
 </ul>
 </article>
-<footer class="pager"><span></span><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is →</a></footer>
+<footer class="pager"><span></span><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad →</a></footer>
 </main>
 </body>
 </html>

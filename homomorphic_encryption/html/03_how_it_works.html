@@ -24,6 +24,17 @@ function renderMath() {
 <a class="brand" href="index.html">Homomorphic Encryption</a>
 <ul>
 <li><a href="index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
 <li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
 <li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
 <li class="current"><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
@@ -70,6 +81,12 @@ function renderMath() {
 <h1 id="03--how-it-works-from-lwe-to-bootstrapping">03 · How it works: from LWE to bootstrapping<a class="headerlink" href="#03--how-it-works-from-lwe-to-bootstrapping" title="Link to this section">#</a></h1>
 <p><a href="02_math_foundations.html">← 02 Math foundations</a> · <a href="index.html">index</a> · next: <a href="04_schemes.html">04 Schemes →</a></p>
 <hr />
+<blockquote>
+<p><strong>Gentle version:</strong> the primer walks through the same material step by step:
+<a href="primer/p7_lattices_and_lwe.html">P7</a> (LWE encryption and noise),
+<a href="primer/p8_multiplication_and_relinearization.html">P8</a> (multiplication, relinearization,
+modulus switching) and <a href="primer/p9_bootstrapping.html">P9</a> (bootstrapping).</p>
+</blockquote>
 <p>This chapter follows one ciphertext through its whole life: encryption, addition,
 multiplication, the noise problem, the tricks that manage noise, and finally bootstrapping.
 The notation is close to BFV and CKKS. The specific schemes are covered in <a href="04_schemes.html">04</a>.</p>
@@ -110,9 +127,14 @@ after  4813 additions: noise =  1027   -&gt; decryption FAILED
 <p>Picture the decryption "phase" <code>b − ⟨a, s⟩</code> on a circle of circumference <code>q</code>, split into <code>t</code>
 sectors of width <code>Δ</code>. The message picks a sector, and the noise is a small offset from the
 sector's centre. Decryption fails when the offset crosses into the neighbouring sector.</p>
-<div class="highlight"><pre><span></span><code> q = 32768, t = 16, Δ = 2048
- |---- m=0 ----|---- m=1 ----|---- m=2 ----| ... |---- m=15 ----|
-        ^ Δ·m + e: fine while |e| &lt; Δ/2 = 1024
+<div class="highlight"><pre><span></span><code> q = 32768, t = 16, Δ = 2048: sector m is Δ wide and centred on Δ·m
+
+ phase   -1024          1024           3072           5120
+           |------m=0-----|------m=1-----|------m=2-----| ...
+                  ^              ^              ^
+ Δ·m              0            2048           4096
+
+ Δ·m + e decodes to m while |e| &lt; Δ/2 = 1024 (sector 0 wraps around: it is [q − 1024, q) ∪ [0, 1024))
 </code></pre></div>
 
 <p>Everything else in this chapter is about getting <strong>multiplication</strong> to work and <strong>keeping
@@ -132,18 +154,19 @@ noise under control</strong>.</p>
 </ul>
 <p><strong>Decryption</strong>: compute <code>c₀ + c₁·s</code>, which telescopes to</p>
 <div class="math-display">\[c_0 + c_1 s = \Delta m + \underbrace{(e\,u + e_1 + e_2\, s)}_{\text{small noise } v}\]</div>
-<p>then scale by <code>t/q</code> and round to get <code>m</code>.</p>
+<p>then scale by <code>t/q</code> and round to get <code>m</code>. (Here <code>v</code> is the total noise; the primer calls the
+noise <code>e</code>.)</p>
 <p>Abstractly, <strong>a ciphertext is a vector <code>c</code> such that <code>⟨c, (1, s)⟩ = Δ·m + small</code></strong>. Keep
 that invariant in mind; every operation below preserves it.</p>
 <h2 id="3-homomorphic-addition">3. Homomorphic addition<a class="headerlink" href="#3-homomorphic-addition" title="Link to this section">#</a></h2>
-<div class="math-display">\[(c_0, c_1) + (d_0, d_1) = (c_0 + d_0,\ c_1 + d_1)\]</div>
+<div class="math-display">\[(c_0, c_1) + (c_0&#x27;, c_1&#x27;) = (c_0 + c_0&#x27;,\ c_1 + c_1&#x27;)\]</div>
 <p>The invariant gives \(\Delta(m_1 + m_2) + (v_1 + v_2)\). Noise grows <strong>additively</strong>, which is
 cheap. Plaintext × ciphertext (multiplying by a known constant or polynomial <code>k</code>) scales the
 noise by about <code>‖k‖</code>.</p>
 <h2 id="4-homomorphic-multiplication-the-hard-part">4. Homomorphic multiplication (the hard part)<a class="headerlink" href="#4-homomorphic-multiplication-the-hard-part" title="Link to this section">#</a></h2>
 <p>Multiply the two "decryption equations":</p>
-<div class="math-display">\[(c_0 + c_1 s)(d_0 + d_1 s) = \underbrace{c_0 d_0}_{e_0} + \underbrace{(c_0 d_1 + c_1 d_0)}_{e_1} s + \underbrace{c_1 d_1}_{e_2} s^2\]</div>
-<p>So the <strong>tensor product</strong> <code>(e₀, e₁, e₂)</code> is a valid ciphertext of the product, decryptable
+<div class="math-display">\[(c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s) = \underbrace{c_0 c_0&#x27;}_{d_0} + \underbrace{(c_0 c_1&#x27; + c_1 c_0&#x27;)}_{d_1} s + \underbrace{c_1 c_1&#x27;}_{d_2} s^2\]</div>
+<p>So the <strong>tensor product</strong> <code>(d₀, d₁, d₂)</code> is a valid ciphertext of the product, decryptable
 with <code>(1, s, s²)</code>. Two problems remain:</p>
 <ol>
 <li><strong>Scale.</strong> The plaintext part is now <code>Δ²·m₁m₂</code>. BFV multiplies by <code>t/q</code> and rounds to get
@@ -162,16 +185,16 @@ depth 3. Computing \(x^{16}\) by repeated squaring costs depth 4. FHE programmer
 trees.</p>
 </blockquote>
 <h2 id="5-relinearization-and-key-switching">5. Relinearization and key switching<a class="headerlink" href="#5-relinearization-and-key-switching" title="Link to this section">#</a></h2>
-<p>To shrink <code>(e₀, e₁, e₂)</code> back to two components, the server needs to multiply <code>e₂</code> by <code>s²</code>
+<p>To shrink <code>(d₀, d₁, d₂)</code> back to two components, the server needs to multiply <code>d₂</code> by <code>s²</code>
 without knowing <code>s</code>. The solution is to publish an <strong>encryption of <code>s²</code> under <code>s</code></strong>: the
 <strong>relinearization key</strong>.</p>
-<p>A naive version, <code>e₂ · Enc(s²)</code>, would multiply the key's noise by <code>e₂</code>, which is a <em>large</em>
-(uniform mod <code>q</code>) polynomial. So <code>e₂</code> is first decomposed into small digits in some base <code>w</code>
+<p>A naive version, <code>d₂ · Enc(s²)</code>, would multiply the key's noise by <code>d₂</code>, which is a <em>large</em>
+(uniform mod <code>q</code>) polynomial. So <code>d₂</code> is first decomposed into small digits in some base <code>w</code>
 (the <strong>gadget decomposition</strong>):</p>
-<div class="math-display">\[e_2 = \sum_i e_2^{(i)} w^i, \quad \|e_2^{(i)}\| &lt; w, \qquad \text{rlk}_i = (-a_i s + \epsilon_i + w^i s^2,\ a_i)\]</div>
-<div class="math-display">\[c_0&#x27; = e_0 + \sum_i e_2^{(i)}\,\text{rlk}_i[0], \qquad c_1&#x27; = e_1 + \sum_i e_2^{(i)}\,\text{rlk}_i[1]\]</div>
-<p>Check: \(c_0&#x27; + c_1&#x27; s = e_0 + e_1 s + e_2 s^2 + \sum_i e_2^{(i)} \epsilon_i\). The extra noise
-is only (small digit) × (small error).</p>
+<div class="math-display">\[d_2 = \sum_i d_2^{(i)} w^i, \quad \|d_2^{(i)}\| &lt; w, \qquad \text{rlk}_i = (-a_i s + \epsilon_i + w^i s^2,\ a_i)\]</div>
+<div class="math-display">\[\hat c_0 = d_0 + \sum_i d_2^{(i)}\,\text{rlk}_i[0], \qquad \hat c_1 = d_1 + \sum_i d_2^{(i)}\,\text{rlk}_i[1]\]</div>
+<p>Check: \(\hat c_0 + \hat c_1 s = d_0 + d_1 s + d_2 s^2 + \sum_i d_2^{(i)} \epsilon_i\). The extra
+noise is only (small digit) × (small error).</p>
 <p>This is an instance of the general <strong>key switching</strong> primitive: turn a ciphertext under key
 <code>s'</code> into one under key <code>s</code>, given an encryption of <code>s'</code> under <code>s</code>. Key switching is used for:</p>
 <ul>
@@ -207,9 +230,9 @@ decryption returns <code>Δ·m + e</code> and treats <code>e</code> as <strong>o
 <ul>
 <li>Encode a vector of real/complex numbers <code>z</code> into a polynomial and scale by <code>Δ</code> (e.g. 2⁴⁰).</li>
 <li>Decryption gives <code>Δ·m + e</code>, which decodes to <code>z + e/Δ</code>: correct to about <code>log Δ − log e</code> bits.</li>
-<li>After a multiplication the scale is <code>Δ²</code>. <strong>Rescaling</strong> divides the ciphertext by
-  <code>q_ℓ ≈ Δ</code> (dropping one RNS prime), bringing the scale back to about <code>Δ</code> and dividing the
-  noise too.</li>
+<li>After a multiplication the scale is <code>Δ²</code>. <strong>Rescaling</strong> divides the ciphertext by the last
+  RNS prime <code>p_ℓ ≈ Δ</code>, so the modulus drops from <code>q_ℓ</code> to <code>q_{ℓ−1} = q_ℓ / p_ℓ</code> (one level).
+  That brings the scale back to about <code>Δ</code> and divides the noise too.</li>
 </ul>
 <p>So CKKS's modulus chain is literally a budget of <em>precision-preserving multiplications</em>. It is
 the natural fit for ML, statistics and signal processing, where you already accept rounding
@@ -252,7 +275,7 @@ expensive and used less in practice; most BGV/BFV deployments are leveled.</p>
 <li><strong>EvalMod</strong>: remove <code>q₀·I</code> by computing <code>x mod q₀</code> approximately, as a polynomial approximation of <code>(q₀/2π)·sin(2πx/q₀)</code> (Chebyshev series and double-angle formulas).</li>
 <li><strong>SlotToCoeff</strong>: inverse DFT.</li>
 </ol>
-<p>It consumes ~10–15 levels by itself, so you need big parameters (<code>N = 2¹⁶</code>). The linear
+<p>It consumes roughly 10–18 levels by itself (depending on the parameters and the precision wanted), so you need big parameters (<code>N = 2¹⁶</code>). The linear
 transforms (2 and 4) are 55–72% of the time in recent CKKS implementations (ch. 07). Results
 are <em>approximate</em>, with precision typically 20–30+ bits.</p>
 <h3 id="fhew--tfhe-bootstrapping-blind-rotation">FHEW / TFHE bootstrapping (blind rotation)<a class="headerlink" href="#fhew--tfhe-bootstrapping-blind-rotation" title="Link to this section">#</a></h3>

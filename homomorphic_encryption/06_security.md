@@ -15,7 +15,7 @@ What IND-CPA does **not** cover:
 
 | Not covered | Why it matters |
 |---|---|
-| **Chosen-ciphertext attacks (CCA)** | FHE is malleable *by design*, so CCA2 is impossible. Even CCA1 (decryption queries before the challenge) breaks most lattice schemes: there are key-recovery attacks with a few thousand decryption queries. **The key owner must never act as a decryption oracle** for ciphertexts it didn't produce or check. |
+| **Chosen-ciphertext attacks (CCA)** | FHE is malleable *by design*, so CCA2 is impossible. Even CCA1 (decryption queries before the challenge) breaks the standard lattice schemes: each decryption query leaks a little about the key, and key-recovery attacks need only a modest (polynomial) number of queries (Chenal–Tang 2014). **The key owner must never act as a decryption oracle** for ciphertexts it didn't produce or check. |
 | **Leakage through decrypted results** | The IND-CPA-D problem (§3) |
 | **Function privacy** | Ciphertext noise can reveal *which* circuit was evaluated (§4) |
 | **Integrity** | The server can compute something else. Nothing in HE detects it (ch. 05 §11) |

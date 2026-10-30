@@ -4,6 +4,9 @@
 
 ---
 
+> **Gentle version:** primer [P7 Lattices and LWE](primer/p7_lattices_and_lwe.md) builds up
+> LWE and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.
+
 Every practical FHE scheme today rests on one hard problem, **Learning With Errors**, usually
 in its ring form. This chapter builds up the minimum mathematics needed to read the scheme
 descriptions.
@@ -24,7 +27,9 @@ The hard problems:
 - **SVP (Shortest Vector Problem):** find the shortest non-zero lattice vector.
 - **CVP / BDD (Closest Vector / Bounded Distance Decoding):** given a point *near* the lattice,
   find the closest lattice point.
-- **Approximate versions** (`γ-SVP`, `GapSVP`, `SIVP`): find a vector within a factor `γ` of optimal.
+- **Approximate versions**: `γ-SVP` asks for a vector within a factor `γ` of the shortest;
+  `GapSVP` is the decision version (is the shortest vector shorter than `d`, or longer than
+  `γ·d`?); `SIVP` asks for `n` linearly independent vectors that are all short.
 
 With a good basis, CVP is easy: round off coordinates (Babai's algorithm). With a bad basis in
 high dimensions it is believed to be infeasible, **even for quantum computers**. The best
@@ -194,7 +199,10 @@ Jain–Lin–Liu–Saha exploits sparse secrets to speed up FHEW/TFHE bootstrapp
 
 **Caveat specific to FHE: circular security.** Bootstrapping publishes an encryption of the
 secret key under itself. Security of that is an *extra assumption* ("circular security") that
-is not implied by LWE, although no attack is known. Leveled schemes avoid the assumption.
+is not implied by LWE, although no attack is known. Leveled schemes can avoid it in theory by
+using a fresh key per level, as Brakerski–Vaikuntanathan and BGV did. Practical libraries
+use a single key, though, so their relinearization and rotation keys (encryptions of `s²` or
+`σ(s)` under `s`) already rely on a mild circular-type assumption.
 
 ---
 

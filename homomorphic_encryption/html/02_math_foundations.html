@@ -24,6 +24,17 @@ function renderMath() {
 <a class="brand" href="index.html">Homomorphic Encryption</a>
 <ul>
 <li><a href="index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
 <li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
 <li class="current"><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
 <li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
@@ -65,6 +76,10 @@ function renderMath() {
 <h1 id="02--mathematical-foundations-lattices-lwe-and-ring-lwe">02 · Mathematical foundations: lattices, LWE and Ring-LWE<a class="headerlink" href="#02--mathematical-foundations-lattices-lwe-and-ring-lwe" title="Link to this section">#</a></h1>
 <p><a href="01_introduction.html">← 01 Introduction</a> · <a href="index.html">index</a> · next: <a href="03_how_it_works.html">03 How it works →</a></p>
 <hr />
+<blockquote>
+<p><strong>Gentle version:</strong> primer <a href="primer/p7_lattices_and_lwe.html">P7 Lattices and LWE</a> builds up
+LWE and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.</p>
+</blockquote>
 <p>Every practical FHE scheme today rests on one hard problem, <strong>Learning With Errors</strong>, usually
 in its ring form. This chapter builds up the minimum mathematics needed to read the scheme
 descriptions.</p>
@@ -80,7 +95,9 @@ parallel ones.</p>
 <li><strong>SVP (Shortest Vector Problem):</strong> find the shortest non-zero lattice vector.</li>
 <li><strong>CVP / BDD (Closest Vector / Bounded Distance Decoding):</strong> given a point <em>near</em> the lattice,
   find the closest lattice point.</li>
-<li><strong>Approximate versions</strong> (<code>γ-SVP</code>, <code>GapSVP</code>, <code>SIVP</code>): find a vector within a factor <code>γ</code> of optimal.</li>
+<li><strong>Approximate versions</strong>: <code>γ-SVP</code> asks for a vector within a factor <code>γ</code> of the shortest;
+  <code>GapSVP</code> is the decision version (is the shortest vector shorter than <code>d</code>, or longer than
+  <code>γ·d</code>?); <code>SIVP</code> asks for <code>n</code> linearly independent vectors that are all short.</li>
 </ul>
 <p>With a good basis, CVP is easy: round off coordinates (Babai's algorithm). With a bad basis in
 high dimensions it is believed to be infeasible, <strong>even for quantum computers</strong>. The best
@@ -248,7 +265,10 @@ Jain–Lin–Liu–Saha exploits sparse secrets to speed up FHEW/TFHE bootstrapp
 </ul>
 <p><strong>Caveat specific to FHE: circular security.</strong> Bootstrapping publishes an encryption of the
 secret key under itself. Security of that is an <em>extra assumption</em> ("circular security") that
-is not implied by LWE, although no attack is known. Leveled schemes avoid the assumption.</p>
+is not implied by LWE, although no attack is known. Leveled schemes can avoid it in theory by
+using a fresh key per level, as Brakerski–Vaikuntanathan and BGV did. Practical libraries
+use a single key, though, so their relinearization and rotation keys (encryptions of <code>s²</code> or
+<code>σ(s)</code> under <code>s</code>) already rely on a mild circular-type assumption.</p>
 <hr />
 <h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
 <ul>

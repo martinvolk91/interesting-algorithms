@@ -4,6 +4,12 @@
 
 ---
 
+> **New to cryptography?** This chapter moves fast. The [primer](primer/p1_encryption_basics.md)
+> builds up everything it relies on, from keys and the one-time pad through AES, public-key
+> crypto, IND-CPA, lattices and LWE to relinearization and bootstrapping. It has hand-worked
+> examples and a runnable script per chapter. Its last chapter maps every term used here to
+> the place where it is explained.
+
 ## 1. The problem it solves
 
 Classical encryption protects data **at rest** (disk encryption) and **in transit** (TLS).
@@ -31,7 +37,7 @@ A homomorphic encryption scheme is a tuple of algorithms:
 
 | Algorithm | Who runs it | What it does |
 |---|---|---|
-| `KeyGen(λ) → (sk, pk, evk)` | client | Secret key, public key, evaluation keys (relinearization, rotation, bootstrapping keys) |
+| `KeyGen(λ) → (sk, pk, evk)` | client | Secret key, public key, evaluation keys (relinearization, rotation, bootstrapping keys; explained gently in primer [P8](primer/p8_multiplication_and_relinearization.md) and [P9](primer/p9_bootstrapping.md)) |
 | `Enc(pk, m) → c` | client | Encrypt a message |
 | `Dec(sk, c) → m` | client | Decrypt |
 | `Eval(evk, f, c₁…cₖ) → c'` | **server** | Compute on ciphertexts |

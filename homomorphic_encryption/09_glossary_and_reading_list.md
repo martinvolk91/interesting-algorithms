@@ -6,6 +6,10 @@
 
 ## Glossary
 
+Short definitions. For plain-language explanations with worked examples, see the
+[primer](primer/p1_encryption_basics.md); its last chapter maps each term to the place where
+it is explained.
+
 | Term | Meaning |
 |---|---|
 | **Automorphism (Galois)** | Ring map `X ↦ X^k` (`k` odd). Permutes slots and gives **rotations**. Needs a Galois key to switch back to the original secret key |

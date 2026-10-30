@@ -24,6 +24,17 @@ function renderMath() {
 <a class="brand" href="index.html">Homomorphic Encryption</a>
 <ul>
 <li><a href="index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li><a href="primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
 <li><a href="01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
 <li><a href="02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
 <li><a href="03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
@@ -213,7 +224,7 @@ holds <strong>N/2 complex slots</strong>, e.g. 32 768 values at <code>N = 2¹⁶
 prime, ch. 03 §7), and rotate slots with Galois keys. Noise <em>is</em> rounding error, and precision
 is managed like floating point.</p>
 <p><strong>Bootstrapping.</strong> Cheon–Han–Kim–Kim–Song (2018). ModRaise → CoeffToSlot → EvalMod (sine
-approximation) → SlotToCoeff. It costs ~10–15 levels and is approximate. On CPUs it takes
+approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On CPUs it takes
 seconds per (fully packed) ciphertext. GPU implementations bring it to the tens to hundreds
 of milliseconds; FIDESlib reports ≥ 70× over AVX-optimized OpenFHE. Because it refreshes
 <strong>tens of thousands of values at once</strong>, the amortized cost per value is tiny.</p>

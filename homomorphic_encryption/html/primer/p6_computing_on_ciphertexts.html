@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P6 · Computing on ciphertexts: homomorphisms and circuits</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script>
+function renderMath() {
+  renderMathInElement(document.body, {
+    delimiters: [{left: "\\[", right: "\\]", display: true}, {left: "\\(", right: "\\)", display: false}],
+    throwOnError: false});
+  // rendering changes the layout, so jump to the #section again once it is done
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (target) target.scrollIntoView();
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMath()"></script>
+</head>
+<body>
+<nav class="sidebar">
+<a class="brand" href="../index.html">Homomorphic Encryption</a>
+<ul>
+<li><a href="../index.html">Overview</a></li>
+<li class="nav-group">Primer</li>
+<li><a href="../primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad</a></li>
+<li><a href="../primer/p2_aes.html">P2 · Block ciphers: how AES works inside</a></li>
+<li><a href="../primer/p3_modes_and_integrity.html">P3 · Using AES safely: modes, nonces and integrity</a></li>
+<li><a href="../primer/p4_public_key.html">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal</a></li>
+<li><a href="../primer/p5_security_definitions.html">P5 · What &quot;secure&quot; means: attack models and IND-CPA</a></li>
+<li class="current"><a href="../primer/p6_computing_on_ciphertexts.html">P6 · Computing on ciphertexts: homomorphisms and circuits</a></li>
+<li><a href="../primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations</a></li>
+<li><a href="../primer/p8_multiplication_and_relinearization.html">P8 · Multiplying ciphertexts: relinearization and modulus switching</a></li>
+<li><a href="../primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise</a></li>
+<li class="nav-group">Notes</li>
+<li><a href="../01_introduction.html">01 · Introduction: what homomorphic encryption is</a></li>
+<li><a href="../02_math_foundations.html">02 · Mathematical foundations: lattices, LWE and Ring-LWE</a></li>
+<li><a href="../03_how_it_works.html">03 · How it works: from LWE to bootstrapping</a></li>
+<li><a href="../04_schemes.html">04 · The schemes: five &quot;generations&quot; of FHE</a></li>
+<li><a href="../05_core_techniques.html">05 · Core techniques: what makes FHE practical</a></li>
+<li><a href="../06_security.html">06 · Security: what HE guarantees, and where it breaks</a></li>
+<li><a href="../07_state_of_the_art_2026.html">07 · State of the art (as of October 2026)</a></li>
+<li><a href="../08_ecosystem_and_applications.html">08 · Ecosystem and applications</a></li>
+<li><a href="../09_glossary_and_reading_list.html">09 · Glossary and reading list</a></li>
+<li class="nav-group">Deep dives</li>
+<li><a href="../deep_dives/ckks.html">Deep dive: CKKS (encoding, rescaling, bootstrapping)</a></li>
+<li><a href="../deep_dives/ckks_ind_cpa_d.html">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</a></li>
+<li><a href="../deep_dives/tfhe.html">Deep dive: TFHE and programmable bootstrapping</a></li>
+<li><a href="../deep_dives/bfv_pir.html">Deep dive: BFV and private information retrieval (caller ID)</a></li>
+<li><a href="../deep_dives/threshold_fhe.html">Deep dive: threshold and multiparty FHE (and the Zama Protocol)</a></li>
+<li><a href="../deep_dives/hardware.html">Deep dive: FHE hardware (why it&#x27;s slow, and how GPUs and ASICs fix it)</a></li>
+</ul>
+</nav>
+<main>
+<details class="page-toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#1-what-homomorphic-means">1. What homomorphic means</a></li>
+<li><a href="#2-partially-homomorphic-schemes-you-have-already-met">2. Partially homomorphic schemes you have already met</a><ul>
+<li><a href="#the-one-time-pad-mod-n-addition">The one-time pad mod n: addition</a></li>
+<li><a href="#textbook-rsa-multiplication">Textbook RSA: multiplication</a></li>
+<li><a href="#elgamal-multiplication-and-exponential-elgamal-addition">ElGamal: multiplication, and exponential ElGamal: addition</a></li>
+</ul>
+</li>
+<li><a href="#3-paillier-addition-with-a-public-key">3. Paillier: addition with a public key</a><ul>
+<li><a href="#a-hand-worked-example">A hand-worked example</a></li>
+<li><a href="#what-a-paillier-server-can-do-without-the-key">What a Paillier server can do without the key</a></li>
+</ul>
+</li>
+<li><a href="#4-goldwassermicali-xor-on-encrypted-bits">4. Goldwasser–Micali: XOR on encrypted bits</a></li>
+<li><a href="#5-what-one-operation-is-good-for">5. What one operation is good for</a></li>
+<li><a href="#6-why-one-operation-is-not-enough-computation-as-circuits">6. Why one operation is not enough: computation as circuits</a><ul>
+<li><a href="#xor-and-and-are-enough">XOR and AND are enough</a></li>
+<li><a href="#arithmetic-circuits">Arithmetic circuits</a></li>
+<li><a href="#an-if-becomes-a-select">An if becomes a select</a></li>
+<li><a href="#loops-need-public-bounds">Loops need public bounds</a></li>
+<li><a href="#comparisons-are-expensive">Comparisons are expensive</a></li>
+</ul>
+</li>
+<li><a href="#7-multiplicative-depth">7. Multiplicative depth</a></li>
+<li><a href="#8-phe-she-lhe-and-fhe">8. PHE, SHE, LHE and FHE</a></li>
+<li><a href="#9-why-it-took-from-1978-to-2009">9. Why it took from 1978 to 2009</a></li>
+<li><a href="#10-try-it">10. Try it</a></li>
+<li><a href="#11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption</a></li>
+<li><a href="#12-check-yourself">12. Check yourself</a></li>
+<li><a href="#13-key-terms">13. Key terms</a></li>
+<li><a href="#14-sources-and-further-reading">14. Sources and further reading</a></li>
+</ul>
+</div>
+</details>
+<article>
+<h1 id="p6--computing-on-ciphertexts-homomorphisms-and-circuits">P6 · Computing on ciphertexts: homomorphisms and circuits<a class="headerlink" href="#p6--computing-on-ciphertexts-homomorphisms-and-circuits" title="Link to this section">#</a></h1>
+<p><a href="p5_security_definitions.html">← P5 Security definitions</a> · <a href="../index.html">index</a> · next: <a href="p7_lattices_and_lwe.html">P7 Lattices and LWE →</a></p>
+<hr />
+<p>Homomorphic encryption rests on one property: an operation on ciphertexts acts on the hidden
+plaintexts. Several classic public-key schemes already have this property for <strong>one</strong>
+operation. This chapter works through them, shows what they are used for, and then explains
+why one operation is not enough. Any program can be written as a circuit of additions and
+multiplications, so a scheme needs both, as many times as the circuit is deep. Getting there
+took thirty years, and it needed the new mathematics of <a href="p7_lattices_and_lwe.html">P7</a>.</p>
+<p><strong>In this chapter</strong></p>
+<ul>
+<li>Say precisely what "homomorphic" means, and why the precise statement is about decryption.</li>
+<li>Run Paillier and Goldwasser–Micali by hand and know which operation each one supports.</li>
+<li>Turn a program (additions, comparisons, <code>if</code>, loops) into a circuit of XOR and AND gates,
+  and count its gates and its multiplicative depth.</li>
+<li>Define PHE, SHE, LHE and FHE, and say where compactness comes in.</li>
+<li>Explain why the group-based schemes of <a href="p4_public_key.html">P4</a> stop at one operation, and
+  why getting both took until 2009.</li>
+</ul>
+<h2 id="1-what-homomorphic-means">1. What homomorphic means<a class="headerlink" href="#1-what-homomorphic-means" title="Link to this section">#</a></h2>
+<p>"Homomorphic" is Greek for "same shape". A <strong>homomorphism</strong> is a map between two algebraic
+structures that respects their operations:</p>
+<div class="math-display">\[f(a \circ b) = f(a) * f(b)\]</div>
+<p>You already know several:</p>
+<ul>
+<li>\(e^{a+b} = e^a \cdot e^b\): the exponential turns addition into multiplication. Slide rules
+  used the inverse map, the logarithm, to turn multiplication into addition.</li>
+<li>Reduction mod \(n\) respects both operations: \((a + b) \bmod n\) and \((a \cdot b) \bmod n\)
+  can be computed from \(a \bmod n\) and \(b \bmod n\). That is why modular arithmetic works at
+  all. A map that respects two operations is a <strong>ring homomorphism</strong>.</li>
+<li>Parity: the parity of \(a + b\) is the XOR of the parities of \(a\) and \(b\).</li>
+</ul>
+<p>For encryption we want an operation \(\circledast\) on ciphertexts that matches an operation
+\(\circ\) on plaintexts. The precise statement is about <strong>decryption</strong>:</p>
+<div class="math-display">\[\mathrm{Dec}(c_1 \circledast c_2) = \mathrm{Dec}(c_1) \circ \mathrm{Dec}(c_2)\]</div>
+<p>Why not write \(\mathrm{Enc}(m_1) \circledast \mathrm{Enc}(m_2) = \mathrm{Enc}(m_1 \circ m_2)\)?
+Because a secure scheme encrypts with fresh randomness
+(<a href="p5_security_definitions.html#deterministic-encryption-always-loses">P5</a> shows that IND-CPA
+forces this). Every message has many ciphertexts, so <code>Enc</code> is not a function.
+\(c_1 \circledast c_2\) is <em>one of</em> the ciphertexts that decrypt to \(m_1 \circ m_2\): in ElGamal
+or Paillier one that <code>Enc</code> could have produced with other randomness, in the lattice schemes
+of P7–P9 one with more noise than <code>Enc</code> would ever produce. The map that really is a
+homomorphism is <code>Dec</code>, from ciphertexts to plaintexts. Applied gate by gate through a whole
+computation \(f\), the same statement is HE's <strong>correctness</strong> rule
+(<a href="../01_introduction.html#2-formal-definition">01 §2</a>): whatever ciphertexts of
+\(m_1, \dots, m_k\) the server starts from, the result of evaluating \(f\) on them decrypts to
+\(f(m_1, \dots, m_k)\).</p>
+<p>Two consequences are worth keeping:</p>
+<ul>
+<li><strong>The encryptions of the neutral element (0 for \(+\), 1 for \(\times\)) form the kernel of
+  <code>Dec</code>.</strong> For the randomized public-key schemes of this chapter, security comes down to this: nobody without the key
+  can tell whether a ciphertext lies in the kernel. Each scheme's hardness assumption is a
+  statement of that kind. For ElGamal, telling an encryption of 1, \((g^y, h^y)\), from a random
+  pair is exactly DDH; for Paillier and Goldwasser–Micali (§3, §4) it is telling encryptions
+  of 0 from random ciphertexts.</li>
+<li><strong>Homomorphic means malleable.</strong> Anyone, including an attacker, can turn a ciphertext into
+  a related one, which rules out IND-CCA2
+  (<a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a>). For HE it is the whole point.</li>
+</ul>
+<h2 id="2-partially-homomorphic-schemes-you-have-already-met">2. Partially homomorphic schemes you have already met<a class="headerlink" href="#2-partially-homomorphic-schemes-you-have-already-met" title="Link to this section">#</a></h2>
+<h3 id="the-one-time-pad-mod-n-addition">The one-time pad mod n: addition<a class="headerlink" href="#the-one-time-pad-mod-n-addition" title="Link to this section">#</a></h3>
+<p>The <a href="p1_encryption_basics.html#the-pad-mod-n">pad of P1</a> is additively homomorphic
+(<a href="p1_encryption_basics.html#11-how-this-connects-to-homomorphic-encryption">P1 §11</a> adds three
+ciphertexts mod 1000 by hand):</p>
+<div class="math-display">\[(m_1 + k_1) + (m_2 + k_2) = (m_1 + m_2) + (k_1 + k_2) \pmod n\]</div>
+<p>The sum of two ciphertexts is an encryption of the sum under the key \(k_1 + k_2\). It is
+perfectly secure. The catch is the key: it is as long as the data, never reusable, and the key
+holder must track which keys were summed.</p>
+<p>Multiplication fails, because \((m_1 + k_1)(m_2 + k_2)\) contains the cross terms
+\(m_1 k_2 + m_2 k_1\), which mix message and key. Keep that picture in mind: in
+<a href="p8_multiplication_and_relinearization.html">P8</a> the same cross terms appear when two LWE
+ciphertexts are multiplied, and handling them is most of the work.</p>
+<h3 id="textbook-rsa-multiplication">Textbook RSA: multiplication<a class="headerlink" href="#textbook-rsa-multiplication" title="Link to this section">#</a></h3>
+<p>\((m_1^e)(m_2^e) = (m_1 m_2)^e\), so multiplying ciphertexts multiplies plaintexts;
+<a href="p4_public_key.html#textbook-rsa-is-multiplicatively-homomorphic">P4 §4</a> checks
+\(\mathrm{Enc}(2) \cdot \mathrm{Enc}(3) \equiv \mathrm{Enc}(6) \pmod{3233}\) by hand. But textbook
+RSA is deterministic, so it is not IND-CPA secure, and the padding that fixes this
+(<a href="p4_public_key.html#oaep-randomize-then-destroy-the-algebra">OAEP, P4 §4</a>) destroys the
+homomorphism too.</p>
+<h3 id="elgamal-multiplication-and-exponential-elgamal-addition">ElGamal: multiplication, and exponential ElGamal: addition<a class="headerlink" href="#elgamal-multiplication-and-exponential-elgamal-addition" title="Link to this section">#</a></h3>
+<p><a href="p4_public_key.html#5-elgamal-randomized-and-still-homomorphic">P4 §5</a> built both. ElGamal
+encrypts \(m\) as \((g^y, m \cdot h^y)\) with public
+key \(h = g^x\) and fresh randomness \(y\). The componentwise product of two ciphertexts is
+\((g^{y_1 + y_2}, m_1 m_2 \cdot h^{y_1 + y_2})\), an encryption of \(m_1 m_2\) with randomness
+\(y_1 + y_2\). <strong>Exponential ElGamal</strong> encrypts \(g^m\) instead of \(m\), so the same product gives
+\(g^{m_1 + m_2}\): addition. Decryption then returns \(g^m\), and recovering \(m\) is a discrete
+logarithm. That is only feasible when the result is small, such as a vote count.</p>
+<h2 id="3-paillier-addition-with-a-public-key">3. Paillier: addition with a public key<a class="headerlink" href="#3-paillier-addition-with-a-public-key" title="Link to this section">#</a></h2>
+<p>Pascal Paillier's 1999 scheme is the standard tool for adding under encryption. It is
+randomized, IND-CPA secure, and decrypts any result mod \(n\) directly, with no discrete
+logarithm.</p>
+<p><strong>Keys.</strong> \(n = pq\) for two large primes, \(g = n + 1\). The secret key is
+\(\lambda = \mathrm{lcm}(p-1, q-1)\) together with \(\mu = \lambda^{-1} \bmod n\). (This \(\lambda\)
+is Paillier's traditional name for the lcm; it has nothing to do with the security parameter
+λ of <a href="p5_security_definitions.html">P5</a>.) Ciphertexts live mod \(n^2\).</p>
+<p><strong>Encryption</strong> of \(m \in \mathbb{Z}_n\) with a random \(r\) coprime to \(n\):</p>
+<div class="math-display">\[\mathrm{Enc}(m; r) = (1 + n)^m \cdot r^n \bmod n^2\]</div>
+<p><strong>Why it works.</strong> Two facts:</p>
+<ol>
+<li>By the binomial theorem, \((1 + n)^m = 1 + m n + \binom{m}{2} n^2 + \dots \equiv 1 + m n \pmod{n^2}\).
+   The message sits in plain view, linearly, in the "second digit" of the number written in
+   base \(n\).</li>
+<li>The mask \(r^n\) is an \(n\)-th power, and raising it to \(\lambda\) removes it:
+   \(r^{n\lambda} \equiv 1 \pmod{n^2}\), because the order of every element of
+   \(\mathbb{Z}_{n^2}^*\) divides \(n\lambda\).</li>
+</ol>
+<p>So \(c^\lambda \equiv (1 + n)^{m\lambda} \equiv 1 + (m\lambda \bmod n)\, n \pmod{n^2}\).
+Decryption reads off that digit and divides by \(\lambda\):</p>
+<div class="math-display">\[m = \frac{(c^\lambda \bmod n^2) - 1}{n} \cdot \mu \bmod n\]</div>
+<p><strong>Security.</strong> Telling \(n\)-th powers mod \(n^2\) (the encryptions of 0) from random elements is
+the <strong>decisional composite residuosity (DCR)</strong> problem, believed hard. Whoever factors \(n\)
+can compute \(\lambda\) and decrypt, so \(n\) must be at least as large as an RSA modulus
+(3072 bits for about 128-bit security), and a ciphertext has twice that size.</p>
+<h3 id="a-hand-worked-example">A hand-worked example<a class="headerlink" href="#a-hand-worked-example" title="Link to this section">#</a></h3>
+<p>Take \(p = 5\), \(q = 7\): \(n = 35\), \(n^2 = 1225\), \(g = 36\), \(\lambda = \mathrm{lcm}(4, 6) = 12\),
+\(\mu = 12^{-1} \bmod 35 = 3\) (since \(12 \cdot 3 = 36\)).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Computation</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Encrypt 3 with \(r = 2\)</td>
+<td>\(36^3 \cdot 2^{35} = 106 \cdot 18 \bmod 1225\)</td>
+<td>683</td>
+</tr>
+<tr>
+<td>Encrypt 4 with \(r = 3\)</td>
+<td>\(36^4 \cdot 3^{35} = 141 \cdot 607 \bmod 1225\)</td>
+<td>1062</td>
+</tr>
+<tr>
+<td>Add</td>
+<td>\(683 \cdot 1062 \bmod 1225\)</td>
+<td>146</td>
+</tr>
+<tr>
+<td>Decrypt: raise to \(\lambda\)</td>
+<td>\(146^{12} \bmod 1225\)</td>
+<td>\(491 = 1 + 14 \cdot 35\)</td>
+</tr>
+<tr>
+<td>Decrypt: read the digit, times \(\mu\)</td>
+<td>\(14 \cdot 3 \bmod 35\)</td>
+<td><strong>7</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Note \(36^3 \bmod 1225 = 106 = 1 + 3 \cdot 35\): fact 1 at work.</p>
+<h3 id="what-a-paillier-server-can-do-without-the-key">What a Paillier server can do without the key<a class="headerlink" href="#what-a-paillier-server-can-do-without-the-key" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>How</th>
+<th>Result decrypts to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add two ciphertexts</td>
+<td>\(c_1 \cdot c_2 \bmod n^2\)</td>
+<td>\(m_1 + m_2\)</td>
+</tr>
+<tr>
+<td>Multiply by a public constant \(k\)</td>
+<td>\(c^k \bmod n^2\)</td>
+<td>\(k \cdot m\)</td>
+</tr>
+<tr>
+<td>Negate, subtract</td>
+<td>\(c^{n-1}\), then multiply</td>
+<td>\(-m\), \(m_1 - m_2\)</td>
+</tr>
+<tr>
+<td>Add a public constant \(k\)</td>
+<td>\(c \cdot (1+n)^k\)</td>
+<td>\(m + k\)</td>
+</tr>
+<tr>
+<td>Re-randomize</td>
+<td>\(c \cdot \mathrm{Enc}(0)\)</td>
+<td>\(m\), as a fresh-looking ciphertext</td>
+</tr>
+</tbody>
+</table></div>
+<p>Multiplying by constants and adding gives every <strong>linear</strong> function with public
+coefficients: sums, averages (divide after decrypting), dot products with public weights
+\(\prod_i c_i^{w_i}\). In the example above, \(683^5 \bmod 1225 = 443\) decrypts to 15.</p>
+<p><strong>Re-randomization</strong> matters more than it looks. Without it, the result's exact value
+depends on how it was computed, which can leak the computation. The server multiplies by a
+fresh encryption of 0 before sending a result back: \(683\) re-randomized three times gave 142,
+1119 and 781, all of which decrypt to 3.</p>
+<p>What the server cannot do is compute \(\mathrm{Enc}(m_1 m_2)\) from \(\mathrm{Enc}(m_1)\) and
+\(\mathrm{Enc}(m_2)\). No method is known. §9 explains why one should not expect one.</p>
+<h2 id="4-goldwassermicali-xor-on-encrypted-bits">4. Goldwasser–Micali: XOR on encrypted bits<a class="headerlink" href="#4-goldwassermicali-xor-on-encrypted-bits" title="Link to this section">#</a></h2>
+<p>Goldwasser and Micali's 1982 scheme encrypts single bits. It was the first encryption scheme
+with a proof of semantic security; the paper also introduced the notion.</p>
+<p><strong>Keys.</strong> \(n = pq\), and a number \(x\) that is a non-square both mod \(p\) and mod \(q\). For
+\(p, q \equiv 3 \pmod 4\), \(x = -1\) works. The secret key is the factorization; decryption
+needs only \(p\).</p>
+<p><strong>Encryption</strong> of a bit \(b\), with a random \(y\):</p>
+<div class="math-display">\[\mathrm{Enc}(b) = y^2 \cdot x^b \bmod n\]</div>
+<p>An encryption of 0 is a random square; an encryption of 1 is a random non-square.
+<strong>Decryption</strong> checks whether \(c\) is a square mod \(p\) with Euler's criterion:
+\(c^{(p-1)/2} \equiv 1 \pmod p\) means \(b = 0\).</p>
+<p><strong>The homomorphism.</strong>
+\(\mathrm{Enc}(b_1) \cdot \mathrm{Enc}(b_2) = (y_1 y_2)^2 \cdot x^{b_1 + b_2}\). When both bits
+are 1, \(x^2\) is itself a square, so the product encrypts \(b_1 \oplus b_2\). Multiplying by \(x\)
+flips the bit, a free NOT.</p>
+<p><strong>Security</strong> rests on the <strong>quadratic residuosity</strong> problem: without the factors of \(n\),
+nobody knows how to tell squares from non-squares among the numbers whose <strong>Jacobi symbol</strong> is
++1. The Jacobi symbol is a square test mod \(n\) that anyone can run without knowing \(p\) and
+\(q\); it only says "square mod both primes, or non-square mod both". Exactly half of the
+numbers that pass it are real squares (the encryptions of 0); the other half are the
+encryptions of 1. Mod 77, 30 of the 60 units pass, and 15 of those are squares.</p>
+<p>With \(p = 7\), \(q = 11\), \(n = 77\), \(x = 76 = -1\), the script's run gave:</p>
+<div class="highlight"><pre><span></span><code>  Enc(1) = 62, Enc(1) = 40:  62 * 40 mod 77 = 16  -&gt; decrypts to 0   (1 XOR 1 = 0)
+</code></pre></div>
+
+<p>Check by hand: \(16 \bmod 7 = 2\) and \(2^3 = 8 \equiv 1 \pmod 7\), so 16 is a square: bit 0.</p>
+<p>The price is size: every bit becomes a number mod \(n\), about 3072 bits at real key sizes.
+GM is historically central, but its homomorphism, XOR, is only the "addition" half of what
+circuits need (§6).</p>
+<h2 id="5-what-one-operation-is-good-for">5. What one operation is good for<a class="headerlink" href="#5-what-one-operation-is-good-for" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Electronic voting.</strong> Each voter encrypts 1 (yes) or 0 (no), the tally server multiplies
+  all ballots, and only the total is decrypted.
+  <a href="p4_public_key.html#exponential-elgamal-trading-multiplication-for-addition">P4 §5</a> does this
+  with exponential ElGamal, as Helios does, and lists what real systems add. Our script runs
+  the same tally with Paillier, and its cheater who submits \(\mathrm{Enc}(5)\) shifts the count
+  by 5 unnoticed: that is what the per-ballot zero-knowledge proofs are for.</li>
+<li><strong>Private aggregation.</strong> Google's Private Join and Compute (open-sourced 2019) lets two
+  parties compute how many identifiers they have in common and the sum of the values attached
+  to the shared ones (for example, purchases that followed an ad), without revealing the other
+  records. It combines private set intersection with Paillier-style additive encryption
+  (see <a href="../08_ecosystem_and_applications.html">08</a>).</li>
+<li><strong>Standards.</strong> ISO/IEC 18033-6:2019 standardizes exponential ElGamal and Paillier
+  (<a href="../07_state_of_the_art_2026.html#5-standardization">07 §5</a>).</li>
+</ul>
+<p>PHE is cheap: one modular multiplication or exponentiation per operation, with mature
+implementations. Whenever a computation is genuinely linear, PHE is often the right tool.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Scheme</th>
+<th>Year</th>
+<th>Plaintext operation</th>
+<th>Ciphertext operation</th>
+<th>Security rests on</th>
+<th>Catch</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One-time pad mod \(n\)</td>
+<td>classic</td>
+<td>\(+\)</td>
+<td>add mod \(n\)</td>
+<td>nothing (perfect secrecy)</td>
+<td>key as long as the data, secret-key only</td>
+</tr>
+<tr>
+<td>Textbook RSA</td>
+<td>1978</td>
+<td>\(\times\)</td>
+<td>multiply mod \(n\)</td>
+<td>RSA problem</td>
+<td>deterministic, not IND-CPA</td>
+</tr>
+<tr>
+<td>Goldwasser–Micali</td>
+<td>1982</td>
+<td>XOR</td>
+<td>multiply mod \(n\)</td>
+<td>quadratic residuosity</td>
+<td>one bit per \(\lvert n \rvert\)-bit ciphertext</td>
+</tr>
+<tr>
+<td>ElGamal</td>
+<td>1985</td>
+<td>\(\times\)</td>
+<td>componentwise multiply</td>
+<td>DDH</td>
+<td></td>
+</tr>
+<tr>
+<td>Exponential ElGamal</td>
+<td></td>
+<td>\(+\)</td>
+<td>componentwise multiply</td>
+<td>DDH</td>
+<td>decrypting needs a small discrete log</td>
+</tr>
+<tr>
+<td>Paillier</td>
+<td>1999</td>
+<td>\(+\), \(\times\) constant</td>
+<td>multiply mod \(n^2\), power</td>
+<td>DCR</td>
+<td>ciphertext twice the modulus size</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="6-why-one-operation-is-not-enough-computation-as-circuits">6. Why one operation is not enough: computation as circuits<a class="headerlink" href="#6-why-one-operation-is-not-enough-computation-as-circuits" title="Link to this section">#</a></h2>
+<p>A server holding ciphertexts cannot run a program the normal way. It cannot see a branch
+condition, a loop counter or an array index, because those are encrypted too. All it can do
+is apply the scheme's operations in a pattern fixed in advance. That pattern is a
+<strong>circuit</strong>: a directed acyclic graph of gates, with the inputs at the leaves, whose shape
+does not depend on the data.</p>
+<h3 id="xor-and-and-are-enough">XOR and AND are enough<a class="headerlink" href="#xor-and-and-are-enough" title="Link to this section">#</a></h3>
+<p>On bits, XOR is addition mod 2 and AND is multiplication mod 2. With the constant 1 they give
+everything else:</p>
+<div class="math-display">\[\lnot x = x \oplus 1, \qquad x \lor y = x \oplus y \oplus xy, \qquad \mathrm{NAND}(x, y) = 1 \oplus xy\]</div>
+<p>NAND alone is universal, so \(\{\oplus, \wedge\}\) is too. Algebraically: every Boolean function
+of \(k\) bits is a polynomial over \(\mathbb{Z}_2\) (its algebraic normal form). Any program
+that runs for a bounded number of steps compiles to such a circuit. So a scheme that can add
+<strong>and</strong> multiply encrypted bits, as often as needed, can compute anything. Goldwasser–Micali
+has the XOR and lacks the AND; Paillier adds and cannot multiply.</p>
+<p><strong>Example: a 4-bit adder.</strong> A full adder computes the sum bit and the carry:</p>
+<div class="math-display">\[s = a \oplus b \oplus c_{\text{in}}, \qquad c_{\text{out}} = ab \oplus c_{\text{in}}\,(a \oplus b)\]</div>
+<p>(The two products are never both 1, so XOR acts as OR.) One half adder (1 XOR, 1 AND) for
+bit 0 and three full adders (3 XOR, 2 AND each) for bits 1–3 take 10 XOR and 7 AND gates.
+The script checks it on all 256 input pairs.</p>
+<div class="highlight"><pre><span></span><code>  a0 b0        a1 b1           a2 b2           a3 b3
+   |  |         |  |            |  |            |  |
+  [half ]--c1--[full ]---c2----[full ]---c3----[full ]---c4 = s4   (depth 4)
+  [adder]      [adder]         [adder]         [adder]
+     |            |               |               |
+   s0 (0)       s1 (1)          s2 (2)          s3 (3)       (depth of each output bit)
+</code></pre></div>
+
+<h3 id="arithmetic-circuits">Arithmetic circuits<a class="headerlink" href="#arithmetic-circuits" title="Link to this section">#</a></h3>
+<p>Bits are not the only option. With gates "\(+\) mod \(t\)" and "\(\times\) mod \(t\)", one
+ciphertext can hold a whole number mod \(t\), and integer arithmetic becomes native. This is how
+BFV and BGV work (and CKKS, approximately, for real numbers). Over a prime \(t\), every
+function \(\mathbb{Z}_t \to \mathbb{Z}_t\) is a polynomial (Lagrange interpolation), but often
+one of degree close to \(t\), which is expensive (below).</p>
+<h3 id="an-if-becomes-a-select">An if becomes a select<a class="headerlink" href="#an-if-becomes-a-select" title="Link to this section">#</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="n">c</span><span class="p">:</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">x</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">y</span>
+</code></pre></div>
+
+<p>With \(c \in \{0, 1\}\) encrypted, the server computes <strong>both</strong> branches and blends them:</p>
+<div class="math-display">\[r = c \cdot x + (1 - c) \cdot y = y + c \cdot (x - y)\]</div>
+<p>One multiplication selects the result. On bits it is \(r_i = y_i \oplus c\,(x_i \oplus y_i)\)
+per bit, a multiplexer. The cost of an <code>if</code> is the cost of both branches plus the select. The
+script computes \(\max(9, 12)\) as <code>select(9 &gt; 12, 9, 12)</code>: 23 XOR, 14 AND, depth 4.</p>
+<h3 id="loops-need-public-bounds">Loops need public bounds<a class="headerlink" href="#loops-need-public-bounds" title="Link to this section">#</a></h3>
+<p><code>while x &gt; 0: ...</code> cannot stop early, because the server does not know when the condition
+turns false. The loop is unrolled to a <strong>public</strong> maximum number of iterations, and each
+iteration's effect is applied through a select: <code>state = select(cond, step(state), state)</code>.
+The bound must cover the worst case. Array access with an encrypted index works the same way:
+\(a[i] = \sum_j [i = j] \cdot a[j]\) touches every element, which is the price of not
+revealing \(i\). It is the basis of <strong>private information retrieval (PIR)</strong>: fetching a
+database entry without revealing which one (<a href="../deep_dives/bfv_pir.html"><code>../deep_dives/bfv_pir.md</code></a>).</p>
+<h3 id="comparisons-are-expensive">Comparisons are expensive<a class="headerlink" href="#comparisons-are-expensive" title="Link to this section">#</a></h3>
+<p>Comparing two \(k\)-bit numbers bit by bit takes about \(6k\) gates (roughly \(4k\) XOR and \(2k\)
+AND). Scanned as a chain, every bit adds one AND to the critical path. Merged as a balanced
+tree, the depth drops to \(\log_2 k + 1\) at the cost of about 50 % more AND gates (\(3k - 2\)
+instead of \(2k - 1\)). The script's counts:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Bits \(k\)</th>
+<th>Chain: AND gates</th>
+<th>Chain: depth</th>
+<th>Tree: AND gates</th>
+<th>Tree: depth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4</td>
+<td>7</td>
+<td>4</td>
+<td>10</td>
+<td>3</td>
+</tr>
+<tr>
+<td>16</td>
+<td>31</td>
+<td>16</td>
+<td>46</td>
+<td>5</td>
+</tr>
+<tr>
+<td>64</td>
+<td>127</td>
+<td>64</td>
+<td>190</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div>
+<p>In arithmetic circuits comparisons are worse. Equality mod a prime \(t\) uses Fermat's little
+theorem, \(d^{t-1} = 1\) for \(d \ne 0\):</p>
+<div class="math-display">\[[x = y] = 1 - (x - y)^{t-1} \pmod t\]</div>
+<p>For \(t = 17\) that is four squarings, depth 4. For \(t = 65537 = 2^{16} + 1\) it is depth 16, and
+"less than" is worse still. This is why ReLU, max-pooling and sorting dominate the cost of
+encrypted machine learning, and why TFHE's programmable bootstrapping, which evaluates a lookup
+table as a side effect, is attractive (<a href="../05_core_techniques.html#5-programmable-bootstrapping-and-luts-tfhe">05 §5</a>).</p>
+<h2 id="7-multiplicative-depth">7. Multiplicative depth<a class="headerlink" href="#7-multiplicative-depth" title="Link to this section">#</a></h2>
+<p>The <strong>multiplicative depth</strong> of a circuit is the largest number of multiplication gates
+(ciphertext times ciphertext) on any path from an input to an output. Additions and
+multiplications by public constants do not count.</p>
+<p>It is <em>the</em> cost measure of HE because of noise. In every practical FHE scheme, a ciphertext
+carries a small random error that grows a little with each addition and a lot with each
+multiplication (<a href="p7_lattices_and_lwe.html">P7</a>, <a href="p8_multiplication_and_relinearization.html">P8</a>).
+Parallel multiplications do not compound; sequential ones do. So the parameters must be
+sized for the depth, and the number of gates matters much less.</p>
+<p>The product of eight values, two ways:</p>
+<div class="highlight"><pre><span></span><code> chain: depth 7                       balanced tree: depth 3
+
+ x1  x2                               x1  x2  x3  x4  x5  x6  x7  x8
+  \  /                                 \  /    \  /    \  /    \  /
+   (*)  x3        depth 1               (*)     (*)     (*)     (*)     depth 1
+     \  /                                  \    /          \    /
+      (*)  x4     depth 2                   (*)              (*)        depth 2
+        \  /                                    \            /
+         (*)      depth 3                        &#39;---(*)----&#39;           depth 3
+          :
+          (*)  x8
+            \ /
+            (*)   depth 7
+</code></pre></div>
+
+<p>Both use 7 multiplications. A depth-\(d\) circuit computes polynomials of degree at most
+\(2^d\), since each level can at most double the degree. So \(x^{16}\) needs depth 4 (repeated
+squaring), and nothing of degree 9 fits in depth 3. FHE compilers rebalance circuits into
+trees exactly like this, as the comparison table above shows: 64-bit comparison drops from
+depth 64 to depth 7. <a href="p8_multiplication_and_relinearization.html#92-multiplicative-depth-chains-and-trees">P8 §9.2</a>
+shows what depth costs in noise, on real ciphertexts.</p>
+<h2 id="8-phe-she-lhe-and-fhe">8. PHE, SHE, LHE and FHE<a class="headerlink" href="#8-phe-she-lhe-and-fhe" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Definition</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PHE</strong> (partially homomorphic)</td>
+<td>One operation, \(+\) or \(\times\), any number of times</td>
+<td>RSA, ElGamal, Goldwasser–Micali, Paillier</td>
+</tr>
+<tr>
+<td><strong>SHE</strong> (somewhat homomorphic)</td>
+<td>Both \(+\) and \(\times\), but only for a limited class of circuits, typically low-degree polynomials; the limit is built into the scheme</td>
+<td>Boneh–Goh–Nissim (2005): any number of additions and <strong>one</strong> multiplication; Gentry's 2009 scheme before bootstrapping</td>
+</tr>
+<tr>
+<td><strong>LHE</strong> (leveled)</td>
+<td>For any depth \(L\) chosen at key generation, parameters exist that evaluate <strong>every</strong> circuit of depth at most \(L\). Parameters and ciphertext size grow with \(L\), not with the size of the circuit</td>
+<td>BGV, BFV, CKKS without bootstrapping: most real deployments</td>
+</tr>
+<tr>
+<td><strong>FHE</strong> (fully homomorphic)</td>
+<td>One fixed parameter set evaluates every circuit, of any size and depth</td>
+<td>A leveled scheme plus bootstrapping (<a href="p9_bootstrapping.html">P9</a>)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The definitions of LHE and FHE come with a requirement that rules out cheating:
+<strong>compactness</strong> (the PHE schemes above have it automatically, since their ciphertexts have a
+fixed size). The output ciphertext must not grow with the circuit, or else the "AES cheat" of
+chapter 01, which staples a description of \(f\) to the ciphertext and lets the client do the
+work, would qualify as FHE. <a href="../01_introduction.html#why-compactness-matters">01 §2, Why compactness matters</a>
+explains it. Leveled schemes satisfy a slightly relaxed form, since their sizes depend on \(L\).</p>
+<p>In practice "FHE" is used loosely for the whole lattice family, even for deployments that
+never bootstrap (<a href="../01_introduction.html#3-the-taxonomy-phe--she--lhe--fhe">01 §3</a>).</p>
+<h2 id="9-why-it-took-from-1978-to-2009">9. Why it took from 1978 to 2009<a class="headerlink" href="#9-why-it-took-from-1978-to-2009" title="Link to this section">#</a></h2>
+<p>In 1978, the year RSA was published, Rivest, Adleman and Dertouzos asked for "privacy
+homomorphisms": encryption that lets an untrusted party compute on data. Several of their
+candidate schemes were broken within a decade (Brickell and Yacobi, 1987). Later designs that
+offered both operations fared no better: a 2002 scheme by Domingo-Ferrer fell to
+known-plaintext attacks (Wagner 2003, using linear algebra, and independently Cheon and Nam).
+Computation on encrypted data without compactness did appear (Sander, Young and Yung 1999
+handled shallow circuits, with ciphertexts that grow exponentially in the depth). The secure,
+compact schemes kept one operation. Why?</p>
+<p><strong>The second operation is the hard problem.</strong> In exponential ElGamal and Paillier the
+message sits in an exponent: \(g^m\) or \((1+n)^m\). Multiplying group elements adds exponents,
+which gives addition for free. Multiplying two hidden exponents means computing \(g^{ab}\) from \(g^a\) and \(g^b\), the
+<strong>computational Diffie–Hellman</strong> problem of
+<a href="p4_public_key.html#what-the-eavesdropper-sees-three-hard-problems">P4 §3</a>. For exponential
+ElGamal the argument is exact. Suppose an algorithm <code>Mult</code> turned \(\mathrm{Enc}(a), \mathrm{Enc}(b)\) into
+\(\mathrm{Enc}(ab)\). Given \(g^a\) and \(g^b\), anyone could make their own key pair, wrap the two
+values as ciphertexts \((1, g^a)\) and \((1, g^b)\) (exponential ElGamal encryptions of \(a\) and \(b\)
+with randomness \(y = 0\)), run <code>Mult</code>, and decrypt the result to
+\(g^{ab}\). That solves CDH, and solving CDH decrypts ElGamal without the key. The structure
+that gives one operation for free makes the other as hard as breaking the scheme.</p>
+<p><strong>Pairings buy exactly one multiplication.</strong> A bilinear pairing is a map
+\(e: G \times G \to G_T\) with \(e(g^a, g^b) = e(g, g)^{ab}\): it multiplies exponents, but its
+output lands in a different group \(G_T\) where no further pairing applies. Boneh, Goh and
+Nissim (2005) built on this a scheme with unlimited additions and exactly one
+multiplication, enough to evaluate quadratic polynomials (their paper's "2-DNF formulas").
+Decryption needs a small discrete logarithm, so messages must be small.</p>
+<p><strong>What changed: noise.</strong> Lattice-based encryption (<a href="p7_lattices_and_lwe.html">P7</a>) hides the
+message by adding a small random error, not by putting it in an exponent. Numbers with small
+errors can be added <em>and</em> multiplied, and the errors stay manageable for a while. That gives
+somewhat homomorphic encryption almost for free. The obstacle is that the errors grow until
+they swamp the message. Gentry's 2009 thesis showed how to reset them, called bootstrapping
+(<a href="p9_bootstrapping.html">P9</a>), and that turned SHE into the first FHE. His first scheme used
+ideal lattices; since 2011 the schemes are built on Regev's LWE problem (2005) and its ring
+version. That mathematics is what <a href="p7_lattices_and_lwe.html">P7</a> builds.</p>
+<h2 id="10-try-it">10. Try it<a class="headerlink" href="#10-try-it" title="Link to this section">#</a></h2>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p6_partially_homomorphic.py
+</code></pre></div>
+
+<p>Source: <a href="../../code/primer/p6_partially_homomorphic.py"><code>../code/primer/p6_partially_homomorphic.py</code></a>.
+It runs in well under a second. Excerpts from one run:</p>
+<div class="highlight"><pre><span></span><code>========================================================================
+2. Encrypted yes/no vote with Paillier: p = 1009, q = 1013
+========================================================================
+n = 1022117; ciphertexts live mod n^2 = 1044723161689
+12 secret votes (1 = yes): [1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1]
+  ballot 1: 212199872817
+  ballot 2: 623574659614
+  ballot 3: 112330281646
+  ...
+tally server multiplies all 12 ballots: 882548330771
+trustee decrypts only the tally: 8 yes votes (true count 8)
+no votes = Enc(12) * tally^(n-1) = Enc(12 - yes): decrypts to 4
+a cheater submits Enc(5) instead of Enc(0 or 1): tally becomes 13
+  -&gt; real systems make every ballot carry a proof that it holds 0 or 1
+</code></pre></div>
+
+<div class="highlight"><pre><span></span><code>========================================================================
+4. Everything from XOR and AND: gate counts and multiplicative depth
+========================================================================
+4-bit ripple-carry adder: 11 + 6 = 17
+  gates: 10 XOR, 7 AND; depth of output bits s0..s4: [0, 1, 2, 3, 4]
+  checked on all 256 input pairs: True
+comparison x &gt; y, chain vs balanced tree:
+   bits | chain: XOR  AND depth | tree: XOR  AND depth
+      4 |         13    7     4 |        15   10     3
+      8 |         29   15     8 |        31   22     4
+     16 |         61   31    16 |        63   46     5
+     32 |        125   63    32 |       127   94     6
+     64 |        253  127    64 |       255  190     7
+  both checked on all 4-bit pairs: True
+AND of 8 bits as a chain: 7 AND gates, depth 7
+AND of 8 bits as a tree : 7 AND gates, depth 3
+max(9, 12) = select(9 &gt; 12, 9, 12) = 12: 23 XOR, 14 AND, depth 4 (comparison 3 + select 1)
+
+========================================================================
+5. Arithmetic circuits mod t = 17: if -&gt; select, equality via Fermat
+========================================================================
+c = 1: if c then 2x else y + 3  -&gt;  (y + 3) + c*(2x - (y + 3)) = 10  (x = 5, y = 11, depth 1)
+c = 0: if c then 2x else y + 3  -&gt;  (y + 3) + c*(2x - (y + 3)) = 14  (x = 5, y = 11, depth 1)
+is_zero(d) = 1 - d^16 mod 17, computed with 4 squarings:
+  d       :  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+  is_zero :  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+  depth 4: equality x == y is is_zero(x - y)
+  with t = 65537 = 2^16 + 1 the same test needs depth 16
+</code></pre></div>
+
+<p>Things to try: give each ballot a public weight with <code>paillier_mul_const</code> before the tally
+multiplies them (a weighted vote); count the gates of <code>add_bits</code> for 8 and 16 bits and check
+that the depth grows by one per bit; build \(x^7\) in \(\mathbb{Z}_{17}\) from <code>mul_t</code> with as
+little depth as possible (it needs 3).</p>
+<h2 id="11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption<a class="headerlink" href="#11-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
+<ul>
+<li><strong>Algebra keeps one operation.</strong> Public-key schemes built on algebra keep exactly one
+  operation. They are useful (voting, aggregation) and standardized, but they are not enough.</li>
+<li><strong>Circuits are the programming model of FHE.</strong> Every encrypted program is a fixed circuit of
+  additions and multiplications: branches become selects, loops get public bounds,
+  comparisons get expensive. Compilers such as those in
+  <a href="../05_core_techniques.html#9-compilers-and-toolchains">05 §9</a> do this translation.</li>
+<li><strong>Depth is the budget.</strong> Noise grows with every sequential multiplication. Leveled schemes
+  are sized for a depth \(L\) (<a href="p8_multiplication_and_relinearization.html">P8</a>), and
+  bootstrapping (<a href="p9_bootstrapping.html">P9</a>) removes the limit.</li>
+<li><strong>The one-time pad is the template.</strong> <a href="p7_lattices_and_lwe.html">P7</a> builds LWE encryption as
+  a one-time pad whose pad is generated from a short key plus a little noise. It adds as easily
+  as the pad of §2, and P8 makes it multiply.</li>
+</ul>
+<h2 id="12-check-yourself">12. Check yourself<a class="headerlink" href="#12-check-yourself" title="Link to this section">#</a></h2>
+<ol>
+<li>A Paillier server holds \(c = \mathrm{Enc}(m)\) under public key \(n\). How does it compute an
+   encryption of \(3m + 5\), and what should it do before sending the result back?</li>
+<li>Textbook RSA is multiplicatively homomorphic. Give two separate reasons why it is not used
+   for computing on private data.</li>
+<li>In Goldwasser–Micali you hold \(c_1 = \mathrm{Enc}(b_1)\) and \(c_2 = \mathrm{Enc}(b_2)\).
+   Compute an encryption of \(\lnot(b_1 \oplus b_2)\). Can you compute \(b_1 \wedge b_2\)?</li>
+<li>What is the smallest multiplicative depth for computing \(x^8 \cdot y\)? Why can it not be 3?</li>
+<li>Over \(\mathbb{Z}_{17}\), write <code>z = a if x == y else b</code> as an arithmetic circuit. What is
+   its depth?</li>
+<li>Why would an efficient way to multiply plaintexts under exponential ElGamal be bad news
+   for exponential ElGamal itself?</li>
+</ol>
+<p><strong>Answers</strong></p>
+<ol>
+<li>\(c^3 \cdot (1+n)^5 \bmod n^2\) (or \(c^3 \cdot \mathrm{Enc}(5)\)). Then re-randomize by
+   multiplying with a fresh \(\mathrm{Enc}(0) = r^n\), so the ciphertext does not reveal how it
+   was computed.</li>
+<li>It is deterministic, so not IND-CPA secure: equal messages give equal ciphertexts and
+   anyone can test guesses. And it offers only multiplication; the padding that makes RSA
+   secure (OAEP) removes even that.</li>
+<li>\(c_1 \cdot c_2 \cdot x \bmod n\): the product gives the XOR, and the factor \(x\) flips the bit.
+   AND would need a multiplication of bits, which GM does not offer and nobody knows how to
+   add compactly.</li>
+<li>Depth 4: \(x^2, x^4, x^8\) take three squarings, then one more multiplication by \(y\). Depth 3
+   can only reach degree \(2^3 = 8\), and \(x^8 y\) has degree 9.</li>
+<li>\(c = 1 - (x - y)^{16}\) (four squarings, depth 4), then \(z = b + c \cdot (a - b)\) (one more
+   multiplication). Depth 5.</li>
+<li>It would solve the computational Diffie–Hellman problem in that group: wrap \(g^a\) and \(g^b\)
+   as ciphertexts under your own key, multiply, decrypt to \(g^{ab}\). And CDH is exactly what
+   protects ElGamal: anyone who can solve it computes \(h^y\) from \(h\) and \(g^y\) and decrypts.</li>
+</ol>
+<h2 id="13-key-terms">13. Key terms<a class="headerlink" href="#13-key-terms" title="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Homomorphism</td>
+<td>A map that respects an operation: \(f(a \circ b) = f(a) * f(b)\)</td>
+</tr>
+<tr>
+<td>Homomorphic encryption</td>
+<td>Encryption whose decryption is a homomorphism: operating on ciphertexts operates on the plaintexts</td>
+</tr>
+<tr>
+<td>Partially homomorphic (PHE)</td>
+<td>Supports one operation, any number of times</td>
+</tr>
+<tr>
+<td>Paillier</td>
+<td>Additively homomorphic public-key scheme mod \(n^2\), security from DCR</td>
+</tr>
+<tr>
+<td>Goldwasser–Micali</td>
+<td>Bit encryption by squares and non-squares; multiplying ciphertexts XORs the bits</td>
+</tr>
+<tr>
+<td>Re-randomization</td>
+<td>Multiplying (or adding) an encryption of the neutral element to get a fresh-looking ciphertext of the same message</td>
+</tr>
+<tr>
+<td>Circuit</td>
+<td>A fixed, data-independent graph of gates; the form every homomorphic computation takes</td>
+</tr>
+<tr>
+<td>Arithmetic circuit</td>
+<td>A circuit of \(+\) and \(\times\) gates mod \(t\) instead of bit gates</td>
+</tr>
+<tr>
+<td>Select (multiplexer)</td>
+<td>\(c \cdot x + (1 - c) \cdot y\): the branch-free replacement for <code>if</code></td>
+</tr>
+<tr>
+<td>Multiplicative depth</td>
+<td>Largest number of ciphertext multiplications on any input-to-output path</td>
+</tr>
+<tr>
+<td>Somewhat homomorphic (SHE)</td>
+<td>Both operations, but only for a limited class of circuits</td>
+</tr>
+<tr>
+<td>Leveled homomorphic (LHE)</td>
+<td>Any circuit up to a depth \(L\) chosen at key generation</td>
+</tr>
+<tr>
+<td>Fully homomorphic (FHE)</td>
+<td>Any circuit with one fixed parameter set; compact</td>
+</tr>
+<tr>
+<td>Compactness</td>
+<td>The output ciphertext's size does not depend on the evaluated circuit</td>
+</tr>
+<tr>
+<td>Bilinear pairing</td>
+<td>A map with \(e(g^a, g^b) = e(g,g)^{ab}\); gives BGN its single multiplication</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="14-sources-and-further-reading">14. Sources and further reading<a class="headerlink" href="#14-sources-and-further-reading" title="Link to this section">#</a></h2>
+<ul>
+<li>R. Rivest, L. Adleman, M. Dertouzos, <em>On Data Banks and Privacy Homomorphisms</em>, in
+  Foundations of Secure Computation, Academic Press, 1978.
+  <a href="https://people.csail.mit.edu/rivest/pubs/RAD78.pdf">https://people.csail.mit.edu/rivest/pubs/RAD78.pdf</a></li>
+<li>S. Goldwasser, S. Micali, <em>Probabilistic Encryption &amp; How to Play Mental Poker Keeping
+  Secret All Partial Information</em>, STOC 1982, <a href="https://doi.org/10.1145/800070.802212">https://doi.org/10.1145/800070.802212</a>; journal
+  version <em>Probabilistic Encryption</em>, JCSS 28(2), 1984,
+  <a href="https://doi.org/10.1016/0022-0000(84)90070-9">https://doi.org/10.1016/0022-0000(84)90070-9</a></li>
+<li>T. ElGamal, <em>A Public Key Cryptosystem and a Signature Scheme Based on Discrete
+  Logarithms</em>, IEEE Trans. Inf. Theory 31(4), 1985. <a href="https://doi.org/10.1109/TIT.1985.1057074">https://doi.org/10.1109/TIT.1985.1057074</a></li>
+<li>E. Brickell, Y. Yacobi, <em>On Privacy Homomorphisms</em>, EUROCRYPT 1987.
+  <a href="https://doi.org/10.1007/3-540-39118-5_12">https://doi.org/10.1007/3-540-39118-5_12</a></li>
+<li>P. Paillier, <em>Public-Key Cryptosystems Based on Composite Degree Residuosity Classes</em>,
+  EUROCRYPT 1999. <a href="https://doi.org/10.1007/3-540-48910-X_16">https://doi.org/10.1007/3-540-48910-X_16</a></li>
+<li>T. Sander, A. Young, M. Yung, <em>Non-Interactive CryptoComputing for NC¹</em>, FOCS 1999.
+  <a href="https://doi.org/10.1109/SFFCS.1999.814630">https://doi.org/10.1109/SFFCS.1999.814630</a></li>
+<li>D. Wagner, <em>Cryptanalysis of an Algebraic Privacy Homomorphism</em>, ISC 2003,
+  <a href="https://doi.org/10.1007/10958513_18">https://doi.org/10.1007/10958513_18</a>; J. H. Cheon, H. S. Nam, ePrint 2003/221,
+  <a href="https://eprint.iacr.org/2003/221">https://eprint.iacr.org/2003/221</a></li>
+<li>D. Boneh, E.-J. Goh, K. Nissim, <em>Evaluating 2-DNF Formulas on Ciphertexts</em>, TCC 2005.
+  <a href="https://doi.org/10.1007/978-3-540-30576-7_18">https://doi.org/10.1007/978-3-540-30576-7_18</a></li>
+<li>C. Gentry, <em>Fully Homomorphic Encryption Using Ideal Lattices</em>, STOC 2009.
+  <a href="https://doi.org/10.1145/1536414.1536440">https://doi.org/10.1145/1536414.1536440</a></li>
+<li>S. Halevi, <em>Homomorphic Encryption</em>, in Tutorials on the Foundations of Cryptography, 2017:
+  definitions of compactness, leveled and somewhat HE, and a short history.
+  <a href="https://shaih.github.io/pubs/he-chapter.pdf">https://shaih.github.io/pubs/he-chapter.pdf</a></li>
+<li>Helios verification specification (v3): ciphertexts are exponential ElGamal and tallying is
+  homomorphic. <a href="https://sites.google.com/site/heliosvoting/verification-specs/helios-v3-verification-specs">https://sites.google.com/site/heliosvoting/verification-specs/helios-v3-verification-specs</a></li>
+<li>Google Security Blog, <em>Helping organizations do more without collecting more data</em> (Private
+  Join and Compute), June 2019.
+  <a href="https://security.googleblog.com/2019/06/helping-organizations-do-more-without-collecting-more-data.html">https://security.googleblog.com/2019/06/helping-organizations-do-more-without-collecting-more-data.html</a>;
+  code: <a href="https://github.com/google/private-join-and-compute">https://github.com/google/private-join-and-compute</a></li>
+<li>ISO/IEC 18033-6:2019, <em>Encryption algorithms, Part 6: Homomorphic encryption</em>.
+  <a href="https://www.iso.org/standard/67740.html">https://www.iso.org/standard/67740.html</a></li>
+</ul>
+</article>
+<footer class="pager"><a href="../primer/p5_security_definitions.html">← P5 · What &quot;secure&quot; means: attack models and IND-CPA</a><a href="../primer/p7_lattices_and_lwe.html">P7 · Lattices and LWE: encryption from noisy equations →</a></footer>
+</main>
+</body>
+</html>

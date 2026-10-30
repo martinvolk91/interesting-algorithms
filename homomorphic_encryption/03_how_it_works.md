@@ -4,6 +4,11 @@
 
 ---
 
+> **Gentle version:** the primer walks through the same material step by step:
+> [P7](primer/p7_lattices_and_lwe.md) (LWE encryption and noise),
+> [P8](primer/p8_multiplication_and_relinearization.md) (multiplication, relinearization,
+> modulus switching) and [P9](primer/p9_bootstrapping.md) (bootstrapping).
+
 This chapter follows one ciphertext through its whole life: encryption, addition,
 multiplication, the noise problem, the tricks that manage noise, and finally bootstrapping.
 The notation is close to BFV and CKKS. The specific schemes are covered in [04](04_schemes.md).
@@ -51,10 +56,15 @@ Picture the decryption "phase" `b − ⟨a, s⟩` on a circle of circumference `
 sectors of width `Δ`. The message picks a sector, and the noise is a small offset from the
 sector's centre. Decryption fails when the offset crosses into the neighbouring sector.
 
-```
- q = 32768, t = 16, Δ = 2048
- |---- m=0 ----|---- m=1 ----|---- m=2 ----| ... |---- m=15 ----|
-        ^ Δ·m + e: fine while |e| < Δ/2 = 1024
+```text
+ q = 32768, t = 16, Δ = 2048: sector m is Δ wide and centred on Δ·m
+
+ phase   -1024          1024           3072           5120
+           |------m=0-----|------m=1-----|------m=2-----| ...
+                  ^              ^              ^
+ Δ·m              0            2048           4096
+
+ Δ·m + e decodes to m while |e| < Δ/2 = 1024 (sector 0 wraps around: it is [q − 1024, q) ∪ [0, 1024))
 ```
 
 Everything else in this chapter is about getting **multiplication** to work and **keeping
@@ -77,14 +87,15 @@ $R_q = \mathbb{Z}_q[X]/(X^N+1)$, and "small" means "small coefficients".
 
 $$c_0 + c_1 s = \Delta m + \underbrace{(e\,u + e_1 + e_2\, s)}_{\text{small noise } v}$$
 
-then scale by `t/q` and round to get `m`.
+then scale by `t/q` and round to get `m`. (Here `v` is the total noise; the primer calls the
+noise `e`.)
 
 Abstractly, **a ciphertext is a vector `c` such that `⟨c, (1, s)⟩ = Δ·m + small`**. Keep
 that invariant in mind; every operation below preserves it.
 
 ## 3. Homomorphic addition
 
-$$(c_0, c_1) + (d_0, d_1) = (c_0 + d_0,\ c_1 + d_1)$$
+$$(c_0, c_1) + (c_0', c_1') = (c_0 + c_0',\ c_1 + c_1')$$
 
 The invariant gives $\Delta(m_1 + m_2) + (v_1 + v_2)$. Noise grows **additively**, which is
 cheap. Plaintext × ciphertext (multiplying by a known constant or polynomial `k`) scales the
@@ -94,9 +105,9 @@ noise by about `‖k‖`.
 
 Multiply the two "decryption equations":
 
-$$(c_0 + c_1 s)(d_0 + d_1 s) = \underbrace{c_0 d_0}_{e_0} + \underbrace{(c_0 d_1 + c_1 d_0)}_{e_1} s + \underbrace{c_1 d_1}_{e_2} s^2$$
+$$(c_0 + c_1 s)(c_0' + c_1' s) = \underbrace{c_0 c_0'}_{d_0} + \underbrace{(c_0 c_1' + c_1 c_0')}_{d_1} s + \underbrace{c_1 c_1'}_{d_2} s^2$$
 
-So the **tensor product** `(e₀, e₁, e₂)` is a valid ciphertext of the product, decryptable
+So the **tensor product** `(d₀, d₁, d₂)` is a valid ciphertext of the product, decryptable
 with `(1, s, s²)`. Two problems remain:
 
 1. **Scale.** The plaintext part is now `Δ²·m₁m₂`. BFV multiplies by `t/q` and rounds to get
@@ -116,20 +127,20 @@ metric of FHE, and the number of operations matters much less.
 
 ## 5. Relinearization and key switching
 
-To shrink `(e₀, e₁, e₂)` back to two components, the server needs to multiply `e₂` by `s²`
+To shrink `(d₀, d₁, d₂)` back to two components, the server needs to multiply `d₂` by `s²`
 without knowing `s`. The solution is to publish an **encryption of `s²` under `s`**: the
 **relinearization key**.
 
-A naive version, `e₂ · Enc(s²)`, would multiply the key's noise by `e₂`, which is a *large*
-(uniform mod `q`) polynomial. So `e₂` is first decomposed into small digits in some base `w`
+A naive version, `d₂ · Enc(s²)`, would multiply the key's noise by `d₂`, which is a *large*
+(uniform mod `q`) polynomial. So `d₂` is first decomposed into small digits in some base `w`
 (the **gadget decomposition**):
 
-$$e_2 = \sum_i e_2^{(i)} w^i, \quad \|e_2^{(i)}\| < w, \qquad \text{rlk}_i = (-a_i s + \epsilon_i + w^i s^2,\ a_i)$$
+$$d_2 = \sum_i d_2^{(i)} w^i, \quad \|d_2^{(i)}\| < w, \qquad \text{rlk}_i = (-a_i s + \epsilon_i + w^i s^2,\ a_i)$$
 
-$$c_0' = e_0 + \sum_i e_2^{(i)}\,\text{rlk}_i[0], \qquad c_1' = e_1 + \sum_i e_2^{(i)}\,\text{rlk}_i[1]$$
+$$\hat c_0 = d_0 + \sum_i d_2^{(i)}\,\text{rlk}_i[0], \qquad \hat c_1 = d_1 + \sum_i d_2^{(i)}\,\text{rlk}_i[1]$$
 
-Check: $c_0' + c_1' s = e_0 + e_1 s + e_2 s^2 + \sum_i e_2^{(i)} \epsilon_i$. The extra noise
-is only (small digit) × (small error).
+Check: $\hat c_0 + \hat c_1 s = d_0 + d_1 s + d_2 s^2 + \sum_i d_2^{(i)} \epsilon_i$. The extra
+noise is only (small digit) × (small error).
 
 This is an instance of the general **key switching** primitive: turn a ciphertext under key
 `s'` into one under key `s`, given an encryption of `s'` under `s`. Key switching is used for:
@@ -174,9 +185,9 @@ decryption returns `Δ·m + e` and treats `e` as **ordinary floating-point error
 
 - Encode a vector of real/complex numbers `z` into a polynomial and scale by `Δ` (e.g. 2⁴⁰).
 - Decryption gives `Δ·m + e`, which decodes to `z + e/Δ`: correct to about `log Δ − log e` bits.
-- After a multiplication the scale is `Δ²`. **Rescaling** divides the ciphertext by
-  `q_ℓ ≈ Δ` (dropping one RNS prime), bringing the scale back to about `Δ` and dividing the
-  noise too.
+- After a multiplication the scale is `Δ²`. **Rescaling** divides the ciphertext by the last
+  RNS prime `p_ℓ ≈ Δ`, so the modulus drops from `q_ℓ` to `q_{ℓ−1} = q_ℓ / p_ℓ` (one level).
+  That brings the scale back to about `Δ` and divides the noise too.
 
 So CKKS's modulus chain is literally a budget of *precision-preserving multiplications*. It is
 the natural fit for ML, statistics and signal processing, where you already accept rounding
@@ -223,7 +234,7 @@ The ciphertext at level 0 satisfies `c₀ + c₁s = Δm + e (mod q₀)`.
 3. **EvalMod**: remove `q₀·I` by computing `x mod q₀` approximately, as a polynomial approximation of `(q₀/2π)·sin(2πx/q₀)` (Chebyshev series and double-angle formulas).
 4. **SlotToCoeff**: inverse DFT.
 
-It consumes ~10–15 levels by itself, so you need big parameters (`N = 2¹⁶`). The linear
+It consumes roughly 10–18 levels by itself (depending on the parameters and the precision wanted), so you need big parameters (`N = 2¹⁶`). The linear
 transforms (2 and 4) are 55–72% of the time in recent CKKS implementations (ch. 07). Results
 are *approximate*, with precision typically 20–30+ bits.
 

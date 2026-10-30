@@ -23,6 +23,32 @@ so they need an internet connection; everything else works offline.
 
 ---
 
+## New to cryptography? Start with the primer
+
+The chapters below assume you already know what IND-CPA, noise, relinearization and
+bootstrapping mean. The primer builds all of that up for a reader who knows programming and
+basic math (modular arithmetic, linear algebra, polynomials, probability) and has used crypto
+libraries, but has not studied cryptography itself. Every chapter has hand-worked examples, a
+runnable script in [`code/primer/`](code/primer/) and self-check questions.
+
+| # | Chapter | What you get |
+|---|---------|--------------|
+| P1 | [What encryption is](primer/p1_encryption_basics.md) | Keys and vocabulary, Kerckhoffs's principle, the one-time pad and perfect secrecy, the two-time pad, stream ciphers, what "128-bit security" means |
+| P2 | [How AES works inside](primer/p2_aes.md) | Block ciphers, confusion and diffusion, GF(2⁸), every AES step computed by a from-scratch AES-128, the avalanche effect, why AES is useless for HE |
+| P3 | [Modes, nonces and integrity](primer/p3_modes_and_integrity.md) | ECB's leaks, CBC, CTR, nonce reuse, malleability and the bit-flipping attack, MACs and authenticated encryption |
+| P4 | [Public-key cryptography](primer/p4_public_key.md) | Diffie–Hellman, RSA through HE eyes, ElGamal, hybrid encryption (TLS), quantum computers and post-quantum lattices |
+| P5 | [What "secure" means](primer/p5_security_definitions.md) | Attack models, the IND-CPA game played in code, semantic security, reductions, why homomorphic schemes can never be CCA2 secure |
+| P6 | [Computing on ciphertexts](primer/p6_computing_on_ciphertexts.md) | Homomorphisms, Paillier and friends, circuits, multiplicative depth, SHE / LHE / FHE |
+| P7 | [Lattices and LWE](primer/p7_lattices_and_lwe.md) | Noisy linear equations, LWE encryption by hand, noise and the noise budget, public-key LWE, Ring-LWE |
+| P8 | [Relinearization and modulus switching](primer/p8_multiplication_and_relinearization.md) | Multiplying ciphertexts, why they grow, relinearization keys, digit decomposition, key switching, modulus switching, levels |
+| P9 | [Bootstrapping](primer/p9_bootstrapping.md) | Gentry's idea step by step, circular security, bootstrapping in a running toy, and a map from every term in chapters 01–03 to its explanation |
+
+**Short on time?** P1–P5 are background, and only parts of them are needed for HE. The
+minimum path is P1 §1–2 and §4–6, the fast path marked at the top of P2, P3 §6–7, P4 §4–5,
+P5 §4 and §6–7, and then P6–P9 in full.
+
+---
+
 ## Reading order
 
 | # | Chapter | What you get |
@@ -50,6 +76,7 @@ Deep dives:
 
 Code (pure Python, no dependencies, **not secure**):
 
+- [`code/primer/`](code/primer/): one small script per primer chapter (one-time pad, AES-128 from scratch, modes and tampering, Diffie–Hellman / RSA / ElGamal, the IND-CPA game, Paillier and circuits, LWE by hand, relinearization, bootstrapping).
 - [`code/toy_lwe.py`](code/toy_lwe.py): a ~50-line toy LWE scheme showing homomorphic addition and how noise eventually breaks decryption.
 - [`code/toy_ckks.py`](code/toy_ckks.py): a complete toy CKKS (encode, encrypt, multiply, relinearize, rescale, rotate, conjugate) **including a working homomorphic bootstrapping**.
 - [`code/toy_bfv.py`](code/toy_bfv.py): a toy BFV with batching, exact slot-wise arithmetic, relinearization, rotations and noise-budget measurement.
