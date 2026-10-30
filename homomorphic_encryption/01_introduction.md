@@ -48,10 +48,106 @@ Two further requirements make it non-trivial:
 - **Security**: ciphertexts must be **IND-CPA** secure (semantically secure). Seeing
   ciphertexts reveals nothing about the plaintexts. See [06 Security](06_security.md).
 
+Both are unpacked in the two subsections below.
+
 Why addition and multiplication? Over bits, **XOR = addition mod 2** and **AND =
 multiplication mod 2**, and {XOR, AND} is functionally complete. Any computable function
 (with a bounded running time) can be written as a circuit of these gates. A scheme that
 supports unlimited additions **and** multiplications can therefore evaluate anything.
+
+### Why compactness matters
+
+Correctness alone is too easy to satisfy. Here is a "homomorphic" scheme built from plain
+AES that meets the correctness requirement above:
+
+```text
+Enc(m)       = AES_k(m)
+Eval(f, c)   = (c, f)              # do nothing: staple f to the ciphertext
+Dec((c, f))  = f(AES_k⁻¹(c))       # the client decrypts, then runs f itself
+```
+
+- **Correct**: decryption really returns `f(m)`.
+- **Secure**: the server only ever sees AES ciphertexts.
+- **Useless**: the server did no work. The client gets back its own ciphertext plus a to-do
+  list and computes `f` itself during "decryption". It is like an accountant who hands back
+  your sealed envelope with a note saying "add these up".
+
+Compactness rules this out. The output ciphertext must have a size bounded by the security
+parameter $\lambda$ alone, whatever `f` is:
+
+$$\big\lvert \mathrm{Eval}(evk, f, c_1, \dots, c_k) \big\rvert \le \mathrm{poly}(\lambda)$$
+
+That also fixes the cost of decryption. The cheat fails at once, because its output contains
+`f`: a billion-gate `f` gives a billion-gate-sized output and a billion-gate decryption. Under
+compactness, one addition and a whole neural network give results of the same size, decrypted
+by the same cheap procedure. There is nowhere to hide the work, so the server must actually do
+it.
+
+This is why 2009 was the breakthrough. *Non-compact* computation on encrypted data already
+existed: Sander, Young and Yung (1999) could evaluate shallow circuits, but their ciphertexts
+grew exponentially with depth. The hard part was unlimited operations **and** compact
+outputs.
+
+Where you meet compactness in the real schemes:
+
+- **Relinearization keeps the size fixed.** An RLWE ciphertext is two polynomials
+  $(c_0, c_1)$, decrypted as $c_0 + c_1 s$. Multiplying two of them gives three,
+  decrypted as $d_0 + d_1 s + d_2 s^2$, and every further multiplication without cleanup adds
+  more. The ciphertext size would follow `f`. Relinearization ([03](03_how_it_works.md))
+  folds the result back to two polynomials. (GSW-style schemes avoid the growth by
+  construction.)
+- **Bootstrapping removes the last dependence on `f`.** Leveled schemes size the modulus for a
+  depth `L`, so their parameters depend on how *deep* `f` is, though not on how *big* it is:
+  a slightly relaxed form of compactness. Bootstrapping removes even that: the same
+  parameters work for any `f`.
+- **What compactness does not cover.** It does not hide `f` from the client; that is circuit
+  privacy (§5 and [06](06_security.md)). It does not make the server fast either: the
+  server's work still grows with `f`. Only the output size and the decryption cost are fixed.
+
+### What IND-CPA means
+
+**IND-CPA** stands for *indistinguishability under chosen-plaintext attack*. It is defined as
+a game between a challenger and an attacker:
+
+1. The challenger generates the keys and gives the attacker the public key. The attacker can
+   now encrypt anything it likes: that is the "chosen plaintext" part. (In a secret-key scheme
+   the attacker gets an encryption oracle instead.)
+2. The attacker picks any two messages $m_0, m_1$ of the same length, for example "yes"
+   and "no".
+3. The challenger secretly flips a coin $b \in \{0, 1\}$ and returns
+   $c^* = \mathrm{Enc}(pk, m_b)$.
+4. The attacker outputs a guess $b'$.
+
+The scheme is IND-CPA secure if no efficient attacker does noticeably better than a coin flip:
+
+$$\mathrm{Adv}(\mathcal{A}) = \Big\lvert \Pr[b' = b] - \tfrac{1}{2} \Big\rvert \le \mathrm{negl}(\lambda)$$
+
+At 128-bit security that means roughly $2^{128}$ work to get any useful edge. Even when the
+attacker chooses both candidates, the ciphertext gives away nothing about which one it is.
+The notion is equivalent to *semantic security*.
+
+What follows from the definition:
+
+- **Encryption must be randomized.** With deterministic encryption the attacker encrypts $m_0$
+  itself and compares the result with $c^*$. Textbook RSA is deterministic, so it is **not**
+  IND-CPA secure (§3). LWE schemes get their randomness from the random mask and the noise:
+  encrypting 0 twice gives two completely different-looking ciphertexts.
+- **It matches the HE threat model.** The untrusted server is exactly the attacker in the game:
+  it holds the public and evaluation keys, sees the ciphertexts and computes on them.
+  IND-CPA says it learns nothing about the plaintexts. The evaluation keys (relinearization,
+  rotation, bootstrapping) are encryptions of the secret key, or functions of it, under
+  itself, so this also assumes **circular security** ([02 §7](02_math_foundations.md)).
+- **Stronger notions are impossible.** IND-CCA2 also lets the attacker ask for the decryption
+  of any ciphertext except $c^*$. A homomorphic scheme fails by design: the attacker computes
+  $c^* + \mathrm{Enc}(0)$, a different ciphertext with the same plaintext, asks for its
+  decryption and wins. Malleability is the whole point of HE (§5), so IND-CPA is the
+  realistic target. [06 §1](06_security.md) covers the weaker CCA1 notion, which most
+  lattice schemes also fail.
+- **It says nothing about shared decryptions.** IND-CPA assumes the attacker never sees a
+  decrypted result. For exact schemes seeing one adds little, but CKKS decryption also returns
+  the noise, and one shared decryption is enough to recover the key. That gap is the
+  IND-CPA-D notion; the attack is reproduced on the toy in the
+  [IND-CPA-D deep dive](deep_dives/ckks_ind_cpa_d.md).
 
 ## 3. The taxonomy: PHE → SHE → LHE → FHE
 

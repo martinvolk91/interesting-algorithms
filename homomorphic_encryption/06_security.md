@@ -8,7 +8,8 @@
 
 All the lattice schemes are **IND-CPA secure** under (R)LWE: an attacker who sees ciphertexts,
 public keys and evaluation keys learns nothing about the plaintexts. For FHE (with
-bootstrapping) this additionally assumes **circular security** (ch. 02 §7).
+bootstrapping) this additionally assumes **circular security** (ch. 02 §7). The game behind
+the definition is spelled out in [01 §2](01_introduction.md#what-ind-cpa-means).
 
 What IND-CPA does **not** cover:
 
