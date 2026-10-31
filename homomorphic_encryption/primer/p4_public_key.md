@@ -24,6 +24,10 @@ quantum computers, and with their replacement: lattices, the same mathematics FH
 - say what quantum computers break (Shor) and what they barely dent (Grover), and why the
   post-quantum standard ML-KEM and FHE rest on the same lattice problems.
 
+**Companion script:** [`code/primer/p4_public_key.py`](../code/primer/p4_public_key.py). Run it from
+the `homomorphic_encryption/` folder with `python3 code/primer/p4_public_key.py`. Its output
+is split into numbered parts, and the text says which part shows what.
+
 ## 1. The key distribution problem
 
 Symmetric encryption needs a shared key. If $n$ people each want to talk privately with each
@@ -154,8 +158,9 @@ an attack that wins the security game every time against ElGamal in the wrong gr
 
 ### What real attacks cost
 
-Brute force tries up to $q$ exponents. The script does it on a 20-bit prime and finds Alice's
-secret after 123,759 tries (§10). Generic algorithms (baby-step giant-step, Pollard's rho) need
+Brute force tries up to $q$ exponents. [Part 1 of the script](../code/primer/p4_public_key.py)
+does it on a 20-bit prime and finds Alice's secret after 123,759 tries (§10).
+Generic algorithms (baby-step giant-step, Pollard's rho) need
 about $\sqrt{q}$ steps in any group. In $\mathbb{Z}_p^*$ there is also the **number field sieve**,
 which is sub-exponential, and that is why $p$ must have thousands of bits. NIST rates a 2048-bit
 $p$ at 112-bit security and a 3072-bit $p$ at 128 bits (table in §8).
@@ -186,7 +191,8 @@ time. Two consequences:
 - Eve sees when the same message is sent twice.
 - A small message space falls to a **dictionary attack**. The public key lets anyone encrypt. If
   Alice sends her exam grade (1–100) encrypted, Eve encrypts all 100 candidates and compares.
-  In the script, $c = 2549$ gives away the grade 14. A yes/no vote takes two encryptions.
+  In [part 2 of the script](../code/primer/p4_public_key.py), $c = 2549$ gives away the grade
+  14. A yes/no vote takes two encryptions.
 
 P5 turns this into a theorem: no deterministic public-key scheme can meet the standard definition
 of security.
@@ -199,8 +205,9 @@ By hand: $\mathrm{Enc}(2) = 1752$ and $\mathrm{Enc}(3) = 1211$. Their product is
 $2{,}121{,}672 = 656 \cdot 3233 + 824$, and indeed $\mathrm{Enc}(6) = 6^{17} \bmod 3233 = 824$.
 
 The same property is a vulnerability: RSA is **malleable**. Without knowing $m$, anyone can turn
-$\mathrm{Enc}(m)$ into $\mathrm{Enc}(k \cdot m)$ by multiplying by $\mathrm{Enc}(k) = k^e$. In the script,
-"pay 100" encrypts to 1773; Eve multiplies by $\mathrm{Enc}(9) = 1972$ and Bob decrypts 900. It is
+$\mathrm{Enc}(m)$ into $\mathrm{Enc}(k \cdot m)$ by multiplying by $\mathrm{Enc}(k) = k^e$. In
+part 2 of the script, "pay 100" encrypts to 1773; Eve multiplies by $\mathrm{Enc}(9) = 1972$ and Bob
+decrypts 900. It is
 P3's "pay \$100 → pay \$900" forgery again
 ([P3 §7](p3_modes_and_integrity.md#7-malleability-changing-a-message-without-reading-it)),
 through multiplication instead of XOR. For ordinary encryption this is a bug: it rules out
@@ -236,7 +243,7 @@ the `01` separator are where they should be. That does three things:
    random functions). Shoup found a gap in the original 1994 proof;
    Fujisaki, Okamoto, Pointcheval and Stern closed it for RSA in 2001.
 
-The script has a **toy OAEP** with the same shape (a 32-bit message followed by 16 zero bits as
+Part 2b of the script has a **toy OAEP** with the same shape (a 32-bit message followed by 16 zero bits as
 the redundancy, a 40-bit seed, a 96-bit modulus): two encryptions of 1234 differ, and the
 product of $\mathrm{Enc}(2)$ and $\mathrm{Enc}(3)$ is rejected.
 
@@ -268,8 +275,9 @@ and it multiplies $m$ the way a pad would. The pad is new every time, and DDH sa
 random. P5 turns that sentence into a proof.
 
 Messages must lie in the subgroup, that is, be squares mod $p$. For a safe prime exactly one of
-$m$ and $p - m$ is a square, so the numbers $1, \dots, q$ can be mapped in and back out; the script
-does this. In practice ElGamal mostly transports random keys (§6), and the question disappears.
+$m$ and $p - m$ is a square, so the numbers $1, \dots, q$ can be mapped in and back out;
+[part 3 of the script](../code/primer/p4_public_key.py) does this. In practice ElGamal mostly
+transports random keys (§6), and the question disappears.
 
 ### By hand
 
@@ -343,8 +351,9 @@ recover it. A **data encapsulation mechanism** (an AEAD such as AES-GCM) then en
 under that key. HPKE ([RFC 9180](https://www.rfc-editor.org/rfc/rfc9180)) standardizes the
 combination, and ML-KEM (§9) is a KEM.
 
-The script's version: Bob's ElGamal public key $h$ doubles as a Diffie–Hellman public value.
-Alice picks $y$, sends $c_1 = g^y$, hashes the shared secret $h^y$ with SHA-256 into a key, and XORs
+The script's version, in [part 4](../code/primer/p4_public_key.py): Bob's ElGamal public key
+$h$ doubles as a Diffie–Hellman public value. Alice picks $y$, sends $c_1 = g^y$, hashes the shared
+secret $h^y$ with SHA-256 into a key, and XORs
 a SHA-256 keystream onto her message. That is ElGamal with the pad moved into a hash function;
 the real-world versions are called DHIES and ECIES. They use a proper key-derivation function
 (HKDF) and an AEAD instead of the toy keystream.
@@ -501,7 +510,18 @@ python3 code/primer/p4_public_key.py
 
 The script is [`../code/primer/p4_public_key.py`](../code/primer/p4_public_key.py). It uses
 the standard library only, a seeded random generator, and toy sizes throughout (a 20-bit
-prime, the 12-bit RSA modulus 3233, a 96-bit modulus for the OAEP toy). Real output:
+prime, the 12-bit RSA modulus 3233, a 96-bit modulus for the OAEP toy).
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | Diffie–Hellman in a 20-bit group; Eve brute-forces the discrete log | [§3](#3-diffie-hellman-key-exchange) |
+| 2 | Textbook RSA: deterministic, dictionary attack, multiplicative homomorphism, malleability | [§4](#4-rsa-revisited-what-matters-for-he) |
+| 2b | Toy OAEP: randomized, and the product of two ciphertexts is rejected | [§4, OAEP](#oaep-randomize-then-destroy-the-algebra) |
+| 3 | ElGamal: randomized, and ciphertexts multiply | [§5](#5-elgamal-randomized-and-still-homomorphic) |
+| 3b | Exponential ElGamal: an encrypted vote tally | [§5, exponential ElGamal](#exponential-elgamal-trading-multiplication-for-addition) |
+| 4 | Hybrid encryption: DH key agreement, SHA-256, stream cipher | [§6](#6-hybrid-encryption-and-tls-13) |
+
+Real output:
 
 ```text
 === 1. Diffie-Hellman over the squares mod p   (TOY SIZE: p has 20 bits) ===

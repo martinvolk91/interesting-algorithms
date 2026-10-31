@@ -133,7 +133,7 @@ if __name__ == "__main__":
     random.seed(3)
     h = bytes.fromhex
 
-    print("=== official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===")
+    print("=== 1. official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===")
     k = h("2b7e151628aed2a6abf7158809cf4f3c")
     p = h("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51"
           "30c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710")
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     key = random.randbytes(16)
 
-    print("\n=== ECB leaks the picture, CBC does not (each pixel is one 16-byte block) ===")
+    print("\n=== 2. ECB leaks the picture, CBC does not (each pixel is one 16-byte block) ===")
     width = len(PICTURE[0])
     img = picture_bytes(PICTURE)
     ecb_ct = ecb_encrypt(key, img)[:len(img)]                         # drop the padding block
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     print(f"distinct ciphertext blocks: ECB {len(set(blocks(ecb_ct)))} of {n},"
           f" CBC {len(set(blocks(cbc_ct)))} of {n}")
 
-    print("\n=== the same message encrypted twice ===")
+    print("\n=== 3. the same message encrypted twice ===")
     msg = b"attack at dawn"
     for name, enc in [("ECB", lambda m: ecb_encrypt(key, m)),
                       ("CBC", lambda m: cbc_encrypt(key, random.randbytes(BLOCK), m)),
@@ -171,7 +171,7 @@ if __name__ == "__main__":
           cbc_decrypt(key, cbc_encrypt(key, random.randbytes(BLOCK), msg)),
           ctr_decrypt(key, ctr_encrypt(key, random.randbytes(NONCE), msg)))
 
-    print("\n=== CTR nonce reuse = two-time pad ===")
+    print("\n=== 4. CTR nonce reuse = two-time pad ===")
     nonce = random.randbytes(NONCE)
     p1 = b"Meeting moved to Friday 10:00, room 4."
     p2 = b"New vault code is 7341; tell no one!!!"
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     print("attacker knows P1 (a public notice) and recovers P2 without the key:")
     print("  ", xor(xor(c1[NONCE:], c2[NONCE:]), p1))
 
-    print("\n=== malleability: the CTR bit-flipping attack ===")
+    print("\n=== 5. malleability: the CTR bit-flipping attack ===")
     order = b"pay $100 to Bob"
     ct = ctr_encrypt(key, random.randbytes(NONCE), order)
     print("bank sends     :", ct.hex())
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     forged[5] ^= ord("1") ^ ord("9")                      # CBC: flip the same bit of the IV
     print("CBC is malleable too (flip IV byte 5):", cbc_decrypt(key, bytes(forged)))
 
-    print("\n=== HMAC-SHA256 (RFC 2104) ===")
+    print("\n=== 6. HMAC-SHA256 (RFC 2104) ===")
     tag_lib = hmac.new(b"Jefe", b"what do ya want for nothing?", hashlib.sha256).hexdigest()
     tag_hand = hmac_sha256_by_hand(b"Jefe", b"what do ya want for nothing?").hex()
     print("stdlib hmac :", tag_lib)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
           "OK" if tag_lib == tag_hand == "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
           else "FAIL")
 
-    print("\n=== encrypt-then-MAC stops the bit-flipping attack ===")
+    print("\n=== 7. encrypt-then-MAC stops the bit-flipping attack ===")
     enc_key, mac_key = random.randbytes(16), random.randbytes(32)   # two independent keys
     blob = etm_encrypt(enc_key, mac_key, random.randbytes(NONCE), order)
     print("nonce | ciphertext | tag :", blob[:NONCE].hex(), blob[NONCE:-TAG].hex(), blob[-TAG:].hex()[:16] + "...")

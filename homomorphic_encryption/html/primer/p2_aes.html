@@ -113,6 +113,9 @@ nobody can compute on AES ciphertexts.</p>
 <li>describe the key schedule, the 10/12/14 rounds, AES-NI and what the best attacks achieve;</li>
 <li>explain why AES ciphertexts carry no usable algebra, and what transciphering is.</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p2_mini_aes.py"><code>code/primer/p2_mini_aes.py</code></a>. Run it from
+the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p2_mini_aes.py</code>. Its output is
+split into numbered parts, and the text says which part shows what.</p>
 <blockquote>
 <p><strong>Fast path.</strong> For homomorphic encryption you need §1, §2, the start of §4 (the state and
 the round structure), the paragraph "The point that matters most" in
@@ -251,13 +254,14 @@ replace it by XOR-ing {1b}. FIPS 197 calls this <code>xtime</code>:</p>
 <p>Any product then follows by writing the second factor in binary. Since
 {13} = {10} + {02} + {01}:</p>
 <div class="math-display">\[\{57\} \cdot \{13\} = \{57\} \oplus \{ae\} \oplus \{07\} = \{fe\}.\]</div>
-<p>This shift-and-add loop is exactly the function <code>gmul</code> in the script.</p>
+<p>This shift-and-add loop is exactly the function <code>gmul</code> in the script, and
+<a href="../../code/primer/p2_mini_aes.py">part 1 of the script</a> prints both products.</p>
 <h3 id="35-inverses">3.5 Inverses<a class="headerlink" href="#35-inverses" title="Link to this section">#</a></h3>
 <p>Every non-zero byte \(a\) has an inverse \(a^{-1}\) with \(a \cdot a^{-1} = \{01\}\). For example
 \(\{53\}^{-1} = \{ca\}\), because \(\{53\} \cdot \{ca\} = \{01\}\). There are three ways to find it:
 the extended Euclidean algorithm on polynomials (as for modular inverses of integers);
 \(a^{-1} = a^{254}\), because the 255 non-zero elements form a multiplicative group, so
-\(a^{255} = 1\); or, as the toy does, trying all 255 candidates.</p>
+\(a^{255} = 1\); or, as the toy does (script, part 1), trying all 255 candidates.</p>
 <p>AES needs the field structure twice: SubBytes uses inverses, and MixColumns uses a matrix that
 must be invertible over this field so that decryption exists.</p>
 <h2 id="4-the-aes-state-and-one-round">4. The AES state and one round<a class="headerlink" href="#4-the-aes-state-and-one-round" title="Link to this section">#</a></h2>
@@ -280,7 +284,8 @@ round 10:
 
 <p>Here is round 1 on the official test vector of FIPS 197 (2001), Appendix C.1: plaintext
 <code>00112233445566778899aabbccddeeff</code>, key <code>000102030405060708090a0b0c0d0e0f</code>. "start" is the
-plaintext XOR the key. This is real output from the script:</p>
+plaintext XOR the key. This is real output from
+<a href="../../code/primer/p2_mini_aes.py">part 3 of the script</a>:</p>
 <div class="highlight"><pre><span></span><code>start         SubBytes      ShiftRows     MixColumns    round key 1   AddRoundKey
 00 40 80 c0   63 09 cd ba   63 09 cd ba   5f 57 f7 1d   d6 d2 da d6   89 85 2d cb
 10 50 90 d0   ca 53 60 70   53 60 70 ca   72 f5 be b9   aa af a6 ab   d8 5a 18 12
@@ -331,7 +336,7 @@ elements and breaks that simplicity. The designers also chose it so that \(S\) h
 (\(S(x) \neq x\)) and no "opposite" fixed points (\(S(x) \neq x \oplus \{ff\}\)); you can check
 both in the toy.</p>
 <p><strong>The point that matters most for this primer:</strong> \(S\) is not linear. With \(a = \{53\}\) and
-\(b = \{0f\}\), the script prints</p>
+\(b = \{0f\}\), part 1 of the script prints</p>
 <div class="math-display">\[S(a \oplus b) = S(\{5c\}) = \{4a\}, \qquad S(a) \oplus S(b) = \{ed\} \oplus \{76\} = \{9b\}.\]</div>
 <h3 id="42-shiftrows">4.2 ShiftRows<a class="headerlink" href="#42-shiftrows" title="Link to this section">#</a></h3>
 <p>Row \(r\) of the state is rotated left by \(r\) positions. Row 0 stays put. In the trace, row 1
@@ -392,8 +397,9 @@ XOR w0    = 00010203   d6aa74fd  = w4
 w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 </code></pre></div>
 
-<p>These are the first two columns of "round key 1" in the trace (read down the columns:
-<code>d6 aa 74 fd</code>, <code>d2 af 72 fa</code>).</p>
+<p>These are the first two columns of "round key 1" in the trace of
+<a href="../../code/primer/p2_mini_aes.py">part 3 of the script</a> (read down the columns: <code>d6 aa 74 fd</code>,
+<code>d2 af 72 fa</code>).</p>
 <p>The three AES variants differ only in key length and number of rounds; the block is always
 128 bits:</p>
 <div class="table-wrap"><table>
@@ -431,7 +437,8 @@ w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 </tbody>
 </table></div>
 <p>The rule is \(N_r = N_k + 6\). AES-256 adds one extra SubWord when \(i \bmod 8 = 4\). The toy's
-<code>key_expansion</code> handles all three, and the script checks the 192- and 256-bit test vectors.</p>
+<code>key_expansion</code> handles all three, and part 4 of the script checks the 192- and 256-bit test
+vectors.</p>
 <p>The key schedule is the lightest part of AES, and it is where the <strong>related-key</strong> attacks live:
 Biryukov and Khovratovich (2009) break AES-256 in about \(2^{99.5}\) time if the attacker can get
 encryptions under several unknown keys with chosen differences between them. Correctly used
@@ -444,13 +451,15 @@ protocols never give an attacker that power, so these attacks do not threaten no
 <li>InvSubBytes uses the inverse table \(S^{-1}\) (undo the affine map, then invert);</li>
 <li>InvMixColumns multiplies by the inverse matrix with entries {0e}, {0b}, {0d}, {09}.</li>
 </ul>
-<p>This is <code>decrypt_block</code> in the script. The bigger InvMixColumns constants make decryption a
-little slower in software. Modes like CTR and GCM (<a href="p3_modes_and_integrity.html">P3</a>) never
-call it.</p>
+<p>This is <code>decrypt_block</code> in the script, and
+<a href="../../code/primer/p2_mini_aes.py">part 2 of the script</a> uses it to decrypt the C.1 ciphertext.
+The bigger InvMixColumns constants make decryption a little slower in software. Modes like CTR
+and GCM (<a href="p3_modes_and_integrity.html">P3</a>) never call it.</p>
 <h2 id="7-the-avalanche-effect">7. The avalanche effect<a class="headerlink" href="#7-the-avalanche-effect" title="Link to this section">#</a></h2>
 <p>Change one bit of the input and about half of the output bits flip; the two ciphertexts look
-unrelated. This is the <strong>avalanche effect</strong>. From the script, averaged over 1000 random keys
-and plaintexts:</p>
+unrelated. This is the <strong>avalanche effect</strong>. From
+<a href="../../code/primer/p2_mini_aes.py">part 5 of the script</a>, averaged over 1000 random keys and
+plaintexts:</p>
 <div class="highlight"><pre><span></span><code>flip one plaintext bit: average  64.3 bits changed, min 47, max 80  (1000 trials)
 flip one key bit      : average  63.9 bits changed, min 47, max 84  (1000 trials)
 </code></pre></div>
@@ -458,7 +467,7 @@ flip one key bit      : average  63.9 bits changed, min 47, max 84  (1000 trials
 <p>Why 64? Two independent random 128-bit strings differ in a Binomial(128, 1/2) number of bits:
 mean 64, standard deviation \(\sqrt{128/4} \approx 5.7\). The observed spread is what that
 predicts.</p>
-<p>More instructive is how fast it happens. The script also counts the differing bits of the state
+<p>More instructive is how fast it happens. Part 5 also counts the differing bits of the state
 after each round:</p>
 <div class="highlight"><pre><span></span><code>  r0: 1.0  r1:16.2  r2:64.0  r3:64.1  r4:64.3  r5:64.2  r6:64.0  r7:64.0  r8:63.8  r9:64.1  r10:64.1
 </code></pre></div>
@@ -527,22 +536,23 @@ broken in every way that matters:</p>
 <li>With the S-box affine, the key schedule is affine too, so \(v_K\) is an affine function of the
   key bits, and the same pair gives linear equations for the key (or an equivalent one).</li>
 </ul>
-<p>The script builds exactly this cipher (<code>LINEAR_SBOX</code>) and runs the attack. It needs to apply
-\(M^{-1}\), and does so without writing \(M\) down. The all-zero key is a key like any other, so
-\(E_0(x) = M \cdot x \oplus v_0\), and its constant is \(v_0 = E_0(0)\), the encryption of the
-zero block. Decryption under the zero key computes \(D_0(y) = M^{-1} \cdot (y \oplus v_0)\), so
-decrypting \(z \oplus v_0\) gives exactly \(M^{-1} \cdot z\). (Gaussian elimination on \(M\) would
-give the same map; this is just shorter code.)</p>
-<div class="highlight"><pre><span></span><code>=== the same cipher with a LINEAR S-box (affine map only, no inverse) ===
+<p><a href="../../code/primer/p2_mini_aes.py">Part 7 of the script</a> builds exactly this cipher (<code>LINEAR_SBOX</code>)
+and runs the attack. It needs to apply \(M^{-1}\), and does so without writing \(M\) down. The
+all-zero key is a key like any other, so \(E_0(x) = M \cdot x \oplus v_0\), and its constant is
+\(v_0 = E_0(0)\), the encryption of the zero block. Decryption under the zero key computes
+\(D_0(y) = M^{-1} \cdot (y \oplus v_0)\), so decrypting \(z \oplus v_0\) gives exactly
+\(M^{-1} \cdot z\). (Gaussian elimination on \(M\) would give the same map; this is just shorter
+code.)</p>
+<div class="highlight"><pre><span></span><code>=== 7. the same cipher with a LINEAR S-box (affine map only, no inverse) ===
 Enc(a^b) == Enc(a)^Enc(b)^Enc(0)? True
 known pair       : b&#39;invoice #0001 ok&#39; -&gt; 7a6bed07aa8eef7ace2754b987c665ec
 secret ciphertext: 4e2d55f91576ee965af5bbc0484d1d84
 recovered without the key: b&#39;wire 1M to Eve!!&#39;
 </code></pre></div>
 
-<p>With the real S-box the same test fails completely: over 1000 trials, \(E(a \oplus b)\) and
-\(E(a) \oplus E(b) \oplus E(0)\) differ in 63.9 of 128 bits on average, exactly what unrelated
-random strings give.</p>
+<p>With the real S-box the same test fails completely (part 6 of the script): over 1000 trials,
+\(E(a \oplus b)\) and \(E(a) \oplus E(b) \oplus E(0)\) differ in 63.9 of 128 bits on average,
+exactly what unrelated random strings give.</p>
 <p>Could one still write real AES as equations and solve them? Since \(y = x^{-1}\) means
 \(x \cdot y = 1\) for non-zero \(x\), AES can be written as a large system of quadratic equations.
 In 2002 Courtois and Pieprzyk proposed that such systems might be solvable (the "XSL" method).
@@ -588,10 +598,58 @@ opposite of all this: slow, branchy and leaky. It is for reading only.)</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p2_mini_aes.py
 </code></pre></div>
 
-<p>The script implements AES from the field arithmetic up, computes the S-box instead of
-pasting it, checks itself against official vectors, and runs the experiments of §7 and §8. It
-takes a few seconds. Excerpts of the real output:</p>
-<div class="highlight"><pre><span></span><code>=== GF(2^8) and the S-box ===
+<p><a href="../../code/primer/p2_mini_aes.py">The script</a> implements AES from the field arithmetic up,
+computes the S-box instead of pasting it, checks itself against official vectors, and runs the
+experiments of §7 and §8. It takes a few seconds. The parts of its output, and where this
+chapter explains them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>\(\mathrm{GF}(2^8)\) arithmetic, the inverse and the S-box; \(S\) is not linear</td>
+<td><a href="#3-arithmetic-on-bytes-a-field-with-256-elements">§3</a>, <a href="#41-subbytes-the-s-box">§4.1</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>FIPS 197 Appendix C.1: encrypt and decrypt one block</td>
+<td><a href="#4-the-aes-state-and-one-round">§4</a>, <a href="#6-decryption">§6</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Round 1 of that encryption, step by step</td>
+<td><a href="#4-the-aes-state-and-one-round">§4</a>, <a href="#5-the-key-schedule">§5</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>More official vectors, including AES-192 and AES-256</td>
+<td><a href="#5-the-key-schedule">§5</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>The avalanche effect, and the changed bits after each round</td>
+<td><a href="#7-the-avalanche-effect">§7</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td>AES is not homomorphic: \(\mathrm{Enc}(a \oplus b)\) vs \(\mathrm{Enc}(a) \oplus \mathrm{Enc}(b)\)</td>
+<td><a href="#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra">§8</a>, <a href="#11-how-this-connects-to-homomorphic-encryption">§11</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td>The same cipher with a linear S-box, broken with one known pair</td>
+<td><a href="#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra">§8</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>Excerpts of the real output (parts 5 and 7 are quoted in §7 and §8):</p>
+<div class="highlight"><pre><span></span><code>=== 1. GF(2^8) and the S-box ===
 {57} * {83} = {c1}   (FIPS 197 example: c1)
 {57} * {13} = {fe}   (FIPS 197 example: fe)
 inverse of {53} = {ca}, check {53} * {ca} = {01}
@@ -599,13 +657,13 @@ S({53}) = affine({ca}) = {ed}   (FIPS 197 example: ed)
 first S-box row: 63 7c 77 7b f2 6b 6f c5 30 01 67 2b fe d7 ab 76
 S(a ^ b) = 4a  but  S(a) ^ S(b) = 9b   (a = 53, b = 0f: not linear)
 
-=== FIPS 197 Appendix C.1 (AES-128) ===
+=== 2. FIPS 197 Appendix C.1 (AES-128) ===
 plaintext : 00112233445566778899aabbccddeeff
 key       : 000102030405060708090a0b0c0d0e0f
 ciphertext: 69c4e0d86a7b0430d8cdb78070b4c55a   expected 69c4e0d86a7b0430d8cdb78070b4c55a OK
 decrypted : 00112233445566778899aabbccddeeff
 
-=== round 1 of that encryption, step by step ===
+=== 3. round 1 of that encryption, step by step ===
 ...
   start         00102030405060708090a0b0c0d0e0f0
   s_box         63cab7040953d051cd60e0e7ba70e18c
@@ -614,13 +672,15 @@ decrypted : 00112233445566778899aabbccddeeff
   k_sch         d6aa74fdd2af72fadaa678f1d6ab76fe
   round 2 start 89d810e8855ace682d1843d8cb128fe4
 
-=== more official vectors ===
+=== 4. more official vectors ===
 FIPS 197 App. B  (AES-128): 10 rounds, 3925841d02dc09fbdc118597196a0b32  OK
 SP 800-38A F.1.1 (AES-128): 10 rounds, 3ad77bb40d7a3660a89ecaf32466ef97  OK
 FIPS 197 C.2     (AES-192): 12 rounds, dda97ca4864cdfe06eaf70a0ec0d7191  OK
 FIPS 197 C.3     (AES-256): 14 rounds, 8ea2b7ca516745bfeafc49904b496089  OK
 
-=== AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===
+...
+
+=== 6. AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===
 Enc(a ^ b)         = 9a45e711fbf8aac08b411216016ad9b8
 Enc(a) ^ Enc(b)    = 071b9af5349ccf7284e3a90f923589a9   (67 of 128 bits differ)
 Dec(Enc(a)^Enc(b)) = dce10b0e24ae9003115bd38150c11ebf
@@ -628,17 +688,17 @@ a ^ b              = 2e176fd9a34eda85ab52bd5d3213a927
 Enc(a^b) vs Enc(a)^Enc(b)^Enc(0): average 63.9 of 128 bits differ over 1000 trials (64 = unrelated)
 </code></pre></div>
 
-<p>The hex lines under "round 1" use the labels of FIPS 197 (2001) Appendix C.1, so you can
+<p>The hex lines of part 3 use the labels of FIPS 197 (2001) Appendix C.1, so you can
 compare them line by line with the standard. (The 2023 update of FIPS 197 moved these example
 vectors to NIST's website.)</p>
 <p>Things to try:</p>
 <ul>
-<li>Pass <code>LINEAR_SBOX</code> as the third argument of <code>encrypt_block</code> in the avalanche experiment.
-  How many bits change now? Does the answer depend on the key or the plaintext, or only on
-  which bit you flipped? (Hint: §8.)</li>
-<li>Print every state that <code>encrypt_states</code> yields for the C.1 vector and compare them with
-  FIPS 197 (2001) Appendix C.1: the state after round \(r\) is the standard's <code>round[r+1].start</code>,
-  and the state after round 10 is the output.</li>
+<li>Pass <code>LINEAR_SBOX</code> as the third argument of <code>encrypt_block</code> in the avalanche experiment
+  (part 5). How many bits change now? Does the answer depend on the key or the plaintext, or
+  only on which bit you flipped? (Hint: §8.)</li>
+<li>Print every state that <code>encrypt_states</code> yields for the C.1 vector of part 2 and compare them
+  with FIPS 197 (2001) Appendix C.1: the state after round \(r\) is the standard's
+  <code>round[r+1].start</code>, and the state after round 10 is the output.</li>
 <li>Print <code>SBOX</code> as a 16×16 table and compare it with the S-box table in FIPS 197.</li>
 </ul>
 <h2 id="11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption<a class="headerlink" href="#11-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
@@ -705,7 +765,7 @@ vectors to NIST's website.)</p>
    for the inversion. If the inversion were gone, the whole cipher would be
    \(E_K(x) = M x \oplus v_K\) with \(M\) public and key-independent. One known pair then decrypts
    every other ciphertext (\(p&#x27; = p \oplus M^{-1}(c \oplus c&#x27;)\)), and linear equations give the
-   key. §8 runs this attack.</li>
+   key. §8 runs this attack (<a href="../../code/primer/p2_mini_aes.py">part 7 of the script</a>).</li>
 <li>MixColumns is keyless and linear, so a final one could be moved behind the last
    AddRoundKey (by changing that round key to \(\mathrm{MC}^{-1}(K)\)), and anyone could then
    undo it on the ciphertext. It would add work but no security. Omitting it also makes

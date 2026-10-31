@@ -127,6 +127,9 @@ read: relinearization, key switching, modulus switching, levels and multiplicati
   chains.</li>
 <li>Tell <strong>evaluation keys</strong> apart from the secret key.</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p8_relinearization.py"><code>code/primer/p8_relinearization.py</code></a>. Run it from
+the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p8_relinearization.py</code>. Its output
+is split into numbered parts, and the text says which part shows what.</p>
 <p><a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">Chapter 03 §4–6</a> is the
 compact version of this chapter. Read it afterwards as a summary.</p>
 <h2 id="1-the-starting-point-ciphertexts-as-c0-c1">1. The starting point: ciphertexts as (c0, c1)<a class="headerlink" href="#1-the-starting-point-ciphertexts-as-c0-c1" title="Link to this section">#</a></h2>
@@ -224,7 +227,8 @@ representatives keep later products small.</p>
 <li><strong>noise budget</strong> = \(\log_2\big((\Delta/2)/\text{noise}\big)\) bits: how many more bits the noise
   can grow before decryption breaks. It is essentially the "invariant noise budget" that
   libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy BFV
-  (<code>q = 2^60</code>, <code>Δ = 2^56</code>) has noise about 5 and a budget of about 52.7 bits.</li>
+  (<code>q = 2^60</code>, <code>Δ = 2^56</code>) has noise about 5 and a budget of about 52.7 bits
+  (<a href="../../code/primer/p8_relinearization.py">part 2 of the script</a>).</li>
 </ul>
 <h2 id="2-multiplying-two-ciphertexts-the-tensor-product">2. Multiplying two ciphertexts: the tensor product<a class="headerlink" href="#2-multiplying-two-ciphertexts-the-tensor-product" title="Link to this section">#</a></h2>
 <p>We want a ciphertext of \(m_1 m_2\). The server only has the ciphertexts. But both of them
@@ -255,7 +259,8 @@ next two sections take them in turn.</p>
 <h3 id="31-the-message-is-at-the-wrong-scale">3.1 The message is at the wrong scale<a class="headerlink" href="#31-the-message-is-at-the-wrong-scale" title="Link to this section">#</a></h3>
 <p>In the running example Δ² = 1 000 000, and mod <code>q = 10000</code> that is 0. The message has
 vanished from the phase entirely. The toy BFV has the same problem: Δ² = 2¹¹² is a multiple
-of <code>q = 2^60</code>, and decrypting the raw tensor gives garbage (demo 2 of the script).</p>
+of <code>q = 2^60</code>, and decrypting the raw tensor gives garbage
+(<a href="../../code/primer/p8_relinearization.py">part 2 of the script</a>).</p>
 <p><strong>BFV's fix</strong> is to multiply every component by \(t/q\) (which is \(1/\Delta\) here) and round to
 the nearest integer. That turns \(\Delta^2 m_1 m_2\) into \(\Delta m_1 m_2\), turns
 \(\Delta(m_1 e_2 + m_2 e_1)\) into \(m_1 e_2 + m_2 e_1\), and makes \(e_1 e_2\) negligible.</p>
@@ -312,8 +317,8 @@ coefficient, so the wrap count <code>j</code> becomes a polynomial with coeffici
 (up to about <code>N</code> in the worst case). The product \(j \cdot e\) is again a ring product, a sum of
 <code>N</code> terms, which adds roughly another factor \(\sqrt N\). Together the noise grows by about
 <code>t · N</code>. In the toy (<code>N = 16</code>, <code>t = 16</code>, so <code>t · N = 256</code>) one multiplication takes the noise
-from 5 to 540, a factor of 108. That costs about 7 bits of budget, where an addition costs at
-most 1 bit.</p>
+from 5 to 540 (script, part 2), a factor of 108. That costs about 7 bits of budget, where an
+addition costs at most 1 bit.</p>
 <p>BGV, the other exact scheme, puts the message in the <em>low</em> bits: \(c_0 + c_1 s = m + t e\).
 With <code>t = 10</code>, <code>m = 7</code> and <code>e = 3</code> the phase is 7 + 10·3 = 37. Decryption takes the phase in
 the centred range and reduces it mod <code>t</code>: 37 mod 10 = 7 (with <code>e = −3</code> the phase is −23, and
@@ -324,8 +329,9 @@ contains \(e_1 e_2\) and roughly <strong>squares</strong>. §8 shows how modulus
 <p>The product has three components. Multiply it again and it grows further. A ciphertext with
 \(\alpha + 1\) components times one with \(\beta + 1\) components gives \(\alpha + \beta + 1\)
 components, with key vector \((1, s, \dots, s^{\alpha+\beta})\): you are multiplying two
-polynomials in <code>s</code> of degrees \(\alpha\) and \(\beta\). Demo 3 of the script does exactly this and
-everything still decrypts:</p>
+polynomials in <code>s</code> of degrees \(\alpha\) and \(\beta\).
+<a href="../../code/primer/p8_relinearization.py">Part 3 of the script</a> does exactly this and everything still
+decrypts:</p>
 <div class="highlight"><pre><span></span><code>x = Enc(m1)    2 components (0.23 KiB)  decrypts with (1, s, ..., s^1): True   budget 52.7 bits
 x*y            3 components (0.35 KiB)  decrypts with (1, s, ..., s^2): True   budget 45.9 bits
 (x*y) * z      4 components (0.47 KiB)  decrypts with (1, s, ..., s^3): True   budget 40.0 bits
@@ -367,7 +373,8 @@ and <code>ε = 2</code>: \(k_0 = -3702 + 2 + 9 = -3691 \equiv 6309\). Check: 630
 <p>By hand, \(d_2 = 1744\): <code>u = (1744·6309, 1744·1234) mod q = (2896, 2096)</code>. The new ciphertext is
 <code>(−4275 + 2896, 1523 + 2096) = (−1379, 3619)</code>. Its phase is −1379 + 3·3619 = 9478, which decrypts
 to 9 instead of 6. The added noise is 1744·2 = 3488, far above the limit of 500. In the toy BFV
-the result is the same, at scale: the noise reaches \(2^{59}\) against a limit of \(2^{55}\) (demo 4).</p>
+the result is the same, at scale: the noise reaches \(2^{59}\) against a limit of \(2^{55}\)
+(<a href="../../code/primer/p8_relinearization.py">part 4 of the script</a>).</p>
 <h3 id="54-why-the-key-can-be-public">5.4 Why the key can be public<a class="headerlink" href="#54-why-the-key-can-be-public" title="Link to this section">#</a></h3>
 <p>The relinearization key goes to the server, so it must be safe to publish.</p>
 <ul>
@@ -459,7 +466,8 @@ decrypt: −1129 + 3·(−4289) = −13996 ≡ 6004  →  round(6.004) = 6
 The bound is 4 · 9 · 3 = 108.</p>
 <h3 id="63-the-trade-off-key-size-against-noise">6.3 The trade-off: key size against noise<a class="headerlink" href="#63-the-trade-off-key-size-against-noise" title="Link to this section">#</a></h3>
 <p>A smaller base <code>w</code> means more digits. That gives a bigger key and more ring multiplications
-per relinearization, but less noise. Demo 5 relinearizes the same toy product ciphertext with
+per relinearization, but less noise. <a href="../../code/primer/p8_relinearization.py">Part 5 of the script</a>
+relinearizes the same toy product ciphertext with
 different bases (its noise before relinearization is \(2^{9.1}\)):</p>
 <div class="highlight"><pre><span></span><code>  base w  digits   key size  noise after  budget left
      2^4      15   3.52 KiB       2^10.1    44.9 bits
@@ -588,8 +596,9 @@ b = 9698 + 7000 + 300 = 16998 ≡ 6998.</p>
 <p>The new phase is 70 − (48 − 14 + 63) = −27 ≡ 73 = 10·7 + 3. So the noise is 3 and the
 ciphertext decrypts to round(7.3) = 7. The rounding term is
 \(r_b - \langle r_a, s\rangle = 0.02 - (-0.21 - 0.23 + 0.46) = 0\).</p>
-<p><strong>Noise 300 → 3. But noise/Δ was 0.3 and is still 0.3.</strong> Demo 7 shows the same on a 32-dimensional
-LWE ciphertext with ternary <code>s</code> (\(\lVert s\rVert_1 = 23\), so the rounding term is at most 12):</p>
+<p><strong>Noise 300 → 3. But noise/Δ was 0.3 and is still 0.3.</strong>
+<a href="../../code/primer/p8_relinearization.py">Part 7 of the script</a> shows the same on a 32-dimensional LWE
+ciphertext with ternary <code>s</code> (\(\lVert s\rVert_1 = 23\), so the rounding term is at most 12):</p>
 <div class="highlight"><pre><span></span><code> modulus      Δ       noise      e*q2/q   noise/Δ  decrypts to
     2^40   2^36  1073741824  1073741824    0.0156           11
     2^32   2^28     4194303     4194304    0.0156           11
@@ -696,8 +705,8 @@ each with seven multiplications. Depth, rather than the number of operations, de
 in <a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a> works out to about 45
 bits per multiplication). <code>q</code> then decides how big <code>N</code> must be for security, and <code>N</code> decides
 the cost of everything.</p>
-<p>Demo 6 squares a ciphertext until it breaks, then computes the eight-value product in both
-shapes:</p>
+<p><a href="../../code/primer/p8_relinearization.py">Part 6 of the script</a> squares a ciphertext until it breaks,
+then computes the eight-value product in both shapes:</p>
 <div class="highlight"><pre><span></span><code>x        fresh    budget  52.4 bits
 x^2      depth 1  budget  35.2 bits   decrypts correctly: True
 x^4      depth 2  budget  28.2 bits   decrypts correctly: True
@@ -795,8 +804,55 @@ circular-security-style assumption (§5.4).</p>
 
 <p><a href="../../code/primer/p8_relinearization.py"><code>code/primer/p8_relinearization.py</code></a> is a
 self-contained toy BFV with <code>N = 16</code>, <code>t = 16</code>, <code>q = 2^60</code>. It is insecure and meant to be
-read. Demos 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers. An excerpt of the
-real output (demo 1 is addition; demos 3, 5, 6 and 7 are quoted in §4, §6.3, §9.2 and §8.2):</p>
+read. Parts 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Addition</td>
+<td><a href="#1-the-starting-point-ciphertexts-as-c0-c1">§1</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Multiplication: the tensor product, the <code>t/q</code> scaling, noise 5 → 540</td>
+<td><a href="#2-multiplying-two-ciphertexts-the-tensor-product">§2</a>, <a href="#3-the-scale-problem-and-the-noise-problem">§3</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Multiplying again without relinearization: the ciphertext keeps growing</td>
+<td><a href="#4-the-size-problem-ciphertexts-grow">§4</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Naive relinearization with one encryption of \(s^2\)</td>
+<td><a href="#53-the-naive-way-and-why-it-explodes">§5.3</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Relinearization with digit (gadget) decomposition, and the base trade-off</td>
+<td><a href="#62-by-hand-in-base-10">§6.2</a>, <a href="#63-the-trade-off-key-size-against-noise">§6.3</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td>Depth: squaring until the budget runs out; chain versus tree</td>
+<td><a href="#92-multiplicative-depth-chains-and-trees">§9.2</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Modulus switching on a plain LWE ciphertext</td>
+<td><a href="#82-by-hand">§8.2</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>An excerpt of the real output (part 1 is addition; parts 3, 5, 6 and 7 are quoted in §4, §6.3,
+§9.2 and §8.2):</p>
 <div class="highlight"><pre><span></span><code>Toy BFV: N = 16, t = 16, q = 2^60, Δ = q/t = 2^56. Decryption is correct while noise &lt; Δ/2 = 2^55.
 noise = largest coefficient of (c0 + c1*s + ... - Δ*m);  budget = log2((Δ/2) / noise) bits
 ...
@@ -825,10 +881,10 @@ toy BFV, w = 2^15 (4 digits): before 3 components, noise 2^9.1;  after 2 compone
 
 <p>Things to try:</p>
 <ul>
-<li>Set <code>LOG_W = 4</code> and the depth experiment gains a level (even the chain survives). Set
+<li>Set <code>LOG_W = 4</code> and the depth experiment of part 6 gains a level (even the chain survives). Set
   <code>LOG_W = 30</code> and it loses three.</li>
-<li>Lower <code>LOG_Q</code> to 40: only three squarings fit.</li>
-<li>In demo 7, start with a larger <code>e</code> and find the smallest modulus that still decrypts.</li>
+<li>Lower <code>LOG_Q</code> to 40: only three squarings of part 6 fit.</li>
+<li>In part 7, start with a larger <code>e</code> and find the smallest modulus that still decrypts.</li>
 </ul>
 <h2 id="12-how-this-connects-to-homomorphic-encryption">12. How this connects to homomorphic encryption<a class="headerlink" href="#12-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <p>P7 gave us encryption that can add. This chapter added multiplication, and with <code>+</code> and <code>×</code>

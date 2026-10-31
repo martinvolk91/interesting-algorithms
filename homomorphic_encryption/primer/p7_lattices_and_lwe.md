@@ -23,6 +23,10 @@ compute.
 - Add ciphertexts, multiply them by constants, and watch the noise budget run out.
 - Make the scheme public-key (Regev) and efficient (Ring-LWE).
 
+**Companion script:** [`code/primer/p7_lwe_by_hand.py`](../code/primer/p7_lwe_by_hand.py). Run it from
+the `homomorphic_encryption/` folder with `python3 code/primer/p7_lwe_by_hand.py`. Its output
+is split into numbered parts, and the text says which part shows what.
+
 Throughout, the toy parameters are $n = 4$ (dimension), $q = 97$ (a prime modulus), $t = 4$
 (plaintext modulus) and $\Delta = \lfloor q/t \rfloor = 24$. The numbers are tiny so you can
 check every step on paper; [`../code/toy_lwe.py`](../code/toy_lwe.py) is the same scheme with
@@ -31,13 +35,14 @@ $n = 16$, $q = 2^{15}$, $t = 16$.
 ## 1. Linear equations mod q are easy
 
 Pick a secret $s \in \mathbb{Z}_q^n$. Publish random vectors $a_i$ together with
-$b_i = \langle a_i, s \rangle \bmod q$. With the script's secret $s = (71, 1, 60, 83)$:
+$b_i = \langle a_i, s \rangle \bmod q$. With the secret $s = (71, 1, 60, 83)$,
+[part 1 of the script](../code/primer/p7_lwe_by_hand.py) publishes:
 
 ```text
-a = ( 66,  38,  69,  53)   b = 71
-a = ( 90,  29,  12,  47)   b = 79
-a = ( 79,   8,  43,  82)   b = 65
-a = ( 32,  73,  26,   2)   b = 94
+  a = ( 66,  38,  69,  53)   b = 71
+  a = ( 90,  29,  12,  47)   b = 79
+  a = ( 79,   8,  43,  82)   b = 65
+  a = ( 32,  73,  26,   2)   b = 94
 ```
 
 That is the system $A s = b \pmod{97}$. Because 97 is prime, $\mathbb{Z}_{97}$ is a field:
@@ -89,7 +94,8 @@ generalizes it to larger moduli.
 
 Run the same elimination on noisy equations, $b = A s + e$ with $e = (3, 1, -2, -3)$. Since
 every step is linear, we can also apply each step to the noise column on its own and watch it
-(values shown as signed numbers between −48 and 48):
+([part 2 of the script](../code/primer/p7_lwe_by_hand.py); values shown as signed numbers
+between −48 and 48):
 
 ```text
   pivot 1: divide by 66 = multiply by 66^-1 = 25 (mod 97);  noise column now (-22,  41, -10,  22)
@@ -109,9 +115,9 @@ Over the real numbers this would not happen. Least squares handles noisy equatio
 because a small error times a moderate coefficient stays moderate. Mod $q$ there is no notion
 of "small" that survives multiplication: $3 \cdot 25 = 75$ wraps around to $-22$.
 
-More equations do not help elimination either. Any $n$ of them give garbage. The script tests
-$s'$ on four fresh samples: the residuals $b - \langle a, s' \rangle$ are $-6, 47, -1, -27$,
-while the true $s$ gives $2, -2, -2, -2$. A wrong guess sometimes fits one equation by luck
+More equations do not help elimination either. Any $n$ of them give garbage. The script's
+part 2 tests $s'$ on four fresh samples: the residuals $b - \langle a, s' \rangle$ are
+$-6, 47, -1, -27$, while the true $s$ gives $2, -2, -2, -2$. A wrong guess sometimes fits one equation by luck
 (the $-1$); it does not fit all of them.
 
 What does work on a toy is **brute force**: try all $q^n = 97^4 \approx 8.9 \cdot 10^7$
@@ -242,7 +248,8 @@ message twice gives unrelated ciphertexts.
 ### A hand-worked example
 
 Secret $s = (71, 1, 60, 83)$. Encrypt $m = 1$ with mask $a = (85, 8, 27, 67)$ and noise
-$e = +2$ (the script fixes $e$ here so the example is easy to follow; normally it is random):
+$e = +2$ ([part 3 of the script](../code/primer/p7_lwe_by_hand.py) fixes $e$ here so the
+example is easy to follow; normally it is random):
 
 | Step | Computation | Value |
 |---|---|---|
@@ -303,12 +310,13 @@ $$(a_1, b_1) + (a_2, b_2) = (a_1 + a_2,\ b_1 + b_2)$$
 Everything adds: the pads, because
 $\langle a_1, s \rangle + \langle a_2, s \rangle = \langle a_1 + a_2, s \rangle$, the
 messages and the noises. The sum is a valid ciphertext of $m_1 + m_2 \bmod t$ with noise
-$e_1 + e_2$. In the script, $\mathrm{Enc}(1)$ with noise $+2$ plus $\mathrm{Enc}(2)$ with noise
-$-1$ has phase $73 = 24 \cdot 3 + 1$, and decrypts to 3.
+$e_1 + e_2$. In [part 4 of the script](../code/primer/p7_lwe_by_hand.py),
+$\mathrm{Enc}(1)$ with noise $+2$ plus $\mathrm{Enc}(2)$ with noise $-1$ has phase
+$73 = 24 \cdot 3 + 1$, and decrypts to 3.
 
 **Plaintext times ciphertext.** Multiplying a ciphertext by a public integer $k$ multiplies
 everything by $k$: $k \cdot (a, b)$ has phase $k \Delta m + k e$. The message is multiplied,
-and so is the noise. With the noise-$(+2)$ encryption of 1, the script gets noise $+4$ for
+and so is the noise. With the noise-$(+2)$ encryption of 1, part 4 gets noise $+4$ for
 $k = 2$ and $+6$ for $k = 3$. For $k = 4$ it gets $+7$, not $+8$: the message $4$ wraps to $0$,
 and since $4 \Delta = 96 = q - 1$, each wrap past $t$ leaves an extra $-1$ (in general
 $-(q \bmod t)$). It is a quirk of choosing $q$ not divisible by $t$, and with real moduli of
@@ -322,8 +330,8 @@ This chapter measures it linearly, as a **margin** $\Delta/2 - \lvert e \rvert$ 
 noise $\pm 2$ here). From [P8](p8_multiplication_and_relinearization.md#measuring-noise) on,
 and in libraries, it is measured in bits, $\log_2\big((\Delta/2)/\lvert e \rvert\big)$
 (here $\log_2 6 \approx 2.6$ bits), because multiplications multiply the noise and a
-multiplication then costs a fixed number of bits. The
-script starts from $\mathrm{Enc}(1)$ and keeps adding fresh encryptions of 0, so the message
+multiplication then costs a fixed number of bits.
+Part 4 then starts from $\mathrm{Enc}(1)$ and keeps adding fresh encryptions of 0, so the message
 never changes and only the noise moves (each fresh $e$ is in $[-3, 3]$; output abridged):
 
 ```text
@@ -366,8 +374,8 @@ $\Delta \cdot m$ turns it into an encryption of $m$. Its noise is
 $\sum_{i \in S} e_i$, at most $\ell$ times the public key's noise. That is why the toy's public
 key uses smaller noise than fresh secret-key encryptions: $8 \cdot 1 = 8 < 12$.
 
-From the script: $\mathrm{Enc}(1)$ used the subset $\{0, 1, 4, 6\}$, giving
-$((47, 75, 15, 5), 0)$ with noise $+2$, which decrypts to 1.
+From [part 5 of the script](../code/primer/p7_lwe_by_hand.py): $\mathrm{Enc}(1)$ used the subset
+$\{0, 1, 4, 6\}$, giving $((47, 75, 15, 5), 0)$ with noise $+2$, which decrypts to 1.
 
 **Why it is secure.** Two steps. By decision-LWE, the public key looks like $\ell$ uniformly
 random pairs. And for uniformly random pairs, the sum over a random subset of
@@ -420,10 +428,10 @@ of Lyubashevsky, Peikert and Regev is for cyclotomic rings like this one.
 ### One RLWE sample is N LWE samples
 
 Multiplication by a fixed polynomial $a$ is a linear map, so $a \cdot s = M_a s$ for an
-$N \times N$ matrix whose column $j$ holds the coefficients of $a \cdot X^j$. For the script's
-mask $a = 86 + 3X + 59X^2 + 21X^3$ the first row of $M_a$ is $(86, 76, 38, 94)$ and the
-second is $(3, 86, 76, 38)$; the whole matrix is in the output of §9. Each column is the
-previous one shifted down by one, with the entry pushed out at the bottom coming back on top
+$N \times N$ matrix whose column $j$ holds the coefficients of $a \cdot X^j$. For the mask of
+[part 6 of the script](../code/primer/p7_lwe_by_hand.py), $a = 86 + 3X + 59X^2 + 21X^3$, the
+first row of $M_a$ is $(86, 76, 38, 94)$ and the second is $(3, 86, 76, 38)$; the whole matrix
+is in part 6's output, quoted in §9. Each column is the previous one shifted down by one, with the entry pushed out at the bottom coming back on top
 negated ($-21 \equiv 76$, $-59 \equiv 38$, $-3 \equiv 94$). This is a **negacyclic**
 matrix. An RLWE sample $(a, b = a \cdot s + e)$ is therefore $N$ ordinary LWE
 samples whose vectors are the rows of $M_a$, all sharing the secret $s$.
@@ -461,7 +469,7 @@ ML-KEM sits in between: **Module-LWE**, small matrices of ring elements with $N 
 Encryption and decryption look exactly like §5 with polynomials in place of vectors:
 $b = a \cdot s + \Delta m + e$, and the phase $b - a \cdot s$ is rounded coefficient by
 coefficient. In practice the secret is small (coefficients in $\{-1, 0, 1\}$), as here.
-The script uses $s = X - X^2 + X^3$, noise $e = (-3, 3, -2, -1)$ and the message polynomial
+Part 6 uses $s = X - X^2 + X^3$, noise $e = (-3, 3, -2, -1)$ and the message polynomial
 $m = (3, 1, 0, 2)$ (coefficients of $1, X, X^2, X^3$):
 
 | | Coefficients |
@@ -494,7 +502,18 @@ python3 code/primer/p7_lwe_by_hand.py
 ```
 
 Source: [`../code/primer/p7_lwe_by_hand.py`](../code/primer/p7_lwe_by_hand.py). It prints six
-demos in well under a second; the hand-worked example of §5 is demo 3. Excerpts from one run:
+parts in well under a second; the hand-worked example of §5 is part 3.
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | No noise: Gaussian elimination recovers $s$ | [§1](#1-linear-equations-mod-q-are-easy) |
+| 2 | Small noise: the same elimination returns garbage | [§3](#3-why-the-noise-defeats-elimination) |
+| 3 | One LWE encryption and decryption by hand | [§5](#5-building-encryption-the-noisy-one-time-pad) |
+| 4 | Adding ciphertexts, multiplying by constants, the noise budget running out | [§6](#6-homomorphic-addition-and-the-noise-budget) |
+| 5 | Public-key LWE (Regev) | [§7](#7-public-key-encryption-regevs-trick) |
+| 6 | Ring-LWE: negacyclic products, the matrix $M_a$, one RLWE encryption | [§8](#8-ring-lwe-polynomials-instead-of-vectors) |
+
+Excerpts from one run (parts 5 and 6):
 
 ```text
 ========================================================================
@@ -535,9 +554,9 @@ decrypt: b - a*s = ( 69,  27,  95,  47);  divide by 24 and round -> (  3,   1,  
 ```
 
 Things to try: set `NOISE = 6`, half the limit, so that two fresh errors could already add up
-to 12; demo 4 then depends on luck (with the script's seed it still lasts 48 additions, because
+to 12; part 4 then depends on luck (with the script's seed it still lasts 48 additions, because
 the errors partly cancel). Set `LWE_DIM = 3` and write a brute-force search over all $97^3$ secrets that keeps
-the candidates whose residuals on demo 2's equations are all small.
+the candidates whose residuals on part 2's equations are all small.
 
 ## 10. How this connects to homomorphic encryption
 
@@ -583,7 +602,8 @@ the candidates whose residuals on demo 2's equations are all small.
    $(b_1 - b_2)/\Delta$ reveals $m_1 - m_2$. It is the two-time pad.
 4. Three: $\lvert e_1 + e_2 + e_3 \rvert \le 9 < 12$, but four could reach exactly 12. In
    practice the errors are random and partly cancel, so the sum grows like $\sqrt{k}$ rather
-   than $3k$; the script's run lasted 22 additions.
+   than $3k$; the run in [part 4 of the script](../code/primer/p7_lwe_by_hand.py) lasted 22
+   additions.
 5. A subset can contain all 8 samples, so $8 B < 12$: the public key's noise must satisfy
    $\lvert e_i \rvert \le 1$.
 6. $X^2 + 2X^3 + 3X^4 = -3 + X^2 + 2X^3$, because $X^4 = -1$.

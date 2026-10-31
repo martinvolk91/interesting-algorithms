@@ -306,7 +306,7 @@ def report(label, rate):
 if __name__ == "__main__":
     random.seed(5)
 
-    print("=== One IND-CPA round against textbook RSA, narrated ===")
+    print("=== 1. One IND-CPA round against textbook RSA, narrated ===")
     pk, sk = rsa_keygen()
     b = random.randrange(2)
     m0, m1 = 5, 9
@@ -319,7 +319,7 @@ if __name__ == "__main__":
           f"{'equal' if mine == c_star else 'different'} -> guesses b' = {0 if mine == c_star else 1}")
 
     print()
-    print("=== One IND-CPA round against ElGamal (squares mod a 64-bit safe prime), narrated ===")
+    print("=== 2. One IND-CPA round against ElGamal (squares mod a 64-bit safe prime), narrated ===")
     h, x = ELGAMAL["keygen"]()
     b = random.randrange(2)
     c_star = ELGAMAL["enc"](h, (m0, m1)[b])
@@ -330,7 +330,7 @@ if __name__ == "__main__":
     print("            different from c* whatever b is: the comparison tells it nothing")
 
     print()
-    print(f"=== IND-CPA game, {TRIALS} rounds per row (sampling noise on Pr[win]: about +-0.022) ===")
+    print(f"=== 3. IND-CPA game, {TRIALS} rounds per row (sampling noise on Pr[win]: about +-0.022) ===")
     print(f"{'scheme / adversary':<62} {'Pr[win]':>7} {'advantage':>9}")
     cpa_rows = [
         ("textbook RSA            / encrypt m0 and compare", RSA, compare_adversary(5, 9)),
@@ -347,7 +347,7 @@ if __name__ == "__main__":
         report(label, win_rate(ind_cpa_game, scheme, adversary))
 
     print()
-    print(f"=== IND-CCA2 game: adversary may decrypt anything except c*, {TRIALS} rounds per row ===")
+    print(f"=== 4. IND-CCA2 game: adversary may decrypt anything except c*, {TRIALS} rounds per row ===")
     print(f"{'scheme / adversary':<62} {'Pr[win]':>7} {'advantage':>9}")
     cca_rows = [
         ("textbook RSA            / ask for Dec(c* x Enc(2)), halve", RSA, maul_rsa),
@@ -360,7 +360,7 @@ if __name__ == "__main__":
         report(label, win_rate(ind_cca2_game, scheme, adversary))
 
     print()
-    print("=== One IND-CCA2 round against ElGamal, narrated ===")
+    print("=== 5. One IND-CCA2 round against ElGamal, narrated ===")
     h, x = ELGAMAL["keygen"]()
     b = random.randrange(2)
     c1, c2 = ELGAMAL["enc"](h, (5, 9)[b])

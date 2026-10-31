@@ -20,6 +20,10 @@ For HE it is the whole point.
 - build encrypt-then-MAC with HMAC, and say what AES-GCM and ChaCha20-Poly1305 provide;
 - explain why HE ciphertexts must be malleable, and why that rules out this kind of integrity.
 
+**Companion script:** [`code/primer/p3_modes.py`](../code/primer/p3_modes.py). Run it from the
+`homomorphic_encryption/` folder with `python3 code/primer/p3_modes.py`. Its output is split
+into numbered parts, and the text says which part shows what.
+
 ## 1. What a block cipher alone cannot do
 
 A block cipher ([P2](p2_aes.md)) is a keyed permutation of 16-byte blocks. Two things are
@@ -59,10 +63,10 @@ across all messages under the same key. The famous illustration is the "ECB peng
 of the Linux mascot encrypted in ECB mode is still plainly a penguin, because large areas of the
 same colour become large areas of the same ciphertext.
 
-The script does the same with a small padlock. To keep the picture tiny, each pixel is a whole
-16-byte block (in a real bitmap, one block covers a few neighbouring pixels, and uniform areas
-still give identical blocks). Each ciphertext block is drawn as one character chosen by its
-first byte:
+[Part 2 of the script](../code/primer/p3_modes.py) does the same with a small padlock. To keep
+the picture tiny, each pixel is a whole 16-byte block (in a real bitmap, one block covers a few
+neighbouring pixels, and uniform areas still give identical blocks). Each ciphertext block is
+drawn as one character chosen by its first byte:
 
 ```text
 plaintext                    ECB ciphertext               CBC ciphertext
@@ -103,7 +107,8 @@ $$C_0 = \mathit{IV}, \qquad C_i = E_K(P_i \oplus C_{i-1}), \qquad P_i = D_K(C_i)
 
 The IV is sent in the clear with the ciphertext. Because it is random, the same message
 encrypts differently every time, and equal plaintext blocks inside a message are blended with
-different predecessors. In the picture above, all 234 CBC blocks are different.
+different predecessors. In the picture above ([part 2 of the script](../code/primer/p3_modes.py)),
+all 234 CBC blocks are different.
 
 What CBC needs and what it costs:
 
@@ -155,11 +160,11 @@ random or secret, only unique: a message counter is fine.
 | CBC | IV, 16 bytes | unpredictable | yes | no (decryption yes) | yes, with collateral damage |
 | CTR | nonce | unique | no | yes | yes, bit by bit |
 
-The script checks its CBC and CTR against the official test vectors of SP 800-38A (F.2.1 and
-F.5.1), then shows that both modes randomize:
+[Part 1 of the script](../code/primer/p3_modes.py) checks its CBC and CTR against the official
+test vectors of SP 800-38A (F.2.1 and F.5.1), and part 3 shows that both modes randomize:
 
 ```text
-=== the same message encrypted twice ===
+=== 3. the same message encrypted twice ===
 ECB: cfdbd35092fa47bdd91304bd55640088
      cfdbd35092fa47bdd91304bd55640088   IDENTICAL
 CBC: a6342fa0fdb8b294d97fc6103d92089be44044064dee000046227f6a00dde83b
@@ -182,13 +187,13 @@ $$C_1 = P_1 \oplus S, \quad C_2 = P_2 \oplus S \quad\Longrightarrow\quad C_1 \op
 
 The keystream cancels, exactly as in the
 [two-time pad of P1](p1_encryption_basics.md#the-key-must-never-be-reused-the-two-time-pad).
-With one byte: $P_1$ = 'A' = {41}, $P_2$ = 'B' = {42}, keystream byte {9c}. Then
-$C_1$ = {dd}, $C_2$ = {de}, and $C_1 \oplus C_2$ = {03} = 'A' ⊕ 'B', with no trace of the key.
-Anyone who knows or guesses $P_1$ reads $P_2$, and even without that, the XOR of two English
-texts is usually enough to recover both. The script:
+With one byte: $P_1$ = 'A' = {41}, $P_2$ = 'B' = {42}, keystream byte {9c}. Then $C_1$ = {dd},
+$C_2$ = {de}, and $C_1 \oplus C_2$ = {03} = 'A' ⊕ 'B', with no trace of the key. Anyone who
+knows or guesses $P_1$ reads $P_2$, and even without that, the XOR of two English texts is
+usually enough to recover both. [Part 4 of the script](../code/primer/p3_modes.py):
 
 ```text
-=== CTR nonce reuse = two-time pad ===
+=== 4. CTR nonce reuse = two-time pad ===
 C1 xor C2 == P1 xor P2 ? True
 attacker knows P1 (a public notice) and recovers P2 without the key:
    b'New vault code is 7341; tell no one!!!'
@@ -242,12 +247,12 @@ the amount. To turn '1' into '9', it needs $\delta$ = '1' ⊕ '9':
 XOR  = {08} = 0000 1000      -> flip bit 3 of ciphertext byte 5
 ```
 
-With the script's numbers: ciphertext byte 5 is {d4}. The keystream byte, unknown to the
-attacker, is {d4} ⊕ {31} = {e5}. The attacker sends {d4} ⊕ {08} = {dc}, and the bank decrypts
-{dc} ⊕ {e5} = {39} = '9'.
+With the numbers of [part 5 of the script](../code/primer/p3_modes.py): ciphertext byte 5 is
+{d4}. The keystream byte, unknown to the attacker, is {d4} ⊕ {31} = {e5}. The attacker sends
+{d4} ⊕ {08} = {dc}, and the bank decrypts {dc} ⊕ {e5} = {39} = '9'.
 
 ```text
-=== malleability: the CTR bit-flipping attack ===
+=== 5. malleability: the CTR bit-flipping attack ===
 bank sends     : 2af899a3e1f16bdce8fafcc617d4be8b6de5dbb4370708
 attacker sends : 2af899a3e1f16bdce8fafcc617dcbe8b6de5dbb4370708   (one byte changed, no key used)
 bank decrypts  : b'pay $900 to Bob'
@@ -260,8 +265,8 @@ cryptography, only knowledge of the message format, which is rarely secret.
 
 CBC is malleable too. Flipping a bit of $C_{i-1}$ flips the same bit of $P_i$, at the price of
 turning $P_{i-1}$ into garbage; flipping a bit of the IV flips the same bit of $P_1$ cleanly, as
-the last line shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls CTR
-ciphertext "malleable" and gives this as the reason to combine it with authentication.
+the last line of part 5 shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls
+CTR ciphertext "malleable" and gives this as the reason to combine it with authentication.
 
 Look at the attack from the other side: $\mathrm{Dec}(C \oplus \delta) = \mathrm{Dec}(C) \oplus \delta$.
 That is a **homomorphism**: an operation on ciphertexts that performs a known operation on the
@@ -295,11 +300,11 @@ $$\mathrm{HMAC}(K, m) = H\big((K' \oplus \mathit{opad}) \,\|\, H((K' \oplus \mat
   $B$ times.
 
 The outer hash seals the inner one, so length extension no longer works. The script implements
-this formula in a few lines and checks it against Python's `hmac` module and the official test
-vector of RFC 4231:
+this formula in a few lines, and [part 6 of the script](../code/primer/p3_modes.py) checks it
+against Python's `hmac` module and the official test vector of RFC 4231:
 
 ```text
-=== HMAC-SHA256 (RFC 2104) ===
+=== 6. HMAC-SHA256 (RFC 2104) ===
 stdlib hmac : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
 by hand     : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
 RFC 4231 test case 2: OK
@@ -332,10 +337,11 @@ There are three ways to combine the two, and they are not equally good. Bellare 
 | MAC-then-encrypt: encrypt message and tag | SSL/TLS up to 1.2 (CBC suites) | not secure in general; Lucky Thirteen (2013) is a padding-oracle attack on it |
 | Encrypt-and-MAC: MAC the plaintext, send it alongside | SSH | the tag can leak, e.g. whether two plaintexts are equal |
 
-The script's encrypt-then-MAC stops the attack of §7:
+The encrypt-then-MAC of [part 7 of the script](../code/primer/p3_modes.py) stops the attack of
+§7:
 
 ```text
-=== encrypt-then-MAC stops the bit-flipping attack ===
+=== 7. encrypt-then-MAC stops the bit-flipping attack ===
 nonce | ciphertext | tag : 6a4d5297d238f40a f5e3070ec8002e3beccba9f2dc96d0 ffd4e9e7acfb75d9...
 honest message decrypts to: b'pay $100 to Bob'
 forged message: authentication failed: ciphertext or tag was modified
@@ -382,13 +388,26 @@ Run from `homomorphic_encryption/`:
 python3 code/primer/p3_modes.py
 ```
 
-The script imports the AES of [P2](p2_aes.md) (`code/primer/p2_mini_aes.py`), builds ECB, CBC,
-CTR, PKCS#7 padding, HMAC and encrypt-then-MAC on top of it, checks itself against the NIST and
-RFC test vectors, and runs every demo of this chapter in well under a second. Its full output
-appears in §2 to §9 above; the remaining lines are:
+[The script](../code/primer/p3_modes.py) imports the AES of [P2](p2_aes.md)
+(`code/primer/p2_mini_aes.py`), builds ECB, CBC, CTR, PKCS#7 padding, HMAC and encrypt-then-MAC
+on top of it, checks itself against the NIST and RFC test vectors, and runs every demo of this
+chapter in well under a second. The parts of its output, and where this chapter explains them:
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | CBC and CTR checked against the official vectors of NIST SP 800-38A | [§3](#3-cbc-chaining-with-a-random-iv), [§4](#4-ctr-a-block-cipher-becomes-a-stream-cipher) |
+| 2 | ECB leaks the picture, CBC does not | [§2](#2-ecb-and-the-penguin), [§3](#3-cbc-chaining-with-a-random-iv) |
+| 3 | The same message encrypted twice with ECB, CBC and CTR | [§4](#4-ctr-a-block-cipher-becomes-a-stream-cipher), [§6](#6-why-encryption-must-be-randomized) |
+| 4 | CTR nonce reuse is a two-time pad | [§5](#5-nonce-reuse-the-two-time-pad-returns) |
+| 5 | The CTR bit-flipping attack, and the same attack on CBC | [§7](#7-malleability-changing-a-message-without-reading-it) |
+| 6 | HMAC-SHA256 by hand, checked against the standard library and RFC 4231 | [§8](#8-macs-and-hmac) |
+| 7 | Encrypt-then-MAC stops the bit-flipping attack | [§9](#9-encrypt-then-mac) |
+
+Its full output appears in §2 to §9 above (parts 2 to 7); the remaining lines, part 1 and the
+last line of part 3, are:
 
 ```text
-=== official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===
+=== 1. official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===
 F.2.1 CBC-AES128.Encrypt: OK
 F.5.1 CTR-AES128.Encrypt: OK
 ...
@@ -397,12 +416,12 @@ decrypt check: b'attack at dawn' b'attack at dawn' b'attack at dawn'
 
 Things to try:
 
-- Encrypt the padlock with CTR instead of CBC. Does the picture survive? Now encrypt it twice
-  with the *same* nonce and XOR the two ciphertexts.
-- In the bit-flipping demo, change the amount to \$999 by flipping two more bytes. Which bytes,
-  and with which values of $\delta$?
-- Use CBC and flip a bit of the first ciphertext block instead of the IV. Which plaintext block
-  changes predictably, and which turns into garbage?
+- Encrypt the padlock of part 2 with CTR instead of CBC. Does the picture survive? Now encrypt
+  it twice with the *same* nonce and XOR the two ciphertexts.
+- In the bit-flipping attack of part 5, change the amount to \$999 by flipping two more bytes.
+  Which bytes, and with which values of $\delta$?
+- Use CBC and flip a bit of the first ciphertext block instead of the IV (last line of part 5).
+  Which plaintext block changes predictably, and which turns into garbage?
 - Replace `hmac.compare_digest` by `==` and think about what a timing-measuring attacker could
   do with it.
 

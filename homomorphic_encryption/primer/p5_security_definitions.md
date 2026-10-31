@@ -22,6 +22,10 @@ summary ([01 §2](../01_introduction.md#what-ind-cpa-means)); this is the long, 
   ElGamal;
 - explain why every homomorphic scheme fails IND-CCA2, and list what IND-CPA does not cover.
 
+**Companion script:** [`code/primer/p5_ind_cpa_game.py`](../code/primer/p5_ind_cpa_game.py). Run it from
+the `homomorphic_encryption/` folder with `python3 code/primer/p5_ind_cpa_game.py`. Its output
+is split into numbered parts, and the text says which part shows what.
+
 ## 1. Why "secure" needs a definition
 
 Try to say what a secure encryption scheme is, and the obvious attempts fail:
@@ -229,7 +233,8 @@ For secret-key schemes the same adversary uses the encryption oracle. Three cons
 
 Against ElGamal the same adversary fails. Its own $\mathrm{Enc}(m_0)$ uses a fresh random $y$, so it
 matches $c^*$ only with probability about $1/q$, whatever $b$ is. Its guess is a coin flip. In
-the script it wins 49.6 % of 2,000 games, inside the sampling noise of about ±2.2 %.
+[part 3 of the script](../code/primer/p5_ind_cpa_game.py) it wins 49.6 % of 2,000 games, inside
+the sampling noise of about ±2.2 %.
 
 That is **not** a proof of security, and no simulation can be. The definition talks about
 **every** efficient adversary, and a script can only try a few. One winning adversary proves a
@@ -258,7 +263,7 @@ and the pad's symbol is $(-1)^{\text{odd} \cdot \text{odd}} = -1$. Then $c_2 = 5
 $(-1)/(-1) = +1$: the message is a square, so $b' = 0$. Correct, and it always will be.
 
 In the subgroup of squares every element has symbol $+1$, so the same adversary sees nothing: it
-always answers 0 and wins exactly when the coin is 0 (the script: 50.1 %). This is DDH failing in $\mathbb{Z}_p^*$, and it is why the proof in §6
+always answers 0 and wins exactly when the coin is 0 (script, part 3: 50.1 %). This is DDH failing in $\mathbb{Z}_p^*$, and it is why the proof in §6
 needs a group in which DDH is believed hard.
 
 ## 5. Semantic security
@@ -384,8 +389,9 @@ $\tfrac12$. So $\mathcal{B}$ inherits $\mathcal{A}$'s advantage. The public-key 
 [P7 §7](p7_lattices_and_lwe.md#7-public-key-encryption-regevs-trick)) needs one more step,
 because the public key itself must first be shown to look random.
 
-The script shows the other side of this proof. Remove the noise and the pad $\langle a, s \rangle$ is
-no longer pseudorandom: 16 encryptions of 0 give 16 linear equations in `s`, Gaussian
+[Part 3 of the script](../code/primer/p5_ind_cpa_game.py) shows the other side of this proof.
+Remove the noise and the pad $\langle a, s \rangle$ is no longer pseudorandom: 16 encryptions
+of 0 give 16 linear equations in `s`, Gaussian
 elimination solves them, and the adversary wins 100 % of the games. With noise in $[-20, 20]$ the
 same elimination returns garbage and the adversary is back to 49 %. The noise is what makes LWE
 secure (P7), and later what limits computation (P8, P9).
@@ -448,9 +454,10 @@ against everyone else.
 
 Ordinary encryption reaches CCA2 by **rejecting** everything that honest encryption did not
 produce: encrypt-then-MAC and AEAD ([P3 §9](p3_modes_and_integrity.md#9-encrypt-then-mac)),
-OAEP for RSA and the Fujisaki–Okamoto transform for ML-KEM (P4). The script's last two CCA2
-rows show the effect. Hybrid encryption (P4 §6) without a MAC loses every game to P3's bit
-flip: flip a bit of the body, ask for the decryption, flip it back. With an HMAC tag the modified ciphertext is rejected, and the adversary is back to a coin
+OAEP for RSA and the Fujisaki–Okamoto transform for ML-KEM (P4). The last two CCA2 rows in
+[part 4 of the script](../code/primer/p5_ind_cpa_game.py) show the effect. Hybrid encryption
+(P4 §6) without a MAC loses every game to P3's bit flip: flip a bit of the body, ask for the decryption, flip it back.
+With an HMAC tag the modified ciphertext is rejected, and the adversary is back to a coin
 flip (49.8 %).
 
 ### CCA1 and homomorphic encryption
@@ -511,22 +518,32 @@ implements the IND-CPA and IND-CCA2 challengers as small functions, five toy sch
 RSA with 40-bit keys, a 16-bit Feistel block cipher in ECB mode, ElGamal over a 64-bit safe prime
 in two groups, secret-key LWE with $n = 16$ and $q = 32749$ with and without noise, and hybrid DH
 encryption with and without HMAC), and one function per adversary. Every game uses fresh keys
-and a fresh coin. Real output:
+and a fresh coin.
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | One IND-CPA round against textbook RSA, narrated: encrypting $m_0$ and comparing wins | [§4](#deterministic-encryption-always-loses) |
+| 2 | One IND-CPA round against ElGamal, narrated: the same comparison tells the adversary nothing | [§4](#randomized-encryption-this-adversary-learns-nothing) |
+| 3 | IND-CPA win rates over 2,000 games: RSA, ECB, ElGamal in two groups, LWE with and without noise | [§4](#4-security-as-a-game-ind-cpa), [§6](#lwe-based-encryption-is-ind-cpa-secure-if-decision-lwe-is-hard) |
+| 4 | IND-CCA2 win rates: mauling beats every homomorphic scheme, a MAC stops it | [§7](#malleability-breaks-cca2) |
+| 5 | One IND-CCA2 round against ElGamal, narrated | [§7](#malleability-breaks-cca2) |
+
+Real output:
 
 ```text
-=== One IND-CPA round against textbook RSA, narrated ===
+=== 1. One IND-CPA round against textbook RSA, narrated ===
 challenger: key pair made, public key (n, e) = (795476369977, 65537); secret coin b = 1
 adversary:  chooses m0 = 5, m1 = 9
 challenger: sends c* = Enc(m_b) = 283441881666
 adversary:  computes Enc(m0) = 498827062109 itself: different -> guesses b' = 1
 
-=== One IND-CPA round against ElGamal (squares mod a 64-bit safe prime), narrated ===
+=== 2. One IND-CPA round against ElGamal (squares mod a 64-bit safe prime), narrated ===
 challenger: public h = 17585087522247332762; secret coin b = 0
 challenger: sends c* = (973970763225649010, 15826388665970720937)
 adversary:  its own Enc(m0) = (2663760491608038420, 11372461214322932733)
             different from c* whatever b is: the comparison tells it nothing
 
-=== IND-CPA game, 2000 rounds per row (sampling noise on Pr[win]: about +-0.022) ===
+=== 3. IND-CPA game, 2000 rounds per row (sampling noise on Pr[win]: about +-0.022) ===
 scheme / adversary                                             Pr[win] advantage
 textbook RSA            / encrypt m0 and compare                 1.000     0.500
 ECB block cipher        / encrypt m0 and compare                 1.000     0.500
@@ -538,7 +555,7 @@ LWE, noise in [-20, 20] / encrypt m0 and compare                 0.504     0.004
 LWE, noise in [-20, 20] / solve the linear system                0.491     0.009
 LWE, NO noise           / solve the linear system                1.000     0.500
 
-=== IND-CCA2 game: adversary may decrypt anything except c*, 2000 rounds per row ===
+=== 4. IND-CCA2 game: adversary may decrypt anything except c*, 2000 rounds per row ===
 scheme / adversary                                             Pr[win] advantage
 textbook RSA            / ask for Dec(c* x Enc(2)), halve        1.000     0.500
 ElGamal, squares mod p  / ask for Dec(c* x Enc(2)), halve        1.000     0.500
@@ -546,7 +563,7 @@ LWE, noise in [-20, 20] / ask for Dec(c* + Enc(1)), minus 1      1.000     0.500
 hybrid DH, no MAC       / flip a bit, ask, flip back             1.000     0.500
 hybrid DH + HMAC        / flip a bit, ask, flip back             0.498     0.002
 
-=== One IND-CCA2 round against ElGamal, narrated ===
+=== 5. One IND-CCA2 round against ElGamal, narrated ===
 challenger: secret coin b = 0; c* = (17493699661528193330, 15275104027295005209)
 adversary:  Enc(2) = (16711879198763622491, 8739081377446984255)
 adversary:  asks for Dec(c* x Enc(2)) = Dec((17248348893446929763, 7500599965078200711))   (not c*, so allowed)
@@ -558,10 +575,12 @@ What to look for:
 
 - **Advantages near 0 are sampling noise.** With 2,000 games, $\Pr[\text{win}]$ wanders about
   ±0.022 around 0.5 (two standard deviations of $\sqrt{0.25 / 2000}$), so 0.496, 0.501, 0.504 and
-  0.491 are coin flips. Advantage 0.5 is the maximum: RSA, ECB and ElGamal in the wrong group.
-- **The noise is the security.** The same LWE adversary goes from 49 % to 100 % without noise.
-- **Malleability is the dividing line** in the CCA2 table: every homomorphic scheme loses, the
-  authenticated hybrid scheme does not.
+  0.491 in part 3 are coin flips. Advantage 0.5 is the maximum: RSA, ECB and ElGamal in the
+  wrong group.
+- **The noise is the security.** In part 3 the same LWE adversary goes from 49 % to 100 % without
+  noise.
+- **Malleability is the dividing line** in the CCA2 table of part 4: every homomorphic scheme
+  loses, the authenticated hybrid scheme does not.
 - **What the table cannot show** is that *no* adversary wins against ElGamal or LWE. Only the
   reductions in §6 say that, and only under DDH and decision-LWE.
 

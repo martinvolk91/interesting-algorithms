@@ -123,6 +123,9 @@ noise.</p>
 <li>explain computational security, "128-bit security", and symmetric vs public-key encryption;</li>
 <li>see why the pad mod n can already add encrypted numbers, but not multiply them.</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p1_one_time_pad.py"><code>code/primer/p1_one_time_pad.py</code></a>.
+Run it from the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p1_one_time_pad.py</code>.
+Its output is split into numbered parts, and the text says which part shows what.</p>
 <h2 id="1-what-cryptography-is-for">1. What cryptography is for<a class="headerlink" href="#1-what-cryptography-is-for" title="Link to this section">#</a></h2>
 <p>Cryptography has three classic goals:</p>
 <div class="table-wrap"><table>
@@ -289,12 +292,13 @@ once. The message <code>M</code> may have <em>any</em> distribution.</p>
 <p>A concrete case. Eve believes <code>Y</code> (0x59) with probability 0.9 and <code>N</code> (0x4E) with 0.1, and she
 sees the ciphertext <code>0x3C</code>. The message <code>Y</code> needs key <code>0x65</code>, the message <code>N</code> needs key <code>0x72</code>,
 and both keys have probability 1/256. The evidence is equally strong for both, so her odds stay
-9 : 1. The script checks this for all 256 possible ciphertexts.</p>
+9 : 1. <a href="../../code/primer/p1_one_time_pad.py">Part 2 of the script</a> checks this for all 256
+possible ciphertexts.</p>
 <h3 id="brute-force-is-useless">Brute force is useless<a class="headerlink" href="#brute-force-is-useless" title="Link to this section">#</a></h3>
-<p>Eve can try every key, but every key gives a different, equally valid decryption. The script
-encrypts <code>ATTACK AT DAWN</code> and then computes the key \(k&#x27; = c \oplus\) <code>RETREAT AT TEN</code>. That key
-decrypts the same ciphertext to the retreat order, and it looks just as random as the real key.
-Every 14-character message is possible, and Eve has no way to prefer one.</p>
+<p>Eve can try every key, but every key gives a different, equally valid decryption. Part 1 of the
+script encrypts <code>ATTACK AT DAWN</code> and then computes the key \(k&#x27; = c \oplus\) <code>RETREAT AT TEN</code>.
+That key decrypts the same ciphertext to the retreat order, and it looks just as random as the
+real key. Every 14-character message is possible, and Eve has no way to prefer one.</p>
 <h3 id="what-it-does-not-protect">What it does not protect<a class="headerlink" href="#what-it-does-not-protect" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Length.</strong> The ciphertext is as long as the message. Pad messages to a fixed length if
@@ -310,9 +314,9 @@ Every 14-character message is possible, and Eve has no way to prefer one.</p>
 counting. Fix a ciphertext <code>c</code>. Each key decrypts <code>c</code> to exactly one message, so at most \(|K|\)
 messages are possible given <code>c</code>. If \(|K| &lt; |M|\), some message \(m&#x27;\) is impossible given <code>c</code>. If
 Eve's prior gave \(m&#x27;\) any weight, her posterior for it drops to 0, and the definition fails.</p>
-<p>The script shows it with a 4-bit key (16 keys) on 8-bit messages. <code>Y</code> = 0x59 can only encrypt
-to <code>0x50</code>–<code>0x5F</code>, and <code>N</code> = 0x4E only to <code>0x40</code>–<code>0x4F</code>. A ciphertext <code>0x5F</code> tells Eve the
-answer is <code>Y</code> with certainty.</p>
+<p><a href="../../code/primer/p1_one_time_pad.py">Part 2 of the script</a> shows it with a 4-bit key (16 keys) on
+8-bit messages. <code>Y</code> = 0x59 can only encrypt to <code>0x50</code>–<code>0x5F</code>, and <code>N</code> = 0x4E only to
+<code>0x40</code>–<code>0x4F</code>. A ciphertext <code>0x5F</code> tells Eve the answer is <code>Y</code> with certainty.</p>
 <p>So a gigabyte of data needs a gigabyte of truly random key, delivered in advance over a secure
 channel and kept secret on both sides. If Alice can deliver that much key securely, she could
 almost deliver the message the same way: the pad does not remove the need for a secure channel,
@@ -331,7 +335,7 @@ anything about the key. Cryptanalysts say the two messages are <strong>in depth<
   every position of \(c_1 \oplus c_2\), and looks for readable output. Where the guess is right,
   a piece of the other message appears. Each new fragment suggests the next guess.</li>
 </ul>
-<p>In the script, \(m_1\) is <code>meet me at the north gate at nine tonight</code> and \(m_2\) is
+<p>In part 3 of the script, \(m_1\) is <code>meet me at the north gate at nine tonight</code> and \(m_2\) is
 <code>the shipment arrives by train on thursday</code>. Dragging <code>" the "</code> gives readable text at two
 positions: at position 10 it reveals <code>nt ar</code> (from "shipme<strong>nt ar</strong>rives"), and at position 29
 it gives <code>nrh t</code>, a false alarm. Knowing that \(m_1\) starts with <code>meet me at the</code> reveals
@@ -367,17 +371,18 @@ requirement is that no efficient algorithm can tell its output from truly random
  message m ─────────────────────────XOR──────&gt; ciphertext c
 </code></pre></div>
 
-<p>The script's toy generator is SHA-256 in counter mode: block <code>i</code> of the pad is
-<code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong>AES in counter mode</strong> (block <code>i</code> is
-<code>AES_k(nonce ‖ i)</code>; P2 and P3) or <strong>ChaCha20</strong> (standardised for IETF protocols in RFC 8439).
-The nonce is public, but it must never repeat under the same key: the same <code>(k, nonce)</code> gives
-the same pad, and we are back to the two-time pad. The script checks this as well.</p>
+<p>The toy generator in <a href="../../code/primer/p1_one_time_pad.py">part 5 of the script</a> is SHA-256 in
+counter mode: block <code>i</code> of the pad is <code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong>AES in
+counter mode</strong> (block <code>i</code> is <code>AES_k(nonce ‖ i)</code>; P2 and P3) or <strong>ChaCha20</strong> (standardised for
+IETF protocols in RFC 8439). The nonce is public, but it must never repeat under the same key:
+the same <code>(k, nonce)</code> gives the same pad, and we are back to the two-time pad. Part 5 checks
+this as well.</p>
 <h3 id="the-catch-no-longer-perfectly-secret">The catch: no longer perfectly secret<a class="headerlink" href="#the-catch-no-longer-perfectly-secret" title="Link to this section">#</a></h3>
 <p>For a fixed nonce there are only \(2^{128}\) possible pads, but vastly more possible messages, so
 Shannon's theorem rules out perfect secrecy. An attacker with unlimited time could try all
-\(2^{128}\) keys. Once the message is longer than a few dozen characters, only the right key
-gives sensible text. (Shannon called the length where this happens the <em>unicity distance</em>.)
-The script shrinks the key to 20 bits and does exactly that: it tries all \(2^{20}\) keys in about
+\(2^{128}\) keys. Once the message is longer than a few dozen characters, only the right key gives
+sensible text. (Shannon called the length where this happens the <em>unicity distance</em>.) Part 6 of
+the script shrinks the key to 20 bits and does exactly that: it tries all \(2^{20}\) keys in about
 two seconds on a laptop, and exactly one of them decrypts to readable text.</p>
 <p>So the security of a stream cipher rests on something new: <strong>the attacker cannot do \(2^{128}\)
 operations.</strong></p>
@@ -414,8 +419,9 @@ Foundation built a dedicated key-search machine for under $250,000 that found a 
 hours. In January 1999, together with the volunteers of distributed.net, it found one in
 22 hours and 15 minutes, testing about 245 billion keys per second. That ended 56-bit keys, and
 AES (P2) starts at 128 bits.</p>
-<p>The script measures how fast plain Python tries keys of its toy cipher and extrapolates. Times
-are for the whole key space; on average the key turns up halfway.</p>
+<p><a href="../../code/primer/p1_one_time_pad.py">Part 6 of the script</a> measures how fast plain Python tries
+keys of its toy cipher and extrapolates. Times are for the whole key space; on average the key
+turns up halfway.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -547,6 +553,48 @@ timing. From <code>homomorphic_encryption/</code>:</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p1_one_time_pad.py
 </code></pre></div>
 
+<p>The parts of its output, and where this chapter explains them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>One-time pad with XOR, and a second key that "explains" the same ciphertext</td>
+<td><a href="#4-the-one-time-pad">§4</a>, <a href="#5-perfect-secrecy-why-the-one-time-pad-cannot-be-broken">§5</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Perfect secrecy for one byte, and how a 4-bit key loses it</td>
+<td><a href="#5-perfect-secrecy-why-the-one-time-pad-cannot-be-broken">§5</a>, <a href="#6-the-price-of-perfection">§6</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>The two-time pad and crib dragging</td>
+<td><a href="#6-the-price-of-perfection">§6</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Pad mod 1000: adding ciphertexts adds plaintexts, multiplying does not</td>
+<td><a href="#4-the-one-time-pad">§4</a>, <a href="#11-how-this-connects-to-homomorphic-encryption">§11</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Stream cipher: a 16-byte key grows into a pad; nonce reuse</td>
+<td><a href="#7-stream-ciphers-growing-a-short-key-into-a-long-pad">§7</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td>Brute force on a 20-bit key, and the time to try every key</td>
+<td><a href="#7-stream-ciphers-growing-a-short-key-into-a-long-pad">§7</a>, <a href="#8-computational-security-and-bits-of-security">§8</a></td>
+</tr>
+</tbody>
+</table></div>
 <p>Real output (seeded, so everything except the timings in part 6 repeats exactly):</p>
 <div class="highlight"><pre><span></span><code>=== 1. One-time pad with XOR ===
 message   : b&#39;ATTACK AT DAWN&#39;
@@ -598,17 +646,18 @@ tried 1,048,576 keys in 1.84 s: about 568,834 keys/s on this machine
 </code></pre></div>
 
 <p>The timing table the script prints in part 6 is the one in §8, rounded.</p>
-<p>Things to try: change <code>TOY_KEY_BITS</code> to 16 or 24 and watch the search time scale by \(2^{\pm 4}\);
-shorten the brute-force message to 3 or 4 characters and watch several keys give "readable"
-text (the message is now below the unicity distance); drag other cribs such as <code>" at "</code>.</p>
+<p>Things to try: change <code>TOY_KEY_BITS</code> to 16 or 24 and watch the search time in part 6 scale by
+\(2^{\pm 4}\); shorten the brute-force message of part 6 to 3 or 4 characters and watch several
+keys give "readable" text (the message is now below the unicity distance); drag other cribs such
+as <code>" at "</code> in part 3.</p>
 <h2 id="11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption<a class="headerlink" href="#11-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <p><strong>The pad mod n is already additively homomorphic.</strong> Add two ciphertexts and the messages add,
 and so do the keys:</p>
 <div class="math-display">\[(m_1 + k_1) + (m_2 + k_2) \equiv (m_1 + m_2) + (k_1 + k_2) \pmod n\]</div>
-<p>In part 4 of the script, a server adds 25 + 574 + 965 ≡ 564 (mod 1000) without learning
-anything (each ciphertext alone is perfectly secret). The client subtracts the key sum
-905 + 234 + 870 ≡ 9 and gets 555 = 120 + 340 + 95. The XOR pad does the same for XOR. This is
-the first step toward HE, and a preview of why malleability
+<p>In <a href="../../code/primer/p1_one_time_pad.py">part 4 of the script</a>, a server adds 25 + 574 + 965 ≡ 564
+(mod 1000) without learning anything (each ciphertext alone is perfectly secret). The client
+subtracts the key sum 905 + 234 + 870 ≡ 9 and gets 555 = 120 + 340 + 95. The XOR pad does the
+same for XOR. This is the first step toward HE, and a preview of why malleability
 (<a href="p3_modes_and_integrity.html#7-malleability-changing-a-message-without-reading-it">P3 §7</a>) is
 HE's main feature rather than a bug.</p>
 <p>Why this is not yet HE:</p>
@@ -626,7 +675,7 @@ HE's main feature rather than a bug.</p>
 <li>
 <p><strong>Multiplication does not come for free.</strong></p>
 <div class="math-display">\[(m_1 + k_1)(m_2 + k_2) = m_1 m_2 + \underbrace{m_1 k_2 + m_2 k_1}_{\text{cross terms}} + k_1 k_2\]</div>
-<p>Subtracting \(k_1 k_2\) is not enough: in the script it gives 580 instead of \(m_1 m_2 \bmod 1000 = 800\).
+<p>Subtracting \(k_1 k_2\) is not enough: in part 4 of the script it gives 580 instead of \(m_1 m_2 \bmod 1000 = 800\).
 The result can be decrypted as \(c_1 c_2 - k_2 c_1 - k_1 c_2 + k_1 k_2\), but only if the server
 also keeps \(c_1\) and \(c_2\): the ciphertext grows from one number to three, and decryption
 becomes quadratic in the keys. LWE ciphertexts hit exactly this problem (two components

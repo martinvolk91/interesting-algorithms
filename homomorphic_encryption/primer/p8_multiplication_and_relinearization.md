@@ -24,6 +24,10 @@ read: relinearization, key switching, modulus switching, levels and multiplicati
   chains.
 - Tell **evaluation keys** apart from the secret key.
 
+**Companion script:** [`code/primer/p8_relinearization.py`](../code/primer/p8_relinearization.py). Run it from
+the `homomorphic_encryption/` folder with `python3 code/primer/p8_relinearization.py`. Its output
+is split into numbered parts, and the text says which part shows what.
+
 [Chapter 03 §4–6](../03_how_it_works.md#4-homomorphic-multiplication-the-hard-part) is the
 compact version of this chapter. Read it afterwards as a summary.
 
@@ -85,7 +89,8 @@ We need a number for "how noisy is this ciphertext". We use this one throughout:
 - **noise budget** = $\log_2\big((\Delta/2)/\text{noise}\big)$ bits: how many more bits the noise
   can grow before decryption breaks. It is essentially the "invariant noise budget" that
   libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy BFV
-  (`q = 2^60`, `Δ = 2^56`) has noise about 5 and a budget of about 52.7 bits.
+  (`q = 2^60`, `Δ = 2^56`) has noise about 5 and a budget of about 52.7 bits
+  ([part 2 of the script](../code/primer/p8_relinearization.py)).
 
 ## 2. Multiplying two ciphertexts: the tensor product
 
@@ -132,7 +137,8 @@ next two sections take them in turn.
 
 In the running example Δ² = 1 000 000, and mod `q = 10000` that is 0. The message has
 vanished from the phase entirely. The toy BFV has the same problem: Δ² = 2¹¹² is a multiple
-of `q = 2^60`, and decrypting the raw tensor gives garbage (demo 2 of the script).
+of `q = 2^60`, and decrypting the raw tensor gives garbage
+([part 2 of the script](../code/primer/p8_relinearization.py)).
 
 **BFV's fix** is to multiply every component by $t/q$ (which is $1/\Delta$ here) and round to
 the nearest integer. That turns $\Delta^2 m_1 m_2$ into $\Delta m_1 m_2$, turns
@@ -172,8 +178,8 @@ coefficient, so the wrap count `j` becomes a polynomial with coefficients of ord
 (up to about `N` in the worst case). The product $j \cdot e$ is again a ring product, a sum of
 `N` terms, which adds roughly another factor $\sqrt N$. Together the noise grows by about
 `t · N`. In the toy (`N = 16`, `t = 16`, so `t · N = 256`) one multiplication takes the noise
-from 5 to 540, a factor of 108. That costs about 7 bits of budget, where an addition costs at
-most 1 bit.
+from 5 to 540 (script, part 2), a factor of 108. That costs about 7 bits of budget, where an
+addition costs at most 1 bit.
 
 BGV, the other exact scheme, puts the message in the *low* bits: $c_0 + c_1 s = m + t e$.
 With `t = 10`, `m = 7` and `e = 3` the phase is 7 + 10·3 = 37. Decryption takes the phase in
@@ -187,8 +193,9 @@ contains $e_1 e_2$ and roughly **squares**. §8 shows how modulus switching tame
 The product has three components. Multiply it again and it grows further. A ciphertext with
 $\alpha + 1$ components times one with $\beta + 1$ components gives $\alpha + \beta + 1$
 components, with key vector $(1, s, \dots, s^{\alpha+\beta})$: you are multiplying two
-polynomials in `s` of degrees $\alpha$ and $\beta$. Demo 3 of the script does exactly this and
-everything still decrypts:
+polynomials in `s` of degrees $\alpha$ and $\beta$.
+[Part 3 of the script](../code/primer/p8_relinearization.py) does exactly this and everything still
+decrypts:
 
 ```text
 x = Enc(m1)    2 components (0.23 KiB)  decrypts with (1, s, ..., s^1): True   budget 52.7 bits
@@ -247,7 +254,8 @@ The term $d_2 \varepsilon$ is the problem. `ε` is small, but $d_2$ is a full-si
 By hand, $d_2 = 1744$: `u = (1744·6309, 1744·1234) mod q = (2896, 2096)`. The new ciphertext is
 `(−4275 + 2896, 1523 + 2096) = (−1379, 3619)`. Its phase is −1379 + 3·3619 = 9478, which decrypts
 to 9 instead of 6. The added noise is 1744·2 = 3488, far above the limit of 500. In the toy BFV
-the result is the same, at scale: the noise reaches $2^{59}$ against a limit of $2^{55}$ (demo 4).
+the result is the same, at scale: the noise reaches $2^{59}$ against a limit of $2^{55}$
+([part 4 of the script](../code/primer/p8_relinearization.py)).
 
 ### 5.4 Why the key can be public
 
@@ -318,7 +326,8 @@ The bound is 4 · 9 · 3 = 108.
 ### 6.3 The trade-off: key size against noise
 
 A smaller base `w` means more digits. That gives a bigger key and more ring multiplications
-per relinearization, but less noise. Demo 5 relinearizes the same toy product ciphertext with
+per relinearization, but less noise. [Part 5 of the script](../code/primer/p8_relinearization.py)
+relinearizes the same toy product ciphertext with
 different bases (its noise before relinearization is $2^{9.1}$):
 
 ```text
@@ -436,8 +445,9 @@ The new phase is 70 − (48 − 14 + 63) = −27 ≡ 73 = 10·7 + 3. So the nois
 ciphertext decrypts to round(7.3) = 7. The rounding term is
 $r_b - \langle r_a, s\rangle = 0.02 - (-0.21 - 0.23 + 0.46) = 0$.
 
-**Noise 300 → 3. But noise/Δ was 0.3 and is still 0.3.** Demo 7 shows the same on a 32-dimensional
-LWE ciphertext with ternary `s` ($\lVert s\rVert_1 = 23$, so the rounding term is at most 12):
+**Noise 300 → 3. But noise/Δ was 0.3 and is still 0.3.**
+[Part 7 of the script](../code/primer/p8_relinearization.py) shows the same on a 32-dimensional LWE
+ciphertext with ternary `s` ($\lVert s\rVert_1 = 23$, so the rounding term is at most 12):
 
 ```text
  modulus      Δ       noise      e*q2/q   noise/Δ  decrypts to
@@ -522,8 +532,8 @@ in [02 §6](../02_math_foundations.md#6-parameters-security-and-sizes) works out
 bits per multiplication). `q` then decides how big `N` must be for security, and `N` decides
 the cost of everything.
 
-Demo 6 squares a ciphertext until it breaks, then computes the eight-value product in both
-shapes:
+[Part 6 of the script](../code/primer/p8_relinearization.py) squares a ciphertext until it breaks,
+then computes the eight-value product in both shapes:
 
 ```text
 x        fresh    budget  52.4 bits
@@ -597,8 +607,20 @@ python3 code/primer/p8_relinearization.py
 
 [`code/primer/p8_relinearization.py`](../code/primer/p8_relinearization.py) is a
 self-contained toy BFV with `N = 16`, `t = 16`, `q = 2^60`. It is insecure and meant to be
-read. Demos 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers. An excerpt of the
-real output (demo 1 is addition; demos 3, 5, 6 and 7 are quoted in §4, §6.3, §9.2 and §8.2):
+read. Parts 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers.
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | Addition | [§1](#1-the-starting-point-ciphertexts-as-c0-c1) |
+| 2 | Multiplication: the tensor product, the `t/q` scaling, noise 5 → 540 | [§2](#2-multiplying-two-ciphertexts-the-tensor-product), [§3](#3-the-scale-problem-and-the-noise-problem) |
+| 3 | Multiplying again without relinearization: the ciphertext keeps growing | [§4](#4-the-size-problem-ciphertexts-grow) |
+| 4 | Naive relinearization with one encryption of $s^2$ | [§5.3](#53-the-naive-way-and-why-it-explodes) |
+| 5 | Relinearization with digit (gadget) decomposition, and the base trade-off | [§6.2](#62-by-hand-in-base-10), [§6.3](#63-the-trade-off-key-size-against-noise) |
+| 6 | Depth: squaring until the budget runs out; chain versus tree | [§9.2](#92-multiplicative-depth-chains-and-trees) |
+| 7 | Modulus switching on a plain LWE ciphertext | [§8.2](#82-by-hand) |
+
+An excerpt of the real output (part 1 is addition; parts 3, 5, 6 and 7 are quoted in §4, §6.3,
+§9.2 and §8.2):
 
 ```text
 Toy BFV: N = 16, t = 16, q = 2^60, Δ = q/t = 2^56. Decryption is correct while noise < Δ/2 = 2^55.
@@ -629,10 +651,10 @@ toy BFV, w = 2^15 (4 digits): before 3 components, noise 2^9.1;  after 2 compone
 
 Things to try:
 
-- Set `LOG_W = 4` and the depth experiment gains a level (even the chain survives). Set
+- Set `LOG_W = 4` and the depth experiment of part 6 gains a level (even the chain survives). Set
   `LOG_W = 30` and it loses three.
-- Lower `LOG_Q` to 40: only three squarings fit.
-- In demo 7, start with a larger `e` and find the smallest modulus that still decrypts.
+- Lower `LOG_Q` to 40: only three squarings of part 6 fit.
+- In part 7, start with a larger `e` and find the smallest modulus that still decrypts.
 
 ## 12. How this connects to homomorphic encryption
 

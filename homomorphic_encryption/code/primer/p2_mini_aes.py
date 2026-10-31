@@ -170,7 +170,7 @@ if __name__ == "__main__":
     random.seed(2)
     h = bytes.fromhex
 
-    print("=== GF(2^8) and the S-box ===")
+    print("=== 1. GF(2^8) and the S-box ===")
     print(f"{{57}} * {{83}} = {{{gmul(0x57, 0x83):02x}}}   (FIPS 197 example: c1)")
     print(f"{{57}} * {{13}} = {{{gmul(0x57, 0x13):02x}}}   (FIPS 197 example: fe)")
     print(f"inverse of {{53}} = {{{ginv(0x53):02x}}}, check {{53}} * {{ca}} = {{{gmul(0x53, 0xca):02x}}}")
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     print(f"S(a ^ b) = {SBOX[a ^ b]:02x}  but  S(a) ^ S(b) = {SBOX[a] ^ SBOX[b]:02x}"
           f"   (a = {a:02x}, b = {b:02x}: not linear)")
 
-    print("\n=== FIPS 197 Appendix C.1 (AES-128) ===")
+    print("\n=== 2. FIPS 197 Appendix C.1 (AES-128) ===")
     key = h("000102030405060708090a0b0c0d0e0f")
     pt = h("00112233445566778899aabbccddeeff")
     ct = encrypt_block(key, pt)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
           "OK" if ct == h("69c4e0d86a7b0430d8cdb78070b4c55a") else "FAIL")
     print("decrypted :", decrypt_block(key, ct).hex())
 
-    print("\n=== round 1 of that encryption, step by step ===")
+    print("\n=== 3. round 1 of that encryption, step by step ===")
     rk = key_expansion(key)
     s0 = add_round_key(bytes_to_state(pt), rk[0])
     s1 = sub_bytes(s0)
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                     ("k_sch", rk[1]), ("round 2 start", s4)]:
         print(f"  {name:<14}{state_to_bytes(s).hex()}")
 
-    print("\n=== more official vectors ===")
+    print("\n=== 4. more official vectors ===")
     vectors = [
         ("FIPS 197 App. B  (AES-128)", "2b7e151628aed2a6abf7158809cf4f3c",
          "3243f6a8885a308d313198a2e0370734", "3925841d02dc09fbdc118597196a0b32"),
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         ok = got == c and decrypt_block(k, c) == p
         print(f"{name}: {len(key_expansion(k)) - 1} rounds, {got.hex()}  {'OK' if ok else 'FAIL'}")
 
-    print("\n=== avalanche: flip one input bit, count changed ciphertext bits (of 128) ===")
+    print("\n=== 5. avalanche: flip one input bit, count changed ciphertext bits (of 128) ===")
     trials = 1000
     pt_diffs, key_diffs = [], []
     for _ in range(trials):
@@ -242,7 +242,7 @@ if __name__ == "__main__":
             per_round[rnd] += bit_diff(state_to_bytes(s), state_to_bytes(t))
     print("  " + "  ".join(f"r{rnd}:{total / trials:4.1f}" for rnd, total in enumerate(per_round)))
 
-    print("\n=== AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===")
+    print("\n=== 6. AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===")
     k = random.randbytes(16)
     a, b = random.randbytes(16), random.randbytes(16)
     lhs = encrypt_block(k, xor(a, b))
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     print(f"Enc(a^b) vs Enc(a)^Enc(b)^Enc(0): average {sum(gaps) / trials:.1f} of 128 bits differ"
           f" over {trials} trials (64 = unrelated)")
 
-    print("\n=== the same cipher with a LINEAR S-box (affine map only, no inverse) ===")
+    print("\n=== 7. the same cipher with a LINEAR S-box (affine map only, no inverse) ===")
     k = random.randbytes(16)
     lin = lambda m: encrypt_block(k, m, LINEAR_SBOX)
     a, b = random.randbytes(16), random.randbytes(16)

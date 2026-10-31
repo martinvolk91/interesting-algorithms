@@ -96,6 +96,9 @@ For HE it is the whole point.</p>
 <li>build encrypt-then-MAC with HMAC, and say what AES-GCM and ChaCha20-Poly1305 provide;</li>
 <li>explain why HE ciphertexts must be malleable, and why that rules out this kind of integrity.</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p3_modes.py"><code>code/primer/p3_modes.py</code></a>. Run it from the
+<code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p3_modes.py</code>. Its output is split
+into numbered parts, and the text says which part shows what.</p>
 <h2 id="1-what-a-block-cipher-alone-cannot-do">1. What a block cipher alone cannot do<a class="headerlink" href="#1-what-a-block-cipher-alone-cannot-do" title="Link to this section">#</a></h2>
 <p>A block cipher (<a href="p2_aes.html">P2</a>) is a keyed permutation of 16-byte blocks. Two things are
 missing before it can encrypt messages:</p>
@@ -128,10 +131,10 @@ ciphertext block. Equal plaintext blocks give equal ciphertext blocks, anywhere 
 across all messages under the same key. The famous illustration is the "ECB penguin": a bitmap
 of the Linux mascot encrypted in ECB mode is still plainly a penguin, because large areas of the
 same colour become large areas of the same ciphertext.</p>
-<p>The script does the same with a small padlock. To keep the picture tiny, each pixel is a whole
-16-byte block (in a real bitmap, one block covers a few neighbouring pixels, and uniform areas
-still give identical blocks). Each ciphertext block is drawn as one character chosen by its
-first byte:</p>
+<p><a href="../../code/primer/p3_modes.py">Part 2 of the script</a> does the same with a small padlock. To keep
+the picture tiny, each pixel is a whole 16-byte block (in a real bitmap, one block covers a few
+neighbouring pixels, and uniform areas still give identical blocks). Each ciphertext block is
+drawn as one character chosen by its first byte:</p>
 <div class="highlight"><pre><span></span><code>plaintext                    ECB ciphertext               CBC ciphertext
 ..........................   @@@@@@@@@@@@@@@@@@@@@@@@@@   &lt;+8??|&#39;!?,.8\/oX)&amp;&#39;^o?O)%+
 ..........######..........   @@@@@@@@@@//////@@@@@@@@@@   O|&lt;:):^&amp;+-,@@#&lt;`&amp;&gt;-?ooO(o~
@@ -165,7 +168,8 @@ random block for every message:</p>
 <div class="math-display">\[C_0 = \mathit{IV}, \qquad C_i = E_K(P_i \oplus C_{i-1}), \qquad P_i = D_K(C_i) \oplus C_{i-1}.\]</div>
 <p>The IV is sent in the clear with the ciphertext. Because it is random, the same message
 encrypts differently every time, and equal plaintext blocks inside a message are blended with
-different predecessors. In the picture above, all 234 CBC blocks are different.</p>
+different predecessors. In the picture above (<a href="../../code/primer/p3_modes.py">part 2 of the script</a>),
+all 234 CBC blocks are different.</p>
 <p>What CBC needs and what it costs:</p>
 <ul>
 <li><strong>The IV must be unpredictable</strong> (SP 800-38A, Appendix C): not secret, but impossible to guess
@@ -242,9 +246,9 @@ random or secret, only unique: a message counter is fine.</p>
 </tr>
 </tbody>
 </table></div>
-<p>The script checks its CBC and CTR against the official test vectors of SP 800-38A (F.2.1 and
-F.5.1), then shows that both modes randomize:</p>
-<div class="highlight"><pre><span></span><code>=== the same message encrypted twice ===
+<p><a href="../../code/primer/p3_modes.py">Part 1 of the script</a> checks its CBC and CTR against the official
+test vectors of SP 800-38A (F.2.1 and F.5.1), and part 3 shows that both modes randomize:</p>
+<div class="highlight"><pre><span></span><code>=== 3. the same message encrypted twice ===
 ECB: cfdbd35092fa47bdd91304bd55640088
      cfdbd35092fa47bdd91304bd55640088   IDENTICAL
 CBC: a6342fa0fdb8b294d97fc6103d92089be44044064dee000046227f6a00dde83b
@@ -263,11 +267,11 @@ keystream \(S\):</p>
 <div class="math-display">\[C_1 = P_1 \oplus S, \quad C_2 = P_2 \oplus S \quad\Longrightarrow\quad C_1 \oplus C_2 = P_1 \oplus P_2.\]</div>
 <p>The keystream cancels, exactly as in the
 <a href="p1_encryption_basics.html#the-key-must-never-be-reused-the-two-time-pad">two-time pad of P1</a>.
-With one byte: \(P_1\) = 'A' = {41}, \(P_2\) = 'B' = {42}, keystream byte {9c}. Then
-\(C_1\) = {dd}, \(C_2\) = {de}, and \(C_1 \oplus C_2\) = {03} = 'A' ⊕ 'B', with no trace of the key.
-Anyone who knows or guesses \(P_1\) reads \(P_2\), and even without that, the XOR of two English
-texts is usually enough to recover both. The script:</p>
-<div class="highlight"><pre><span></span><code>=== CTR nonce reuse = two-time pad ===
+With one byte: \(P_1\) = 'A' = {41}, \(P_2\) = 'B' = {42}, keystream byte {9c}. Then \(C_1\) = {dd},
+\(C_2\) = {de}, and \(C_1 \oplus C_2\) = {03} = 'A' ⊕ 'B', with no trace of the key. Anyone who
+knows or guesses \(P_1\) reads \(P_2\), and even without that, the XOR of two English texts is
+usually enough to recover both. <a href="../../code/primer/p3_modes.py">Part 4 of the script</a>:</p>
+<div class="highlight"><pre><span></span><code>=== 4. CTR nonce reuse = two-time pad ===
 C1 xor C2 == P1 xor P2 ? True
 attacker knows P1 (a public notice) and recovers P2 without the key:
    b&#39;New vault code is 7341; tell no one!!!&#39;
@@ -311,10 +315,10 @@ the amount. To turn '1' into '9', it needs \(\delta\) = '1' ⊕ '9':</p>
 XOR  = {08} = 0000 1000      -&gt; flip bit 3 of ciphertext byte 5
 </code></pre></div>
 
-<p>With the script's numbers: ciphertext byte 5 is {d4}. The keystream byte, unknown to the
-attacker, is {d4} ⊕ {31} = {e5}. The attacker sends {d4} ⊕ {08} = {dc}, and the bank decrypts
-{dc} ⊕ {e5} = {39} = '9'.</p>
-<div class="highlight"><pre><span></span><code>=== malleability: the CTR bit-flipping attack ===
+<p>With the numbers of <a href="../../code/primer/p3_modes.py">part 5 of the script</a>: ciphertext byte 5 is
+{d4}. The keystream byte, unknown to the attacker, is {d4} ⊕ {31} = {e5}. The attacker sends
+{d4} ⊕ {08} = {dc}, and the bank decrypts {dc} ⊕ {e5} = {39} = '9'.</p>
+<div class="highlight"><pre><span></span><code>=== 5. malleability: the CTR bit-flipping attack ===
 bank sends     : 2af899a3e1f16bdce8fafcc617d4be8b6de5dbb4370708
 attacker sends : 2af899a3e1f16bdce8fafcc617dcbe8b6de5dbb4370708   (one byte changed, no key used)
 bank decrypts  : b&#39;pay $900 to Bob&#39;
@@ -326,8 +330,8 @@ CBC is malleable too (flip IV byte 5): b&#39;pay $900 to Bob&#39;
 cryptography, only knowledge of the message format, which is rarely secret.</p>
 <p>CBC is malleable too. Flipping a bit of \(C_{i-1}\) flips the same bit of \(P_i\), at the price of
 turning \(P_{i-1}\) into garbage; flipping a bit of the IV flips the same bit of \(P_1\) cleanly, as
-the last line shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls CTR
-ciphertext "malleable" and gives this as the reason to combine it with authentication.</p>
+the last line of part 5 shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls
+CTR ciphertext "malleable" and gives this as the reason to combine it with authentication.</p>
 <p>Look at the attack from the other side: \(\mathrm{Dec}(C \oplus \delta) = \mathrm{Dec}(C) \oplus \delta\).
 That is a <strong>homomorphism</strong>: an operation on ciphertexts that performs a known operation on the
 hidden plaintexts. CTR has only this one (XOR with a public constant), and here it is a weapon.
@@ -355,9 +359,9 @@ keys:</p>
   \(B\) times.</li>
 </ul>
 <p>The outer hash seals the inner one, so length extension no longer works. The script implements
-this formula in a few lines and checks it against Python's <code>hmac</code> module and the official test
-vector of RFC 4231:</p>
-<div class="highlight"><pre><span></span><code>=== HMAC-SHA256 (RFC 2104) ===
+this formula in a few lines, and <a href="../../code/primer/p3_modes.py">part 6 of the script</a> checks it
+against Python's <code>hmac</code> module and the official test vector of RFC 4231:</p>
+<div class="highlight"><pre><span></span><code>=== 6. HMAC-SHA256 (RFC 2104) ===
 stdlib hmac : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
 by hand     : 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
 RFC 4231 test case 2: OK
@@ -404,8 +408,9 @@ padding oracle or a bit-flipping attack to exploit.</p>
 </tr>
 </tbody>
 </table></div>
-<p>The script's encrypt-then-MAC stops the attack of §7:</p>
-<div class="highlight"><pre><span></span><code>=== encrypt-then-MAC stops the bit-flipping attack ===
+<p>The encrypt-then-MAC of <a href="../../code/primer/p3_modes.py">part 7 of the script</a> stops the attack of
+§7:</p>
+<div class="highlight"><pre><span></span><code>=== 7. encrypt-then-MAC stops the bit-flipping attack ===
 nonce | ciphertext | tag : 6a4d5297d238f40a f5e3070ec8002e3beccba9f2dc96d0 ffd4e9e7acfb75d9...
 honest message decrypts to: b&#39;pay $100 to Bob&#39;
 forged message: authentication failed: ciphertext or tag was modified
@@ -444,11 +449,59 @@ are for understanding only.</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p3_modes.py
 </code></pre></div>
 
-<p>The script imports the AES of <a href="p2_aes.html">P2</a> (<code>code/primer/p2_mini_aes.py</code>), builds ECB, CBC,
-CTR, PKCS#7 padding, HMAC and encrypt-then-MAC on top of it, checks itself against the NIST and
-RFC test vectors, and runs every demo of this chapter in well under a second. Its full output
-appears in §2 to §9 above; the remaining lines are:</p>
-<div class="highlight"><pre><span></span><code>=== official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===
+<p><a href="../../code/primer/p3_modes.py">The script</a> imports the AES of <a href="p2_aes.html">P2</a>
+(<code>code/primer/p2_mini_aes.py</code>), builds ECB, CBC, CTR, PKCS#7 padding, HMAC and encrypt-then-MAC
+on top of it, checks itself against the NIST and RFC test vectors, and runs every demo of this
+chapter in well under a second. The parts of its output, and where this chapter explains them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>CBC and CTR checked against the official vectors of NIST SP 800-38A</td>
+<td><a href="#3-cbc-chaining-with-a-random-iv">§3</a>, <a href="#4-ctr-a-block-cipher-becomes-a-stream-cipher">§4</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>ECB leaks the picture, CBC does not</td>
+<td><a href="#2-ecb-and-the-penguin">§2</a>, <a href="#3-cbc-chaining-with-a-random-iv">§3</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>The same message encrypted twice with ECB, CBC and CTR</td>
+<td><a href="#4-ctr-a-block-cipher-becomes-a-stream-cipher">§4</a>, <a href="#6-why-encryption-must-be-randomized">§6</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>CTR nonce reuse is a two-time pad</td>
+<td><a href="#5-nonce-reuse-the-two-time-pad-returns">§5</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>The CTR bit-flipping attack, and the same attack on CBC</td>
+<td><a href="#7-malleability-changing-a-message-without-reading-it">§7</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td>HMAC-SHA256 by hand, checked against the standard library and RFC 4231</td>
+<td><a href="#8-macs-and-hmac">§8</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Encrypt-then-MAC stops the bit-flipping attack</td>
+<td><a href="#9-encrypt-then-mac">§9</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>Its full output appears in §2 to §9 above (parts 2 to 7); the remaining lines, part 1 and the
+last line of part 3, are:</p>
+<div class="highlight"><pre><span></span><code>=== 1. official vectors (NIST SP 800-38A, AES-128, 4 blocks) ===
 F.2.1 CBC-AES128.Encrypt: OK
 F.5.1 CTR-AES128.Encrypt: OK
 ...
@@ -457,12 +510,12 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
 
 <p>Things to try:</p>
 <ul>
-<li>Encrypt the padlock with CTR instead of CBC. Does the picture survive? Now encrypt it twice
-  with the <em>same</em> nonce and XOR the two ciphertexts.</li>
-<li>In the bit-flipping demo, change the amount to $999 by flipping two more bytes. Which bytes,
-  and with which values of \(\delta\)?</li>
-<li>Use CBC and flip a bit of the first ciphertext block instead of the IV. Which plaintext block
-  changes predictably, and which turns into garbage?</li>
+<li>Encrypt the padlock of part 2 with CTR instead of CBC. Does the picture survive? Now encrypt
+  it twice with the <em>same</em> nonce and XOR the two ciphertexts.</li>
+<li>In the bit-flipping attack of part 5, change the amount to $999 by flipping two more bytes.
+  Which bytes, and with which values of \(\delta\)?</li>
+<li>Use CBC and flip a bit of the first ciphertext block instead of the IV (last line of part 5).
+  Which plaintext block changes predictably, and which turns into garbage?</li>
 <li>Replace <code>hmac.compare_digest</code> by <code>==</code> and think about what a timing-measuring attacker could
   do with it.</li>
 </ul>

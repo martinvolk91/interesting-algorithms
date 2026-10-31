@@ -109,6 +109,10 @@ took thirty years, and it needed the new mathematics of <a href="p7_lattices_and
 <li>Explain why the group-based schemes of <a href="p4_public_key.html">P4</a> stop at one operation, and
   why getting both took until 2009.</li>
 </ul>
+<p><strong>Companion script:</strong>
+<a href="../../code/primer/p6_partially_homomorphic.py"><code>code/primer/p6_partially_homomorphic.py</code></a>. Run it
+from the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p6_partially_homomorphic.py</code>.
+Its output is split into numbered parts, and the text says which part shows what.</p>
 <h2 id="1-what-homomorphic-means">1. What homomorphic means<a class="headerlink" href="#1-what-homomorphic-means" title="Link to this section">#</a></h2>
 <p>"Homomorphic" is Greek for "same shape". A <strong>homomorphism</strong> is a map between two algebraic
 structures that respects their operations:</p>
@@ -285,8 +289,9 @@ coefficients: sums, averages (divide after decrypting), dot products with public
 \(\prod_i c_i^{w_i}\). In the example above, \(683^5 \bmod 1225 = 443\) decrypts to 15.</p>
 <p><strong>Re-randomization</strong> matters more than it looks. Without it, the result's exact value
 depends on how it was computed, which can leak the computation. The server multiplies by a
-fresh encryption of 0 before sending a result back: \(683\) re-randomized three times gave 142,
-1119 and 781, all of which decrypt to 3.</p>
+fresh encryption of 0 before sending a result back: in
+<a href="../../code/primer/p6_partially_homomorphic.py">part 1 of the script</a>, \(683\) re-randomized three
+times gave 142, 1119 and 781, all of which decrypt to 3.</p>
 <p>What the server cannot do is compute \(\mathrm{Enc}(m_1 m_2)\) from \(\mathrm{Enc}(m_1)\) and
 \(\mathrm{Enc}(m_2)\). No method is known. §9 explains why one should not expect one.</p>
 <h2 id="4-goldwassermicali-xor-on-encrypted-bits">4. Goldwasser–Micali: XOR on encrypted bits<a class="headerlink" href="#4-goldwassermicali-xor-on-encrypted-bits" title="Link to this section">#</a></h2>
@@ -310,7 +315,8 @@ nobody knows how to tell squares from non-squares among the numbers whose <stron
 \(q\); it only says "square mod both primes, or non-square mod both". Exactly half of the
 numbers that pass it are real squares (the encryptions of 0); the other half are the
 encryptions of 1. Mod 77, 30 of the 60 units pass, and 15 of those are squares.</p>
-<p>With \(p = 7\), \(q = 11\), \(n = 77\), \(x = 76 = -1\), the script's run gave:</p>
+<p>With \(p = 7\), \(q = 11\), \(n = 77\), \(x = 76 = -1\),
+<a href="../../code/primer/p6_partially_homomorphic.py">part 3 of the script</a> gave:</p>
 <div class="highlight"><pre><span></span><code>  Enc(1) = 62, Enc(1) = 40:  62 * 40 mod 77 = 16  -&gt; decrypts to 0   (1 XOR 1 = 0)
 </code></pre></div>
 
@@ -323,8 +329,9 @@ circuits need (§6).</p>
 <li><strong>Electronic voting.</strong> Each voter encrypts 1 (yes) or 0 (no), the tally server multiplies
   all ballots, and only the total is decrypted.
   <a href="p4_public_key.html#exponential-elgamal-trading-multiplication-for-addition">P4 §5</a> does this
-  with exponential ElGamal, as Helios does, and lists what real systems add. Our script runs
-  the same tally with Paillier, and its cheater who submits \(\mathrm{Enc}(5)\) shifts the count
+  with exponential ElGamal, as Helios does, and lists what real systems add.
+  <a href="../../code/primer/p6_partially_homomorphic.py">Part 2 of our script</a> runs the same tally with
+  Paillier, and its cheater who submits \(\mathrm{Enc}(5)\) shifts the count
   by 5 unnoticed: that is what the per-ballot zero-knowledge proofs are for.</li>
 <li><strong>Private aggregation.</strong> Google's Private Join and Compute (open-sourced 2019) lets two
   parties compute how many identifiers they have in common and the sum of the values attached
@@ -417,7 +424,8 @@ has the XOR and lacks the AND; Paillier adds and cannot multiply.</p>
 <div class="math-display">\[s = a \oplus b \oplus c_{\text{in}}, \qquad c_{\text{out}} = ab \oplus c_{\text{in}}\,(a \oplus b)\]</div>
 <p>(The two products are never both 1, so XOR acts as OR.) One half adder (1 XOR, 1 AND) for
 bit 0 and three full adders (3 XOR, 2 AND each) for bits 1–3 take 10 XOR and 7 AND gates.
-The script checks it on all 256 input pairs.</p>
+<a href="../../code/primer/p6_partially_homomorphic.py">Part 4 of the script</a> checks it on all 256 input
+pairs.</p>
 <div class="highlight"><pre><span></span><code>  a0 b0        a1 b1           a2 b2           a3 b3
    |  |         |  |            |  |            |  |
   [half ]--c1--[full ]---c2----[full ]---c3----[full ]---c4 = s4   (depth 4)
@@ -443,7 +451,7 @@ one of degree close to \(t\), which is expensive (below).</p>
 <div class="math-display">\[r = c \cdot x + (1 - c) \cdot y = y + c \cdot (x - y)\]</div>
 <p>One multiplication selects the result. On bits it is \(r_i = y_i \oplus c\,(x_i \oplus y_i)\)
 per bit, a multiplexer. The cost of an <code>if</code> is the cost of both branches plus the select. The
-script computes \(\max(9, 12)\) as <code>select(9 &gt; 12, 9, 12)</code>: 23 XOR, 14 AND, depth 4.</p>
+script's part 4 computes \(\max(9, 12)\) as <code>select(9 &gt; 12, 9, 12)</code>: 23 XOR, 14 AND, depth 4.</p>
 <h3 id="loops-need-public-bounds">Loops need public bounds<a class="headerlink" href="#loops-need-public-bounds" title="Link to this section">#</a></h3>
 <p><code>while x &gt; 0: ...</code> cannot stop early, because the server does not know when the condition
 turns false. The loop is unrolled to a <strong>public</strong> maximum number of iterations, and each
@@ -456,7 +464,7 @@ database entry without revealing which one (<a href="../deep_dives/bfv_pir.html"
 <p>Comparing two \(k\)-bit numbers bit by bit takes about \(6k\) gates (roughly \(4k\) XOR and \(2k\)
 AND). Scanned as a chain, every bit adds one AND to the critical path. Merged as a balanced
 tree, the depth drops to \(\log_2 k + 1\) at the cost of about 50 % more AND gates (\(3k - 2\)
-instead of \(2k - 1\)). The script's counts:</p>
+instead of \(2k - 1\)). The script's counts (part 4):</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -608,7 +616,44 @@ version. That mathematics is what <a href="p7_lattices_and_lwe.html">P7</a> buil
 </code></pre></div>
 
 <p>Source: <a href="../../code/primer/p6_partially_homomorphic.py"><code>../code/primer/p6_partially_homomorphic.py</code></a>.
-It runs in well under a second. Excerpts from one run:</p>
+It runs in well under a second.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Paillier by hand with \(p = 5\), \(q = 7\): add, multiply by a constant, re-randomize</td>
+<td><a href="#3-paillier-addition-with-a-public-key">§3</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>An encrypted yes/no vote tallied with Paillier, and a cheating ballot</td>
+<td><a href="#5-what-one-operation-is-good-for">§5</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Goldwasser–Micali: multiplying ciphertexts XORs the bits, multiplying by \(x\) flips one</td>
+<td><a href="#4-goldwassermicali-xor-on-encrypted-bits">§4</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Circuits from XOR and AND: adder, comparison (chain vs tree), product of 8 bits, max as a select</td>
+<td><a href="#6-why-one-operation-is-not-enough-computation-as-circuits">§6</a>, <a href="#7-multiplicative-depth">§7</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Arithmetic circuits mod 17: an <code>if</code> as a select, equality via Fermat</td>
+<td><a href="#an-if-becomes-a-select">§6, select</a>, <a href="#comparisons-are-expensive">§6, comparisons</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>Excerpts from one run (parts 2, 4 and 5):</p>
 <div class="highlight"><pre><span></span><code>========================================================================
 2. Encrypted yes/no vote with Paillier: p = 1009, q = 1013
 ========================================================================
@@ -655,10 +700,10 @@ is_zero(d) = 1 - d^16 mod 17, computed with 4 squarings:
   with t = 65537 = 2^16 + 1 the same test needs depth 16
 </code></pre></div>
 
-<p>Things to try: give each ballot a public weight with <code>paillier_mul_const</code> before the tally
-multiplies them (a weighted vote); count the gates of <code>add_bits</code> for 8 and 16 bits and check
-that the depth grows by one per bit; build \(x^7\) in \(\mathbb{Z}_{17}\) from <code>mul_t</code> with as
-little depth as possible (it needs 3).</p>
+<p>Things to try: in part 2, give each ballot a public weight with <code>paillier_mul_const</code> before the
+tally multiplies them (a weighted vote); in part 4, count the gates of <code>add_bits</code> for 8 and 16
+bits and check that the depth grows by one per bit; in part 5, build \(x^7\) in \(\mathbb{Z}_{17}\)
+from <code>mul_t</code> with as little depth as possible (it needs 3).</p>
 <h2 id="11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption<a class="headerlink" href="#11-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <ul>
 <li><strong>Algebra keeps one operation.</strong> Public-key schemes built on algebra keep exactly one

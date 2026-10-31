@@ -20,6 +20,10 @@ nobody can compute on AES ciphertexts.
 - describe the key schedule, the 10/12/14 rounds, AES-NI and what the best attacks achieve;
 - explain why AES ciphertexts carry no usable algebra, and what transciphering is.
 
+**Companion script:** [`code/primer/p2_mini_aes.py`](../code/primer/p2_mini_aes.py). Run it from
+the `homomorphic_encryption/` folder with `python3 code/primer/p2_mini_aes.py`. Its output is
+split into numbered parts, and the text says which part shows what.
+
 > **Fast path.** For homomorphic encryption you need §1, §2, the start of §4 (the state and
 > the round structure), the paragraph "The point that matters most" in
 > [§4.1](#41-subbytes-the-s-box) (SubBytes is the only non-linear step),
@@ -196,7 +200,8 @@ Any product then follows by writing the second factor in binary. Since
 
 $$\{57\} \cdot \{13\} = \{57\} \oplus \{ae\} \oplus \{07\} = \{fe\}.$$
 
-This shift-and-add loop is exactly the function `gmul` in the script.
+This shift-and-add loop is exactly the function `gmul` in the script, and
+[part 1 of the script](../code/primer/p2_mini_aes.py) prints both products.
 
 ### 3.5 Inverses
 
@@ -204,7 +209,7 @@ Every non-zero byte $a$ has an inverse $a^{-1}$ with $a \cdot a^{-1} = \{01\}$. 
 $\{53\}^{-1} = \{ca\}$, because $\{53\} \cdot \{ca\} = \{01\}$. There are three ways to find it:
 the extended Euclidean algorithm on polynomials (as for modular inverses of integers);
 $a^{-1} = a^{254}$, because the 255 non-zero elements form a multiplicative group, so
-$a^{255} = 1$; or, as the toy does, trying all 255 candidates.
+$a^{255} = 1$; or, as the toy does (script, part 1), trying all 255 candidates.
 
 AES needs the field structure twice: SubBytes uses inverses, and MixColumns uses a matrix that
 must be invertible over this field so that decryption exists.
@@ -234,7 +239,8 @@ round 10:
 
 Here is round 1 on the official test vector of FIPS 197 (2001), Appendix C.1: plaintext
 `00112233445566778899aabbccddeeff`, key `000102030405060708090a0b0c0d0e0f`. "start" is the
-plaintext XOR the key. This is real output from the script:
+plaintext XOR the key. This is real output from
+[part 3 of the script](../code/primer/p2_mini_aes.py):
 
 ```text
 start         SubBytes      ShiftRows     MixColumns    round key 1   AddRoundKey
@@ -294,7 +300,7 @@ elements and breaks that simplicity. The designers also chose it so that $S$ has
 both in the toy.
 
 **The point that matters most for this primer:** $S$ is not linear. With $a = \{53\}$ and
-$b = \{0f\}$, the script prints
+$b = \{0f\}$, part 1 of the script prints
 
 $$S(a \oplus b) = S(\{5c\}) = \{4a\}, \qquad S(a) \oplus S(b) = \{ed\} \oplus \{76\} = \{9b\}.$$
 
@@ -376,8 +382,9 @@ XOR w0    = 00010203   d6aa74fd  = w4
 w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 ```
 
-These are the first two columns of "round key 1" in the trace (read down the columns:
-`d6 aa 74 fd`, `d2 af 72 fa`).
+These are the first two columns of "round key 1" in the trace of
+[part 3 of the script](../code/primer/p2_mini_aes.py) (read down the columns: `d6 aa 74 fd`,
+`d2 af 72 fa`).
 
 The three AES variants differ only in key length and number of rounds; the block is always
 128 bits:
@@ -389,7 +396,8 @@ The three AES variants differ only in key length and number of rounds; the block
 | AES-256 | 256 bits | 8 | 14 | 15 |
 
 The rule is $N_r = N_k + 6$. AES-256 adds one extra SubWord when $i \bmod 8 = 4$. The toy's
-`key_expansion` handles all three, and the script checks the 192- and 256-bit test vectors.
+`key_expansion` handles all three, and part 4 of the script checks the 192- and 256-bit test
+vectors.
 
 The key schedule is the lightest part of AES, and it is where the **related-key** attacks live:
 Biryukov and Khovratovich (2009) break AES-256 in about $2^{99.5}$ time if the attacker can get
@@ -405,15 +413,17 @@ Decryption runs the inverse steps in reverse order, with the round keys in rever
 - InvSubBytes uses the inverse table $S^{-1}$ (undo the affine map, then invert);
 - InvMixColumns multiplies by the inverse matrix with entries {0e}, {0b}, {0d}, {09}.
 
-This is `decrypt_block` in the script. The bigger InvMixColumns constants make decryption a
-little slower in software. Modes like CTR and GCM ([P3](p3_modes_and_integrity.md)) never
-call it.
+This is `decrypt_block` in the script, and
+[part 2 of the script](../code/primer/p2_mini_aes.py) uses it to decrypt the C.1 ciphertext.
+The bigger InvMixColumns constants make decryption a little slower in software. Modes like CTR
+and GCM ([P3](p3_modes_and_integrity.md)) never call it.
 
 ## 7. The avalanche effect
 
 Change one bit of the input and about half of the output bits flip; the two ciphertexts look
-unrelated. This is the **avalanche effect**. From the script, averaged over 1000 random keys
-and plaintexts:
+unrelated. This is the **avalanche effect**. From
+[part 5 of the script](../code/primer/p2_mini_aes.py), averaged over 1000 random keys and
+plaintexts:
 
 ```text
 flip one plaintext bit: average  64.3 bits changed, min 47, max 80  (1000 trials)
@@ -424,7 +434,7 @@ Why 64? Two independent random 128-bit strings differ in a Binomial(128, 1/2) nu
 mean 64, standard deviation $\sqrt{128/4} \approx 5.7$. The observed spread is what that
 predicts.
 
-More instructive is how fast it happens. The script also counts the differing bits of the state
+More instructive is how fast it happens. Part 5 also counts the differing bits of the state
 after each round:
 
 ```text
@@ -477,24 +487,25 @@ broken in every way that matters:
 - With the S-box affine, the key schedule is affine too, so $v_K$ is an affine function of the
   key bits, and the same pair gives linear equations for the key (or an equivalent one).
 
-The script builds exactly this cipher (`LINEAR_SBOX`) and runs the attack. It needs to apply
-$M^{-1}$, and does so without writing $M$ down. The all-zero key is a key like any other, so
-$E_0(x) = M \cdot x \oplus v_0$, and its constant is $v_0 = E_0(0)$, the encryption of the
-zero block. Decryption under the zero key computes $D_0(y) = M^{-1} \cdot (y \oplus v_0)$, so
-decrypting $z \oplus v_0$ gives exactly $M^{-1} \cdot z$. (Gaussian elimination on $M$ would
-give the same map; this is just shorter code.)
+[Part 7 of the script](../code/primer/p2_mini_aes.py) builds exactly this cipher (`LINEAR_SBOX`)
+and runs the attack. It needs to apply $M^{-1}$, and does so without writing $M$ down. The
+all-zero key is a key like any other, so $E_0(x) = M \cdot x \oplus v_0$, and its constant is
+$v_0 = E_0(0)$, the encryption of the zero block. Decryption under the zero key computes
+$D_0(y) = M^{-1} \cdot (y \oplus v_0)$, so decrypting $z \oplus v_0$ gives exactly
+$M^{-1} \cdot z$. (Gaussian elimination on $M$ would give the same map; this is just shorter
+code.)
 
 ```text
-=== the same cipher with a LINEAR S-box (affine map only, no inverse) ===
+=== 7. the same cipher with a LINEAR S-box (affine map only, no inverse) ===
 Enc(a^b) == Enc(a)^Enc(b)^Enc(0)? True
 known pair       : b'invoice #0001 ok' -> 7a6bed07aa8eef7ace2754b987c665ec
 secret ciphertext: 4e2d55f91576ee965af5bbc0484d1d84
 recovered without the key: b'wire 1M to Eve!!'
 ```
 
-With the real S-box the same test fails completely: over 1000 trials, $E(a \oplus b)$ and
-$E(a) \oplus E(b) \oplus E(0)$ differ in 63.9 of 128 bits on average, exactly what unrelated
-random strings give.
+With the real S-box the same test fails completely (part 6 of the script): over 1000 trials,
+$E(a \oplus b)$ and $E(a) \oplus E(b) \oplus E(0)$ differ in 63.9 of 128 bits on average,
+exactly what unrelated random strings give.
 
 Could one still write real AES as equations and solve them? Since $y = x^{-1}$ means
 $x \cdot y = 1$ for non-zero $x$, AES can be written as a large system of quadratic equations.
@@ -550,12 +561,25 @@ Run from `homomorphic_encryption/`:
 python3 code/primer/p2_mini_aes.py
 ```
 
-The script implements AES from the field arithmetic up, computes the S-box instead of
-pasting it, checks itself against official vectors, and runs the experiments of §7 and §8. It
-takes a few seconds. Excerpts of the real output:
+[The script](../code/primer/p2_mini_aes.py) implements AES from the field arithmetic up,
+computes the S-box instead of pasting it, checks itself against official vectors, and runs the
+experiments of §7 and §8. It takes a few seconds. The parts of its output, and where this
+chapter explains them:
+
+| Part | What it shows | Explained in |
+|---|---|---|
+| 1 | $\mathrm{GF}(2^8)$ arithmetic, the inverse and the S-box; $S$ is not linear | [§3](#3-arithmetic-on-bytes-a-field-with-256-elements), [§4.1](#41-subbytes-the-s-box) |
+| 2 | FIPS 197 Appendix C.1: encrypt and decrypt one block | [§4](#4-the-aes-state-and-one-round), [§6](#6-decryption) |
+| 3 | Round 1 of that encryption, step by step | [§4](#4-the-aes-state-and-one-round), [§5](#5-the-key-schedule) |
+| 4 | More official vectors, including AES-192 and AES-256 | [§5](#5-the-key-schedule) |
+| 5 | The avalanche effect, and the changed bits after each round | [§7](#7-the-avalanche-effect) |
+| 6 | AES is not homomorphic: $\mathrm{Enc}(a \oplus b)$ vs $\mathrm{Enc}(a) \oplus \mathrm{Enc}(b)$ | [§8](#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra), [§11](#11-how-this-connects-to-homomorphic-encryption) |
+| 7 | The same cipher with a linear S-box, broken with one known pair | [§8](#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra) |
+
+Excerpts of the real output (parts 5 and 7 are quoted in §7 and §8):
 
 ```text
-=== GF(2^8) and the S-box ===
+=== 1. GF(2^8) and the S-box ===
 {57} * {83} = {c1}   (FIPS 197 example: c1)
 {57} * {13} = {fe}   (FIPS 197 example: fe)
 inverse of {53} = {ca}, check {53} * {ca} = {01}
@@ -563,13 +587,13 @@ S({53}) = affine({ca}) = {ed}   (FIPS 197 example: ed)
 first S-box row: 63 7c 77 7b f2 6b 6f c5 30 01 67 2b fe d7 ab 76
 S(a ^ b) = 4a  but  S(a) ^ S(b) = 9b   (a = 53, b = 0f: not linear)
 
-=== FIPS 197 Appendix C.1 (AES-128) ===
+=== 2. FIPS 197 Appendix C.1 (AES-128) ===
 plaintext : 00112233445566778899aabbccddeeff
 key       : 000102030405060708090a0b0c0d0e0f
 ciphertext: 69c4e0d86a7b0430d8cdb78070b4c55a   expected 69c4e0d86a7b0430d8cdb78070b4c55a OK
 decrypted : 00112233445566778899aabbccddeeff
 
-=== round 1 of that encryption, step by step ===
+=== 3. round 1 of that encryption, step by step ===
 ...
   start         00102030405060708090a0b0c0d0e0f0
   s_box         63cab7040953d051cd60e0e7ba70e18c
@@ -578,13 +602,15 @@ decrypted : 00112233445566778899aabbccddeeff
   k_sch         d6aa74fdd2af72fadaa678f1d6ab76fe
   round 2 start 89d810e8855ace682d1843d8cb128fe4
 
-=== more official vectors ===
+=== 4. more official vectors ===
 FIPS 197 App. B  (AES-128): 10 rounds, 3925841d02dc09fbdc118597196a0b32  OK
 SP 800-38A F.1.1 (AES-128): 10 rounds, 3ad77bb40d7a3660a89ecaf32466ef97  OK
 FIPS 197 C.2     (AES-192): 12 rounds, dda97ca4864cdfe06eaf70a0ec0d7191  OK
 FIPS 197 C.3     (AES-256): 14 rounds, 8ea2b7ca516745bfeafc49904b496089  OK
 
-=== AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===
+...
+
+=== 6. AES is not homomorphic: is Enc(a ^ b) related to Enc(a) ^ Enc(b)? ===
 Enc(a ^ b)         = 9a45e711fbf8aac08b411216016ad9b8
 Enc(a) ^ Enc(b)    = 071b9af5349ccf7284e3a90f923589a9   (67 of 128 bits differ)
 Dec(Enc(a)^Enc(b)) = dce10b0e24ae9003115bd38150c11ebf
@@ -592,18 +618,18 @@ a ^ b              = 2e176fd9a34eda85ab52bd5d3213a927
 Enc(a^b) vs Enc(a)^Enc(b)^Enc(0): average 63.9 of 128 bits differ over 1000 trials (64 = unrelated)
 ```
 
-The hex lines under "round 1" use the labels of FIPS 197 (2001) Appendix C.1, so you can
+The hex lines of part 3 use the labels of FIPS 197 (2001) Appendix C.1, so you can
 compare them line by line with the standard. (The 2023 update of FIPS 197 moved these example
 vectors to NIST's website.)
 
 Things to try:
 
-- Pass `LINEAR_SBOX` as the third argument of `encrypt_block` in the avalanche experiment.
-  How many bits change now? Does the answer depend on the key or the plaintext, or only on
-  which bit you flipped? (Hint: §8.)
-- Print every state that `encrypt_states` yields for the C.1 vector and compare them with
-  FIPS 197 (2001) Appendix C.1: the state after round $r$ is the standard's `round[r+1].start`,
-  and the state after round 10 is the output.
+- Pass `LINEAR_SBOX` as the third argument of `encrypt_block` in the avalanche experiment
+  (part 5). How many bits change now? Does the answer depend on the key or the plaintext, or
+  only on which bit you flipped? (Hint: §8.)
+- Print every state that `encrypt_states` yields for the C.1 vector of part 2 and compare them
+  with FIPS 197 (2001) Appendix C.1: the state after round $r$ is the standard's
+  `round[r+1].start`, and the state after round 10 is the output.
 - Print `SBOX` as a 16×16 table and compare it with the S-box table in FIPS 197.
 
 ## 11. How this connects to homomorphic encryption
@@ -670,7 +696,7 @@ Things to try:
    for the inversion. If the inversion were gone, the whole cipher would be
    $E_K(x) = M x \oplus v_K$ with $M$ public and key-independent. One known pair then decrypts
    every other ciphertext ($p' = p \oplus M^{-1}(c \oplus c')$), and linear equations give the
-   key. §8 runs this attack.
+   key. §8 runs this attack ([part 7 of the script](../code/primer/p2_mini_aes.py)).
 4. MixColumns is keyless and linear, so a final one could be moved behind the last
    AddRoundKey (by changing that round key to $\mathrm{MC}^{-1}(K)$), and anyone could then
    undo it on the ciphertext. It would add work but no security. Omitting it also makes

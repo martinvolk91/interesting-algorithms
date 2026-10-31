@@ -124,6 +124,9 @@ quantum computers, and with their replacement: lattices, the same mathematics FH
 <li>say what quantum computers break (Shor) and what they barely dent (Grover), and why the
   post-quantum standard ML-KEM and FHE rest on the same lattice problems.</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p4_public_key.py"><code>code/primer/p4_public_key.py</code></a>. Run it from
+the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p4_public_key.py</code>. Its output
+is split into numbered parts, and the text says which part shows what.</p>
 <h2 id="1-the-key-distribution-problem">1. The key distribution problem<a class="headerlink" href="#1-the-key-distribution-problem" title="Link to this section">#</a></h2>
 <p>Symmetric encryption needs a shared key. If \(n\) people each want to talk privately with each
 other, they need \(n(n-1)/2\) keys: 45 for 10 people, 499,500 for 1,000, about \(5 \times 10^{11}\)
@@ -274,8 +277,9 @@ is one: \(23 = 2 \cdot 11 + 1\), and the squares mod 23 are \(\{1, 2, 3, 4, 6, 8
 exactly the 11 values in the table of powers of 2 (\(5^2 = 25 \equiv 2\), so 2 is a square). P5 shows
 an attack that wins the security game every time against ElGamal in the wrong group.</p>
 <h3 id="what-real-attacks-cost">What real attacks cost<a class="headerlink" href="#what-real-attacks-cost" title="Link to this section">#</a></h3>
-<p>Brute force tries up to \(q\) exponents. The script does it on a 20-bit prime and finds Alice's
-secret after 123,759 tries (§10). Generic algorithms (baby-step giant-step, Pollard's rho) need
+<p>Brute force tries up to \(q\) exponents. <a href="../../code/primer/p4_public_key.py">Part 1 of the script</a>
+does it on a 20-bit prime and finds Alice's secret after 123,759 tries (§10).
+Generic algorithms (baby-step giant-step, Pollard's rho) need
 about \(\sqrt{q}\) steps in any group. In \(\mathbb{Z}_p^*\) there is also the <strong>number field sieve</strong>,
 which is sub-exponential, and that is why \(p\) must have thousands of bits. NIST rates a 2048-bit
 \(p\) at 112-bit security and a 3072-bit \(p\) at 128 bits (table in §8).</p>
@@ -298,7 +302,10 @@ time. Two consequences:</p>
 <li>Eve sees when the same message is sent twice.</li>
 <li>A small message space falls to a <strong>dictionary attack</strong>. The public key lets anyone encrypt. If
   Alice sends her exam grade (1–100) encrypted, Eve encrypts all 100 candidates and compares.
-  In the script, \(c = 2549\) gives away the grade 14. A yes/no vote takes two encryptions.</li>
+  In <a href="../../code/primer/p4_public_key.py">part 2 of the script</a>, \(c = 2549\) gives away the grade<ol start="14">
+<li>A yes/no vote takes two encryptions.</li>
+</ol>
+</li>
 </ul>
 <p>P5 turns this into a theorem: no deterministic public-key scheme can meet the standard definition
 of security.</p>
@@ -307,8 +314,9 @@ of security.</p>
 <p>By hand: \(\mathrm{Enc}(2) = 1752\) and \(\mathrm{Enc}(3) = 1211\). Their product is
 \(2{,}121{,}672 = 656 \cdot 3233 + 824\), and indeed \(\mathrm{Enc}(6) = 6^{17} \bmod 3233 = 824\).</p>
 <p>The same property is a vulnerability: RSA is <strong>malleable</strong>. Without knowing \(m\), anyone can turn
-\(\mathrm{Enc}(m)\) into \(\mathrm{Enc}(k \cdot m)\) by multiplying by \(\mathrm{Enc}(k) = k^e\). In the script,
-"pay 100" encrypts to 1773; Eve multiplies by \(\mathrm{Enc}(9) = 1972\) and Bob decrypts 900. It is
+\(\mathrm{Enc}(m)\) into \(\mathrm{Enc}(k \cdot m)\) by multiplying by \(\mathrm{Enc}(k) = k^e\). In
+part 2 of the script, "pay 100" encrypts to 1773; Eve multiplies by \(\mathrm{Enc}(9) = 1972\) and Bob
+decrypts 900. It is
 P3's "pay $100 → pay $900" forgery again
 (<a href="p3_modes_and_integrity.html#7-malleability-changing-a-message-without-reading-it">P3 §7</a>),
 through multiplication instead of XOR. For ordinary encryption this is a bug: it rules out
@@ -340,7 +348,7 @@ the <code>01</code> separator are where they should be. That does three things:<
    random functions). Shoup found a gap in the original 1994 proof;
    Fujisaki, Okamoto, Pointcheval and Stern closed it for RSA in 2001.</li>
 </ol>
-<p>The script has a <strong>toy OAEP</strong> with the same shape (a 32-bit message followed by 16 zero bits as
+<p>Part 2b of the script has a <strong>toy OAEP</strong> with the same shape (a 32-bit message followed by 16 zero bits as
 the redundancy, a 40-bit seed, a 96-bit modulus): two encryptions of 1234 differ, and the
 product of \(\mathrm{Enc}(2)\) and \(\mathrm{Enc}(3)\) is rejected.</p>
 <p>The older PKCS #1 v1.5 padding (<code>00 02 || random non-zero bytes || 00 || M</code>) also randomizes, but
@@ -368,8 +376,9 @@ one-time pad". \(c_1\) is the sender's fresh half of the exchange, \(h^y = g^{xy
 and it multiplies \(m\) the way a pad would. The pad is new every time, and DDH says it looks
 random. P5 turns that sentence into a proof.</p>
 <p>Messages must lie in the subgroup, that is, be squares mod \(p\). For a safe prime exactly one of
-\(m\) and \(p - m\) is a square, so the numbers \(1, \dots, q\) can be mapped in and back out; the script
-does this. In practice ElGamal mostly transports random keys (§6), and the question disappears.</p>
+\(m\) and \(p - m\) is a square, so the numbers \(1, \dots, q\) can be mapped in and back out;
+<a href="../../code/primer/p4_public_key.py">part 3 of the script</a> does this. In practice ElGamal mostly
+transports random keys (§6), and the question disappears.</p>
 <h3 id="by-hand">By hand<a class="headerlink" href="#by-hand" title="Link to this section">#</a></h3>
 <p>With \(p = 23\), \(g = 2\), \(q = 11\): Bob picks \(x = 3\) and publishes \(h = 2^3 = 8\). Alice encrypts
 \(m = 3\), a square because \(7^2 = 49 \equiv 3\):</p>
@@ -446,8 +455,9 @@ key and outputs a random shared key plus an "encapsulation" that lets the secret
 recover it. A <strong>data encapsulation mechanism</strong> (an AEAD such as AES-GCM) then encrypts the payload
 under that key. HPKE (<a href="https://www.rfc-editor.org/rfc/rfc9180">RFC 9180</a>) standardizes the
 combination, and ML-KEM (§9) is a KEM.</p>
-<p>The script's version: Bob's ElGamal public key \(h\) doubles as a Diffie–Hellman public value.
-Alice picks \(y\), sends \(c_1 = g^y\), hashes the shared secret \(h^y\) with SHA-256 into a key, and XORs
+<p>The script's version, in <a href="../../code/primer/p4_public_key.py">part 4</a>: Bob's ElGamal public key
+\(h\) doubles as a Diffie–Hellman public value. Alice picks \(y\), sends \(c_1 = g^y\), hashes the shared
+secret \(h^y\) with SHA-256 into a key, and XORs
 a SHA-256 keystream onto her message. That is ElGamal with the pad moved into a hash function;
 the real-world versions are called DHIES and ECIES. They use a proper key-derivation function
 (HKDF) and an AEAD instead of the toy keystream.</p>
@@ -617,7 +627,49 @@ homomorphic family with a credible post-quantum story (<a href="../06_security.h
 
 <p>The script is <a href="../../code/primer/p4_public_key.py"><code>../code/primer/p4_public_key.py</code></a>. It uses
 the standard library only, a seeded random generator, and toy sizes throughout (a 20-bit
-prime, the 12-bit RSA modulus 3233, a 96-bit modulus for the OAEP toy). Real output:</p>
+prime, the 12-bit RSA modulus 3233, a 96-bit modulus for the OAEP toy).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Diffie–Hellman in a 20-bit group; Eve brute-forces the discrete log</td>
+<td><a href="#3-diffie-hellman-key-exchange">§3</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Textbook RSA: deterministic, dictionary attack, multiplicative homomorphism, malleability</td>
+<td><a href="#4-rsa-revisited-what-matters-for-he">§4</a></td>
+</tr>
+<tr>
+<td>2b</td>
+<td>Toy OAEP: randomized, and the product of two ciphertexts is rejected</td>
+<td><a href="#oaep-randomize-then-destroy-the-algebra">§4, OAEP</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>ElGamal: randomized, and ciphertexts multiply</td>
+<td><a href="#5-elgamal-randomized-and-still-homomorphic">§5</a></td>
+</tr>
+<tr>
+<td>3b</td>
+<td>Exponential ElGamal: an encrypted vote tally</td>
+<td><a href="#exponential-elgamal-trading-multiplication-for-addition">§5, exponential ElGamal</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Hybrid encryption: DH key agreement, SHA-256, stream cipher</td>
+<td><a href="#6-hybrid-encryption-and-tls-13">§6</a></td>
+</tr>
+</tbody>
+</table></div>
+<p>Real output:</p>
 <div class="highlight"><pre><span></span><code>=== 1. Diffie-Hellman over the squares mod p   (TOY SIZE: p has 20 bits) ===
 public group:  p = 1000667,  q = 500333,  g = 4
 Alice: secret a = 123758,  sends A = g^a mod p = 739881

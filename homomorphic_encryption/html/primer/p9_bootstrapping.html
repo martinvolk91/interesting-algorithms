@@ -107,6 +107,9 @@ most FHE running time and most FHE research go.</p>
 <li>Use programmable bootstrapping to compute a non-linear function while cleaning the noise.</li>
 <li>Read chapters 01–03 of the main notes with every term already familiar (§16).</li>
 </ul>
+<p><strong>Companion script:</strong> <a href="../../code/primer/p9_bootstrapping.py"><code>code/primer/p9_bootstrapping.py</code></a>. Run it from
+the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p9_bootstrapping.py</code>. Its output
+is split into numbered parts, and the text says which part shows what.</p>
 <h2 id="1-the-noise-wall">1. The noise wall<a class="headerlink" href="#1-the-noise-wall" title="Link to this section">#</a></h2>
 <p>Recall from P7: an LWE ciphertext <code>(a, b)</code> has <strong>phase</strong> \(\varphi = b - \langle a, s\rangle = \Delta m + e\),
 and decryption rounds \(\varphi / \Delta\). That is correct while \(\lvert e\rvert &lt; \Delta/2\).
@@ -120,9 +123,9 @@ uses the toy TFHE of the main notes: <code>Q = 2^32</code> and 2-bit messages. T
 rather than 4, and \(\Delta = Q/8 = 2^{29}\) (not \(Q/4 = 2^{30}\)); the limit is \(2^{28}\). The
 padding bit keeps every phase in the first half of the circle, which TFHE's bootstrapping needs
 because of the negacyclic sign flip (shown in §5, "Blind rotation by hand"; see also the
-<a href="../deep_dives/tfhe.html#12-message-layout-and-the-padding-bit">TFHE deep dive §1.2</a>). The
-script encrypts <code>x = 1</code> and repeats <code>x ← 3·x</code> (plaintext × ciphertext), which computes
-\(3^k \bmod 4\) at step <code>k</code>. Each step triples the noise, spending \(\log_2 3 \approx 1.58\) bits
+<a href="../deep_dives/tfhe.html#12-message-layout-and-the-padding-bit">TFHE deep dive §1.2</a>).
+Part 1 of the script encrypts <code>x = 1</code> and repeats <code>x ← 3·x</code> (plaintext × ciphertext), which
+computes \(3^k \bmod 4\) at step <code>k</code>. Each step triples the noise, spending \(\log_2 3 \approx 1.58\) bits
 of budget:</p>
 <div class="highlight"><pre><span></span><code> step | expected 3^k mod 4 | decrypts to | |noise|  | budget left
     0 |                  1 |           1 | 2^  9.8 |  18.2 bits  ok
@@ -327,21 +330,22 @@ inner layer runs inside a new encryption, like Alice unlocking box <code>i</code
   table above. The old <code>e</code> disappears as in ordinary decryption.</li>
 </ul>
 <p>So the output noise is "the noise of <code>bk</code>, grown by the gates of \(D_c\)": fixed by the
-parameters, independent of <code>e</code>. Demo 2 of the script shows it: inputs with noise \(2^{9.8}\),
+parameters, independent of <code>e</code>. <a href="../../code/primer/p9_bootstrapping.py">Part 2 of the script</a> shows
+it: inputs with noise \(2^{9.8}\),
 \(2^{17.7}\) and \(2^{27.2}\) come out at \(2^{16.9}\), \(2^{14.8}\) and \(2^{17.6}\), a random scatter
 with no trend. (Because the output noise no longer reflects the computation, bootstrapping
 also helps hide <em>what</em> was computed: circuit privacy,
 <a href="../06_security.html#4-circuit-privacy-and-sanitization">06 §4</a>.) Two consequences often
 surprise people:</p>
 <ul>
-<li><strong>The output can be noisier than a fresh ciphertext.</strong> Demo 2 bootstraps a fresh
+<li><strong>The output can be noisier than a fresh ciphertext.</strong> Part 2 bootstraps a fresh
   ciphertext and <em>raises</em> its noise from \(2^{9.8}\) to \(2^{16.9}\). Bootstrapping resets the
   noise to a fixed level; what matters is that the level leaves room for work (6–8 more <code>×3</code>
   steps in the toy).</li>
 <li><strong>A ciphertext that is already wrong cannot be saved.</strong> If \(\lvert e\rvert \ge \Delta/2\),
   the rounding inside \(D_c\) picks the wrong message, and the bootstrap returns a clean
-  encryption of that wrong message (demo 2, step 12). The server must bootstrap <em>before</em> the
-  wall. It cannot see the noise, so it tracks a public upper bound (demo 3).</li>
+  encryption of that wrong message (part 2, step 12). The server must bootstrap <em>before</em> the
+  wall. It cannot see the noise, so it tracks a public upper bound (part 3).</li>
 </ul>
 <p>(In the CACM article the bits of <code>c</code> are first encrypted afresh rather than used as
 constants. Fresh encryptions have small noise, so the argument is the same.)</p>
@@ -607,11 +611,11 @@ the phase sector that <code>j</code> falls in. Plain rounding is the identity ta
   Some functions are not polynomials at all: on \(\mathbb{Z}_4\), \([m \ge 2]\) cannot be built
   from <code>+</code> and <code>×</code> mod 4, because \(f(2) - f(0) \equiv 2f&#x27;(0) \pmod 4\) is even for every
   integer polynomial <code>f</code>, while \([2 \ge 2] - [0 \ge 2] = 1\) is odd.</li>
-<li><strong>In TFHE they ride along for free.</strong> TFHE bootstraps every few operations anyway. Demo 4
-  computes \(m^2 \bmod 4\), \([m \ge 2]\) and \(3 - m\) with the same keys, resetting the noise each
-  time.</li>
+<li><strong>In TFHE they ride along for free.</strong> TFHE bootstraps every few operations anyway.
+  <a href="../../code/primer/p9_bootstrapping.py">Part 4 of the script</a> computes \(m^2 \bmod 4\), \([m \ge 2]\)
+  and \(3 - m\) with the same keys, resetting the noise each time.</li>
 <li><strong>Several inputs fit in one table.</strong> Pack two 2-bit numbers into one 4-bit message \(4x + y\)
-  (a linear operation) and index the table by both: demo 4 computes \([x &lt; y]\) and
+  (a linear operation) and index the table by both: part 4 computes \([x &lt; y]\) and
   \(\max(x, y)\) with one bootstrap each.</li>
 </ul>
 <p>The limits: messages must be small (each extra bit needs a larger <code>N</code>), so 32- or 64-bit
@@ -654,7 +658,8 @@ vendor figures.</p>
 </tbody>
 </table></div>
 <p>The toy's bootstrap took about 170 ms on the machine used for this chapter, the time of
-roughly 150 000 to 170 000 toy additions (demo 5; timings vary between runs and machines).
+roughly 150 000 to 170 000 toy additions (<a href="../../code/primer/p9_bootstrapping.py">part 5 of the script</a>;
+timings vary between runs and machines).
 That ratio belongs to a pure-Python toy, but the lesson holds everywhere: a bootstrap costs
 orders of magnitude more than an addition or a multiplication. Hence compilers that place
 bootstraps carefully, deployments that stay leveled when the circuit is known and shallow,
@@ -668,9 +673,45 @@ Intel's Heracles target these pipelines (<a href="../07_state_of_the_art_2026.ht
 
 <p>The script imports <a href="../../code/toy_tfhe.py"><code>../code/toy_tfhe.py</code></a>, which runs no demo of its
 own on import. Its parameters (<code>n = 16</code>, <code>N = 128</code>) are hopelessly insecure. The seed is
-fixed, so everything except the demo 5 timings repeats exactly. Demo 1 prints the full
-noise-wall table excerpted in §1 (steps 0 to 12).</p>
-<p><strong>Demo 2: the reset.</strong> Ciphertexts from steps 0, 5 and 11 of demo 1 go through one bootstrap
+fixed, so everything except the timings of <a href="../../code/primer/p9_bootstrapping.py">part 5 of the script</a>
+repeats exactly. Part 1 prints the full noise-wall table excerpted in §1 (steps 0 to 12).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it shows</th>
+<th>Explained in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>The noise wall: <code>x ← 3·x</code> without bootstrapping</td>
+<td><a href="#1-the-noise-wall">§1</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>One bootstrap with the identity table: the noise resets</td>
+<td><a href="#why-the-old-noise-does-not-carry-over">§4</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>100 steps of <code>x ← 3·x</code>, bootstrapping when a public noise bound says so</td>
+<td><a href="#why-the-old-noise-does-not-carry-over">§4</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Programmable bootstrapping: lookup tables with one and two inputs</td>
+<td><a href="#9-programmable-bootstrapping">§9</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Rough timing: one bootstrap against one addition</td>
+<td><a href="#10-what-bootstrapping-costs">§10</a></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Part 2: the reset.</strong> Ciphertexts from steps 0, 5 and 11 of part 1 go through one bootstrap
 with the identity table, and all land around \(2^{15}\)–\(2^{18}\). The dead one from step 12
 stays dead.</p>
 <div class="highlight"><pre><span></span><code>== 2. bootstrapping with the identity table: the noise resets
@@ -683,7 +724,7 @@ stays dead.</p>
    already wrong cannot be repaired (its rounding already picked the wrong message)
 </code></pre></div>
 
-<p><strong>Demo 3: unlimited computation.</strong> The same <code>×3</code> loop, with a server that tracks a public
+<p><strong>Part 3: unlimited computation.</strong> The same <code>×3</code> loop, with a server that tracks a public
 noise bound and bootstraps before it would cross \(2^{26}\). (The toy's bounds come from
 measurements; a real library derives them from the parameters.) It runs 100 steps, far past
 the wall at step 12:</p>
@@ -717,7 +758,7 @@ the wall at step 12:</p>
        +--------------------------------------------&gt;   operations
 </code></pre></div>
 
-<p><strong>Demo 4: programmable bootstrapping.</strong> The inputs get noise around \(2^{24}\) on purpose, as
+<p><strong>Part 4: programmable bootstrapping.</strong> The inputs get noise around \(2^{24}\) on purpose, as
 if they came out of a longer computation.</p>
 <div class="highlight"><pre><span></span><code>== 4. programmable bootstrapping: the same bootstrap computes f(m) and cleans the noise
    inputs: encryptions of m = 0..3 with noise sigma 2^24 (as if after some computation)
@@ -732,7 +773,7 @@ if they came out of a longer computation.</p>
   x = 3, y = 0:  [x &lt; y] = 0   max(x, y) = 3
 </code></pre></div>
 
-<p><strong>Demo 5: timing.</strong> Your numbers will differ.</p>
+<p><strong>Part 5: timing.</strong> Your numbers will differ.</p>
 <div class="highlight"><pre><span></span><code>== 5. rough timing (a slow pure-Python toy, NOT representative of real libraries)
   toy parameters: n = 16, N = 128, Q = 2^32, fresh noise sigma = 2^12
   one bootstrap (PBS):   169.7 ms   (average of 5)
@@ -743,10 +784,10 @@ if they came out of a longer computation.</p>
 </code></pre></div>
 
 <p>Things to try: set <code>PBS_BOUND = 2**16</code>, pretending a bootstrap leaves less noise than it
-does. The server then waits too long: at step 37 the noise crosses the wall before the next
-bootstrap, and from then on the bootstraps faithfully refresh wrong values. 58 of the 100
+does. The server in part 3 then waits too long: at step 37 the noise crosses the wall before
+the next bootstrap, and from then on the bootstraps faithfully refresh wrong values. 58 of the 100
 decryptions come out wrong. Or put your
-own functions into the tables of demo 4, or run <code>python3 code/toy_tfhe.py</code> to watch one
+own functions into the tables of part 4, or run <code>python3 code/toy_tfhe.py</code> to watch one
 bootstrap step by step.</p>
 <h2 id="12-how-this-connects-to-homomorphic-encryption">12. How this connects to homomorphic encryption<a class="headerlink" href="#12-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <p>This chapter closes the primer's story. One-time-pad keys add (P1); AES scrambles all algebra
@@ -766,9 +807,9 @@ sits.</p>
 <ol>
 <li>A server holds a ciphertext with 1 bit of noise budget left. Why can't it decrypt and
    re-encrypt, and what does it do instead?</li>
-<li>In demo 2 the step-11 ciphertext had noise \(2^{27.2}\) and its bootstrapped version
-   \(2^{17.6}\). Where did the \(2^{27.2}\) go, and where did the \(2^{17.6}\) come from?</li>
-<li>Bootstrapping a fresh ciphertext raised its noise from \(2^{9.8}\) to \(2^{16.9}\). Is
+<li>In <a href="../../code/primer/p9_bootstrapping.py">part 2 of the script</a> the step-11 ciphertext had noise
+   \(2^{27.2}\) and its bootstrapped version \(2^{17.6}\). Where did the \(2^{27.2}\) go, and where did the \(2^{17.6}\) come from?</li>
+<li>Bootstrapping a fresh ciphertext raised its noise from \(2^{9.8}\) to \(2^{16.9}\) (part 2). Is
    bootstrapping broken? When should a server bootstrap?</li>
 <li>A scheme handles multiplicative depth 12 before its noise overflows. Its decryption circuit
    has depth (a) 11, (b) 12, (c) 13. When is it bootstrappable, and what helps otherwise?</li>
@@ -788,7 +829,7 @@ sits.</p>
    key-switching keys, grown by the bootstrap's own operations: a level fixed by the
    parameters.</li>
 <li>It is not broken: bootstrapping resets the noise to a fixed level, which may be above a
-   fresh encryption's, and what matters is the room left (6–8 <code>×3</code> steps in the toy). Bootstrap
+   fresh encryption's, and what matters is the room left (6–8 <code>×3</code> steps in part 2). Bootstrap
    when the public noise bound nears the limit, never after it: a ciphertext that already
    decrypts wrongly comes out as a clean encryption of the wrong value.</li>
 <li>(a) Yes: 11 + 1 ≤ 12, so a refresh plus one gate fits, and repeating "gate + refresh"
