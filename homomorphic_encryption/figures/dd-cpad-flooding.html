@@ -1,0 +1,71 @@
+<figure class="widget" id="w-dd-cpad-flooding">
+  <p class="widget-title">Flooding the decryption: attack versus precision</p>
+  <p class="widget-hint">Raise the flooding from none. One bit of noise already turns the recovered “key” into garbage. Then keep going to σ ≈ 2⁴⁶, the size that actually proves 40 bits of security, and watch what is left of the output.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">What the one-shot attack recovers, coefficient by coefficient</p><div class="c-key"></div></div>
+    <div><p class="panel-title">Precision of the shared result</p><div class="c-prec"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The same result from <code>ckks_attack.py</code> (Δ = 2⁴⁰, modulus \(2^{94}\)), decrypted with fresh Gaussian noise of width \(\sigma_f\) and then attacked with \(c_1 \cdot s = m' - c_0\). Without flooding the solve returns the true ternary key. With any flooding it returns numbers spread over the whole modulus. But the precision falls bit for bit as \(\sigma_f\) grows, and the flooding that the smudging lemma asks for leaves nothing.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-cpad-flooding';
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', sup = v => [...String(v)].map(d => SUP[d]).join('');
+  const LOG_DELTA = 40, LOG_Q = 94, LOG_B = 6;     // B ~ 2^6 bounds the computation noise (section 3.2)
+  // replayed from ckks_attack.py (seed 2, same draws): [log2 sigma (-1 = none), output precision in bits,
+  // key recovered?, log2 |coefficient| of the solved "key" (null = 0)]
+  const RUNS = [[-1,33.86,1,[null,0,0,null,0,0,null,null,null,0,0,null,null,null,0,0]],[0,33.86,0,[92.0,93.0,92.8,87.5,91.8,92.5,91.7,90.0,92.4,92.1,92.6,91.5,90.7,92.0,91.6,89.2]],[2,33.54,0,[90.2,90.4,91.6,92.1,91.3,92.1,90.8,89.6,92.7,92.6,91.2,92.9,91.5,91.5,92.4,92.4]],[4,32.91,0,[92.9,89.9,92.2,92.8,92.1,92.9,90.5,90.6,92.6,91.3,92.1,91.4,90.0,92.2,92.7,92.2]],[6,31.39,0,[92.6,92.0,91.6,87.7,90.9,92.2,91.0,90.4,92.7,92.4,90.8,92.7,91.8,91.4,86.8,91.5]],[8,29.07,0,[91.0,92.8,93.0,92.9,86.9,90.5,87.8,91.8,91.2,92.8,91.3,90.5,91.8,92.8,92.4,92.7]],[10,27.66,0,[92.8,91.8,89.6,92.6,92.3,89.2,92.0,92.9,92.8,90.9,92.7,92.5,90.5,91.1,92.6,92.9]],[12,25.19,0,[92.8,92.0,92.5,88.7,93.0,92.0,90.3,89.2,90.5,90.7,92.5,92.6,91.9,93.0,91.5,92.1]],[14,23.48,0,[91.6,91.4,89.0,92.6,92.7,91.0,89.8,90.7,90.9,92.7,89.1,89.0,90.0,92.5,91.0,91.8]],[16,21.12,0,[92.2,92.8,92.8,91.3,91.9,92.5,92.2,92.3,89.1,91.3,92.9,92.1,90.5,89.8,86.9,92.0]],[18,19.04,0,[89.8,92.5,91.6,91.7,90.5,89.6,91.7,92.9,92.5,92.9,91.9,92.4,91.7,93.0,92.3,91.3]],[20,16.98,0,[91.4,90.8,91.1,92.5,92.4,92.2,92.2,91.6,90.9,91.7,91.3,93.0,88.5,92.2,91.7,86.3]],[22,15.18,0,[92.6,90.3,92.1,91.3,92.6,92.5,92.9,92.2,92.4,92.0,92.8,87.9,92.1,91.2,90.2,92.9]],[24,13.31,0,[90.3,92.3,93.0,92.7,92.7,92.5,91.9,92.2,88.9,92.8,93.0,92.5,92.6,92.8,91.4,92.1]],[26,11.32,0,[90.3,92.4,91.2,92.3,91.9,92.2,92.8,92.2,90.7,91.7,91.8,92.9,89.8,89.2,92.8,92.0]],[28,9.5,0,[92.3,92.5,91.7,92.6,90.6,84.1,92.1,92.2,92.6,91.3,92.7,91.9,92.9,91.1,92.5,93.0]],[30,7.2,0,[93.0,91.8,89.0,91.1,92.0,92.5,92.3,92.1,92.9,92.3,91.9,91.8,90.5,90.6,84.7,92.9]],[32,5.11,0,[91.6,92.1,92.7,91.3,92.2,92.1,91.9,91.8,92.7,91.7,90.8,92.0,91.6,91.8,92.8,90.8]],[36,1.6,0,[91.8,91.3,91.0,91.6,92.2,90.4,92.6,90.9,88.2,92.4,91.8,92.2,92.4,92.4,90.1,92.0]],[40,-2.74,0,[91.4,92.9,92.3,92.4,91.0,91.3,92.9,92.5,91.8,92.8,89.8,92.3,91.6,92.9,88.8,92.5]],[46,-8.34,0,[92.5,91.0,89.1,92.3,92.6,90.0,92.3,91.2,91.9,92.7,92.8,92.8,92.8,91.8,92.7,91.1]]];
+  const byLg = new Map(RUNS.map(r => [r[0], r]));
+  const bitlen = v => v === null ? 0 : Math.floor(v + 1e-9) + 1;    // bits needed for |coefficient|
+
+  const ui = DS.controls(root + ' .controls', () => { key.update(); prec.update(); readout(); });
+  const sig = ui.slider({ label: 'Flooding σ_f', values: RUNS.map(r => r[0]), value: -1,
+    format: v => v < 0 ? 'none' : '2' + sup(v) });
+
+  const key = DS.chart(root + ' .c-key', {
+    x: { domain: [-0.7, 15.7], label: 'coefficient k of the solved s', tickValues: [0, 3, 6, 9, 12, 15] },
+    y: { domain: [0, 125], label: 'bits in |sₖ|', tickValues: [0, 25, 50, 75, 100] },
+    height: 260,
+    draw(c) {
+      const r = byLg.get(sig.value), ok = r[2] === 1;
+      c.hline(LOG_Q, { dash: true, label: 'modulus 2' + sup(LOG_Q), at: 'left' });
+      c.bars(r[3].map((v, k) => ({ x: k, y: Math.max(bitlen(v), ok ? 1.2 : 0), series: ok ? 'bad' : 'good',
+        tip: ok ? `s${k}: a true key coefficient` : `s${k}: a ${bitlen(v)}-bit number` })), { width: 0.8 });
+      if (ok) c.text(7.5, 112, 'the true key: every coefficient is −1, 0 or 1', { anchor: 'middle', cls: 'ink strong' });
+      else c.text(7.5, 112, 'not a key: numbers spread over the modulus', { anchor: 'middle', cls: 'ink strong' });
+    },
+  });
+
+  const flooded = RUNS.filter(r => r[0] >= 0).map(r => [r[0], r[1]]);
+  const prec = DS.chart(root + ' .c-prec', {
+    x: { domain: [0, 46], label: 'log₂ σ_f' },
+    y: { domain: [-10, 38], label: 'output precision (bits)' },
+    height: 260,
+    draw(c) {
+      c.legend([{ label: 'measured', series: 1, kind: 'dot' }, { label: 'log₂Δ − log₂σ_f − 3', series: 2, kind: 'dash' }]);
+      c.hline(0, { series: 'muted' });
+      c.hline(33.86, { dash: true });
+      c.text(12, 33.86, 'no flooding: 33.9 bits', { dy: -6 });
+      c.vline(LOG_B + 40, { dash: true, series: 'ink', label: '40-bit security' });
+      c.fn(x => LOG_DELTA - x - 3, { series: 2, dash: true });
+      c.line(flooded, { series: 1, label: 'precision', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(flooded, { series: 1, r: 3 });
+      const r = byLg.get(sig.value);
+      c.point(Math.max(0, r[0]), r[1], { series: 1, r: 6.5 });
+    },
+  });
+
+  function readout() {
+    const r = byLg.get(sig.value), lg = r[0];
+    const lam = lg < 0 ? 0 : Math.max(0, lg - LOG_B);
+    DS.stats(root + ' .readout', [
+      { label: 'Output precision', value: r[1] > 0 ? DS.fmt(r[1], 1) + ' bits' : 'none', tone: r[1] > 0 ? undefined : 'bad' },
+      { label: 'One-shot attack', value: r[2] ? 'key recovered' : 'garbage', tone: r[2] ? 'bad' : 'good' },
+      { label: 'Statistical security ≈ log₂(σ_f / B)', value: lam > 0 ? lam + ' bits' : 'none', note: 'with B ≈ 2⁶ (§3.2)', tone: lam >= 40 ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>

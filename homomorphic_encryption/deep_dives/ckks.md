@@ -4,7 +4,7 @@
 
 ---
 
-CKKS (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the FHE scheme for **approximate arithmetic on
+CKKS (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the fully homomorphic encryption (FHE) scheme for **approximate arithmetic on
 real and complex numbers**. It is the workhorse of encrypted machine learning. This document
 goes through its three distinctive pieces in depth:
 
@@ -32,7 +32,7 @@ wildly insecure; it exists to make each step visible.
 > CKKS is **fixed-point arithmetic in which the encryption noise lives in the
 > least-significant bits.**
 
-Every scheme decrypts to "message + noise". BFV puts the message in the top bits, far above the
+Every scheme decrypts to "message + noise". BFV (the Brakerski/Fan–Vercauteren scheme) puts the message in the top bits, far above the
 noise, and rounds the noise away. CKKS doesn't bother separating them. It multiplies the
 message by a big **scale** `Δ` (say 2⁴⁰) and accepts that decryption returns
 
@@ -57,7 +57,7 @@ exchange you get native real-number arithmetic and up to `N/2` values per cipher
 | `P` | special modulus for key switching | $Q_L$ |
 
 The toy uses the **original** CKKS modulus chain $Q_\ell = q_0\Delta^\ell$ with powers of two,
-so each rescale divides by *exactly* Δ. Real libraries use a chain of primes (RNS), which
+so each rescale divides by *exactly* Δ. Real libraries use a chain of primes in residue number system (RNS) form, which
 brings complications covered in §4.5–4.6.
 
 ---
@@ -77,7 +77,7 @@ so reducing a product modulo $X^N+1$ doesn't change its value at `ω`:
 $$\sigma(a \cdot b) = \sigma(a) \odot \sigma(b), \qquad \sigma(a + b) = \sigma(a) + \sigma(b)$$
 
 **Multiplying polynomials in `R` multiplies their evaluations slot by slot.** This is the
-entire basis of CKKS's SIMD behaviour. Put your data in the evaluations, and polynomial
+entire basis of CKKS's single instruction, multiple data (SIMD) behaviour. Put your data in the evaluations, and polynomial
 arithmetic becomes vector arithmetic.
 
 ### 1.2 Why only N/2 slots
@@ -100,7 +100,8 @@ $$z_j = m(\rho_j) / \Delta$$
 **Encode** inverts it. The evaluation matrix $V_{\omega,k} = \omega^k$ over all `N` roots
 satisfies $V^H V = N \cdot I$: its columns are orthogonal because
 $\sum_\omega \omega^d = 0$ for $0 < |d| < N$. Inverting is therefore "conjugate transpose,
-divide by `N`". Including the conjugate half of the vector explicitly:
+divide by `N`", which libraries compute with a variant of the fast Fourier transform (FFT).
+Including the conjugate half of the vector explicitly:
 
 $$m_k = \Big\lfloor \Delta \cdot \tfrac{2}{N} \cdot \mathrm{Re} \sum_{j} z_j\, \rho_j^{-k} \Big\rceil$$
 
@@ -143,6 +144,8 @@ The whole scheme is in that table. **Squaring the polynomial squared both slots.
 went from Δ to Δ², and dividing by Δ brought it back. The small errors come from rounding
 the coefficients to integers, exactly as noise would.
 
+<!-- figure: dd-ckks-encode -->
+
 ### 1.5 Encoding precision
 
 Rounding each coefficient moves it by at most ½. Each slot is a sum of `N` coefficients times
@@ -166,6 +169,8 @@ The first two are ring **automorphisms**. Applied to a ciphertext, they change t
 from `s(X)` to `s(X^k)`, so they need a **key switch** and a Galois key. The last two are
 completely free: no key, no noise, no level.
 
+<!-- figure: dd-ckks-slot-roots -->
+
 ---
 
 ## 2. Encryption and decryption
@@ -181,7 +186,7 @@ time, because the encoder already scaled the message.
 
 That last point is a design feature for precision and a security liability. Anyone who sees
 the exact decryption `m + e` together with the ciphertext can solve
-`c₁·s = (m + e) − c₀` for `s`. This is the **IND-CPA-D** attack of
+`c₁·s = (m + e) − c₀` for `s`. This is the attack on **IND-CPA-D** security (security even with an attacker who sees decryptions of honestly computed ciphertexts) of
 [06 §3](../06_security.md#3-ind-cpa-d-when-decryption-leaks-the-key). Never reveal raw CKKS
 decryptions without noise flooding.
 
@@ -289,6 +294,8 @@ z^16384  [ 0] max error 2^ -33.7
 That is one bit per squaring, exactly as numerical analysis predicts. The 2⁻⁴⁸ starting error
 comes from the encoder's floats (§1.5), not from the encryption.
 
+<!-- figure: dd-ckks-levels -->
+
 ### 4.4 Designing the modulus chain
 
 ```
@@ -311,7 +318,7 @@ The outer 60-bit primes are `q₀` and the special prime `P`.
 
 ### 4.5 RNS: rescaling is "drop a limb"
 
-In real libraries $Q_\ell = q_0 p_1 \cdots p_\ell$ is a product of NTT-friendly primes
+In real libraries $Q_\ell = q_0 p_1 \cdots p_\ell$ is a product of primes that suit the number-theoretic transform (NTT-friendly primes)
 ($p \equiv 1 \bmod 2N$), each stored as its own residue polynomial (an "RNS limb",
 [02 §5](../02_math_foundations.md#5-rns-making-1000-bit-moduli-fast)). Dividing by the last
 prime then needs no big-integer arithmetic:
@@ -432,7 +439,7 @@ def linear_transform(ct, M, evk):
 With `n = 2¹⁵` slots that would be 32 767 rotations, which is impossible. Real implementations:
 
 - use **baby-step giant-step**, which needs about $2\sqrt{n}$ rotations;
-- exploit the fact that `W` is a (twisted) DFT, so it **factors like an FFT** into
+- exploit the fact that `W` is a (twisted) discrete Fourier transform (DFT), so it **factors like an FFT** into
   $\log_2 n$ sparse "butterfly" matrices with only 2–3 non-zero diagonals each;
 - **merge** those layers into 2–4 groups, each costing one level. More levels means fewer
   rotations per level. OpenFHE exposes this trade-off as the **level budget**, e.g. `[4, 4]`
@@ -550,6 +557,8 @@ bits of precision. Real parameter sets solve the same optimization. They get fur
 larger CoeffToSlot scales, arcsine correction, and **Meta-BTS** (Bae et al., CCS 2022), which
 bootstraps the *error* a second time to reach 40+ bits.
 
+<!-- figure: dd-ckks-headroom -->
+
 ### 5.7 Where the time goes
 
 Key switches per toy bootstrap (measured):
@@ -571,14 +580,14 @@ Typical real-world figures, order of magnitude only:
 - **Parameters:** `N = 2¹⁶`, $\log_2(PQ) \approx$ 1500–1750 bits, about 20–30 levels in total.
 - **Levels consumed:** about 12–18 by bootstrapping, leaving about 8–12 for computation.
 - **Precision:** 20–30 bits, or 40+ with Meta-BTS or arcsine tricks.
-- **Latency:** seconds on a multi-core CPU, and about tens to hundreds of milliseconds on a
-  modern GPU (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.
+- **Latency:** seconds on a multi-core central processing unit (CPU), and about tens to hundreds of
+  milliseconds on a modern graphics processing unit (GPU) (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.
 
 ### 5.8 Variants and the research frontier
 
 - **Sparse packing:** bootstrapping only `n ≪ N/2` slots shrinks the linear transforms.
 - **Bootstrapping discrete data** (2024–2025): replace EvalMod with functions that output
-  bits or small integers, getting TFHE-style lookup tables with CKKS batching. See
+  bits or small integers, getting lookup tables in the style of TFHE (Torus fully homomorphic encryption) with CKKS batching. See
   [07 §1](../07_state_of_the_art_2026.md#ckks).
 - **MRFHE** (Cheon et al., ePrint 2026/853): recasts the DFT steps as batched matrix
   multiplications, with a constant number of key switches per ciphertext.

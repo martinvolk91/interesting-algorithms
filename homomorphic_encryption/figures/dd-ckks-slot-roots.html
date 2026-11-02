@@ -1,0 +1,56 @@
+<figure class="widget" id="w-dd-ckks-slot-roots">
+  <p class="widget-title">Where the eight slots live (N = 16)</p>
+  <p class="widget-hint">Switch between the maps. Under \(X \mapsto X^5\) the slot roots form one cycle, which is a rotation of the slots. Under \(X \mapsto X^{-1}\) every root jumps to its mirror image.</p>
+  <div class="controls"></div>
+  <div class="c-roots"></div>
+  <div class="readout"></div>
+  <figcaption>The 16 roots of \(X^{16}+1\) are the odd powers of \(\zeta = e^{i\pi/16}\). The slot roots \(\rho_j = \zeta^{5^j}\) take exactly one root from each conjugate pair; the other one (faded) carries the conjugate value. Raising to the 5th power sends \(\rho_j\) to \(\rho_{j+1}\), so \(m(X^5)\) holds the old slot \(j+1\) in slot \(j\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-slot-roots';
+  const N = 16, n = N / 2, M = 2 * N;
+  const sub = d => [...String(d)].map(c => '₀₁₂₃₄₅₆₇₈₉'[c]).join('');
+  const pt = k => [Math.cos(Math.PI * k / N), Math.sin(Math.PI * k / N)];   // zeta^k
+  const exps = [];
+  for (let j = 0, e = 1; j < n; j++, e = e * 5 % M) exps.push(e);            // 5^j mod 2N
+  const conj = exps.map(e => (M - e) % M);
+  const circle = DS.math.linspace(0, 2 * Math.PI, 129).map(t => [Math.cos(t), Math.sin(t)]);
+
+  const ui = DS.controls(root + ' .controls', () => chart.update());
+  const map = ui.choice({ label: 'Apply to m(X)', options: [
+    { value: 'none', label: 'nothing' }, { value: 'rot', label: 'X ↦ X⁵ (rotate)' }, { value: 'conj', label: 'X ↦ X⁻¹ (conjugate)' }], value: 'rot' });
+
+  function chord(c, a, b, o) {         // arrow between two roots, shortened so the head clears the dots
+    const [x0, y0] = a, [x1, y1] = b, L = Math.hypot(x1 - x0, y1 - y0), g = 0.09 / L;
+    return c.arrow(x0 + (x1 - x0) * g, y0 + (y1 - y0) * g, x1 - (x1 - x0) * g, y1 - (y1 - y0) * g, o);
+  }
+
+  const chart = DS.chart(root + ' .c-roots', {
+    x: { domain: [-1.45, 1.45], hidden: true },
+    y: { domain: [-1.45, 1.45], hidden: true },
+    equal: true, maxHeight: 420, minHeight: 300,
+    draw(c) {
+      c.line(circle, { series: 'muted', thin: true });
+      if (map.value === 'rot') {
+        for (let j = 0; j < n; j++) chord(c, pt(exps[j]), pt(exps[(j + 1) % n]), { series: 1, head: 9 });
+      }
+      if (map.value === 'conj') for (let j = 0; j < n; j++) chord(c, pt(exps[j]), pt(conj[j]), { series: 2, head: 9 });
+      c.scatter(conj.map((e, j) => ({ x: pt(e)[0], y: pt(e)[1], tip: `ζ^${e} = conjugate of ρ${sub(j)}` })), { series: 1, r: 6, opacity: 0.45 });
+      c.scatter(exps.map((e, j) => ({ x: pt(e)[0], y: pt(e)[1], tip: `ρ${sub(j)} = ζ^${e}` })), { series: 1, r: 6 });
+      exps.forEach((e, j) => {
+        const [x, y] = pt(e);
+        c.text(1.2 * x, 1.2 * y, 'ρ' + sub(j), { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+      });
+      conj.forEach((e, j) => {
+        const [x, y] = pt(e);
+        c.text(1.2 * x, 1.2 * y, 'ρ̄' + sub(j), { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+      });
+    },
+  });
+  DS.stats(root + ' .readout', [
+    { label: 'Slot roots ρ₀ … ρ₇: ζ to the power 5ʲ mod 32', value: exps.join(', ') },
+    { label: 'Their conjugates: ζ to the power −5ʲ mod 32', value: conj.join(', ') },
+  ]);
+})();
+</script>

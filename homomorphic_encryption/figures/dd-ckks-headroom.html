@@ -1,0 +1,58 @@
+<figure class="widget" id="w-dd-ckks-headroom">
+  <p class="widget-title">How much headroom should \(q_0\) leave?</p>
+  <p class="widget-hint">Start at the toy’s 14 bits. Slide down and the sine approximation’s error takes over; slide up and the error amplified by the linear transforms takes over.</p>
+  <div class="controls"></div>
+  <div class="c-head"></div>
+  <div class="readout"></div>
+  <figcaption>Each point is the worst of four bootstraps in <code>toy_ckks.py</code> with \(q_0 = \Delta \cdot 2^b\) and Δ = 2⁶⁰. Below 12 bits the precision rises by 2 bits per bit of headroom, as §5.3 predicts for the sine. Above 14 it falls by about 2 bits per bit, because CoeffToSlot sees larger inputs and SlotToCoeff multiplies the error by \(q_0/(2\pi\Delta)\). The dashed lines are straight-line fits to the two sides.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-headroom';
+  // bootstrap precision in bits, worst of 4 runs (seeds 0-3), headroom b = 4 .. 26 (toy_ckks.py with Q0 = 2^(60+b))
+  const B0 = 4;
+  const PREC = [7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 22.8, 24.4, 22.5, 20.7, 18.6, 16.3, 15.2, 12.8, 11.0,
+    9.1, 6.8, 4.5, 2.6, 0.2, -1.0];
+  const sup = v => [...String(v)].map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('');
+  const pts = PREC.map((p, i) => [B0 + i, p]);
+  function fit(sel) {                       // least-squares line through the chosen points
+    const xs = sel.map(p => p[0]), ys = sel.map(p => p[1]), mx = DS.math.mean(xs), my = DS.math.mean(ys);
+    let sxy = 0, sxx = 0;
+    sel.forEach(p => { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) ** 2; });
+    const k = sxy / sxx;
+    return x => my + k * (x - mx);
+  }
+  const sine = fit(pts.filter(p => p[0] <= 11));
+  const lin = fit(pts.filter(p => p[0] >= 15));
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const b = ui.slider({ label: 'Headroom b = log₂(q₀/Δ)', min: 4, max: 26, step: 1, value: 14, format: v => v + ' bits' });
+
+  const chart = DS.chart(root + ' .c-head', {
+    x: { domain: [4, 26], label: 'headroom b (bits)' },
+    y: { domain: [-2, 28], label: 'bootstrap precision (bits)' },
+    height: 300,
+    draw(c) {
+      c.legend([{ label: 'measured', series: 1, kind: 'dot' }, { label: 'sine approximation error', series: 2, kind: 'dash' },
+        { label: 'linear-transform error', series: 3, kind: 'dash' }]);
+      c.fn(sine, { series: 2, dash: true, from: 4, to: 17 });
+      c.fn(lin, { series: 3, dash: true, from: 11, to: 26 });
+      c.line(pts, { series: 1, label: 'precision', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(pts, { series: 1, r: 3 });
+      c.vline(b.value, { series: 'ink', dash: true });
+      c.point(b.value, PREC[b.value - B0], { series: 1, r: 6.5 });
+    },
+  });
+
+  function readout() {
+    const v = b.value, p = PREC[v - B0];
+    const which = sine(v) < lin(v) ? 'the sine approximation' : 'the linear transforms';
+    DS.stats(root + ' .readout', [
+      { label: 'q₀', value: '2' + sup(60 + v), note: 'Δ · 2' + sup(v) },
+      { label: 'Precision after bootstrapping', value: DS.fmt(p, 1) + ' bits', tone: p <= 0 ? 'bad' : undefined },
+      { label: 'Limited by', value: which },
+    ]);
+  }
+  readout();
+})();
+</script>

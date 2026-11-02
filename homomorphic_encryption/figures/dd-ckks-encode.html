@@ -1,0 +1,121 @@
+<figure class="widget" id="w-dd-ckks-encode">
+  <p class="widget-title">Encoding two slots into one polynomial (N = 4)</p>
+  <p class="widget-hint">Drag \(z_0\) or \(z_1\) and watch the four coefficients change. Then lower Δ until the decoded values (small black dots) drift away from where you put them.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Complex plane: the roots of \(X^4+1\) and the values there</p><div class="c-plane"></div></div>
+    <div><p class="panel-title">Coefficients of \(m(X)\)</p><div class="c-coef"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each slot is the value of \(m(X)/\Delta\) at one root. The conjugate root always gets the conjugate value (faded), which is what keeps the four coefficients real, so they can be rounded to integers. Rounding moves each coefficient by at most ½, so the slots come back with an error of at most \(N/(2\Delta)\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-encode';
+  const N = 4, R = 5.6;
+  const cis = t => [Math.cos(t), Math.sin(t)];
+  const zpow = k => cis(Math.PI * k / N);                     // zeta^k, zeta = e^(i pi / N)
+  const EXP = [1, 5];                                          // slot j <-> root zeta^(5^j mod 2N)
+  const ROOTS = EXP.map(zpow);
+  const z = [[3, 4], [2, -1]];                                 // the chapter's example z = (3+4i, 2-i)
+  const sub = ['₀', '₁', '₂', '₃'];
+
+  function encode(D) {
+    const exact = [], m = [];
+    for (let k = 0; k < N; k++) {
+      let re = 0;
+      for (let j = 0; j < 2; j++) {
+        const r = zpow(-EXP[j] * k);
+        re += z[j][0] * r[0] - z[j][1] * r[1];
+      }
+      exact.push(D * 2 / N * re);
+      m.push(Math.round(D * 2 / N * re));
+    }
+    return { exact, m };
+  }
+  function decode(m, D) {
+    return EXP.map(e => {
+      let re = 0, im = 0;
+      for (let k = 0; k < N; k++) { const r = zpow(e * k); re += m[k] * r[0]; im += m[k] * r[1]; }
+      return [re / D, im / D];
+    });
+  }
+  const cfmt = v => `${v[0].toFixed(4)} ${v[1] < 0 ? '−' : '+'} ${Math.abs(v[1]).toFixed(4)}i`.replace(/^-/, '−');
+
+  const ui = DS.controls(root + ' .controls', () => { plane.update(); coef.update(); readout(); });
+  const delta = ui.slider({ label: 'Scale Δ', values: [2, 4, 8, 16, 32, 64, 128, 256, 1024, 4096], value: 64,
+    format: v => `${v} = 2${[...String(Math.log2(v))].map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('')}` });
+
+  let st = encode(delta.value);
+  const circle = DS.math.linspace(0, 2 * Math.PI, 97).map(t => cis(t));
+
+  const plane = DS.chart(root + ' .c-plane', {
+    x: { domain: [-6, 6], label: 'real part' },
+    y: { domain: [-6, 6], label: 'imaginary part' },
+    equal: true, maxHeight: 380,
+    draw(c) {
+      st = encode(delta.value);
+      const dec = decode(st.m, delta.value);
+      c.line(circle, { series: 'muted', thin: true });
+      c.segment(-6, 0, 6, 0, { series: 'muted', thin: true });
+      for (let j = 0; j < 2; j++) {
+        const r = ROOTS[j], v = z[j], s = j + 1;
+        c.segment(r[0], -r[1], v[0], -v[1], { series: s, dash: true, thin: true });
+        c.segment(r[0], r[1], v[0], v[1], { series: s, dash: true, thin: true });
+        c.scatter([[r[0], -r[1]]], { series: s, r: 4, opacity: 0.4 });
+        c.scatter([[r[0], r[1]]], { series: s, r: 4 });
+        c.scatter([{ x: v[0], y: -v[1], tip: `value at the conjugate root: ${cfmt([v[0], -v[1]])}` }], { series: s, r: 6, opacity: 0.4 });
+        c.scatter([{ x: v[0], y: v[1], tip: `z${sub[j]} = ${cfmt(v)}` }], { series: s, r: 8 });
+        c.text(v[0], v[1], 'z' + sub[j], { dx: 11, dy: -9, cls: 'ink strong' });
+        const lr = 1.9, ang = Math.atan2(r[1], r[0]);
+        c.text(lr * Math.cos(ang), lr * Math.sin(ang), 'ρ' + sub[j], { anchor: 'middle', baseline: 'middle', cls: 'ink' });
+      }
+      c.scatter(dec, { series: 'ink', r: 2.5 });
+    },
+  });
+  let active = null;
+  plane.onPointer({
+    drag(x, y) {
+      if (active === null) {
+        let best = 1e9;
+        z.forEach((v, j) => [1, -1].forEach(sg => {
+          const d = Math.hypot(v[0] - x, sg * v[1] - y);
+          if (d < best) { best = d; active = { j, sg }; }
+        }));
+      }
+      const r = Math.hypot(x, y), k = r > R ? R / r : 1;
+      z[active.j] = [x * k, active.sg * y * k];
+      plane.update(); coef.update(); readout();
+    },
+  });
+  plane.svg.addEventListener('pointerup', () => { active = null; });
+  plane.svg.addEventListener('pointercancel', () => { active = null; });
+
+  const coef = DS.chart(root + ' .c-coef', {
+    x: { type: 'band', domain: ['m₀', 'm₁', 'm₂', 'm₃'] },
+    y: { domain: [-1, 1], label: 'integer coefficient' },
+    height: 300,
+    draw(c) {
+      const top = Math.max(1, ...st.exact.map(Math.abs)) * 1.25;
+      c.domain({ y: [-top, top] });
+      c.bars(st.m.map((v, k) => ({ x: 'm' + sub[k], y: v, tip: `m${sub[k]} = round(${DS.fmt(st.exact[k], 2)}) = ${DS.fmt(v, 0)}` })), { series: 7, maxWidth: 40 });
+      c.scatter(st.exact.map((v, k) => ({ x: 'm' + sub[k], y: v, tip: `before rounding: ${DS.fmt(v, 3)}` })), { series: 'ink', r: 3 });
+      st.m.forEach((v, k) => {
+        c.text('m' + sub[k], v, DS.fmt(v, 0), { anchor: 'middle', dy: v >= 0 ? -8 : 16, cls: 'ink strong' });
+      });
+      c.legend([{ label: 'mₖ = round(Δ · σ⁻¹(z)ₖ)', series: 7, kind: 'rect' }, { label: 'before rounding', series: 'ink', kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const D = delta.value, dec = decode(st.m, D);
+    const err = Math.max(...dec.map((d, j) => Math.hypot(d[0] - z[j][0], d[1] - z[j][1])));
+    DS.stats(root + ' .readout', [
+      { label: 'm(X)', value: st.m.map((v, k) => (k === 0 ? DS.fmt(v, 0) : (v < 0 ? ' − ' : ' + ') + Math.abs(v)) + ['', 'X', 'X²', 'X³'][k]).join('') },
+      { label: 'Decoded z₀', value: cfmt(dec[0]) },
+      { label: 'Decode error (worst slot)', value: err < 1e-12 ? '0' : DS.fmt(err, err < 0.001 ? 6 : 4), note: `bound N/(2Δ) = ${DS.fmt(N / (2 * D), 4)}` },
+    ]);
+  }
+  readout();
+})();
+</script>

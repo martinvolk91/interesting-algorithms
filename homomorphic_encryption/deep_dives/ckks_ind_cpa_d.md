@@ -4,11 +4,11 @@
 
 ---
 
-In 2021 Baiyu Li and Daniele Micciancio showed that CKKS, a scheme with a valid IND-CPA
-security proof, falls to a **passive key-recovery attack** as soon as someone who holds a
-ciphertext also sees its decryption. No malicious computation is involved, no fault
-injection, no side channel: one honestly computed result, shared in the ordinary way, gives
-away the secret key.
+CKKS (the Cheon–Kim–Kim–Song scheme) has a valid proof of indistinguishability under
+chosen-plaintext attack (IND-CPA). Yet an attacker who holds a ciphertext and also sees its
+decryption can recover the secret key, as Baiyu Li and Daniele Micciancio showed in 2021 with
+a **passive key-recovery attack**. No malicious computation is involved, no fault injection,
+no side channel: one honestly computed result, shared in the ordinary way, gives the key away.
 
 This document reproduces the attack on the toy CKKS, then fixes it with **noise flooding**,
 then breaks weak flooding with an **averaging attack**. Everything runs in
@@ -28,7 +28,8 @@ python3 code/ckks_attack.py      # from the homomorphic_encryption/ folder, take
 > output has one linear equation in one unknown polynomial: $c_1 \cdot s = m' - c_0$.
 > Solve it, and you have the key.
 
-Exact schemes (BFV, BGV, TFHE) round the noise away during decryption, so their outputs
+Exact schemes (BFV, the Brakerski/Fan–Vercauteren scheme; BGV, the
+Brakerski–Gentry–Vaikuntanathan scheme; TFHE, Torus fully homomorphic encryption) round the noise away during decryption, so their outputs
 contain only the message, which the attacker already knows. CKKS skipped that step to gain
 precision, and the rounding step was what protected the key.
 
@@ -40,7 +41,7 @@ precision, and the rounding step was what protected the key.
 
 In the IND-CPA game, the adversary picks two messages, gets an encryption of one of them, and
 must guess which. It sees public keys, evaluation keys and ciphertexts, **but never a
-decryption**. CKKS is IND-CPA secure under RLWE. That proof is correct and the attack does
+decryption**. CKKS is IND-CPA secure under ring learning with errors (RLWE). That proof is correct and the attack does
 not contradict it. The game simply doesn't model the attack.
 
 ### 1.2 IND-CPA-D: decryptions of honest computations
@@ -127,8 +128,8 @@ the attacker has `s` and reads a completely unrelated ciphertext.
 ring $\mathbb{F}_2[X]/(X^N+1) = \mathbb{F}_2[X]/((X+1)^N)$ is *local*: a polynomial is
 invertible exactly when the sum of its coefficients is odd. That is true for about half of all
 `c₁`. Measured: 103 of 200 results. The attacker checks the parity in advance and waits for a
-usable result. **Real libraries use RNS prime moduli**, where `c₁` is invertible with
-overwhelming probability. There the attack is a single division done prime by prime in the NTT
+usable result. **Real libraries use residue number system (RNS) prime moduli**, where `c₁` is invertible with
+overwhelming probability. There the attack is a single division done prime by prime in the number-theoretic transform (NTT)
 domain, $s = (m' - c_0)\cdot c_1^{-1}$, and it takes milliseconds even at `N = 2¹⁶`.
 
 ### 2.3 What makes it so damaging
@@ -213,6 +214,8 @@ bootstrapping at ~80 bits (Choe–Kim–Stehlé–Suvanto 2025,
 [ePrint 2025/1786](https://eprint.iacr.org/2025/1786)) exists precisely to make flooding
 affordable.
 
+<!-- figure: dd-cpad-flooding -->
+
 ---
 
 ## 4. Why the number of decryptions matters: the averaging attack
@@ -237,6 +240,8 @@ The `(6σ)²` rule follows from needing all `N` coefficients within ½ of the tr
 $\sigma/\sqrt{k} \lesssim 1/6$, a 3-sigma margin. The observed threshold (between 3 000 and
 10 000) matches the predicted ~9 200.
 
+<!-- figure: dd-cpad-averaging -->
+
 **"Just cache the noise per ciphertext" doesn't help.** A natural patch is to derive `f`
 deterministically from a hash of the ciphertext, so repeated requests get the same answer.
 But the attacker can submit $c + (k_i, 0)$ for known constants $k_i$. Each is a *different*
@@ -247,7 +252,7 @@ the known $k_i$ and averages anyway.
 adversary can observe**. In differential-privacy terms, the privacy budget composes over
 queries. Libraries expose this as a statistical-security parameter plus an expected number of
 adversarial decryptions; recent OpenFHE versions take both when configuring CKKS noise
-flooding (check the current API). The averaging attack is only one attack. The real
+flooding (check the current application programming interface, or API). The averaging attack is only one attack. The real
 requirement is the statistical bound of §3.2 over all queries combined.
 
 ---
@@ -280,8 +285,8 @@ silently voids the protection:
 |---|---|---|
 | **Exact schemes (BFV, BGV, TFHE)** | Not the noise, which is rounded away, but **decryption failures**. If failure probability is noticeable (e.g. 2⁻⁴⁰ or worse), *which* results come out wrong reveals the key. The toy TFHE at 5 bits fails 2.4 % of the time, exactly this situation ([TFHE deep dive §4.1](tfhe.md#4-programmable-bootstrapping-step-by-step)) | Cheon–Choe–Passelègue–Stehlé–Suvanto, CCS 2024 |
 | **BFV in OpenFHE** | full key recovery in minutes to hours | [ePrint 2026/2546](https://eprint.iacr.org/2026/2546) |
-| **Scheme switching CKKS → FHEW** | PEGASUS-style switching is not IND-CPA-D. Key recovery against OpenFHE's implementation | Santato–Zanotto, [ePrint 2026/285](https://eprint.iacr.org/2026/285) |
-| **Threshold FHE** | each party's *partial* decryption contains its key share times a ciphertext plus noise. Without flooding ("smudging"), the shares leak | demonstrated in the [threshold FHE deep dive §5](threshold_fhe.md#5-why-smudging-is-mandatory) |
+| **Scheme switching CKKS → FHEW** (the Ducas–Micciancio scheme) | PEGASUS-style switching is not IND-CPA-D. Key recovery against OpenFHE's implementation | Santato–Zanotto, [ePrint 2026/285](https://eprint.iacr.org/2026/285) |
+| **Threshold FHE** (fully homomorphic encryption) | each party's *partial* decryption contains its key share times a ciphertext plus noise. Without flooding ("smudging"), the shares leak | demonstrated in the [threshold FHE deep dive §5](threshold_fhe.md#5-why-smudging-is-mandatory) |
 | **Circuit privacy** | the output noise reveals information about the *server's* function | same fix: flood or sanitize ([06 §4](../06_security.md#4-circuit-privacy-and-sanitization)) |
 
 The common thread: **any channel that exposes noise, or exposes whether noise crossed a
@@ -300,7 +305,7 @@ threshold, is a channel to the secret key.**
 4. **Exact schemes:** choose parameters with **negligible** failure probability (2⁻⁶⁴ to
    2⁻¹²⁸). Libraries such as TFHE-rs now default to this range.
 5. **Never decrypt arbitrary ciphertexts on request.** That is a decryption oracle for
-   *dishonest* ciphertexts, the even stronger CCA1 setting, where lattice schemes break with a
+   *dishonest* ciphertexts, the even stronger non-adaptive chosen-ciphertext attack (CCA1) setting, where lattice schemes break with a
    few thousand queries regardless of flooding.
 6. **If results may have leaked without flooding, treat the key as compromised.**
 
