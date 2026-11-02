@@ -1,0 +1,78 @@
+<figure class="widget" id="w-p1-brute-force">
+  <p class="widget-title">Time to try every key</p>
+  <p class="widget-hint">Drag the key size down to 80 bits, then to 56. Every bit doubles the time, so all three lines climb at the same slope.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>Time for \(2^k\) trials at three rates from §8, on a log scale. The lines are
+    parallel: the whole Bitcoin network is about \(1.8 \times 10^{15}\) times faster than plain
+    Python on a laptop, and that buys only \(\log_2(1.8 \times 10^{15}) \approx 51\) bits. At
+    128 bits even the fastest rate needs about 0.8 times the age of the universe.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-brute-force';
+  const RATES = [
+    { name: 'This laptop, Python', rate: 5.7e5, rateText: '5.7 × 10⁵ keys/s', series: 1 },
+    { name: 'EFF cracker + distributed.net, 1999', rate: 2.45e11, rateText: '2.45 × 10¹¹ keys/s', series: 2 },
+    { name: 'Whole Bitcoin network', rate: 1e21, rateText: '10²¹ hashes/s', series: 3 },
+  ];
+  const YEAR = 3.156e7, UNIVERSE = 13.8e9 * YEAR;
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(ch => SUP[ch]).join('');
+  const sci = (v, unit) => {                       // 6.7 × 10¹⁰ years
+    const e = Math.floor(Math.log10(v)), m = v / 10 ** e;
+    const ms = m.toFixed(1);
+    return (ms === '10.0' ? `1.0 × 10${sup(e + 1)}` : `${ms} × 10${sup(e)}`) + (unit ? ' ' + unit : '');
+  };
+  const two = v => (v >= 10 ? Math.round(v).toString() : v.toPrecision(2));
+  function human(s) {                              // the rounding of the table in §8
+    if (s < 1e-6) return two(s * 1e9) + ' ns';
+    if (s < 1e-3) return two(s * 1e6) + ' µs';
+    if (s < 1) return two(s * 1e3) + ' ms';
+    if (s < 60) return two(s) + ' s';
+    if (s < 3600) return two(s / 60) + ' minutes';
+    if (s < 86400) return two(s / 3600) + ' hours';
+    if (s < YEAR) return two(s / 86400) + ' days';
+    const y = s / YEAR;
+    if (y < 1000) return two(y) + ' years';
+    if (y < 1e6) return (Math.round(y / 1000) * 1000).toLocaleString('en-US') + ' years';
+    if (y < 1e9) return (y / 1e6).toFixed(1) + ' million years';
+    return sci(y, 'years');
+  }
+  const lg = (bits, rate) => bits * Math.LOG10E * Math.LN2 - Math.log10(rate);   // log10(2^bits / rate)
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Key size', min: 16, max: 136, step: 1, value: 128, format: v => v + ' bits' });
+
+  const BITS = DS.math.range(121).map(i => 16 + i);
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [16, 136], label: 'Key bits k', tickValues: [16, 40, 56, 80, 100, 128], tipLabel: 'k =', tipFormat: v => v + ' bits' },
+    y: { domain: [-15, 36], label: 'Seconds (log scale)', tickValues: [-10, 0, 10, 20, 30], baseline: 'bottom',
+         format: v => (v === 0 ? '1 s' : `10${sup(v)} s`) },
+    height: 320,
+    margin: { l: 74 },
+    draw(c) {
+      c.legend(RATES.map(r => ({ label: `${r.name} (${r.rateText})`, series: r.series })));
+      c.hline(Math.log10(YEAR), { dash: true, label: '1 year', at: 'left' });
+      c.hline(Math.log10(UNIVERSE), { dash: true, label: 'age of the universe', at: 'left' });
+      const k = bits.value;
+      if (k !== 56) c.vline(56, { dash: true, label: 'DES' });
+      if (k !== 128) c.vline(128, { dash: true, label: 'AES-128' });
+      for (const r of RATES)
+        c.line(BITS.map(b => [b, lg(b, r.rate)]), { series: r.series, label: r.name, format: v => human(10 ** v) });
+      c.vline(k, { series: 'ink', label: k === 128 ? 'AES-128' : k === 56 ? 'DES' : k + ' bits', labelPos: k === 128 || k === 56 ? 'top' : 'bottom' });
+      for (const r of RATES) c.point(k, lg(k, r.rate), { series: r.series });
+    },
+  });
+
+  function readout() {
+    const k = bits.value;
+    DS.stats(root + ' .readout', [
+      { label: 'Keys to try', value: '2' + sup(k), note: '≈ ' + sci(2 ** k) },
+      ...RATES.map(r => ({ label: r.name, value: human(2 ** k / r.rate), note: r.rateText })),
+    ]);
+  }
+  readout();
+})();
+</script>

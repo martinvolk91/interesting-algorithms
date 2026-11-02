@@ -1,0 +1,68 @@
+<figure class="widget" id="w-p1-unicity">
+  <p class="widget-title">How long a message gives the key away</p>
+  <p class="widget-hint">Shorten the message to 4 characters: about 130 wrong keys now read as text. Then raise the key to 128 bits.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>Expected number of wrong keys whose decryption is "readable", using the test of
+    part 6 of the script: every byte is a lowercase letter or a space, 27 of the 256 byte values.
+    A wrong key gives a random-looking pad, so each byte passes with probability 27/256, and
+    \((2^k - 1)(27/256)^L\) wrong keys pass for an \(L\)-character message. Where the curve
+    drops below one is the unicity distance: about 6 characters for the 20-bit toy key, about 39
+    for a 128-bit key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-unicity';
+  const PASS = Math.log10(27 / 256);                       // log10 of one byte passing
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(ch => SUP[ch]).join('');
+  const wrongLog = (k, L) => Math.log10(2 ** k - 1) + L * PASS;   // log10 of expected wrong keys
+  function count(lg) {
+    const v = 10 ** lg;
+    if (lg >= 6 || lg < -2) {
+      const e = Math.floor(lg), m = (10 ** (lg - e)).toFixed(1);
+      return m === '10.0' ? `1.0 × 10${sup(e + 1)}` : `${m} × 10${sup(e)}`;
+    }
+    return v >= 10 ? Math.round(v).toLocaleString('en-US') : v.toPrecision(2);
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Key size', min: 8, max: 128, step: 1, value: 20, format: v => v + ' bits' });
+  const len = ui.slider({ label: 'Message length', min: 1, max: 60, step: 1, value: 28, format: v => v + ' characters' });
+
+  const Ls = DS.math.range(61);
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [0, 60], label: 'Message length L (characters)', tipLabel: 'L =' },
+    y: { domain: [-25, 40], label: 'Wrong keys that read as text', tickValues: [-20, -10, 0, 10, 20, 30, 40], baseline: 'bottom',
+         format: v => (v === 0 ? '1' : `10${sup(v)}`) },
+    height: 300,
+    draw(c) {
+      const k = bits.value, L = len.value;
+      const Lstar = Math.log10(2 ** k - 1) / -PASS;
+      const far = Lstar > 30;                       // keep the labels away from the crossing
+      c.hline(0, { series: 'ink' });
+      c.text(far ? 0 : 60, 0, 'several keys read as text ↑', { anchor: far ? 'start' : 'end', dx: far ? 4 : 0, dy: -6, cls: 'ink2' });
+      c.text(far ? 0 : 60, 0, 'only the right key does ↓', { anchor: far ? 'start' : 'end', dx: far ? 4 : 0, dy: 15, cls: 'ink2' });
+      c.vline(Lstar, { dash: true });
+      c.text(Lstar, 40, `unicity distance ${Lstar.toFixed(1)}`, { anchor: far ? 'end' : 'start', dx: far ? -5 : 5, dy: 11 });
+      c.line(Ls.map(l => [l, wrongLog(k, l)]), { series: 1, label: `${k}-bit key`, format: v => count(v) });
+      c.point(L, wrongLog(k, L), { series: 1 });
+    },
+  });
+
+  function readout() {
+    const k = bits.value, L = len.value;
+    const Lstar = Math.log10(2 ** k - 1) / -PASS;
+    const lg = wrongLog(k, L);
+    DS.stats(root + ' .readout', [
+      { label: 'Unicity distance', value: Lstar.toFixed(1), note: `characters, for a ${k}-bit key` },
+      { label: 'Wrong keys that read as text', value: (lg >= 0 ? '≈ ' : '') + count(lg), note: `for ${L} characters` },
+      lg >= 0 ? { label: 'Can Eve spot the right key?', value: 'no', note: 'too many keys read as text', tone: 'good' }
+        : lg >= -1 ? { label: 'Can Eve spot the right key?', value: 'usually', note: 'a wrong key sometimes also fits', tone: 'bad' }
+        : { label: 'Can Eve spot the right key?', value: 'yes', note: 'only the right key reads as text', tone: 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>

@@ -1,0 +1,94 @@
+<figure class="widget" id="w-p1-two-time-pad">
+  <p class="widget-title">Two images, one pad</p>
+  <p class="widget-hint">Each ciphertext alone is noise. Switch to a fresh pad for each image and watch the right panel turn to noise too.</p>
+  <div class="controls"></div>
+  <div class="ttp-row" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px;align-items:start">
+    <div><div class="ttp-img"></div><p class="panel-title" style="text-align:center;margin-top:6px">c₁ = m₁ ⊕ pad</p></div>
+    <div><div class="ttp-img"></div><p class="panel-title" style="text-align:center;margin-top:6px">c₂ = m₂ ⊕ pad</p></div>
+    <div><div class="ttp-img"></div><p class="panel-title ttp-label3" style="text-align:center;margin-top:6px">c₁ ⊕ c₂</p></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each pixel is one bit, and each image is XORed with a random pad of 76 × 50 bits.
+    Alice's two messages are the words MEET / NINE and a smiling face. Eve sees only c₁ and c₂,
+    and each alone is a fair coin flip per pixel. When they share a pad, c₁ ⊕ c₂ = m₁ ⊕ m₂: the
+    pad cancels and both pictures appear on top of each other, each flipping the other's pixels
+    where they overlap.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-two-time-pad';
+  const W = 76, H = 50, NPIX = W * H;
+
+  // ---- the two plaintext images (1 = dark pixel)
+  const FONT = {   // 5 x 7 glyphs
+    M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+    E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+    T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+    N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+    I: ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
+  };
+  const m1 = new Uint8Array(NPIX), m2 = new Uint8Array(NPIX);
+  function word(str, x0, y0) {         // drawn at 3x scale: each letter 15 x 21, 3 px apart
+    [...str].forEach((ch, i) => FONT[ch].forEach((row, r) => [...row].forEach((b, col) => {
+      if (b === '1') for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++)
+        m1[(y0 + 3 * r + dy) * W + x0 + 18 * i + 3 * col + dx] = 1;
+    })));
+  }
+  word('MEET', 4, 2);
+  word('NINE', 4, 27);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x + 0.5 - 38, dy = y + 0.5 - 25, d = Math.hypot(dx, dy);
+    const eye = ex => Math.hypot(x + 0.5 - ex, y + 0.5 - 17.5) <= 3.4;
+    m2[y * W + x] = Math.abs(d - 21.5) <= 2 || eye(30.5) || eye(45.5) || (Math.abs(d - 12.5) <= 1.8 && dy >= 4) ? 1 : 0;
+  }
+
+  // ---- drawing: one SVG per panel, dark pixels as a single path
+  const NS = 'http://www.w3.org/2000/svg';
+  const paths = [...document.querySelectorAll(root + ' .ttp-img')].map(host => {
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `-0.5 -0.5 ${W + 1} ${H + 1}`);
+    svg.setAttribute('role', 'img');
+    svg.style.cssText = 'display:block;width:100%;height:auto;shape-rendering:crispEdges';
+    const bg = document.createElementNS(NS, 'rect');
+    for (const [k, v] of Object.entries({ x: -0.5, y: -0.5, width: W + 1, height: H + 1, rx: 1 })) bg.setAttribute(k, v);
+    bg.style.cssText = 'fill:var(--soft);stroke:var(--line);stroke-width:0.25';
+    svg.appendChild(bg);
+    const p = document.createElementNS(NS, 'path');
+    p.style.fill = 'var(--ink)';
+    svg.appendChild(p);
+    host.appendChild(svg);
+    return p;
+  });
+  function draw(path, bits) {
+    let d = '';
+    for (let i = 0; i < NPIX; i++) if (bits[i]) d += `M${i % W},${(i / W) | 0}h1v1h-1z`;
+    path.setAttribute('d', d);
+  }
+
+  let seed = 8;
+  const ui = DS.controls(root + ' .controls', update);
+  const mode = ui.choice({ label: 'Pads', value: 'same', options: [
+    { value: 'same', label: 'One pad, used twice' }, { value: 'fresh', label: 'A fresh pad for each' }] });
+  ui.button({ label: 'New random pads', onClick: () => { seed++; } });
+
+  function update() {
+    const R = DS.random(seed);
+    const k1 = new Uint8Array(NPIX), k2 = new Uint8Array(NPIX);
+    for (let i = 0; i < NPIX; i++) k1[i] = R.int(2);
+    for (let i = 0; i < NPIX; i++) k2[i] = mode.value === 'same' ? k1[i] : R.int(2);
+    const c1 = m1.map((b, i) => b ^ k1[i]), c2 = m2.map((b, i) => b ^ k2[i]);
+    const x = c1.map((b, i) => b ^ c2[i]);
+    draw(paths[0], c1); draw(paths[1], c2); draw(paths[2], x);
+    document.querySelector(root + ' .ttp-label3').textContent = mode.value === 'same' ? 'c₁ ⊕ c₂ = m₁ ⊕ m₂' : 'c₁ ⊕ c₂';
+    let a1 = 0, ax = 0;
+    for (let i = 0; i < NPIX; i++) { a1 += c1[i] === m1[i]; ax += x[i] === (m1[i] ^ m2[i]); }
+    const n = v => v.toLocaleString('en-US');
+    DS.stats(root + ' .readout', [
+      { label: 'Pixels where c₁ matches m₁', value: DS.pct(a1 / NPIX, 0), note: `${n(a1)} of ${n(NPIX)}: a coin flip` },
+      { label: 'Pixels where c₁ ⊕ c₂ matches m₁ ⊕ m₂', value: DS.pct(ax / NPIX, 0), note: ax === NPIX ? `${n(ax)} of ${n(NPIX)}: the pad cancels` : `${n(ax)} of ${n(NPIX)}: noise again`,
+        tone: ax === NPIX ? 'bad' : undefined },
+    ]);
+  }
+  update();
+})();
+</script>
