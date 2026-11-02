@@ -4,13 +4,13 @@
 
 ---
 
-Every practical FHE scheme rests on one problem, **Learning With Errors** (LWE), usually in
-its ring form. It starts from linear algebra you know: a system of linear equations mod $q$
-is easy to solve, but add a small random error to every equation and, as far as anyone knows,
-it becomes hard, even for quantum computers. Turned into encryption, LWE is a one-time pad
-whose pad is generated from a short key plus a little noise. Adding ciphertexts works out of
-the box. The noise is what makes it secure, and it is also what limits how much you can
-compute.
+**Learning With Errors** (LWE), usually in its ring form, is the one problem that every
+practical fully homomorphic encryption (FHE) scheme rests on. It starts from linear algebra
+you know: a system of linear equations mod $q$ is easy to solve, but add a small random error
+to every equation and, as far as anyone knows, it becomes hard, even for quantum computers.
+Turned into encryption, LWE is a one-time pad whose pad is generated from a short key plus a
+little noise. Adding ciphertexts works out of the box. The noise is what makes it secure, and
+it is also what limits how much you can compute.
 
 **In this chapter**
 
@@ -84,11 +84,12 @@ There are two versions of the problem:
   in $\mathbb{Z}_q^\ell$.
 
 Decision looks easier, but for prime $q$ of polynomial size Regev showed the two are
-equivalent. Decision-LWE is the version encryption needs, because IND-CPA
-([P5](p5_security_definitions.md)) asks that ciphertexts of any two chosen messages be
-*indistinguishable*, not merely that the key is hard to find. The proof gets there by showing
-that the pad looks random, which is exactly what decision-LWE says. With $q = 2$, LWE is the older "learning parity with noise" problem; LWE
-generalizes it to larger moduli.
+equivalent. Decision-LWE is the version encryption needs, because indistinguishability under
+chosen-plaintext attack (IND-CPA, [P5](p5_security_definitions.md)) asks that ciphertexts of
+any two chosen messages be *indistinguishable*, not merely that the key is hard to find. The
+proof gets there by showing that the pad looks random, which is exactly what decision-LWE
+says. With $q = 2$, LWE is the older "learning parity with noise" problem; LWE generalizes it
+to larger moduli.
 
 ## 3. Why the noise defeats elimination
 
@@ -114,6 +115,8 @@ Noise of size at most 3 has become $(19, 46, 36, 21)$: pure garbage.
 Over the real numbers this would not happen. Least squares handles noisy equations routinely,
 because a small error times a moderate coefficient stays moderate. Mod $q$ there is no notion
 of "small" that survives multiplication: $3 \cdot 25 = 75$ wraps around to $-22$.
+
+<!-- figure: p7-noisy-elimination -->
 
 More equations do not help elimination either. Any $n$ of them give garbage. The script's
 part 2 tests $s'$ on four fresh samples: the residuals $b - \langle a, s' \rangle$ are
@@ -165,6 +168,8 @@ target is close enough to the lattice, the rounded coordinates give the nearest 
 bad basis the rounded coordinates land far away. In dimension 500 or 1000, given only a bad
 basis, nobody knows an efficient way.
 
+<!-- figure: p7-babai-rounding -->
+
 **LWE is a lattice problem.** The vectors $A z \bmod q$, for all $z \in \mathbb{Z}_q^n$,
 together with all multiples of $q$ in each coordinate, form a lattice in $\mathbb{Z}^\ell$ (a
 "$q$-ary" lattice). $A s$ is one of its points, and $b = A s + e$ is a point at distance
@@ -182,9 +187,9 @@ bigger dimension to stay secure. That trade-off is the parameter table of
 **The attack family: lattice reduction.** Algorithms that turn a bad basis into a better one
 are the main tool against LWE. **LLL** (Lenstra, Lenstra, Lovász, 1982) runs in polynomial time
 but only guarantees a vector within a factor $2^{(n-1)/2}$ of the shortest, which is useless
-for cryptographic dimensions. **BKZ** (Schnorr 1987; Schnorr and Euchner 1994) works on blocks
-of $\beta$ coordinates at a time and gets closer as $\beta$ grows, at a cost exponential in
-$\beta$. Breaking a parameter set means running BKZ with a large enough block size. The best
+for cryptographic dimensions. **BKZ** (block Korkine–Zolotarev reduction; Schnorr 1987;
+Schnorr and Euchner 1994) works on blocks of $\beta$ coordinates at a time and gets closer as
+$\beta$ grows, at a cost exponential in $\beta$. Breaking a parameter set means running BKZ with a large enough block size. The best
 known methods for that inner step (lattice sieving) take roughly $2^{0.29\beta}$ operations
 heuristically, and known quantum speedups only lower the constant in the exponent a little.
 Security estimates for FHE parameters are exactly this calculation
@@ -197,8 +202,8 @@ Most cryptography assumes that *random* instances of a problem are hard, because
 a random key produces. **Regev (2005)** proved something stronger for LWE: if an efficient
 algorithm solves LWE on random instances (with noise above a threshold that grows like
 $\sqrt{n}$), then there is an efficient **quantum** algorithm that approximately solves the
-lattice problems GapSVP and SIVP on **every** lattice of dimension $n$, to within factors
-polynomial in $n$. (Both are approximate versions of SVP: **GapSVP** asks to decide roughly
+lattice problems GapSVP and SIVP (shortest independent vectors problem) on **every** lattice
+of dimension $n$, to within factors polynomial in $n$. (Both are approximate versions of SVP: **GapSVP** asks to decide roughly
 how short the shortest vector is, **SIVP** asks for $n$ short linearly independent vectors.)
 So breaking random LWE would break the hardest instances of problems
 studied for decades. **Peikert (2009)** gave a classical, non-quantum version of the reduction
@@ -215,8 +220,10 @@ Shor's algorithm breaks factoring and discrete logarithms by finding a hidden pe
 comparable structure is known in lattice problems. No known quantum algorithm solves LWE
 substantially faster than classical ones; a 2024 claim of one was withdrawn within about ten
 days, after a bug was found ([02 §7](../02_math_foundations.md#7-why-this-is-post-quantum)).
-That is why NIST's post-quantum key-encapsulation standard ML-KEM (FIPS 203,
-[P4](p4_public_key.md)) is built on a variant of LWE, and why FHE is post-quantum too.
+That is why ML-KEM, the Module-Lattice-Based Key-Encapsulation Mechanism that the National
+Institute of Standards and Technology (NIST) standardized as Federal Information Processing
+Standard (FIPS) 203 ([P4](p4_public_key.md)), is built on a variant of LWE, and why FHE is
+post-quantum too.
 
 ## 5. Building encryption: the noisy one-time pad
 
@@ -272,6 +279,7 @@ Arrange $\mathbb{Z}_{97}$ on a circle (Regev's paper draws it the same way). The
 one of $t = 4$ sectors, each centred on $\Delta \cdot m$. The noise is the offset from the
 centre. Decryption asks which sector the phase landed in.
 
+<!-- figure: p7-decryption-wheel replaces the code block below -->
 ```text
                                  0
                       84  \               /  12
@@ -355,6 +363,8 @@ larger than the noise, so additions are almost free; it is multiplication that e
 budget fast ([P8](p8_multiplication_and_relinearization.md)), and bootstrapping that refills
 it ([P9](p9_bootstrapping.md)).
 
+<!-- figure: p7-noise-walk -->
+
 ## 7. Public-key encryption: Regev's trick
 
 So far only the holder of $s$ can encrypt. Regev's 2005 paper made it public-key with a
@@ -417,6 +427,8 @@ Chapter 02's example comes out the same:
 $(1 + 2X + X^3)(3 + X^2) = 3 + 5X + X^2 + 5X^3$ (there, $X^5 = -X$ moves a term from the top
 back to $X$).
 
+<!-- figure: p7-negacyclic-shift -->
+
 Why $X^N + 1$ and not the plain cyclic $X^N - 1$? $X^N - 1$ has the root $X = 1$, and
 evaluating at 1 keeps small things small: each sample would yield a one-dimensional equation
 $b(1) = a(1) s(1) + e(1)$ whose unknowns are sums of small coefficients, which leaks
@@ -443,9 +455,9 @@ That is where the efficiency comes from:
   message: roughly $N/2$ times less data. The ratio of ciphertext size to message size is the
   **ciphertext expansion**: $2N \log_2 q$ bits carry $N \log_2 t$ bits, a factor
   $2 \log_2 q / \log_2 t$ (about 55 with chapter 02's $\log_2 q = 438$ and a 16-bit $t$).
-- **Speed.** $a \cdot s$ costs $O(N \log N)$ with the **Number Theoretic Transform** (NTT), an
-  FFT over $\mathbb{Z}_q$ that needs $q \equiv 1 \pmod{2N}$. A matrix-vector product costs
-  $O(N^2)$. Chapter 02 explains the NTT
+- **Speed.** $a \cdot s$ costs $O(N \log N)$ with the **Number Theoretic Transform** (NTT), a
+  fast Fourier transform (FFT) over $\mathbb{Z}_q$ that needs $q \equiv 1 \pmod{2N}$. A
+  matrix-vector product costs $O(N^2)$. Chapter 02 explains the NTT
   ([02 §4](../02_math_foundations.md#4-the-number-theoretic-transform-ntt)); it is the kernel
   that FHE hardware accelerates.
 

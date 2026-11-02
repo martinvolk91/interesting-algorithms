@@ -1,0 +1,92 @@
+<figure class="widget" id="w-p7-babai-rounding">
+  <p class="widget-title">Rounding to the lattice with a good and a bad basis</p>
+  <p class="widget-hint">Drag the target point in either panel. Green is the nearest lattice
+    point; red is where rounding lands when it misses. Try targets close to a lattice point.</p>
+  <div class="widget-grid">
+    <div><p class="panel-title">Good basis \(A = (3, 1)\), \(B = (1, 2)\)</p><div class="c-good"></div></div>
+    <div><p class="panel-title">Bad basis \(C = (7, 4)\), \(D = (11, 7)\)</p><div class="c-bad"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both bases generate the same lattice (grey dots). Babai's method writes the target
+    in basis coordinates and rounds them. Every target inside the shaded cell rounds to the same
+    lattice point. Both cells have area 5, but the good basis's cell is compact and the bad
+    basis's cell is a long sliver, so a target right next to a lattice point can round to one far
+    away.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-babai-rounding';
+  const X0 = -2, X1 = 14, Y0 = -2, Y1 = 10;
+  const GOOD = { b1: [3, 1], b2: [1, 2], names: ['A', 'B'], series: 1, labelAt: 0.55 };
+  const BAD = { b1: [7, 4], b2: [11, 7], names: ['C', 'D'], series: 2, labelAt: 0.3 };
+  const LATTICE = [];
+  for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) {
+    const p = [3 * i + j, i + 2 * j];
+    if (p[0] >= X0 - 3 && p[0] <= X1 + 3 && p[1] >= Y0 - 3 && p[1] <= Y1 + 3) LATTICE.push(p);
+  }
+  const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const st = { t: [6.2, 7.4] };
+
+  function babai(B, t) {
+    const [a, c] = B.b1, [b, d] = B.b2, det = a * d - b * c;
+    const u = (d * t[0] - b * t[1]) / det, v = (-c * t[0] + a * t[1]) / det;
+    const ru = Math.round(u), rv = Math.round(v);
+    return { coords: [u, v], round: [ru, rv], p: [ru * a + rv * b, ru * c + rv * d] };
+  }
+  function nearest(t) {
+    let best = LATTICE[0];
+    for (const p of LATTICE) if (dist(p, t) < dist(best, t)) best = p;
+    return best;
+  }
+
+  function panel(sel, B) {
+    const chart = DS.chart(sel, {
+      x: { domain: [X0, X1], ticks: 8, zeroLine: true }, y: { domain: [Y0, Y1], ticks: 6 },
+      equal: true, maxHeight: 360, minHeight: 250, margin: { l: 30, r: 8 },
+      ariaLabel: 'A two-dimensional lattice with a basis, a draggable target point and the point Babai rounding picks.',
+      draw(c) {
+        const t = st.t, r = babai(B, t), n = nearest(t), hit = r.p[0] === n[0] && r.p[1] === n[1];
+        const h1 = B.b1.map(x => x / 2), h2 = B.b2.map(x => x / 2), v = r.p;
+        c.polygon([[v[0] - h1[0] - h2[0], v[1] - h1[1] - h2[1]], [v[0] + h1[0] - h2[0], v[1] + h1[1] - h2[1]],
+          [v[0] + h1[0] + h2[0], v[1] + h1[1] + h2[1]], [v[0] - h1[0] + h2[0], v[1] - h1[1] + h2[1]]],
+          { series: B.series, thin: true }).setAttribute('clip-path', c._clip());
+        c.scatter(LATTICE, { series: 'muted', r: 3 });
+        [B.b1, B.b2].forEach((b, k) => {
+          c.arrow(0, 0, b[0], b[1], { series: B.series });
+          const L = Math.hypot(b[0], b[1]), side = k === 0 ? 1 : -1, f = B.labelAt;
+          c.text(b[0] * f + side * 0.5 * b[1] / L, b[1] * f - side * 0.5 * b[0] / L, B.names[k],
+            { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+        });
+        c.text(0, 0, 'O', { anchor: 'end', dx: -6, dy: 14, cls: 'ink strong' });
+        const inView = p => p[0] >= c.x.domain[0] && p[0] <= c.x.domain[1] && p[1] >= c.y.domain[0] && p[1] <= c.y.domain[1];
+        if (!hit) c.segment(t[0], t[1], v[0], v[1], { series: 'bad', dash: true, thin: true }).setAttribute('clip-path', c._clip());
+        c.point(n[0], n[1], { series: 'good', r: 6.5 });
+        if (!hit && inView(v)) c.point(v[0], v[1], { series: 'bad', r: 6.5 });
+        c.point(t[0], t[1], { series: 'ink', r: 5 });
+      },
+    });
+    chart.onPointer({ drag(x, y) {
+      st.t = [DS.math.clamp(x, X0, X1), DS.math.clamp(y, Y0, Y1)];
+      good.update(); bad.update(); readout();
+    } });
+    return chart;
+  }
+  const good = panel(root + ' .c-good', GOOD);
+  const bad = panel(root + ' .c-bad', BAD);
+
+  const f2 = v => v.toFixed(2).replace('-', '−'), pt = p => `(${p.map(v => String(v).replace('-', '−')).join(', ')})`;
+  function readout() {
+    const t = st.t, n = nearest(t);
+    const tile = (name, B) => {
+      const r = babai(B, t), hit = r.p[0] === n[0] && r.p[1] === n[1];
+      return { label: name + ' rounds to', value: pt(r.p), tone: hit ? 'good' : 'bad',
+        note: `coordinates (${f2(r.coords[0])}, ${f2(r.coords[1])}) → ${pt(r.round)}` + (hit ? '' : `; ${f2(dist(r.p, t))} away`) };
+    };
+    DS.stats(root + ' .readout', [
+      { label: 'Target', value: `(${f2(t[0])}, ${f2(t[1])})`, note: `nearest lattice point ${pt(n)}, ${f2(dist(n, t))} away` },
+      tile('Good basis', GOOD), tile('Bad basis', BAD),
+    ]);
+  }
+  readout();
+})();
+</script>

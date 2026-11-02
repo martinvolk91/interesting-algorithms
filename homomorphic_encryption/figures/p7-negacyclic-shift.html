@@ -1,0 +1,82 @@
+<figure class="widget" id="w-p7-negacyclic-shift">
+  <p class="widget-title">Multiplying by \(X\) in \(\mathbb{Z}_{97}[X]/(X^4 + 1)\)</p>
+  <p class="widget-hint">Move the slider one step at a time from 0 and follow one colour. Then
+    switch the ring to \(X^4 - 1\) and compare column 4.</p>
+  <div class="controls"></div>
+  <div class="c-shift"></div>
+  <div class="readout"></div>
+  <figcaption>Each column is \(X^j \cdot p\) for \(p = 5 + X + 7X^2 + 2X^3\), read top to bottom as
+    the coefficients of \(1, X, X^2, X^3\). A colour follows one coefficient of \(p\). Each step
+    moves every coefficient down one row, and the bottom one comes back on top with its sign
+    flipped, because \(X^4 = -1\). Columns 0–3 side by side form the negacyclic matrix
+    \(M_p\) with \(M_p\, s = p \cdot s\), the shape of \(M_a\) in §8.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-negacyclic-shift';
+  const P = [5, 1, 7, 2], N = 4, J = 8;
+  const SUP = ['', '', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸'];
+  const MONO = ['', 'X', 'X²', 'X³'];
+  /* cols[j][i] = { v, o }: coefficient i of X^j·p, and which coefficient o of p it came from. */
+  function columns(sign) {
+    const cols = [P.map((v, i) => ({ v, o: i }))];
+    for (let j = 1; j <= J; j++) {
+      const prev = cols[j - 1];
+      cols.push([{ v: sign * prev[N - 1].v, o: prev[N - 1].o }, ...prev.slice(0, N - 1)]);
+    }
+    return cols;
+  }
+  const COLS = { nega: columns(-1), cyc: columns(1) };
+  const num = v => String(v).replace('-', '−');
+  function poly(c) {
+    let out = '';
+    c.forEach(({ v }, i) => {
+      if (v === 0) return;
+      const a = Math.abs(v), body = (a === 1 && i > 0 ? '' : String(a)) + MONO[i];
+      out += out ? (v < 0 ? ' − ' : ' + ') + body : (v < 0 ? '−' : '') + body;
+    });
+    return out || '0';
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const steps = ui.slider({ label: 'Multiply by X, j times', min: 0, max: J, step: 1, value: 4 });
+  const ring = ui.choice({ label: 'Ring', options: [{ value: 'nega', label: 'X⁴ + 1' }, { value: 'cyc', label: 'X⁴ − 1' }], value: 'nega' });
+
+  const chart = DS.chart(root + ' .c-shift', {
+    x: { domain: [-0.55, J + 0.55], tickValues: DS.math.range(J + 1), format: j => (j === 0 ? 'p' : 'X' + SUP[j] + 'p') },
+    y: { domain: [N - 0.45, -1.05], tickValues: [0, 1, 2, 3], format: i => (i === 0 ? '1' : MONO[i]), grid: false },
+    height: 250, margin: { l: 34, r: 8, t: 4 },
+    ariaLabel: 'Columns of coloured tiles: the coefficients of X^j times p for j = 0 to 8.',
+    draw(c) {
+      const j = steps.value, cols = COLS[ring.value], w = 0.42, h = 0.4;
+      cols.forEach((col, k) => col.forEach(({ v, o }, i) => {
+        const box = [[k - w, i - h], [k + w, i - h], [k + w, i + h], [k - w, i + h]];
+        if (k > j) { c.polygon(box, { fill: false, series: 'muted', thin: true, dash: true }); return; }
+        c.polygon(box, { series: o + 1, strong: true, thin: true });
+        c.text(k, i, num(v), { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+      }));
+      c.polygon([[j - 0.5, -0.5], [j + 0.5, -0.5], [j + 0.5, N - 0.5], [j - 0.5, N - 0.5]], { fill: false, series: 'ink', thin: true });
+      if (j >= 3) {
+        c.segment(-0.45, -0.72, 3.45, -0.72, { series: 'ink', thin: true });
+        c.text(1.5, -0.72, 'columns 0–3: the matrix Mₚ', { anchor: 'middle', dy: -5, cls: 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    const j = steps.value, cols = COLS[ring.value], c = cols[j], nega = ring.value === 'nega';
+    let note = 'p itself';
+    if (j > 0) {
+      const top = c[0], before = cols[j - 1][N - 1];
+      note = `last step: the X³ coefficient ${num(before.v)} came back as the constant ${num(top.v)}`;
+    }
+    const same = c.every((x, i) => x.v === P[i]), neg = c.every((x, i) => x.v === -P[i]);
+    const eq = j === 0 ? '' : same ? ' = p' : neg ? ' = −p' : '';
+    DS.stats(root + ' .readout', [
+      { label: `X${SUP[j] || (j === 1 ? '' : '⁰')}·p in Z₉₇[X]/(X⁴ ${nega ? '+' : '−'} 1)`, value: poly(c) + eq, note },
+      { label: 'X⁴ in this ring', value: nega ? '−1' : '+1', note: nega ? 'so X⁴·p = −p and X⁸·p = p' : 'so X⁴·p = p: a plain rotation' },
+    ]);
+  }
+  readout();
+})();
+</script>
