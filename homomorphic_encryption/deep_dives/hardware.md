@@ -1,17 +1,21 @@
 # Deep dive: FHE hardware (why it's slow, and how GPUs and ASICs fix it)
 
-[index](../README.md) · background: [02 §4 NTT](../02_math_foundations.md#4-the-number-theoretic-transform-ntt), [02 §5 RNS](../02_math_foundations.md#5-rns-making-1000-bit-moduli-fast), [03 §5 key switching](../03_how_it_works.md#5-relinearization-and-key-switching), [07 §4 hardware](../07_state_of_the_art_2026.md#4-hardware-acceleration)
+[index](../README.md) · background: [02 §4 number-theoretic transform](../02_math_foundations.md#4-the-number-theoretic-transform-ntt), [02 §5 residue number system](../02_math_foundations.md#5-rns-making-1000-bit-moduli-fast), [03 §5 key switching](../03_how_it_works.md#5-relinearization-and-key-switching)
 
 ---
 
-Every deep dive so far ran into the same wall: FHE is slow. This one asks **why, at the level
-of arithmetic and memory**, and looks at how CPUs, GPUs, FPGAs and dedicated chips attack the
-problem, from academic designs (F1, BTS, CraterLake, ARK, SHARP) to Intel's fabricated
-**Heracles**.
+Fully homomorphic encryption (FHE) is slow: every deep dive so far ran into that wall. This one
+asks **why, at the level of arithmetic and memory**, and looks at how central processing units
+(CPUs), graphics processing units (GPUs), field-programmable gate arrays (FPGAs) and dedicated
+chips (application-specific integrated circuits, ASICs) attack the problem, from academic
+designs (F1, BTS, CraterLake, ARK, SHARP) to Intel's fabricated **Heracles**. The short version
+is in [07 §4](../07_state_of_the_art_2026.md#4-hardware-acceleration).
 
 Measurements come from [`../code/hw_profile.py`](../code/hw_profile.py), which profiles the
-earlier toys, implements a real **negacyclic NTT**, demonstrates **RNS** limbs, and runs a cost
-model of **key switching** at bootstrapping-size parameters:
+earlier toys of the Cheon–Kim–Kim–Song (CKKS), Torus fully homomorphic encryption (TFHE) and
+Brakerski/Fan–Vercauteren (BFV) schemes, implements a real **negacyclic number-theoretic
+transform (NTT)**, demonstrates **residue number system (RNS)** limbs, and runs a cost model of
+**key switching** at bootstrapping-size parameters:
 
 ```bash
 python3 code/hw_profile.py       # from the homomorphic_encryption/ folder, ~2 s
@@ -97,6 +101,8 @@ def forward(self, a):
 Each **butterfly** is one modular multiplication, one addition and one subtraction, and there
 are `(N/2)·log₂N` of them per transform:
 
+<!-- figure: dd-hw-ntt-butterfly replaces the code block below -->
+
 ```
  stage 1 (stride N/2)      stage 2 (stride N/4)      …   stage log N (stride 1)
  a0 ──┬── a0+w·a4          a0 ──┬──                        neighbours
@@ -128,13 +134,13 @@ fewer**. No real FHE library multiplies polynomials any other way.
 ### 2.3 What makes the NTT hard for hardware
 
 - **Data access, not arithmetic.** Each stage pairs elements at a different stride (`N/2`,
-  `N/4`, …, 1). A vector or SIMD unit needs shuffles between stages, and an ASIC needs a
-  transpose network. The standard fix is the **4-step (Bailey) NTT**: view the `N` points as a
-  matrix, do small NTTs on the columns, multiply by twiddles, transpose, and do small NTTs on
-  the rows. F1 builds a `2¹⁴`-point NTT from 128-wide vector operations this way. BTS splits a
+  `N/4`, …, 1). A vector or single instruction, multiple data (SIMD) unit needs shuffles
+  between stages, and an ASIC needs a transpose network. The standard fix is the **4-step
+  (Bailey) NTT**: view the `N` points as a matrix, do small NTTs on the columns, multiply by
+  twiddles, transpose, and do small NTTs on the rows. F1 builds a `2¹⁴`-point NTT from 128-wide vector operations this way. BTS splits a
   `2¹⁷`-point NTT into 64 × 64 × 32 steps across a 2-D array of processing elements.
 - **Twiddle factors per limb.** Each RNS prime (§3) needs its own table of `ψ` powers, which
-  is extra memory that FFTs over ℂ don't need (SoK §4.1.2).
+  is extra memory that fast Fourier transforms (FFTs) over ℂ don't need (SoK §4.1.2).
 - **Modular multiplication** of 30–64-bit words (Barrett or Montgomery reduction) costs
   several integer multiplies. Multiplier area grows roughly with the square of the word
   width, which is why designs trend toward **shorter words**: SHARP uses 36-bit words, and the
@@ -203,8 +209,8 @@ of `k = α` limbs:
 
 `hw_profile.py` counts the operations of one key switch at `N = 2¹⁶` and `L = 24` limbs of
 64 bits. It then times them on a hypothetical chip with **40 960 modular multipliers at 1 GHz**
-and **3 TB/s of HBM3**, the example machine the FHE accelerator SoK uses. This is a model,
-not a measurement:
+and **3 TB/s of high-bandwidth memory (HBM3)**, the example machine the FHE accelerator SoK
+uses. This is a model, not a measurement:
 
 ```
 N = 2^16, 24 limbs of 64 bits; hypothetical chip: 41 T modmul/s, 3 TB/s HBM
@@ -232,6 +238,8 @@ What the table says:
   `N = 2¹⁶, L = 23, dnum = 4` takes **0.18 ms of compute but 2.1 ms to load its data
   (11.7×)**.
 
+<!-- figure: dd-hw-keyswitch-work -->
+
 Bootstrapping needs **dozens of distinct rotation keys**. That is gigabytes of key material
 per bootstrap if nothing is cached. Our toys show the same imbalance at miniature scale:
 
@@ -254,6 +262,8 @@ them:
 | **Reuse a key** for many operations while it sits on chip (hoisting, multi-hop rotations that use one key repeatedly, operation scheduling) | 8 uses per load: 33.6 µs / 8 = 4.2 µs ≈ compute time, i.e. balanced | ARK ("inter-operation key reuse"), hoisted rotations in software |
 | **Large on-chip memory**, so the working set never leaves the chip | traffic → ~0 for keys that fit | F1 (64 MB scratchpad), then larger on-chip storage in its successors; Heracles (64 MB on chip plus 48 GB HBM) |
 
+<!-- figure: dd-hw-roofline -->
+
 The same logic applies to the **plaintext constants** of bootstrapping's linear transforms,
 which can also run to hundreds of MB. ARK's "on-the-fly residue extension" regenerates their
 limbs on chip instead of loading them.
@@ -264,12 +274,12 @@ limbs on chip instead of loading them.
 
 - Libraries (OpenFHE, SEAL, HElib, Lattigo, TFHE-rs) use **multi-threading across limbs and
   ciphertexts**, plus SIMD for NTTs and modular arithmetic.
-- **Intel HEXL** accelerates NTTs and element-wise modular arithmetic with **AVX-512**,
-  including the IFMA instructions (52-bit integer multiply-add). Vendor material reports
-  roughly 2–5× on supported hardware.
+- **Intel HEXL** accelerates NTTs and element-wise modular arithmetic with the 512-bit
+  Advanced Vector Extensions (**AVX-512**), including the IFMA instructions (52-bit integer
+  multiply-add). Vendor material reports roughly 2–5× on supported hardware.
 - A CPU core has a few hundred GB/s of memory bandwidth at best, and tens of MB of cache. It is
   far behind on both of §4's axes. Typical CKKS bootstrapping takes **seconds** on a multi-core
-  CPU, and a TFHE PBS takes **milliseconds** per core.
+  CPU, and a TFHE programmable bootstrapping (PBS) takes **milliseconds** per core.
 
 ## 6. GPUs
 
@@ -297,7 +307,7 @@ arithmetic, and running thousands of independent TFHE bootstraps at once.
 | FIDESlib (CKKS, 2025) | bootstrapping **≥ 70×** faster than AVX-optimized OpenFHE (up to 227.8× vs non-AVX OpenFHE) |
 | Cheddar (CKKS, 32-bit) | 2.9–25.6× over earlier GPU libraries; ResNet-20 inference in 1.50 s on an A100 |
 | Theodosian (CKKS, RTX 5090) | bootstrapping 32 768 complex slots in **22.1 → 15.2 → 12.8 ms**; 1.45–1.83× over Cheddar |
-| TFHE-rs CUDA (TFHE) | PBS **< 1 ms** on an H100; ~189 000 PBS/s on 8 × H100 (vendor figures) |
+| TFHE-rs (TFHE) on NVIDIA's Compute Unified Device Architecture (CUDA) | PBS **< 1 ms** on an H100; ~189 000 PBS/s on 8 × H100 (vendor figures) |
 
 ## 7. FPGAs
 
@@ -328,7 +338,8 @@ beats adding more arithmetic.
 
 ## 9. Intel Heracles: from simulation to silicon
 
-**Heracles** is Intel's FHE accelerator from DARPA's DPRIVE program (2021–), presented at
+**Heracles** is Intel's FHE accelerator from the Data Protection in Virtual Environments
+(DPRIVE) program (2021–) of the Defense Advanced Research Projects Agency (DARPA), presented at
 **ISSCC in February 2026**. It is the first widely reported *fabricated* large FHE
 accelerator. From press coverage (the ISSCC paper itself was not available to me, so treat the
 details as secondary):
@@ -347,6 +358,8 @@ on-chip interconnect (~9.6 TB/s), so performance depends on **keeping keys and i
 data on chip** and reusing them. That is the CraterLake/ARK lesson, implemented in silicon.
 The 48 GB of HBM is there for *capacity*, holding the gigabytes of evaluation keys, more than
 for bandwidth.
+
+<!-- figure: dd-hw-memory-sizes -->
 
 **Startups and others:** Niobium (a DPRIVE spin-out; \$23M raised; reported Samsung Foundry
 8 nm deal), Cornami (reconfigurable fabric, working with DESILO on the GL scheme), Optalysys
@@ -374,8 +387,8 @@ TFHE is a different workload: small ciphertexts, one PBS per gate or lookup, and
   multi-hop rotations, operation scheduling by compilers.
 - **Hardware-shaped schemes:** the Gentry–Lee matrix scheme turns encrypted linear algebra into
   plain matrix multiplication, which suits tensor cores and systolic arrays. MRFHE batches the
-  DFT steps of bootstrapping. The CRYPTO 2026 shallow-bootstrapping work targets parallel
-  hardware explicitly ([07 §1–2](../07_state_of_the_art_2026.md#1-bootstrapping-research)).
+  discrete Fourier transform (DFT) steps of bootstrapping. The CRYPTO 2026
+  shallow-bootstrapping work targets parallel hardware explicitly ([07 §1–2](../07_state_of_the_art_2026.md#1-bootstrapping-research)).
 - **Compilers as the interface:** HEIR and similar compilers lower one program to CPU, GPU or
   accelerator backends. Google's 2026 HEIR demos reportedly involved hardware partners.
 
