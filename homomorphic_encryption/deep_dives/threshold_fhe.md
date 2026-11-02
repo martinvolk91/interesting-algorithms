@@ -1,10 +1,10 @@
 # Deep dive: threshold and multiparty FHE (and the Zama Protocol)
 
-[index](../README.md) · background: [05 Core techniques §8](../05_core_techniques.md#8-multi-party-variants), [BFV deep dive](bfv_pir.md), [IND-CPA-D deep dive](ckks_ind_cpa_d.md)
+[index](../README.md) · background: [05 Core techniques §8](../05_core_techniques.md#8-multi-party-variants) (multiparty variants of fully homomorphic encryption), [BFV deep dive](bfv_pir.md) (the Brakerski/Fan–Vercauteren scheme), [IND-CPA-D deep dive](ckks_ind_cpa_d.md) (indistinguishability with decryptions: what an attacker learns from seeing decryptions)
 
 ---
 
-Plain FHE has **one key owner**. That breaks down when:
+Plain fully homomorphic encryption (FHE) has **one key owner**. That breaks down when:
 
 - **several parties contribute data** (hospitals, banks) and none of them should be able to
   decrypt the others' data alone; or
@@ -54,9 +54,9 @@ It is pure Python, semi-honest only (no proofs against cheating parties), and in
 | Variant | Key structure | Decryption | Notes |
 |---|---|---|---|
 | **Threshold FHE** (t-of-n) | one public key, secret Shamir-shared | any `t` parties | Asharov et al. 2012; Boneh et al. 2018 ("universal thresholdizer") |
-| **Multiparty HE (MHE)** (n-of-n) | collective keys from additive contributions | all `n` parties | Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021; implemented in Lattigo |
+| **Multiparty homomorphic encryption (MHE)** (n-of-n) | collective keys from additive contributions | all `n` parties | Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021; implemented in Lattigo |
 | **Multi-key FHE** | each party keeps its own key; ciphertexts are extended on the fly | all parties whose data was used | López-Alt–Tromer–Vaikuntanathan 2012; cost grows with the number of parties |
-| **FHE + generic MPC** | keys generated and used inside a general MPC protocol | `t` parties via MPC | the Zama Protocol's KMS (§7) |
+| **FHE + generic MPC** | keys generated and used inside a general secure multiparty computation (MPC) protocol | `t` parties via MPC | the Zama Protocol's key management service (KMS, §7) |
 
 The toy combines the first two: MHE-style key generation from additive contributions, then
 Shamir sharing for t-of-n decryption.
@@ -68,7 +68,7 @@ Shamir sharing for t-of-n decryption.
 ### 2.1 The collective public key
 
 All parties agree on a common random polynomial `a`, a **common reference string**. Each party
-`i` samples its own small $s_i$ and publishes $-a\,s_i + e_i$. The sum is a valid RLWE public
+`i` samples its own small $s_i$ and publishes $-a\,s_i + e_i$. The sum is a valid ring learning with errors (RLWE) public
 key for $s = \sum_i s_i$:
 
 $$pk = \Big(\sum_i (-a\,s_i + e_i),\ a\Big) = (-a\,s + e,\ a), \qquad e = \sum_i e_i$$
@@ -106,11 +106,13 @@ def shamir_shares(contribs):
 Any single share is **uniformly random**: `S_1[0] = −1.384e+35`, against a key with
 coefficients in −3..3. That is information-theoretic hiding.
 
+<!-- figure: dd-threshold-shamir -->
+
 **Why the toy switches to a prime modulus.** Lagrange coefficients
 $\lambda_j = \prod_{k \ne j} \frac{k}{k - j}$ need inverses of differences like `2 − 1` and
 `3 − 1`. Modulo a power of two, even numbers have no inverse, and among any three party ids
 two differ by an even number. So the threshold demo sets `Q = 2¹²⁰ − 119`, the largest prime
-below 2¹²⁰. Real libraries use a product of large primes (RNS), where every small difference
+below 2¹²⁰. Real libraries use a product of large primes (a residue number system, RNS), where every small difference
 is invertible. (The alternative is Shoup's trick of clearing denominators with `n!`, which
 costs noise.)
 
@@ -153,8 +155,10 @@ with a single-party key, i.e. about 5.6 bits.
 **Galois keys** are easier: $\sigma_k(s) = \sum_i \sigma_k(s_i)$ is linear in the
 contributions, so one round like §2.1 suffices.
 
-**TFHE bootstrapping keys** are the hardest. They are GGSW encryptions of the individual
-**bits** of `s`, and extracting bits of a secret-shared value needs a general MPC protocol.
+**Bootstrapping keys for TFHE** (Torus fully homomorphic encryption) are the hardest. They
+are GGSW encryptions (general ciphertexts in the ring version of the Gentry–Sahai–Waters
+scheme) of the individual **bits** of `s`, and extracting bits of a secret-shared value needs
+a general MPC protocol.
 This is the most expensive part of setting up threshold TFHE, and it is what the Zama KMS's
 distributed key generation does (§7).
 
@@ -256,8 +260,8 @@ smudging sigma   decrypts   budget left   key recovered from one public decrypti
 In single-key BFV, decryption **rounds** the noise away, which is why exact schemes are
 IND-CPA-D secure ([BFV §2.1](bfv_pir.md#21-encrypt-and-decrypt)). In threshold decryption the
 **unrounded** value $c_0 + \sum h_j = \Delta m + e$ is computed in the open, by whoever
-combines the partials. The noise `e` depends on the secret key, so **threshold BFV, BGV and
-TFHE face the same problem as CKKS** in the
+combines the partials. The noise `e` depends on the secret key, so **threshold BFV, BGV (Brakerski–Gentry–Vaikuntanathan) and
+TFHE face the same problem as CKKS (Cheon–Kim–Kim–Song)** in the
 [IND-CPA-D deep dive](ckks_ind_cpa_d.md): the noise must be statistically hidden.
 
 ### 5.3 How much smudging
@@ -285,6 +289,8 @@ smudging sigma   decrypts   budget left   key recovered from one public decrypti
 Over 20 trials each, 2¹⁰⁸ still decrypted correctly every time and 2¹¹⁰ never did
 ($\Delta \approx 2^{112}$). So the modulus has to hold the message, plus the computation noise,
 plus **about λ extra bits** for smudging. This is the "flooding tax" of threshold FHE.
+
+<!-- figure: dd-threshold-smudging -->
 
 ### 5.4 TFHE has no room: Noah's Ark
 
@@ -367,9 +373,9 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 | collective relinearization key (§2.3) | TFHE bootstrapping and key-switching keys, generated in MPC: the heavy part |
 | untrusted server (§3) | coprocessors running TFHE-rs, cross-checked by majority vote |
 | threshold decryption + smudging (§4–5) | **public decryption**: KMS threshold decryption with noise flooding (Noah's Ark) |
-| re-encryption to a user's key (§6) | **user decryption**: the KMS delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention ML-KEM), not an FHE key switch |
+| re-encryption to a user's key (§6) | **user decryption**: the KMS delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention ML-KEM, the Module-Lattice-Based Key-Encapsulation Mechanism), not an FHE key switch |
 | no access control | an ACL decides who may request a decryption of which value |
-| semi-honest, no proofs | robust MPC, enclave attestation, ZK proofs of input encryption |
+| semi-honest, no proofs | robust MPC, enclave attestation, zero-knowledge (ZK) proofs of input encryption |
 
 ### 7.2 What the trust model rests on
 
@@ -389,7 +395,7 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 
 ## 8. Other uses of threshold and multiparty FHE
 
-- **Medical and financial consortia:** joint statistics, GWAS and survival analysis without
+- **Medical and financial consortia:** joint statistics, genome-wide association studies (GWAS) and survival analysis without
   pooling data (Lattigo's MHE, Tune Insight).
 - **Federated learning:** encrypted model aggregation with no central key holder.
 - **Voting and sealed-bid auctions:** tally or compare, then threshold-decrypt only the result.

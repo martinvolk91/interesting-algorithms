@@ -1,0 +1,160 @@
+<figure class="widget" id="w-dd-pir-lookup">
+  <p class="widget-title">One private lookup, slot by slot</p>
+  <p class="widget-hint">Pick a number and watch which cells survive. Then switch on the server's view and pick another number: nothing the server sees changes.</p>
+  <div class="controls"></div>
+  <p class="legend-line" style="font-size:13px;margin:0 0 6px;color:var(--fg-2)">
+    <span class="legend-swatch sw1"></span>tag
+    <span class="legend-swatch sw2" style="margin-left:12px"></span>label
+    <span class="legend-swatch" style="margin-left:12px;background:var(--grid);outline:1px solid var(--line)"></span>0 (empty)
+    <span class="legend-swatch" style="margin-left:12px;background:var(--ink)"></span>1 in the query
+  </p>
+  <div class="c-grid"></div>
+  <div class="readout"></div>
+  <div class="bucket-table"></div>
+  <figcaption>The toy database from <code>code/pir_caller_id.py</code>: 60 numbers in 64 buckets, word \(w\) of every bucket in plaintext \(P_w\). The two halves of each row are the two slot rows, and rotations wrap within a half. Multiplying by the one-hot query zeroes every bucket but one, the shifts lay its 8 words side by side, and the sum is one ciphertext. The server runs the same 8 plaintext products and 7 rotations for every number, and every row it touches after the first block is encrypted.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-pir-lookup';
+  // Computed by code/pir_caller_id.py (random.seed(11)): table[b] = the (tag, label) pairs of bucket b.
+  const TABLE = [[[207,1]],[[69,4],[26,3]],[[198,1],[35,6]],[[129,6]],[[74,3]],[],[[201,6]],[[73,4]],[],[],[[203,2]],[],[[102,3]],[[76,1],[47,5]],[[128,5],[107,2]],[],[],[[37,1]],[],[],[],[[219,4]],[],[[84,2]],[[128,1]],[],[[231,6],[35,2]],[[202,2]],[],[[166,2]],[[14,2],[125,1]],[[1,4],[185,4],[226,3]],[],[[256,2],[194,1],[93,4],[205,6]],[],[[219,6]],[],[],[[141,1],[168,4],[81,4],[98,5]],[[163,3]],[[111,4]],[[67,3],[20,5]],[[192,1],[93,1]],[[200,4]],[[116,6]],[[187,2]],[],[[112,4]],[[103,1],[78,4]],[],[[17,3]],[[188,1]],[[23,1]],[[157,1]],[[54,4]],[[180,2]],[[240,6],[42,2],[197,4]],[],[[63,2]],[[27,1]],[],[],[],[]];
+  // The four lookups printed by the script: number, bucket, tag.
+  const LOOKUPS = [['+1-202-555-0157', 38, 141], ['+1-202-555-0171', 12, 102], ['+1-202-555-0159', 38, 168], ['+1-202-555-0102', 28, 5]];
+  const LABELS = { 1: 'Spam', 2: 'Telemarketer', 3: 'Pizza Napoli', 4: "Dr. Weber's practice", 5: 'City Library', 6: 'Bike repair shop' };
+  const N = 64, ROW = 32, WORDS = 8;
+  const slotOf = (b, off) => Math.floor(b / ROW) * ROW + ((b % ROW) + off) % ROW;
+  // plaintext w, slot i -> value (tag for even w, label for odd w)
+  const P = [];
+  for (let w = 0; w < WORDS; w++) {
+    const row = new Array(N).fill(0);
+    TABLE.forEach((bucket, b) => { if ((w >> 1) < bucket.length) row[slotOf(b, 0)] = bucket[w >> 1][w & 1]; });
+    P.push(row);
+  }
+
+  const ui = DS.controls(root + ' .controls', render);
+  const pick = ui.select({ label: 'Incoming call from', options: LOOKUPS.map((l, i) => ({ value: String(i), label: l[0] })), value: '0' });
+  const server = ui.toggle({ label: "Server's view", value: false });
+
+  const host = document.querySelector(root + ' .c-grid');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  let lookups = 0;                       // fresh randomness per query, as a real encryption has
+
+  function render() {
+    lookups++;
+    const [number, b, tag] = LOOKUPS[+pick.value];
+    const hide = server.value;
+    const W = Math.max(300, host.clientWidth || 640);
+    const narrow = W < 520;
+    const labW = narrow ? 26 : 34, gap = 6;
+    const cw = (W - labW - gap) / N, ch = narrow ? 11 : 13, rg = 2;
+    const X = i => labW + i * cw + (i >= ROW ? gap : 0);
+    let y = 0;
+    host.textContent = '';
+    const svg = el('svg', { class: 'ds-svg', role: 'img', 'aria-label': 'Database, query, masked rows and response of one PIR lookup' }, host);
+    const R = DS.random(1000 + 7 * lookups);
+    const fillCell = (g, i, yy, v, kind) => {
+      const r = el('rect', { x: X(i) + 0.5, y: yy, width: Math.max(1, cw - 1), height: ch }, g);
+      if (kind === 'enc') { r.setAttribute('fill', 'var(--ink-muted)'); r.setAttribute('fill-opacity', (0.12 + 0.6 * R.uniform()).toFixed(2)); }
+      else if (!v) r.setAttribute('fill', 'var(--grid)');
+      else r.setAttribute('class', kind);
+    };
+    const heading = (txt, note) => {
+      y += 16;
+      const t = el('text', { x: 0, y, class: 'ink2 strong' }, svg); t.textContent = txt;
+      if (note) { const n = el('tspan', { class: 'ink2', 'font-weight': 400 }, t); n.textContent = '  ' + note; }
+      y += 6;
+    };
+    const rowLabel = (txt, yy) => { const t = el('text', { x: 0, y: yy + ch - 2, class: 'ink2' }, svg); t.textContent = txt; if (narrow) t.style.fontSize = '10.5px'; };
+    const outline = (i, yy, h) => el('rect', { x: X(i) - 0.5, y: yy - 1.5, width: cw + 1, height: h + 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    const sub = w => 'P' + '₀₁₂₃₄₅₆₇'[w];
+
+    // 1. the database (plaintext, the server's own)
+    heading('Database', narrow ? '' : '8 plaintexts: P₀ = tags of entry 1, P₁ = their labels, …');
+    const g1 = el('g', {}, svg);
+    for (let w = 0; w < WORDS; w++) {
+      rowLabel(sub(w), y);
+      for (let i = 0; i < N; i++) fillCell(g1, i, y, P[w][i], w % 2 ? 'f2' : 'f1');
+      y += ch + rg;
+    }
+    if (!hide) outline(slotOf(b, 0), y - WORDS * (ch + rg), WORDS * (ch + rg) - rg);
+    const bt = el('text', { x: X(slotOf(b, 0)) + cw / 2, y: y + 12, 'text-anchor': 'middle', class: 'ink' }, svg);
+    bt.textContent = hide ? '' : 'bucket ' + b;
+    y += hide ? 0 : 12;
+
+    // 2. the query
+    heading('Query', hide ? 'one ciphertext: looks random' : 'Enc(1 in slot ' + b + ', 0 elsewhere)');
+    const g2 = el('g', {}, svg);
+    rowLabel('q', y);
+    for (let i = 0; i < N; i++) {
+      if (hide) fillCell(g2, i, y, 1, 'enc');
+      else fillCell(g2, i, y, i === slotOf(b, 0) ? 1 : 0, 'fink');
+    }
+    y += ch + rg;
+
+    // 3. masked and shifted rows
+    heading('q ⊙ P_w, shifted right by w', hide ? 'encrypted' : 'only bucket ' + b + ' survives');
+    const g3 = el('g', {}, svg);
+    const resp = new Array(N).fill(0);
+    for (let w = 0; w < WORDS; w++) {
+      rowLabel(sub(w), y);
+      const target = slotOf(b, w), v = P[w][slotOf(b, 0)];
+      resp[target] = v;
+      for (let i = 0; i < N; i++) {
+        if (hide) fillCell(g3, i, y, 1, 'enc');
+        else fillCell(g3, i, y, i === target ? v : 0, w % 2 ? 'f2' : 'f1');
+      }
+      if (!hide) outline(target, y, ch);
+      y += ch + rg;
+    }
+
+    // 4. the response
+    heading('Response = sum of the 8 rows', hide ? 'one ciphertext, sent back' : 'slots ' + slotOf(b, 0) + '…' + slotOf(b, 7));
+    const g4 = el('g', {}, svg);
+    rowLabel('r', y);
+    for (let i = 0; i < N; i++) {
+      if (hide) fillCell(g4, i, y, 1, 'enc');
+      else { let w = -1; for (let k = 0; k < WORDS; k++) if (slotOf(b, k) === i) w = k; fillCell(g4, i, y, w >= 0 ? resp[i] : 0, w % 2 ? 'f2' : 'f1'); }
+    }
+    y += ch + 4;
+    svg.setAttribute('viewBox', `0 0 ${W} ${y}`);
+    svg.setAttribute('width', W); svg.setAttribute('height', y);
+
+    // readouts
+    const words = [];
+    for (let w = 0; w < WORDS; w++) words.push(resp[slotOf(b, w)]);
+    const pairs = [0, 1, 2, 3].map(e => [words[2 * e], words[2 * e + 1]]);
+    const hit = pairs.find(p => p[0] === tag);
+    const tableHost = document.querySelector(root + ' .bucket-table');
+    if (hide) {
+      DS.stats(root + ' .readout', [
+        { label: 'Server receives', value: '1 ciphertext', note: '1920 bytes, the same size for every number' },
+        { label: 'Server work', value: '8 + 7', note: 'plaintext products + rotations, every query' },
+        { label: 'Server learns', value: 'nothing', note: 'which bucket survived is encrypted', tone: 'good' },
+      ]);
+      tableHost.style.display = 'none';
+    } else {
+      DS.stats(root + ' .readout', [
+        { label: 'Bucket = H₁(number) mod 64', value: String(b) },
+        { label: 'Tag = H₂(number) mod 256 + 1', value: String(tag) },
+        { label: 'Client reads', value: hit ? LABELS[hit[1]] : 'unknown', note: hit ? 'the entry whose tag matches' : 'no entry has this tag', tone: hit ? 'good' : undefined },
+      ]);
+      tableHost.style.display = '';
+      DS.table(root + ' .bucket-table', {
+        columns: ['Decrypted', 'tag', 'label', ''],
+        rows: pairs.map((p, e) => [
+          { text: 'entry ' + (e + 1), th: true },
+          p[0] ? String(p[0]) : '0',
+          p[0] ? p[1] + ' (' + LABELS[p[1]] + ')' : '0 (empty)',
+          p[0] === tag ? '← your tag' : p[0] ? 'not yours' : '',
+        ]),
+      });
+    }
+  }
+  render();
+  if ('ResizeObserver' in window) {
+    let lastW = host.clientWidth;
+    new ResizeObserver(() => { if (Math.abs(host.clientWidth - lastW) > 2) { lastW = host.clientWidth; lookups--; render(); } }).observe(host);
+  }
+})();
+</script>
