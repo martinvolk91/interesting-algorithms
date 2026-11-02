@@ -6,6 +6,7 @@
 <title>08 · Ecosystem and applications</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -86,83 +87,83 @@ function renderMath() {
 <tr>
 <td><strong>OpenFHE</strong></td>
 <td>C++ (+ <code>openfhe-python</code>)</td>
-<td>BGV, BFV, CKKS, FHEW, CGGI/TFHE, scheme switching, threshold</td>
+<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>, <abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, scheme switching, threshold</td>
 <td>Duality + community (successor of PALISADE)</td>
 <td>The broadest feature set. Best documented security notes. Not always the fastest</td>
 </tr>
 <tr>
 <td><strong>Microsoft SEAL</strong></td>
 <td>C++ (.NET wrapper)</td>
-<td>BFV, BGV, CKKS</td>
+<td><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></td>
 <td>Microsoft</td>
 <td>Mature and stable. Low development activity, and no new NuGet packages</td>
 </tr>
 <tr>
 <td><strong>HElib</strong></td>
 <td>C++</td>
-<td>BGV, CKKS</td>
+<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></td>
 <td>IBM</td>
-<td>Pioneer library (Halevi–Shoup). Has BGV bootstrapping</td>
+<td>Pioneer library (Halevi–Shoup). Has <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> bootstrapping</td>
 </tr>
 <tr>
 <td><strong>Lattigo</strong></td>
 <td>Go</td>
-<td>BGV/BFV, CKKS, <strong>multiparty</strong></td>
+<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, <strong>multiparty</strong></td>
 <td>Tune Insight</td>
-<td>Clean API and strong multiparty support. MRFHE (2026) was built on it</td>
+<td>Clean <abbr title="application programming interface">API</abbr> and strong multiparty support. MRFHE (2026) was built on it</td>
 </tr>
 <tr>
-<td><strong>TFHE-rs</strong></td>
+<td><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs</strong></td>
 <td>Rust (+ C, JS/WASM)</td>
-<td>TFHE (booleans, shortint, radix integers)</td>
+<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (booleans, shortint, radix integers)</td>
 <td>Zama</td>
-<td>The default for TFHE. CUDA backend</td>
+<td>The default for <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>. <abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr> backend</td>
 </tr>
 <tr>
-<td><strong>Concrete / Concrete ML</strong></td>
+<td><strong>Concrete / Concrete <abbr title="machine learning">ML</abbr></strong></td>
 <td>Python</td>
-<td>TFHE (compiler)</td>
+<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (compiler)</td>
 <td>Zama</td>
-<td>Python/NumPy → FHE. scikit-learn-style encrypted ML</td>
+<td>Python/NumPy → <abbr title="fully homomorphic encryption">FHE</abbr>. scikit-learn-style encrypted <abbr title="machine learning">ML</abbr></td>
 </tr>
 <tr>
 <td><strong>HEaaN</strong></td>
 <td>C++ / Python</td>
-<td>CKKS</td>
-<td>CryptoLab (CKKS authors)</td>
-<td>Fast CKKS with GPU support. Commercial licence</td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></td>
+<td>CryptoLab (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> authors)</td>
+<td>Fast <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> with <abbr title="graphics processing unit">GPU</abbr> support. Commercial licence</td>
 </tr>
 <tr>
 <td><strong>swift-homomorphic-encryption</strong></td>
 <td>Swift</td>
-<td>BFV, PIR</td>
+<td><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="private information retrieval">PIR</abbr></td>
 <td>Apple</td>
 <td>Production code behind Live Caller ID Lookup</td>
 </tr>
 <tr>
 <td><strong>FIDESlib</strong>, <strong>Cheddar</strong>, <strong>Phantom</strong></td>
-<td>C++/CUDA</td>
-<td>CKKS (GPU)</td>
+<td>C++/<abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr></td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (<abbr title="graphics processing unit">GPU</abbr>)</td>
 <td>academic</td>
-<td>Fastest CKKS bootstrapping numbers reported on GPUs</td>
+<td>Fastest <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping numbers reported on <abbr title="graphics processing unit">GPU</abbr>s</td>
 </tr>
 <tr>
-<td><strong>Liberate.FHE</strong></td>
-<td>Python (GPU)</td>
-<td>CKKS</td>
+<td><strong>Liberate.<abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
+<td>Python (<abbr title="graphics processing unit">GPU</abbr>)</td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></td>
 <td>DESILO</td>
-<td>GPU CKKS in Python</td>
+<td><abbr title="graphics processing unit">GPU</abbr> <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> in Python</td>
 </tr>
 <tr>
 <td><strong>Poulpy</strong></td>
 <td>Rust</td>
-<td>CKKS-style, CPU-focused</td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>-style, <abbr title="central processing unit">CPU</abbr>-focused</td>
 <td>newer project</td>
-<td>API still evolving</td>
+<td><abbr title="application programming interface">API</abbr> still evolving</td>
 </tr>
 <tr>
 <td><strong>HEIR</strong></td>
-<td>MLIR / Python</td>
+<td><abbr title="Multi-Level Intermediate Representation (a compiler framework)">MLIR</abbr> / Python</td>
 <td>compiler → OpenFHE, Lattigo, …</td>
 <td>Google</td>
 <td>Not a scheme library. A compiler that targets them</td>
@@ -170,30 +171,30 @@ function renderMath() {
 <tr>
 <td><strong>TenSEAL</strong>, <strong>Pyfhel</strong></td>
 <td>Python</td>
-<td>CKKS/BFV via SEAL</td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> via SEAL</td>
 <td>OpenMined / community</td>
 <td>Easy for learning. Check maintenance status</td>
 </tr>
 </tbody>
 </table></div>
 <p><strong>For hands-on experiments in this repo</strong> (Python): <code>openfhe-python</code> for all schemes and the
-most faithful view of the internals, <code>concrete-python</code> / <code>concrete-ml</code> for TFHE and ML, and
-<code>tenseal</code> for the fastest "hello CKKS".</p>
+most faithful view of the internals, <code>concrete-python</code> / <code>concrete-ml</code> for <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> and <abbr title="machine learning">ML</abbr>, and
+<code>tenseal</code> for the fastest "hello <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>".</p>
 <h2 id="2-what-makes-a-problem-a-good-fit-for-fhe">2. What makes a problem a good fit for FHE<a class="headerlink" href="#2-what-makes-a-problem-a-good-fit-for-fhe" title="Link to this section">#</a></h2>
-<p>FHE works best when <strong>all</strong> of these hold:</p>
+<p><abbr title="fully homomorphic encryption">FHE</abbr> works best when <strong>all</strong> of these hold:</p>
 <ol>
 <li><strong>The data owner and the key owner are the same party</strong>, and that party only wants the
    result back (single-client outsourcing).</li>
 <li><strong>Low multiplicative depth</strong>, or a computation that is mostly <strong>linear</strong>: sums, dot products,
    lookups, low-degree polynomials.</li>
-<li><strong>Massive data parallelism</strong> that fills the SIMD slots.</li>
+<li><strong>Massive data parallelism</strong> that fills the <abbr title="single instruction, multiple data">SIMD</abbr> slots.</li>
 <li><strong>Latency tolerance</strong>: seconds to minutes are acceptable.</li>
 <li><strong>High value of confidentiality</strong>: regulation (GDPR, HIPAA, banking secrecy), competition
    between data holders, or a zero-trust stance towards the cloud or hardware vendor.</li>
 </ol>
 <p>Bad fits: deep sequential computation, heavy branching on secret data, real-time interactive
-workloads, and multi-party computation where everyone has inputs. Use MPC for the last one, or
-threshold FHE.</p>
+workloads, and multi-party computation where everyone has inputs. Use <abbr title="secure multiparty computation">MPC</abbr> for the last one, or
+threshold <abbr title="fully homomorphic encryption">FHE</abbr>.</p>
 <h2 id="3-application-areas">3. Application areas<a class="headerlink" href="#3-application-areas" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -205,28 +206,28 @@ threshold FHE.</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Private Information Retrieval (PIR)</strong></td>
+<td><strong>Private Information Retrieval (<abbr title="private information retrieval">PIR</abbr>)</strong></td>
 <td>Client sends an encrypted index or key. Server computes a plaintext-DB × encrypted-selector product, which is depth ~1–2</td>
-<td><strong>Apple Live Caller ID Lookup</strong> (BFV), Apple Enhanced Visual Search (nearest-neighbour lookup + DP)</td>
+<td><strong>Apple Live Caller ID Lookup</strong> (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>), Apple Enhanced Visual Search (nearest-neighbour lookup + <abbr title="differential privacy">DP</abbr>)</td>
 </tr>
 <tr>
 <td><strong>Private set intersection / membership</strong></td>
 <td>Encrypted lookup against a breach or blocklist</td>
-<td><strong>Microsoft Edge Password Monitor</strong> (BFV, PSI with OPRF)</td>
+<td><strong>Microsoft Edge Password Monitor</strong> (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="private set intersection">PSI</abbr> with <abbr title="oblivious pseudorandom function">OPRF</abbr>)</td>
 </tr>
 <tr>
-<td><strong>Encrypted ML inference (MLaaS)</strong></td>
+<td><strong>Encrypted <abbr title="machine learning">ML</abbr> inference (MLaaS)</strong></td>
 <td>Client encrypts features. Server runs the model. Client decrypts the prediction</td>
-<td>Fraud and credit scoring, medical risk models; Concrete ML, CKKS pipelines. Encrypted LLMs remain research (ch. 07)</td>
+<td>Fraud and credit scoring, medical risk models; Concrete <abbr title="machine learning">ML</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> pipelines. Encrypted <abbr title="large language model">LLM</abbr>s remain research (ch. 07)</td>
 </tr>
 <tr>
 <td><strong>Cross-organization analytics</strong></td>
-<td>Several data holders compute joint statistics without pooling raw data (often threshold / multiparty HE)</td>
+<td>Several data holders compute joint statistics without pooling raw data (often threshold / multiparty <abbr title="homomorphic encryption">HE</abbr>)</td>
 <td>AML / financial crime (IMDA–Mastercard PoC), hospital consortia (Duality with Dana-Farber and Tel Aviv Sourasky), Tune Insight in Swiss hospitals</td>
 </tr>
 <tr>
 <td><strong>Genomics</strong></td>
-<td>Encrypted GWAS, similarity search, ancestry</td>
+<td>Encrypted <abbr title="genome-wide association study">GWAS</abbr>, similarity search, ancestry</td>
 <td>The iDASH competition track (2015–2023), CryptoLab–Macrogen contract</td>
 </tr>
 <tr>
@@ -236,24 +237,24 @@ threshold FHE.</p>
 </tr>
 <tr>
 <td><strong>Federated learning</strong></td>
-<td>Secure aggregation of encrypted model updates (threshold HE)</td>
+<td>Secure aggregation of encrypted model updates (threshold <abbr title="homomorphic encryption">HE</abbr>)</td>
 <td>Research and pilots</td>
 </tr>
 <tr>
 <td><strong>Ads / measurement</strong></td>
-<td>Additive HE for conversion and join statistics</td>
-<td>Google Private Join and Compute (Paillier-style, not FHE)</td>
+<td>Additive <abbr title="homomorphic encryption">HE</abbr> for conversion and join statistics</td>
+<td>Google Private Join and Compute (Paillier-style, not <abbr title="fully homomorphic encryption">FHE</abbr>)</td>
 </tr>
 <tr>
 <td><strong>E-voting</strong></td>
-<td>Additive HE tallying</td>
-<td>Helios-style systems (ElGamal), not FHE</td>
+<td>Additive <abbr title="homomorphic encryption">HE</abbr> tallying</td>
+<td>Helios-style systems (ElGamal), not <abbr title="fully homomorphic encryption">FHE</abbr></td>
 </tr>
 </tbody>
 </table></div>
 <p>Note the pattern among the <strong>shipping</strong> deployments (Apple, Microsoft): they are
-<strong>private lookups with shallow circuits on exact schemes (BFV)</strong>, technically leveled /
-somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
+<strong>private lookups with shallow circuits on exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>)</strong>, technically leveled /
+somewhat <abbr title="homomorphic encryption">HE</abbr> with no bootstrapping. That is the real-world sweet spot today.</p>
 <h2 id="4-fhe-vs-the-other-privacy-technologies">4. FHE vs the other privacy technologies<a class="headerlink" href="#4-fhe-vs-the-other-privacy-technologies" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -268,7 +269,7 @@ somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>FHE</strong></td>
+<td><strong><abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
 <td>inputs and outputs during computation</td>
 <td>math only (lattices)</td>
 <td>slow: 10²–10⁴×</td>
@@ -276,7 +277,7 @@ somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
 <td>single-client outsourcing, lookups, inference</td>
 </tr>
 <tr>
-<td><strong>MPC</strong> (secret sharing, garbled circuits)</td>
+<td><strong><abbr title="secure multiparty computation">MPC</abbr></strong> (secret sharing, garbled circuits)</td>
 <td>each party's inputs</td>
 <td>non-collusion of parties</td>
 <td>fast compute, <strong>heavy communication</strong></td>
@@ -284,12 +285,12 @@ somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
 <td>several parties with inputs, auctions, key management</td>
 </tr>
 <tr>
-<td><strong>TEE / confidential computing</strong> (SGX, TDX, SEV-SNP, confidential GPUs)</td>
+<td><strong><abbr title="trusted execution environment">TEE</abbr> / confidential computing</strong> (SGX, TDX, SEV-SNP, confidential <abbr title="graphics processing unit">GPU</abbr>s)</td>
 <td>data in use</td>
 <td><strong>trust the hardware vendor</strong>, side-channel risk</td>
 <td>~native</td>
 <td>none</td>
-<td>general workloads, LLM inference today</td>
+<td>general workloads, <abbr title="large language model">LLM</abbr> inference today</td>
 </tr>
 <tr>
 <td><strong>Zero-knowledge proofs</strong></td>
@@ -317,9 +318,9 @@ somewhat HE with no bootstrapping. That is the real-world sweet spot today.</p>
 </tr>
 </tbody>
 </table></div>
-<p>These are <strong>complements, not competitors</strong>. Real systems combine them: Apple uses FHE + DP + an
-anonymization network, Zama uses FHE + threshold MPC + ZK, and threshold FHE is itself a hybrid
-of FHE and MPC.</p>
+<p>These are <strong>complements, not competitors</strong>. Real systems combine them: Apple uses <abbr title="fully homomorphic encryption">FHE</abbr> + <abbr title="differential privacy">DP</abbr> + an
+anonymization network, Zama uses <abbr title="fully homomorphic encryption">FHE</abbr> + threshold <abbr title="secure multiparty computation">MPC</abbr> + <abbr title="zero knowledge">ZK</abbr>, and threshold <abbr title="fully homomorphic encryption">FHE</abbr> is itself a hybrid
+of <abbr title="fully homomorphic encryption">FHE</abbr> and <abbr title="secure multiparty computation">MPC</abbr>.</p>
 <h3 id="quick-decision-guide">Quick decision guide<a class="headerlink" href="#quick-decision-guide" title="Link to this section">#</a></h3>
 <div class="highlight"><pre><span></span><code>Need to compute on data you can&#39;t see?
 ├─ One data owner, outsourcing to an untrusted server?
@@ -335,8 +336,8 @@ of FHE and MPC.</p>
 <hr />
 <h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
 <ul>
-<li><del>Build a toy <strong>PIR</strong> with BFV</del> → done in pure Python: <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a>. Next step: the same with openfhe-python at realistic sizes.</li>
-<li>Concrete ML: train a small model and run encrypted inference; measure accuracy vs bit width.</li>
+<li><del>Build a toy <strong><abbr title="private information retrieval">PIR</abbr></strong> with <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></del> → done in pure Python: <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a>. Next step: the same with openfhe-python at realistic sizes.</li>
+<li>Concrete <abbr title="machine learning">ML</abbr>: train a small model and run encrypted inference; measure accuracy vs bit width.</li>
 <li>How Apple's Live Caller ID protocol is structured, and what Apple can and can't see.</li>
 <li><del>Zama Protocol architecture</del> → done: <a href="deep_dives/threshold_fhe.html#7-how-the-zama-protocol-uses-threshold-fhe">deep_dives/threshold_fhe.md §7</a>.</li>
 </ul>

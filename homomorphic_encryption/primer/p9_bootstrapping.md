@@ -640,7 +640,7 @@ sits.
 6. In the toy, the identity table and the $[m \ge 2]$ table cost exactly the same. Why? And
    why could a scheme with only `+` and `×` mod 4 never compute $[m \ge 2]$ on $\mathbb{Z}_4$?
 
-### Answers
+**Answers**
 
 1. Decryption needs `s`, which the server must never have. It evaluates the circuit $D_c$,
    with the ciphertext's numbers as constants, homomorphically on the bootstrapping key and

@@ -6,6 +6,7 @@
 <title>Deep dive: CKKS (encoding, rescaling, bootstrapping)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -106,13 +107,13 @@ function renderMath() {
 <h1 id="deep-dive-ckks-encoding-rescaling-bootstrapping">Deep dive: CKKS (encoding, rescaling, bootstrapping)<a class="headerlink" href="#deep-dive-ckks-encoding-rescaling-bootstrapping" title="Link to this section">#</a></h1>
 <p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html">02 Math foundations</a>, <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-4-ckks-cheonkimkimsong-2017">04 Schemes</a></p>
 <hr />
-<p>CKKS (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the FHE scheme for <strong>approximate arithmetic on
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the <abbr title="fully homomorphic encryption">FHE</abbr> scheme for <strong>approximate arithmetic on
 real and complex numbers</strong>. It is the workhorse of encrypted machine learning. This document
 goes through its three distinctive pieces in depth:</p>
 <ol>
 <li><strong>Encoding</strong>: how a vector of complex numbers becomes one polynomial, and why that makes
    polynomial multiplication act slot by slot.</li>
-<li><strong>Rescaling</strong>: how CKKS keeps numbers at a fixed scale, like fixed-point arithmetic, and
+<li><strong>Rescaling</strong>: how <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> keeps numbers at a fixed scale, like fixed-point arithmetic, and
    why its errors behave like floating-point errors.</li>
 <li><strong>Bootstrapping</strong>: how a ciphertext that has used up its levels is refreshed, step by step.</li>
 </ol>
@@ -127,11 +128,11 @@ wildly insecure; it exists to make each step visible.</p>
 <hr />
 <h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
 <blockquote>
-<p>CKKS is <strong>fixed-point arithmetic in which the encryption noise lives in the
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> is <strong>fixed-point arithmetic in which the encryption noise lives in the
 least-significant bits.</strong></p>
 </blockquote>
-<p>Every scheme decrypts to "message + noise". BFV puts the message in the top bits, far above the
-noise, and rounds the noise away. CKKS doesn't bother separating them. It multiplies the
+<p>Every scheme decrypts to "message + noise". <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> puts the message in the top bits, far above the
+noise, and rounds the noise away. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> doesn't bother separating them. It multiplies the
 message by a big <strong>scale</strong> <code>Δ</code> (say 2⁴⁰) and accepts that decryption returns</p>
 <div class="math-display">\[\Delta \cdot z + e \quad\longrightarrow\quad z + e/\Delta\]</div>
 <p>so the result is correct to roughly <code>log₂Δ − log₂|e|</code> bits, like a floating-point mantissa. In
@@ -198,8 +199,8 @@ exchange you get native real-number arithmetic and up to <code>N/2</code> values
 </tr>
 </tbody>
 </table></div>
-<p>The toy uses the <strong>original</strong> CKKS modulus chain \(Q_\ell = q_0\Delta^\ell\) with powers of two,
-so each rescale divides by <em>exactly</em> Δ. Real libraries use a chain of primes (RNS), which
+<p>The toy uses the <strong>original</strong> <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> modulus chain \(Q_\ell = q_0\Delta^\ell\) with powers of two,
+so each rescale divides by <em>exactly</em> Δ. Real libraries use a chain of primes (<abbr title="residue number system">RNS</abbr>), which
 brings complications covered in §4.5–4.6.</p>
 <hr />
 <h2 id="1-encoding">1. Encoding<a class="headerlink" href="#1-encoding" title="Link to this section">#</a></h2>
@@ -211,13 +212,13 @@ brings complications covered in §4.5–4.6.</p>
 so reducing a product modulo \(X^N+1\) doesn't change its value at <code>ω</code>:</p>
 <div class="math-display">\[\sigma(a \cdot b) = \sigma(a) \odot \sigma(b), \qquad \sigma(a + b) = \sigma(a) + \sigma(b)\]</div>
 <p><strong>Multiplying polynomials in <code>R</code> multiplies their evaluations slot by slot.</strong> This is the
-entire basis of CKKS's SIMD behaviour. Put your data in the evaluations, and polynomial
+entire basis of <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>'s <abbr title="single instruction, multiple data">SIMD</abbr> behaviour. Put your data in the evaluations, and polynomial
 arithmetic becomes vector arithmetic.</p>
 <h3 id="12-why-only-n2-slots">1.2 Why only N/2 slots<a class="headerlink" href="#12-why-only-n2-slots" title="Link to this section">#</a></h3>
 <p>Plaintext polynomials have <strong>real</strong> (integer) coefficients, so the value at a conjugate root is
 the conjugate value: \(m(\bar\omega) = \overline{m(\omega)}\). Half of the <code>N</code> evaluations are
 therefore determined by the other half, which leaves <strong>N/2 free complex values</strong>.</p>
-<p>Which half to use? CKKS uses the roots \(\rho_j = \zeta^{5^j}\), \(j = 0..n-1\). The number 5
+<p>Which half to use? <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> uses the roots \(\rho_j = \zeta^{5^j}\), \(j = 0..n-1\). The number 5
 has order <code>N/2</code> modulo <code>2N</code>, and \(\{\pm 5^j \bmod 2N\}\) is exactly the set of odd residues. So
 the <code>ρ_j</code> together with their conjugates \(\zeta^{-5^j}\) are all <code>N</code> roots, each used once.
 §1.6 explains why the powers of 5 are the right choice.</p>
@@ -244,7 +245,7 @@ divide by <code>N</code>". Including the conjugate half of the vector explicitly
     <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">mk</span> <span class="o">*</span> <span class="n">r</span><span class="o">**</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">mk</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">m</span><span class="p">))</span> <span class="o">/</span> <span class="n">scale</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ROOTS</span><span class="p">]</span>
 </code></pre></div>
 
-<p>Real libraries compute both directions with an \(O(N \log N)\) FFT variant instead of these
+<p>Real libraries compute both directions with an \(O(N \log N)\) <abbr title="fast Fourier transform">FFT</abbr> variant instead of these
 \(O(N^2)\) sums.</p>
 <h3 id="14-worked-example-n--4-δ--64">1.4 Worked example (N = 4, Δ = 64)<a class="headerlink" href="#14-worked-example-n--4-δ--64" title="Link to this section">#</a></h3>
 <p>With <code>N = 4</code> there are 2 slots, attached to \(\rho_0 = \zeta = e^{i\pi/4}\) and
@@ -291,7 +292,7 @@ the coefficients to integers, exactly as noise would.</p>
 unit-modulus roots, so the slot error is at most \(N/(2\Delta)\), and typically about
 \(\sqrt{N}/\Delta\). Encoding alone loses about <code>log₂N</code> bits of the <code>log₂Δ</code> available.</p>
 <p>The toy decodes with error 2⁻⁴⁸ at Δ = 2⁶⁰. That limit comes from <strong>Python's 53-bit floats</strong>
-in the encoder (coefficients are around 2⁵⁹), not from CKKS. Real libraries hit the same wall,
+in the encoder (coefficients are around 2⁵⁹), not from <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. Real libraries hit the same wall,
 which is one reason scales above about 2⁵⁰ need extended-precision encoders.</p>
 <h3 id="16-three-slot-tricks-that-come-free-with-the-encoding">1.6 Three slot tricks that come free with the encoding<a class="headerlink" href="#16-three-slot-tricks-that-come-free-with-the-encoding" title="Link to this section">#</a></h3>
 <div class="table-wrap"><table>
@@ -330,8 +331,8 @@ from <code>s(X)</code> to <code>s(X^k)</code>, so they need a <strong>key switch
 completely free: no key, no noise, no level.</p>
 <hr />
 <h2 id="2-encryption-and-decryption">2. Encryption and decryption<a class="headerlink" href="#2-encryption-and-decryption" title="Link to this section">#</a></h2>
-<p>Standard RLWE (see <a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>), with one
-difference from BFV: there is <strong>no plaintext modulus <code>t</code></strong> and no Δ multiplied in at encryption
+<p>Standard <abbr title="ring learning with errors">RLWE</abbr> (see <a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>), with one
+difference from <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>: there is <strong>no plaintext modulus <code>t</code></strong> and no Δ multiplied in at encryption
 time, because the encoder already scaled the message.</p>
 <ul>
 <li><code>sk = s</code> (small ternary). <code>pk = (b, a) = (−a·s + e, a) mod Q_L</code>.</li>
@@ -341,14 +342,14 @@ time, because the encoder already scaled the message.</p>
 </ul>
 <p>That last point is a design feature for precision and a security liability. Anyone who sees
 the exact decryption <code>m + e</code> together with the ciphertext can solve
-<code>c₁·s = (m + e) − c₀</code> for <code>s</code>. This is the <strong>IND-CPA-D</strong> attack of
-<a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>. Never reveal raw CKKS
+<code>c₁·s = (m + e) − c₀</code> for <code>s</code>. This is the <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> attack of
+<a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>. Never reveal raw <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>
 decryptions without noise flooding.</p>
 <hr />
 <h2 id="3-homomorphic-operations-and-their-bookkeeping">3. Homomorphic operations and their bookkeeping<a class="headerlink" href="#3-homomorphic-operations-and-their-bookkeeping" title="Link to this section">#</a></h2>
 <p>Every ciphertext carries two numbers besides its polynomials: its <strong>level</strong> <code>ℓ</code> (modulus
 \(Q_\ell\)) and its <strong>scale</strong>. In the toy the scale is always exactly Δ after each operation. In
-RNS libraries it isn't (§4.6).</p>
+<abbr title="residue number system">RNS</abbr> libraries it isn't (§4.6).</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -416,7 +417,7 @@ RNS libraries it isn't (§4.6).</p>
 <p>The term <code>d₂·s²</code> is removed by <strong>key switching</strong> with a key <code>(b, a) = (−a·s + e + P·s², a) mod P·Q_L</code>:</p>
 <div class="math-display">\[\big(u_0, u_1\big) = \Big\lfloor \tfrac{d_2 \cdot (b, a)}{P} \Big\rceil \quad\Rightarrow\quad u_0 + u_1 s = d_2 s^2 + \underbrace{d_2 e / P}_{\text{small if } P \gtrsim Q_\ell} + \text{rounding}\]</div>
 <p>The large <strong>special modulus <code>P</code></strong> is what keeps the added noise small. The toy uses <code>P = Q_L</code>
-for simplicity. Real libraries use <strong>hybrid key switching</strong>: split <code>d₂</code> into <code>dnum</code> RNS digits,
+for simplicity. Real libraries use <strong>hybrid key switching</strong>: split <code>d₂</code> into <code>dnum</code> <abbr title="residue number system">RNS</abbr> digits,
 so that <code>P</code> only needs to be about \(Q^{1/\text{dnum}}\). That trades key size and modulus budget
 against compute.</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">key_switch</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
@@ -492,16 +493,16 @@ comes from the encoder's floats (§1.5), not from the encryption.</p>
 <li>The total \(\log_2(P \cdot Q_L)\) must stay under the security bound for <code>N</code>
   (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>).</li>
 </ul>
-<p>Example: Microsoft SEAL's basic CKKS example uses <code>N = 8192</code> with primes of <code>{60, 40, 40, 60}</code>
+<p>Example: Microsoft SEAL's basic <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> example uses <code>N = 8192</code> with primes of <code>{60, 40, 40, 60}</code>
 bits and scale 2⁴⁰. That is 200 bits in total (the limit is 218), giving 2 multiplications.
 The outer 60-bit primes are <code>q₀</code> and the special prime <code>P</code>.</p>
 <h3 id="45-rns-rescaling-is-drop-a-limb">4.5 RNS: rescaling is "drop a limb"<a class="headerlink" href="#45-rns-rescaling-is-drop-a-limb" title="Link to this section">#</a></h3>
-<p>In real libraries \(Q_\ell = q_0 p_1 \cdots p_\ell\) is a product of NTT-friendly primes
-(\(p \equiv 1 \bmod 2N\)), each stored as its own residue polynomial (an "RNS limb",
+<p>In real libraries \(Q_\ell = q_0 p_1 \cdots p_\ell\) is a product of <abbr title="number-theoretic transform">NTT</abbr>-friendly primes
+(\(p \equiv 1 \bmod 2N\)), each stored as its own residue polynomial (an "<abbr title="residue number system">RNS</abbr> limb",
 <a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5</a>). Dividing by the last
 prime then needs no big-integer arithmetic:</p>
 <div class="math-display">\[c&#x27; = \frac{c - [c]_{p_\ell}}{p_\ell} \quad\Longrightarrow\quad c&#x27;_i = \big(c_i - [c]_{p_\ell}\big)\cdot p_\ell^{-1} \bmod q_i \quad \text{for each remaining limb } i\]</div>
-<p>It costs one inverse NTT of the dropped limb, <code>ℓ</code> forward NTTs, and some multiplications.</p>
+<p>It costs one inverse <abbr title="number-theoretic transform">NTT</abbr> of the dropped limb, <code>ℓ</code> forward <abbr title="number-theoretic transform">NTT</abbr>s, and some multiplications.</p>
 <h3 id="46-scale-drift-the-price-of-rns">4.6 Scale drift: the price of RNS<a class="headerlink" href="#46-scale-drift-the-price-of-rns" title="Link to this section">#</a></h3>
 <p>Primes can't all equal Δ exactly, since each must be ≡ 1 mod 2N. After rescaling, the scale is
 \(\Delta^2/p_\ell\), which is close to Δ but not equal to it, and it differs from level to level.
@@ -510,7 +511,7 @@ scales</strong>, and adding them silently computes the wrong thing. Fixes used i
 <ul>
 <li>choose primes alternately just above and just below Δ so the drift cancels;</li>
 <li><strong>track the exact scale per level</strong> and fold the correction into constants and plaintexts.
-  This is Kim–Papadimitriou–Polyakov's "reduced approximation error" CKKS, the <code>FLEXIBLEAUTO</code>
+  This is Kim–Papadimitriou–Polyakov's "reduced approximation error" <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the <code>FLEXIBLEAUTO</code>
   mode in OpenFHE, which also rescales <em>lazily</em>, just before the next multiplication;</li>
 <li>when levels must be aligned, multiply by a corrective constant rather than just dropping limbs.</li>
 </ul>
@@ -518,7 +519,7 @@ scales</strong>, and adding them silently computes the wrong thing. Fixes used i
 plain <code>drop()</code>.</p>
 <h3 id="47-precision-budget-in-one-line">4.7 Precision budget, in one line<a class="headerlink" href="#47-precision-budget-in-one-line" title="Link to this section">#</a></h3>
 <div class="math-display">\[\text{bits of precision} \approx \log_2\Delta \;-\; \log_2(\text{noise}) \;-\; \log_2(\text{condition number of your computation})\]</div>
-<p>Real deployments typically get 20–40 bits. Enough for ML, not enough for exact arithmetic.</p>
+<p>Real deployments typically get 20–40 bits. Enough for <abbr title="machine learning">ML</abbr>, not enough for exact arithmetic.</p>
 <hr />
 <h2 id="5-bootstrapping">5. Bootstrapping<a class="headerlink" href="#5-bootstrapping" title="Link to this section">#</a></h2>
 <p>Levels run out: in the toy, after 14 squarings the ciphertext sits at level 0 (modulus <code>q₀</code>)
@@ -589,7 +590,7 @@ costs one level.</p>
 <p>With <code>n = 2¹⁵</code> slots that would be 32 767 rotations, which is impossible. Real implementations:</p>
 <ul>
 <li>use <strong>baby-step giant-step</strong>, which needs about \(2\sqrt{n}\) rotations;</li>
-<li>exploit the fact that <code>W</code> is a (twisted) DFT, so it <strong>factors like an FFT</strong> into
+<li>exploit the fact that <code>W</code> is a (twisted) <abbr title="discrete Fourier transform">DFT</abbr>, so it <strong>factors like an <abbr title="fast Fourier transform">FFT</abbr></strong> into
   \(\log_2 n\) sparse "butterfly" matrices with only 2–3 non-zero diagonals each;</li>
 <li><strong>merge</strong> those layers into 2–4 groups, each costing one level. More levels means fewer
   rotations per level. OpenFHE exposes this trade-off as the <strong>level budget</strong>, e.g. <code>[4, 4]</code>
@@ -697,7 +698,7 @@ squared    [ 0] max error 2^ -20.3
 <p>A ciphertext with <strong>zero</strong> levels left became one with <strong>3</strong> levels left, and computation
 continued. Bootstrapping used 11 of the 14 levels (CoeffToSlot 1, EvalMod 9, SlotToCoeff 1),
 and the precision dropped from ~34 bits to ~23 bits. Both effects are characteristic of real
-CKKS bootstrapping: <strong>it consumes most of the modulus, and it costs precision.</strong></p>
+<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping: <strong>it consumes most of the modulus, and it costs precision.</strong></p>
 <h3 id="56-the-headroom-trade-off">5.6 The headroom trade-off<a class="headerlink" href="#56-the-headroom-trade-off" title="Link to this section">#</a></h3>
 <p>How much bigger than the message should \(q_0\) be? Measured in the toy (worst of 4 runs,
 Δ = 2⁶⁰):</p>
@@ -777,30 +778,30 @@ bootstraps the <em>error</em> a second time to reach 40+ bits.</p>
 </tbody>
 </table></div>
 <p>In the toy, EvalMod dominates only because <code>n = 8</code> makes the linear transforms trivial. At
-real sizes (\(n = 2^{15}\) slots) the linear transforms need hundreds of rotations even with BSGS
-and FFT factoring, and they dominate. The CRYPTO 2026 matrix-FHE bootstrapping paper reports
-CoeffToSlot and SlotToCoeff at <strong>54.9–71.7 %</strong> of prior CKKS bootstrapping time
+real sizes (\(n = 2^{15}\) slots) the linear transforms need hundreds of rotations even with <abbr title="baby-step giant-step">BSGS</abbr>
+and <abbr title="fast Fourier transform">FFT</abbr> factoring, and they dominate. The CRYPTO 2026 matrix-FHE bootstrapping paper reports
+CoeffToSlot and SlotToCoeff at <strong>54.9–71.7 %</strong> of prior <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping time
 (<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1</a>).</p>
 <p>Typical real-world figures, order of magnitude only:</p>
 <ul>
 <li><strong>Parameters:</strong> <code>N = 2¹⁶</code>, \(\log_2(PQ) \approx\) 1500–1750 bits, about 20–30 levels in total.</li>
 <li><strong>Levels consumed:</strong> about 12–18 by bootstrapping, leaving about 8–12 for computation.</li>
 <li><strong>Precision:</strong> 20–30 bits, or 40+ with Meta-BTS or arcsine tricks.</li>
-<li><strong>Latency:</strong> seconds on a multi-core CPU, and about tens to hundreds of milliseconds on a
-  modern GPU (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.</li>
+<li><strong>Latency:</strong> seconds on a multi-core <abbr title="central processing unit">CPU</abbr>, and about tens to hundreds of milliseconds on a
+  modern <abbr title="graphics processing unit">GPU</abbr> (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.</li>
 </ul>
 <h3 id="58-variants-and-the-research-frontier">5.8 Variants and the research frontier<a class="headerlink" href="#58-variants-and-the-research-frontier" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Sparse packing:</strong> bootstrapping only <code>n ≪ N/2</code> slots shrinks the linear transforms.</li>
 <li><strong>Bootstrapping discrete data</strong> (2024–2025): replace EvalMod with functions that output
-  bits or small integers, getting TFHE-style lookup tables with CKKS batching. See
+  bits or small integers, getting <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-style lookup tables with <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> batching. See
   <a href="../07_state_of_the_art_2026.html#ckks">07 §1</a>.</li>
-<li><strong>MRFHE</strong> (Cheon et al., ePrint 2026/853): recasts the DFT steps as batched matrix
+<li><strong>MRFHE</strong> (Cheon et al., ePrint 2026/853): recasts the <abbr title="discrete Fourier transform">DFT</abbr> steps as batched matrix
   multiplications, with a constant number of key switches per ciphertext.</li>
-<li><strong>Gentry–Lee matrix FHE</strong> (2025–2026): a different encoding in which the linear-transform
+<li><strong>Gentry–Lee matrix <abbr title="fully homomorphic encryption">FHE</abbr></strong> (2025–2026): a different encoding in which the linear-transform
   share of bootstrapping drops to 20.1 %.</li>
 <li><strong>Hardware</strong> (CraterLake, ARK, SHARP, Intel Heracles): largely built to run exactly this
-  pipeline, i.e. the NTTs, automorphisms and key switching of §5.2.</li>
+  pipeline, i.e. the <abbr title="number-theoretic transform">NTT</abbr>s, automorphisms and key switching of §5.2.</li>
 </ul>
 <hr />
 <h2 id="6-security-notes-specific-to-ckks">6. Security notes specific to CKKS<a class="headerlink" href="#6-security-notes-specific-to-ckks" title="Link to this section">#</a></h2>
@@ -814,7 +815,7 @@ CoeffToSlot and SlotToCoeff at <strong>54.9–71.7 %</strong> of prior CKKS boot
 <li><strong>Bootstrapping keys are big.</strong> Rotation keys for all the needed rotations can reach several
   GB at <code>N = 2¹⁶</code>, which is a practical cost on both client and server.</li>
 <li><strong>The toy's parameters are not secure</strong> in any sense. <code>N = 16</code> has no security at all.
-  Bootstrappable CKKS at 128-bit security needs <code>N = 2¹⁶</code> (or <code>N = 2¹⁵</code> with sparse secrets
+  Bootstrappable <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> at 128-bit security needs <code>N = 2¹⁶</code> (or <code>N = 2¹⁵</code> with sparse secrets
   and a tight chain).</li>
 </ul>
 <hr />
@@ -866,7 +867,7 @@ here</strong>, because <code>openfhe</code> is not installed in this environment
    many more double angles EvalMod needs.</li>
 <li><strong>Replace the diagonal method with baby-step giant-step</strong> and count rotations.</li>
 <li><strong>Add the arcsine correction</strong> after EvalMod and measure the precision gain.</li>
-<li><strong>Switch to an RNS prime chain</strong> (primes ≡ 1 mod 32 close to 2⁶⁰) and watch scale drift
+<li><strong>Switch to an <abbr title="residue number system">RNS</abbr> prime chain</strong> (primes ≡ 1 mod 32 close to 2⁶⁰) and watch scale drift
    appear.</li>
 </ol>
 <hr />
@@ -874,17 +875,17 @@ here</strong>, because <code>openfhe</code> is not installed in this environment
 <ul>
 <li>Cheon, Kim, Kim, Song. <em>Homomorphic Encryption for Arithmetic of Approximate Numbers</em>. Asiacrypt 2017. <a href="https://eprint.iacr.org/2016/421">ePrint 2016/421</a></li>
 <li>Cheon, Han, Kim, Kim, Song. <em>Bootstrapping for Approximate Homomorphic Encryption</em>. Eurocrypt 2018. <a href="https://eprint.iacr.org/2018/153">ePrint 2018/153</a></li>
-<li>Cheon, Han, Kim, Kim, Song. <em>A Full RNS Variant of Approximate Homomorphic Encryption</em>. SAC 2018. <a href="https://eprint.iacr.org/2018/931">ePrint 2018/931</a></li>
+<li>Cheon, Han, Kim, Kim, Song. <em>A Full <abbr title="residue number system">RNS</abbr> Variant of Approximate Homomorphic Encryption</em>. SAC 2018. <a href="https://eprint.iacr.org/2018/931">ePrint 2018/931</a></li>
 <li>Chen, Chillotti, Song. <em>Improved Bootstrapping for Approximate Homomorphic Encryption</em>. Eurocrypt 2019. <a href="https://eprint.iacr.org/2018/1043">ePrint 2018/1043</a></li>
 <li>Han, Ki. <em>Better Bootstrapping for Approximate Homomorphic Encryption</em>. CT-RSA 2020. <a href="https://eprint.iacr.org/2019/688">ePrint 2019/688</a></li>
-<li>Lee, Lee, Kim, No. <em>High-Precision Bootstrapping of RNS-CKKS HE Using Optimal Minimax Polynomial Approximation and Inverse Sine Function</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/552">ePrint 2020/552</a></li>
-<li>Bossuat, Mouchet, Troncoso-Pastoriza, Hubaux. <em>Efficient Bootstrapping for Approximate HE with Non-Sparse Keys</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1203">ePrint 2020/1203</a></li>
+<li>Lee, Lee, Kim, No. <em>High-Precision Bootstrapping of <abbr title="residue number system">RNS</abbr>-CKKS <abbr title="homomorphic encryption">HE</abbr> Using Optimal Minimax Polynomial Approximation and Inverse Sine Function</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/552">ePrint 2020/552</a></li>
+<li>Bossuat, Mouchet, Troncoso-Pastoriza, Hubaux. <em>Efficient Bootstrapping for Approximate <abbr title="homomorphic encryption">HE</abbr> with Non-Sparse Keys</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1203">ePrint 2020/1203</a></li>
 <li>Kim, Papadimitriou, Polyakov. <em>Approximate Homomorphic Encryption with Reduced Approximation Error</em>. CT-RSA 2022. <a href="https://eprint.iacr.org/2020/1118">ePrint 2020/1118</a></li>
-<li>Bossuat, Troncoso-Pastoriza, Hubaux. <em>Bootstrapping for Approximate HE with Negligible Failure-Probability by Using Sparse-Secret Encapsulation</em>. ACNS 2022. <a href="https://eprint.iacr.org/2022/024">ePrint 2022/024</a></li>
+<li>Bossuat, Troncoso-Pastoriza, Hubaux. <em>Bootstrapping for Approximate <abbr title="homomorphic encryption">HE</abbr> with Negligible Failure-Probability by Using Sparse-Secret Encapsulation</em>. ACNS 2022. <a href="https://eprint.iacr.org/2022/024">ePrint 2022/024</a></li>
 <li>Bae, Cheon, Cho, Kim, Kim. <em>META-BTS: Bootstrapping Precision Beyond the Limit</em>. CCS 2022. <a href="https://eprint.iacr.org/2022/1167">ePrint 2022/1167</a></li>
 <li>Halevi, Shoup. <em>Algorithms in HElib</em>. CRYPTO 2014. <a href="https://eprint.iacr.org/2014/106">ePrint 2014/106</a></li>
 <li>Li, Micciancio. <em>On the Security of Homomorphic Encryption on Approximate Numbers</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1533">ePrint 2020/1533</a></li>
-<li>2024–2026 work (discrete CKKS, MRFHE, GL bootstrapping): see <a href="../07_state_of_the_art_2026.html#sources-for-this-chapter">07 State of the art</a>.</li>
+<li>2024–2026 work (discrete <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, MRFHE, GL bootstrapping): see <a href="../07_state_of_the_art_2026.html#sources-for-this-chapter">07 State of the art</a>.</li>
 </ul>
 <blockquote>
 <p>Several ePrint numbers above are cited from memory. If a link doesn't match its title,

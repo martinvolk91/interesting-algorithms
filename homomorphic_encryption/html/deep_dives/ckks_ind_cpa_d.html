@@ -6,6 +6,7 @@
 <title>Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -87,14 +88,14 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)<a class="headerlink" href="#deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="ckks.html">CKKS deep dive</a>, <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 Security §3</a></p>
+<p><a href="../index.html">index</a> · background: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive</a>, <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 Security §3</a></p>
 <hr />
-<p>In 2021 Baiyu Li and Daniele Micciancio showed that CKKS, a scheme with a valid IND-CPA
+<p>In 2021 Baiyu Li and Daniele Micciancio showed that <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, a scheme with a valid <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>
 security proof, falls to a <strong>passive key-recovery attack</strong> as soon as someone who holds a
 ciphertext also sees its decryption. No malicious computation is involved, no fault
 injection, no side channel: one honestly computed result, shared in the ordinary way, gives
 away the secret key.</p>
-<p>This document reproduces the attack on the toy CKKS, then fixes it with <strong>noise flooding</strong>,
+<p>This document reproduces the attack on the toy <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, then fixes it with <strong>noise flooding</strong>,
 then breaks weak flooding with an <strong>averaging attack</strong>. Everything runs in
 <a href="../../code/ckks_attack.py"><code>../code/ckks_attack.py</code></a>, which builds on
 <a href="../../code/toy_ckks.py"><code>toy_ckks.py</code></a>:</p>
@@ -104,20 +105,20 @@ then breaks weak flooding with an <strong>averaging attack</strong>. Everything 
 <hr />
 <h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
 <blockquote>
-<p>CKKS decryption returns \(c_0 + c_1 s \bmod Q\), <strong>noise included</strong>, because in CKKS the noise
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption returns \(c_0 + c_1 s \bmod Q\), <strong>noise included</strong>, because in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> the noise
 is part of the approximate answer. Whoever holds the ciphertext \((c_0, c_1)\) and sees that
 output has one linear equation in one unknown polynomial: \(c_1 \cdot s = m&#x27; - c_0\).
 Solve it, and you have the key.</p>
 </blockquote>
-<p>Exact schemes (BFV, BGV, TFHE) round the noise away during decryption, so their outputs
-contain only the message, which the attacker already knows. CKKS skipped that step to gain
+<p>Exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) round the noise away during decryption, so their outputs
+contain only the message, which the attacker already knows. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> skipped that step to gain
 precision, and the rounding step was what protected the key.</p>
 <hr />
 <h2 id="1-security-notions-ind-cpa-is-not-enough">1. Security notions: IND-CPA is not enough<a class="headerlink" href="#1-security-notions-ind-cpa-is-not-enough" title="Link to this section">#</a></h2>
 <h3 id="11-what-ind-cpa-promises">1.1 What IND-CPA promises<a class="headerlink" href="#11-what-ind-cpa-promises" title="Link to this section">#</a></h3>
-<p>In the IND-CPA game, the adversary picks two messages, gets an encryption of one of them, and
+<p>In the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game, the adversary picks two messages, gets an encryption of one of them, and
 must guess which. It sees public keys, evaluation keys and ciphertexts, <strong>but never a
-decryption</strong>. CKKS is IND-CPA secure under RLWE. That proof is correct and the attack does
+decryption</strong>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure under <abbr title="ring learning with errors">RLWE</abbr>. That proof is correct and the attack does
 not contradict it. The game simply doesn't model the attack.</p>
 <h3 id="12-ind-cpa-d-decryptions-of-honest-computations">1.2 IND-CPA-D: decryptions of honest computations<a class="headerlink" href="#12-ind-cpa-d-decryptions-of-honest-computations" title="Link to this section">#</a></h3>
 <p>Li and Micciancio's game adds decryptions, restricted so the adversary can't win trivially:</p>
@@ -146,7 +147,7 @@ not contradict it. The game simply doesn't model the attack.</p>
 <p>Every decryption the adversary sees is of an honest computation whose correct answer it
 already knows. For an <strong>exact</strong> scheme with negligible decryption-failure probability, that
 oracle reveals nothing, because it can be simulated by returning the known answer. So
-IND-CPA implies IND-CPA-D. For an <strong>approximate</strong> scheme the output carries extra
+<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> implies <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>. For an <strong>approximate</strong> scheme the output carries extra
 information: the noise. That extra information is enough to recover the key.</p>
 <p>The attack in the game: call Encrypt(m, m), call Decrypt on it, recover <code>s</code>, then decrypt any
 challenge with m₀ ≠ m₁. The adversary wins with probability 1.</p>
@@ -206,8 +207,8 @@ the attacker has <code>s</code> and reads a completely unrelated ciphertext.</p>
 ring \(\mathbb{F}_2[X]/(X^N+1) = \mathbb{F}_2[X]/((X+1)^N)\) is <em>local</em>: a polynomial is
 invertible exactly when the sum of its coefficients is odd. That is true for about half of all
 <code>c₁</code>. Measured: 103 of 200 results. The attacker checks the parity in advance and waits for a
-usable result. <strong>Real libraries use RNS prime moduli</strong>, where <code>c₁</code> is invertible with
-overwhelming probability. There the attack is a single division done prime by prime in the NTT
+usable result. <strong>Real libraries use <abbr title="residue number system">RNS</abbr> prime moduli</strong>, where <code>c₁</code> is invertible with
+overwhelming probability. There the attack is a single division done prime by prime in the <abbr title="number-theoretic transform">NTT</abbr>
 domain, \(s = (m&#x27; - c_0)\cdot c_1^{-1}\), and it takes milliseconds even at <code>N = 2¹⁶</code>.</p>
 <h3 id="23-what-makes-it-so-damaging">2.3 What makes it so damaging<a class="headerlink" href="#23-what-makes-it-so-damaging" title="Link to this section">#</a></h3>
 <ul>
@@ -233,7 +234,7 @@ computation noise <code>e</code>:</p>
 <div class="math-display">\[\text{release } m&#x27; + f = \Delta z + e + f, \qquad f \leftarrow \text{Gaussian}(\sigma_f),\ \ \sigma_f \gg |e|\]</div>
 <p>If <code>f</code> is large enough, the distribution of <code>e + f</code> is statistically almost the same as that of
 <code>f</code>. The output then carries (almost) no information about <code>e</code>, and hence none about <code>s</code>. A
-simulator can produce it from the true answer alone, which reduces IND-CPA-D to IND-CPA.</p>
+simulator can produce it from the true answer alone, which reduces <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> to <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>.</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">publish</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">flood_sigma</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
     <span class="n">m</span> <span class="o">=</span> <span class="n">ckks</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>                                  <span class="c1"># = c0 + c1*s = Delta*z + e</span>
     <span class="k">if</span> <span class="n">flood_sigma</span><span class="p">:</span>
@@ -268,7 +269,7 @@ bit. Toy measurement, Δ = 2⁴⁰, the same result decrypted with increasing fl
 linear attack: the "key" it computes is random garbage. But stopping <em>one particular attack</em>
 is not security (§4). With properly sized flooding (≈ 2⁴⁶ here), Δ = 2⁴⁰ leaves <strong>nothing</strong>.
 To keep 20 output bits you need Δ ≈ 2⁶⁶–2⁷⁰. That means larger moduli, larger <code>N</code> and slower
-everything. This is why <strong>high-precision CKKS</strong> matters: for example, discrete-CKKS
+everything. This is why <strong>high-precision <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong> matters: for example, discrete-CKKS
 bootstrapping at ~80 bits (Choe–Kim–Stehlé–Suvanto 2025,
 <a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a>) exists precisely to make flooding
 affordable.</p>
@@ -298,8 +299,8 @@ the known \(k_i\) and averages anyway.</p>
 <p><strong>Lesson:</strong> the flooding level must account for the <strong>total number of decryptions the
 adversary can observe</strong>. In differential-privacy terms, the privacy budget composes over
 queries. Libraries expose this as a statistical-security parameter plus an expected number of
-adversarial decryptions; recent OpenFHE versions take both when configuring CKKS noise
-flooding (check the current API). The averaging attack is only one attack. The real
+adversarial decryptions; recent OpenFHE versions take both when configuring <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> noise
+flooding (check the current <abbr title="application programming interface">API</abbr>). The averaging attack is only one attack. The real
 requirement is the statistical bound of §3.2 over all queries combined.</p>
 <hr />
 <h2 id="5-getting-the-noise-bound-right">5. Getting the noise bound right<a class="headerlink" href="#5-getting-the-noise-bound-right" title="Link to this section">#</a></h2>
@@ -317,7 +318,7 @@ silently voids the protection:</p>
   computation.</li>
 <li><strong>OpenFHE's response: a two-phase mode.</strong> First run the actual circuit in a
   noise-<em>estimation</em> mode to measure <code>B</code>. Then run it for real with flooding sized from that
-  measurement. That gives provable IND-CPA-D security for the declared computation.</li>
+  measurement. That gives provable <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> security for the declared computation.</li>
 <li><strong>The countermeasures themselves keep being re-examined</strong>, e.g. Bergamaschi et al.
   (PKC 2025). See <a href="../07_state_of_the_art_2026.html#7-security-research-summary-details-in-ch-06">07 §7</a>.</li>
 </ul>
@@ -333,24 +334,24 @@ silently voids the protection:</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Exact schemes (BFV, BGV, TFHE)</strong></td>
-<td>Not the noise, which is rounded away, but <strong>decryption failures</strong>. If failure probability is noticeable (e.g. 2⁻⁴⁰ or worse), <em>which</em> results come out wrong reveals the key. The toy TFHE at 5 bits fails 2.4 % of the time, exactly this situation (<a href="tfhe.html#4-programmable-bootstrapping-step-by-step">TFHE deep dive §4.1</a>)</td>
+<td><strong>Exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>)</strong></td>
+<td>Not the noise, which is rounded away, but <strong>decryption failures</strong>. If failure probability is noticeable (e.g. 2⁻⁴⁰ or worse), <em>which</em> results come out wrong reveals the key. The toy <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> at 5 bits fails 2.4 % of the time, exactly this situation (<a href="tfhe.html#4-programmable-bootstrapping-step-by-step"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> deep dive §4.1</a>)</td>
 <td>Cheon–Choe–Passelègue–Stehlé–Suvanto, CCS 2024</td>
 </tr>
 <tr>
-<td><strong>BFV in OpenFHE</strong></td>
+<td><strong><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> in OpenFHE</strong></td>
 <td>full key recovery in minutes to hours</td>
 <td><a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></td>
 </tr>
 <tr>
-<td><strong>Scheme switching CKKS → FHEW</strong></td>
-<td>PEGASUS-style switching is not IND-CPA-D. Key recovery against OpenFHE's implementation</td>
+<td><strong>Scheme switching <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> → <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong></td>
+<td>PEGASUS-style switching is not <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>. Key recovery against OpenFHE's implementation</td>
 <td>Santato–Zanotto, <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></td>
 </tr>
 <tr>
-<td><strong>Threshold FHE</strong></td>
+<td><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
 <td>each party's <em>partial</em> decryption contains its key share times a ciphertext plus noise. Without flooding ("smudging"), the shares leak</td>
-<td>demonstrated in the <a href="threshold_fhe.html#5-why-smudging-is-mandatory">threshold FHE deep dive §5</a></td>
+<td>demonstrated in the <a href="threshold_fhe.html#5-why-smudging-is-mandatory">threshold <abbr title="fully homomorphic encryption">FHE</abbr> deep dive §5</a></td>
 </tr>
 <tr>
 <td><strong>Circuit privacy</strong></td>
@@ -365,23 +366,23 @@ threshold, is a channel to the secret key.</strong></p>
 <h2 id="7-practical-checklist">7. Practical checklist<a class="headerlink" href="#7-practical-checklist" title="Link to this section">#</a></h2>
 <ol>
 <li><strong>Who sees decrypted outputs?</strong> If anyone other than the key owner can see them, even
-   indirectly through the owner's behaviour, you are in the IND-CPA-D setting.</li>
-<li><strong>CKKS:</strong> enable flooded decryption, and budget for it: Δ needs ~λ extra bits, which means
+   indirectly through the owner's behaviour, you are in the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> setting.</li>
+<li><strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>:</strong> enable flooded decryption, and budget for it: Δ needs ~λ extra bits, which means
    bigger parameters. Size <code>B</code> with <strong>worst-case</strong> estimates <em>for the circuit you actually run</em>.</li>
 <li><strong>Count decryptions.</strong> Fix an upper bound on how many results an adversary may observe
    under one key, and feed it to the parameter selection. Rotate keys before exceeding it.</li>
 <li><strong>Exact schemes:</strong> choose parameters with <strong>negligible</strong> failure probability (2⁻⁶⁴ to
-   2⁻¹²⁸). Libraries such as TFHE-rs now default to this range.</li>
+   2⁻¹²⁸). Libraries such as <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs now default to this range.</li>
 <li><strong>Never decrypt arbitrary ciphertexts on request.</strong> That is a decryption oracle for
-   <em>dishonest</em> ciphertexts, the even stronger CCA1 setting, where lattice schemes break with a
+   <em>dishonest</em> ciphertexts, the even stronger <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> setting, where lattice schemes break with a
    few thousand queries regardless of flooding.</li>
 <li><strong>If results may have leaked without flooding, treat the key as compromised.</strong></li>
 </ol>
 <hr />
 <h2 id="8-exercises">8. Exercises<a class="headerlink" href="#8-exercises" title="Link to this section">#</a></h2>
 <ol>
-<li><strong>Port the attack to a prime modulus:</strong> pick an NTT-friendly prime <code>q</code>, compute
-   \(c_1^{-1}\) with the NTT (or <code>pow(…, -1, q)</code> per evaluation point), and confirm that a
+<li><strong>Port the attack to a prime modulus:</strong> pick an <abbr title="number-theoretic transform">NTT</abbr>-friendly prime <code>q</code>, compute
+   \(c_1^{-1}\) with the <abbr title="number-theoretic transform">NTT</abbr> (or <code>pow(…, -1, q)</code> per evaluation point), and confirm that a
    <em>single</em> result always suffices.</li>
 <li><strong>Dithering attack:</strong> round the published output to 20 bits instead of flooding, then
    recover information about <code>e</code> by submitting results shifted by known constants.</li>
@@ -399,13 +400,13 @@ threshold, is a channel to the secret key.</strong></p>
 <li>Li, Micciancio. <em>On the Security of Homomorphic Encryption on Approximate Numbers</em>. Eurocrypt 2021. <a href="https://eprint.iacr.org/2020/1533">ePrint 2020/1533</a></li>
 <li>Li, Micciancio, Schultz, Sorrell. <em>Securing Approximate Homomorphic Encryption Using Differential Privacy</em>. CRYPTO 2022. <a href="https://eprint.iacr.org/2022/816">ePrint 2022/816</a></li>
 <li>Guo, Nabokov, Suvanto, Johansson. <em>Key Recovery Attacks on Approximate Homomorphic Encryption with Non-Worst-Case Noise Flooding Countermeasures</em>. USENIX Security 2024. <a href="https://usenix.org/system/files/sec24summer-prepub-822-guo.pdf">paper</a></li>
-<li>Alexandru, Al Badawi, Micciancio, Polyakov. <em>Application-Aware Approximate Homomorphic Encryption: Configuring FHE for Practical Use</em>. <a href="https://eprint.iacr.org/2024/203">ePrint 2024/203</a></li>
-<li>Cheon, Choe, Passelègue, Stehlé, Suvanto. <em>Attacks Against the IND-CPA-D Security of Exact FHE Schemes</em>. CCS 2024. <a href="https://eprint.iacr.org/2024/127">ePrint 2024/127</a></li>
-<li>Bergamaschi et al. Revisiting noise-flooding countermeasures for approximate HE. PKC 2025.</li>
-<li>Santato, Zanotto. PEGASUS / CKKS→FHEW scheme switching is not IND-CPA-D. <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></li>
-<li>New attacks on BFV in OpenFHE. <a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></li>
-<li>Choe, Kim, Stehlé, Suvanto. <em>Leveraging Discrete CKKS to Bootstrap in High Precision</em>. <a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a></li>
-<li>OpenFHE, <a href="https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/security.html"><em>Security Notes for Homomorphic Encryption</em></a> (CKKS noise flooding and its configuration)</li>
+<li>Alexandru, Al Badawi, Micciancio, Polyakov. <em>Application-Aware Approximate Homomorphic Encryption: Configuring <abbr title="fully homomorphic encryption">FHE</abbr> for Practical Use</em>. <a href="https://eprint.iacr.org/2024/203">ePrint 2024/203</a></li>
+<li>Cheon, Choe, Passelègue, Stehlé, Suvanto. <em>Attacks Against the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> Security of Exact <abbr title="fully homomorphic encryption">FHE</abbr> Schemes</em>. CCS 2024. <a href="https://eprint.iacr.org/2024/127">ePrint 2024/127</a></li>
+<li>Bergamaschi et al. Revisiting noise-flooding countermeasures for approximate <abbr title="homomorphic encryption">HE</abbr>. PKC 2025.</li>
+<li>Santato, Zanotto. PEGASUS / <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>→<abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> scheme switching is not <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>. <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></li>
+<li>New attacks on <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> in OpenFHE. <a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></li>
+<li>Choe, Kim, Stehlé, Suvanto. <em>Leveraging Discrete <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> to Bootstrap in High Precision</em>. <a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a></li>
+<li>OpenFHE, <a href="https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/security.html"><em>Security Notes for Homomorphic Encryption</em></a> (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> noise flooding and its configuration)</li>
 </ul>
 <blockquote>
 <p>Some ePrint numbers above (2022/816, 2024/127) are cited from memory. If a link doesn't

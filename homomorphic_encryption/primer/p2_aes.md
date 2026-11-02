@@ -684,7 +684,7 @@ Things to try:
    $\mathrm{AES}_K(m_1 \oplus m_2)$? Why is the answer good news for AES and bad news for
    computing on encrypted data, and how does transciphering get around it?
 
-### Answers
+**Answers**
 
 1. $\mathbb{Z}_{256}$ is not a field: even numbers such as 2 have no inverse mod 256. AES
    needs inverses for the S-box and an invertible MixColumns matrix. Polynomials over

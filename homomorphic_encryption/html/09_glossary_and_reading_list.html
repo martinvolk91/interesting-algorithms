@@ -6,6 +6,7 @@
 <title>09 · Glossary and reading list</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -88,20 +89,20 @@ it is explained.</p>
 <td>Ring map <code>X ↦ X^k</code> (<code>k</code> odd). Permutes slots and gives <strong>rotations</strong>. Needs a Galois key to switch back to the original secret key</td>
 </tr>
 <tr>
-<td><strong>Batching / SIMD packing</strong></td>
-<td>Encoding many values into one plaintext via the CRT so that one operation acts on all <strong>slots</strong></td>
+<td><strong>Batching / <abbr title="single instruction, multiple data">SIMD</abbr> packing</strong></td>
+<td>Encoding many values into one plaintext via the <abbr title="Chinese remainder theorem">CRT</abbr> so that one operation acts on all <strong>slots</strong></td>
 </tr>
 <tr>
-<td><strong>BKZ</strong></td>
+<td><strong><abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr></strong></td>
 <td>Lattice basis-reduction algorithm. Its cost model underpins concrete security estimates</td>
 </tr>
 <tr>
 <td><strong>Blind rotation</strong></td>
-<td>Core of FHEW/TFHE bootstrapping: rotates a test polynomial by the encrypted phase using CMux gates</td>
+<td>Core of <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping: rotates a test polynomial by the encrypted phase using CMux gates</td>
 </tr>
 <tr>
 <td><strong>Bootstrapping</strong></td>
-<td>Homomorphically evaluating decryption with an encrypted secret key to reset the noise. Turns leveled HE into FHE</td>
+<td>Homomorphically evaluating decryption with an encrypted secret key to reset the noise. Turns leveled <abbr title="homomorphic encryption">HE</abbr> into <abbr title="fully homomorphic encryption">FHE</abbr></td>
 </tr>
 <tr>
 <td><strong>Circuit privacy</strong></td>
@@ -113,15 +114,15 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>CMux</strong></td>
-<td>Encrypted multiplexer <code>b ? x : y</code> built from the GGSW × GLWE external product</td>
+<td>Encrypted multiplexer <code>b ? x : y</code> built from the <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> × <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> external product</td>
 </tr>
 <tr>
-<td><strong>CRT</strong></td>
-<td>Chinese Remainder Theorem. Underlies batching, the NTT and RNS</td>
+<td><strong><abbr title="Chinese remainder theorem">CRT</abbr></strong></td>
+<td>Chinese Remainder Theorem. Underlies batching, the <abbr title="number-theoretic transform">NTT</abbr> and <abbr title="residue number system">RNS</abbr></td>
 </tr>
 <tr>
 <td><strong>Δ (scale / scaling factor)</strong></td>
-<td>Multiplier that lifts the message above the noise (BFV: <code>q/t</code>; CKKS: e.g. 2⁴⁰)</td>
+<td>Multiplier that lifts the message above the noise (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>: <code>q/t</code>; <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>: e.g. 2⁴⁰)</td>
 </tr>
 <tr>
 <td><strong>Depth (multiplicative)</strong></td>
@@ -133,23 +134,23 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>External product</strong></td>
-<td>GGSW × GLWE → GLWE. Cheap, with low noise growth. The workhorse of TFHE</td>
+<td><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> × <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> → <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr>. Cheap, with low noise growth. The workhorse of <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></td>
 </tr>
 <tr>
 <td><strong>Gadget decomposition</strong></td>
 <td>Splitting a large value into small digits (base <code>w</code>) to keep key-switching noise small</td>
 </tr>
 <tr>
-<td><strong>GGSW / GLWE</strong></td>
-<td>Ring versions of GSW and LWE ciphertexts, as used in TFHE</td>
+<td><strong><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> / <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr></strong></td>
+<td>Ring versions of <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr> and <abbr title="learning with errors">LWE</abbr> ciphertexts, as used in <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></td>
 </tr>
 <tr>
-<td><strong>IND-CPA</strong></td>
+<td><strong><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr></strong></td>
 <td>Indistinguishability under chosen-plaintext attack: the standard semantic-security notion</td>
 </tr>
 <tr>
-<td><strong>IND-CPA-D</strong></td>
-<td>IND-CPA where the adversary also sees decryptions of honestly computed ciphertexts. CKKS needs noise flooding to achieve it</td>
+<td><strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong></td>
+<td><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> where the adversary also sees decryptions of honestly computed ciphertexts. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> needs noise flooding to achieve it</td>
 </tr>
 <tr>
 <td><strong>Key switching</strong></td>
@@ -157,23 +158,23 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>Level</strong></td>
-<td>Remaining modulus budget, i.e. the number of RNS primes left. Each rescale or modulus switch uses one</td>
+<td>Remaining modulus budget, i.e. the number of <abbr title="residue number system">RNS</abbr> primes left. Each rescale or modulus switch uses one</td>
 </tr>
 <tr>
-<td><strong>Leveled HE</strong></td>
+<td><strong>Leveled <abbr title="homomorphic encryption">HE</abbr></strong></td>
 <td>Supports circuits up to a fixed depth <code>L</code> without bootstrapping</td>
 </tr>
 <tr>
-<td><strong>LUT</strong></td>
+<td><strong><abbr title="lookup table">LUT</abbr></strong></td>
 <td>Lookup table. Evaluated for free by programmable bootstrapping</td>
 </tr>
 <tr>
-<td><strong>LWE / RLWE / MLWE</strong></td>
+<td><strong><abbr title="learning with errors">LWE</abbr> / <abbr title="ring learning with errors">RLWE</abbr> / MLWE</strong></td>
 <td>Learning With Errors over integers, polynomial rings or modules. The hardness foundation</td>
 </tr>
 <tr>
 <td><strong>Modulus switching</strong></td>
-<td>Scaling a ciphertext to a smaller modulus to shrink the noise (BGV)</td>
+<td>Scaling a ciphertext to a smaller modulus to shrink the noise (<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>)</td>
 </tr>
 <tr>
 <td><strong>Noise / error</strong></td>
@@ -185,19 +186,19 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>Noise flooding</strong></td>
-<td>Adding large fresh noise to hide the computation noise: for circuit privacy, threshold decryption and IND-CPA-D</td>
+<td>Adding large fresh noise to hide the computation noise: for circuit privacy, threshold decryption and <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></td>
 </tr>
 <tr>
-<td><strong>NTT</strong></td>
-<td>Number Theoretic Transform, the FFT over <code>Z_q</code>. Makes ring multiplication <code>O(N log N)</code></td>
+<td><strong><abbr title="number-theoretic transform">NTT</abbr></strong></td>
+<td>Number Theoretic Transform, the <abbr title="fast Fourier transform">FFT</abbr> over <code>Z_q</code>. Makes ring multiplication <code>O(N log N)</code></td>
 </tr>
 <tr>
-<td><strong>PBS</strong></td>
-<td>Programmable bootstrapping: TFHE bootstrapping that also applies a LUT</td>
+<td><strong><abbr title="programmable bootstrapping">PBS</abbr></strong></td>
+<td>Programmable bootstrapping: <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping that also applies a <abbr title="lookup table">LUT</abbr></td>
 </tr>
 <tr>
 <td><strong>Plaintext modulus <code>t</code></strong></td>
-<td>Message space <code>Z_t</code> for BGV/BFV/TFHE</td>
+<td>Message space <code>Z_t</code> for <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></td>
 </tr>
 <tr>
 <td><strong>Relinearization</strong></td>
@@ -205,23 +206,23 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>Rescaling</strong></td>
-<td>CKKS: dividing by the last prime after multiplication to keep the scale near <code>Δ</code></td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>: dividing by the last prime after multiplication to keep the scale near <code>Δ</code></td>
 </tr>
 <tr>
 <td><strong>Ring dimension <code>N</code></strong></td>
 <td>Degree of <code>X^N + 1</code>, typically 2¹⁰–2¹⁷. Bigger <code>N</code> means more security headroom and more slots</td>
 </tr>
 <tr>
-<td><strong>RNS</strong></td>
+<td><strong><abbr title="residue number system">RNS</abbr></strong></td>
 <td>Residue Number System: representing mod-<code>q</code> numbers by residues mod word-size primes</td>
 </tr>
 <tr>
 <td><strong>Sample extraction</strong></td>
-<td>Pulling one coefficient out of a GLWE ciphertext as an LWE ciphertext</td>
+<td>Pulling one coefficient out of a <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> ciphertext as an <abbr title="learning with errors">LWE</abbr> ciphertext</td>
 </tr>
 <tr>
 <td><strong>Scheme switching</strong></td>
-<td>Converting ciphertexts between schemes (e.g. CKKS ↔ FHEW)</td>
+<td>Converting ciphertexts between schemes (e.g. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> ↔ <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>)</td>
 </tr>
 <tr>
 <td><strong>Slot</strong></td>
@@ -229,15 +230,15 @@ it is explained.</p>
 </tr>
 <tr>
 <td><strong>Test polynomial</strong></td>
-<td>TFHE: polynomial whose coefficients encode the LUT evaluated during PBS</td>
+<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: polynomial whose coefficients encode the <abbr title="lookup table">LUT</abbr> evaluated during <abbr title="programmable bootstrapping">PBS</abbr></td>
 </tr>
 <tr>
-<td><strong>Threshold / multiparty / multi-key FHE</strong></td>
+<td><strong>Threshold / multiparty / multi-key <abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
 <td>Variants where several parties jointly hold keys or contribute data</td>
 </tr>
 <tr>
 <td><strong>Transciphering</strong></td>
-<td>Uploading data under a cheap symmetric cipher and converting it to FHE server-side</td>
+<td>Uploading data under a cheap symmetric cipher and converting it to <abbr title="fully homomorphic encryption">FHE</abbr> server-side</td>
 </tr>
 </tbody>
 </table></div>
@@ -246,10 +247,10 @@ it is explained.</p>
 <ul>
 <li>Craig Gentry, <em>"Computing Arbitrary Functions of Encrypted Data"</em>, Communications of the
   ACM, 2010. The glovebox analogy and the bootstrapping idea, without heavy math.</li>
-<li>Vitalik Buterin, <a href="https://vitalik.eth.limo/general/2020/07/20/homomorphic.html"><em>"Exploring Fully Homomorphic Encryption"</em></a> (2020). Short and intuitive, GSW-flavoured.</li>
-<li>Jeremy Kun, <a href="https://www.jeremykun.com/2024/05/04/fhe-overview/"><em>"A High-Level Technical Overview of Fully Homomorphic Encryption"</em></a> (2024), and his <a href="https://jeremykun.com/fhe-in-production"><em>FHE in production</em></a> tracker.</li>
-<li>Zama, <a href="https://www.zama.ai/post/tfhe-deep-dive-part-1"><em>"TFHE Deep Dive"</em></a> blog series (Ilaria Chillotti). The best visual explanation of TFHE bootstrapping.</li>
-<li><a href="https://fhe.org">FHE.org</a>: community hub, annual conference, meetups and resource lists. Also <a href="https://github.com/jonaschn/awesome-he">awesome-he</a>.</li>
+<li>Vitalik Buterin, <a href="https://vitalik.eth.limo/general/2020/07/20/homomorphic.html"><em>"Exploring Fully Homomorphic Encryption"</em></a> (2020). Short and intuitive, <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>-flavoured.</li>
+<li>Jeremy Kun, <a href="https://www.jeremykun.com/2024/05/04/fhe-overview/"><em>"A High-Level Technical Overview of Fully Homomorphic Encryption"</em></a> (2024), and his <a href="https://jeremykun.com/fhe-in-production"><em><abbr title="fully homomorphic encryption">FHE</abbr> in production</em></a> tracker.</li>
+<li>Zama, <a href="https://www.zama.ai/post/tfhe-deep-dive-part-1"><em>"<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> Deep Dive"</em></a> blog series (Ilaria Chillotti). The best visual explanation of <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping.</li>
+<li><a href="https://fhe.org"><abbr title="fully homomorphic encryption">FHE</abbr>.org</a>: community hub, annual conference, meetups and resource lists. Also <a href="https://github.com/jonaschn/awesome-he">awesome-he</a>.</li>
 </ul>
 <h3 id="surveys">Surveys<a class="headerlink" href="#surveys" title="Link to this section">#</a></h3>
 <ul>
@@ -257,7 +258,7 @@ it is explained.</p>
 <li>Acar, Aksu, Uluagac, Conti, <em>"A Survey on Homomorphic Encryption Schemes: Theory and Implementation"</em>, ACM Computing Surveys 2018.</li>
 <li>Shai Halevi, <em>"Homomorphic Encryption"</em>, in <em>Tutorials on the Foundations of Cryptography</em> (2017).</li>
 <li>Chris Peikert, <em>"A Decade of Lattice Cryptography"</em> (<a href="https://eprint.iacr.org/2015/939">ePrint 2015/939</a>). The lattice background.</li>
-<li>Al Badawi et al., <em>SoK: Private LLM Inference using Approximate HE</em> (<a href="https://eprint.iacr.org/2026/935">ePrint 2026/935</a>). The current state of encrypted AI.</li>
+<li>Al Badawi et al., <em>SoK: Private <abbr title="large language model">LLM</abbr> Inference using Approximate <abbr title="homomorphic encryption">HE</abbr></em> (<a href="https://eprint.iacr.org/2026/935">ePrint 2026/935</a>). The current state of encrypted AI.</li>
 </ul>
 <h3 id="foundational-papers-chronological">Foundational papers (chronological)<a class="headerlink" href="#foundational-papers-chronological" title="Link to this section">#</a></h3>
 <div class="table-wrap"><table>
@@ -281,7 +282,7 @@ it is explained.</p>
 </tr>
 <tr>
 <td>2010</td>
-<td>van Dijk, Gentry, Halevi, Vaikuntanathan, <em>FHE over the Integers</em></td>
+<td>van Dijk, Gentry, Halevi, Vaikuntanathan, <em><abbr title="fully homomorphic encryption">FHE</abbr> over the Integers</em></td>
 <td><a href="https://eprint.iacr.org/2009/616">ePrint 2009/616</a></td>
 </tr>
 <tr>
@@ -291,27 +292,27 @@ it is explained.</p>
 </tr>
 <tr>
 <td>2011</td>
-<td>Brakerski, Vaikuntanathan, <em>Efficient FHE from (Standard) LWE</em></td>
+<td>Brakerski, Vaikuntanathan, <em>Efficient <abbr title="fully homomorphic encryption">FHE</abbr> from (Standard) <abbr title="learning with errors">LWE</abbr></em></td>
 <td><a href="https://eprint.iacr.org/2011/344">ePrint 2011/344</a></td>
 </tr>
 <tr>
 <td>2012</td>
-<td>Brakerski, Gentry, Vaikuntanathan, <em>(Leveled) FHE without Bootstrapping</em> (<strong>BGV</strong>)</td>
+<td>Brakerski, Gentry, Vaikuntanathan, <em>(Leveled) <abbr title="fully homomorphic encryption">FHE</abbr> without Bootstrapping</em> (<strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2011/277">ePrint 2011/277</a></td>
 </tr>
 <tr>
 <td>2012</td>
-<td>Brakerski, <em>FHE without Modulus Switching from Classical GapSVP</em></td>
+<td>Brakerski, <em><abbr title="fully homomorphic encryption">FHE</abbr> without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em></td>
 <td><a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></td>
 </tr>
 <tr>
 <td>2012</td>
-<td>Fan, Vercauteren, <em>Somewhat Practical FHE</em> (<strong>BFV</strong>)</td>
+<td>Fan, Vercauteren, <em>Somewhat Practical <abbr title="fully homomorphic encryption">FHE</abbr></em> (<strong><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2012/144">ePrint 2012/144</a></td>
 </tr>
 <tr>
 <td>2013</td>
-<td>Gentry, Sahai, Waters, <em>HE from LWE: Conceptually-Simpler, Asymptotically-Faster, Attribute-Based</em> (<strong>GSW</strong>)</td>
+<td>Gentry, Sahai, Waters, <em><abbr title="homomorphic encryption">HE</abbr> from <abbr title="learning with errors">LWE</abbr>: Conceptually-Simpler, Asymptotically-Faster, Attribute-Based</em> (<strong><abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2013/340">ePrint 2013/340</a></td>
 </tr>
 <tr>
@@ -321,22 +322,22 @@ it is explained.</p>
 </tr>
 <tr>
 <td>2015</td>
-<td>Ducas, Micciancio, <em>FHEW: Bootstrapping HE in Less Than a Second</em></td>
+<td>Ducas, Micciancio, <em><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>: Bootstrapping <abbr title="homomorphic encryption">HE</abbr> in Less Than a Second</em></td>
 <td><a href="https://eprint.iacr.org/2014/816">ePrint 2014/816</a></td>
 </tr>
 <tr>
 <td>2016</td>
-<td>Chillotti, Gama, Georgieva, Izabachène, <em>Faster FHE: Bootstrapping in Less Than 0.1 Seconds</em> (<strong>TFHE</strong>)</td>
+<td>Chillotti, Gama, Georgieva, Izabachène, <em>Faster <abbr title="fully homomorphic encryption">FHE</abbr>: Bootstrapping in Less Than 0.1 Seconds</em> (<strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2016/870">ePrint 2016/870</a></td>
 </tr>
 <tr>
 <td>2017</td>
-<td>Cheon, Kim, Kim, Song, <em>HE for Arithmetic of Approximate Numbers</em> (<strong>CKKS</strong>)</td>
+<td>Cheon, Kim, Kim, Song, <em><abbr title="homomorphic encryption">HE</abbr> for Arithmetic of Approximate Numbers</em> (<strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2016/421">ePrint 2016/421</a></td>
 </tr>
 <tr>
 <td>2018</td>
-<td>Cheon, Han, Kim, Kim, Song, <em>Bootstrapping for Approximate HE</em></td>
+<td>Cheon, Han, Kim, Kim, Song, <em>Bootstrapping for Approximate <abbr title="homomorphic encryption">HE</abbr></em></td>
 <td><a href="https://eprint.iacr.org/2018/153">ePrint 2018/153</a></td>
 </tr>
 <tr>
@@ -346,22 +347,22 @@ it is explained.</p>
 </tr>
 <tr>
 <td>2021</td>
-<td>Li, Micciancio, <em>On the Security of HE on Approximate Numbers</em> (<strong>IND-CPA-D</strong>)</td>
+<td>Li, Micciancio, <em>On the Security of <abbr title="homomorphic encryption">HE</abbr> on Approximate Numbers</em> (<strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong>)</td>
 <td><a href="https://eprint.iacr.org/2020/1533">ePrint 2020/1533</a></td>
 </tr>
 <tr>
 <td>2021</td>
-<td>Chillotti, Joye, Paillier, <em>Programmable Bootstrapping Enables Efficient HE of Deep Neural Networks</em></td>
+<td>Chillotti, Joye, Paillier, <em>Programmable Bootstrapping Enables Efficient <abbr title="homomorphic encryption">HE</abbr> of Deep Neural Networks</em></td>
 <td><a href="https://eprint.iacr.org/2021/091">ePrint 2021/091</a></td>
 </tr>
 <tr>
 <td>2021</td>
-<td>Kim, Polyakov, Zucca, <em>Revisiting HE Schemes for Finite Fields</em> (BGV vs BFV)</td>
+<td>Kim, Polyakov, Zucca, <em>Revisiting <abbr title="homomorphic encryption">HE</abbr> Schemes for Finite Fields</em> (<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> vs <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>)</td>
 <td><a href="https://eprint.iacr.org/2021/204">ePrint 2021/204</a></td>
 </tr>
 <tr>
 <td>2025</td>
-<td>Gentry, Lee, <em>FHE for Matrix Arithmetic</em></td>
+<td>Gentry, Lee, <em><abbr title="fully homomorphic encryption">FHE</abbr> for Matrix Arithmetic</em></td>
 <td><a href="https://eprint.iacr.org/2025/1935">ePrint 2025/1935</a></td>
 </tr>
 </tbody>
@@ -370,12 +371,12 @@ it is explained.</p>
 <h3 id="code-to-read-and-run">Code to read and run<a class="headerlink" href="#code-to-read-and-run" title="Link to this section">#</a></h3>
 <ul>
 <li><a href="https://github.com/openfheorg/openfhe-development">OpenFHE</a> and <a href="https://github.com/openfheorg/openfhe-python">openfhe-python</a> (examples for every scheme)</li>
-<li><a href="https://github.com/zama-ai/tfhe-rs">TFHE-rs</a> · <a href="https://github.com/zama-ai/concrete-ml">Concrete ML</a></li>
+<li><a href="https://github.com/zama-ai/tfhe-rs"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs</a> · <a href="https://github.com/zama-ai/concrete-ml">Concrete <abbr title="machine learning">ML</abbr></a></li>
 <li><a href="https://github.com/microsoft/SEAL">Microsoft SEAL</a> (very readable examples)</li>
 <li><a href="https://github.com/tuneinsight/lattigo">Lattigo</a> · <a href="https://github.com/homenc/HElib">HElib</a></li>
-<li><a href="https://github.com/apple/swift-homomorphic-encryption">Apple swift-homomorphic-encryption</a> (a real PIR deployment)</li>
+<li><a href="https://github.com/apple/swift-homomorphic-encryption">Apple swift-homomorphic-encryption</a> (a real <abbr title="private information retrieval">PIR</abbr> deployment)</li>
 <li><a href="https://github.com/google/heir">Google HEIR</a></li>
-<li><a href="https://github.com/OpenMined/TenSEAL">TenSEAL</a> (quick CKKS in Python)</li>
+<li><a href="https://github.com/OpenMined/TenSEAL">TenSEAL</a> (quick <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> in Python)</li>
 </ul>
 <blockquote>
 <p>Some ePrint numbers above are cited from memory. If a link doesn't match the title, search

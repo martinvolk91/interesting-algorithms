@@ -6,6 +6,7 @@
 <title>P7 · Lattices and LWE: encryption from noisy equations</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -90,10 +91,10 @@ function renderMath() {
 <h1 id="p7--lattices-and-lwe-encryption-from-noisy-equations">P7 · Lattices and LWE: encryption from noisy equations<a class="headerlink" href="#p7--lattices-and-lwe-encryption-from-noisy-equations" title="Link to this section">#</a></h1>
 <p><a href="p6_computing_on_ciphertexts.html">← P6 Computing on ciphertexts</a> · <a href="../index.html">index</a> · next: <a href="p8_multiplication_and_relinearization.html">P8 Multiplication and relinearization →</a></p>
 <hr />
-<p>Every practical FHE scheme rests on one problem, <strong>Learning With Errors</strong> (LWE), usually in
+<p>Every practical <abbr title="fully homomorphic encryption">FHE</abbr> scheme rests on one problem, <strong>Learning With Errors</strong> (<abbr title="learning with errors">LWE</abbr>), usually in
 its ring form. It starts from linear algebra you know: a system of linear equations mod \(q\)
 is easy to solve, but add a small random error to every equation and, as far as anyone knows,
-it becomes hard, even for quantum computers. Turned into encryption, LWE is a one-time pad
+it becomes hard, even for quantum computers. Turned into encryption, <abbr title="learning with errors">LWE</abbr> is a one-time pad
 whose pad is generated from a short key plus a little noise. Adding ciphertexts works out of
 the box. The noise is what makes it secure, and it is also what limits how much you can
 compute.</p>
@@ -103,8 +104,8 @@ compute.</p>
   added.</li>
 <li>State search-LWE and decision-LWE precisely, and say what the hardness results promise and
   what they do not.</li>
-<li>Picture a lattice, say what makes lattice problems hard, and see LWE as one of them.</li>
-<li>Encrypt and decrypt with LWE by hand, and draw the decryption sectors.</li>
+<li>Picture a lattice, say what makes lattice problems hard, and see <abbr title="learning with errors">LWE</abbr> as one of them.</li>
+<li>Encrypt and decrypt with <abbr title="learning with errors">LWE</abbr> by hand, and draw the decryption sectors.</li>
 <li>Add ciphertexts, multiply them by constants, and watch the noise budget run out.</li>
 <li>Make the scheme public-key (Regev) and efficient (Ring-LWE).</li>
 </ul>
@@ -145,7 +146,7 @@ Gaussian with standard deviation about 3.2 (<a href="../02_math_foundations.html
 That small change is the whole difference between an exercise and a foundation of modern
 cryptography.</p>
 <p><strong>Definition.</strong> Fix a dimension \(n\), a modulus \(q\) and an error distribution \(\chi\) that
-produces small integers. Choose \(s \in \mathbb{Z}_q^n\) uniformly. An <strong>LWE sample</strong> is</p>
+produces small integers. Choose \(s \in \mathbb{Z}_q^n\) uniformly. An <strong><abbr title="learning with errors">LWE</abbr> sample</strong> is</p>
 <div class="math-display">\[(a,\ \langle a, s \rangle + e \bmod q), \qquad a \in \mathbb{Z}_q^n \text{ uniform},\ e \leftarrow \chi\]</div>
 <p>Stack \(\ell\) samples into a matrix \(A \in \mathbb{Z}_q^{\ell \times n}\) and a vector
 \(b = A s + e\) (we write \(\ell\) for the number of samples, because \(m\) will be the message).
@@ -156,10 +157,10 @@ There are two versions of the problem:</p>
   in \(\mathbb{Z}_q^\ell\).</li>
 </ul>
 <p>Decision looks easier, but for prime \(q\) of polynomial size Regev showed the two are
-equivalent. Decision-LWE is the version encryption needs, because IND-CPA
+equivalent. Decision-LWE is the version encryption needs, because <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>
 (<a href="p5_security_definitions.html">P5</a>) asks that ciphertexts of any two chosen messages be
 <em>indistinguishable</em>, not merely that the key is hard to find. The proof gets there by showing
-that the pad looks random, which is exactly what decision-LWE says. With \(q = 2\), LWE is the older "learning parity with noise" problem; LWE
+that the pad looks random, which is exactly what decision-LWE says. With \(q = 2\), <abbr title="learning with errors">LWE</abbr> is the older "learning parity with noise" problem; <abbr title="learning with errors">LWE</abbr>
 generalizes it to larger moduli.</p>
 <h2 id="3-why-the-noise-defeats-elimination">3. Why the noise defeats elimination<a class="headerlink" href="#3-why-the-noise-defeats-elimination" title="Link to this section">#</a></h2>
 <p>Run the same elimination on noisy equations, \(b = A s + e\) with \(e = (3, 1, -2, -3)\). Since
@@ -212,20 +213,20 @@ points. But \(\{A, B\}\) is a <strong>good basis</strong>: short vectors (length
 other. \(\{C, D\}\) is a <strong>bad basis</strong>: long vectors (8.1 and 13.0), only 2.7° apart.</p>
 <p>The central hard problems (<a href="../02_math_foundations.html#1-lattices-in-one-page">02 §1</a>):</p>
 <ul>
-<li><strong>SVP (shortest vector problem):</strong> find the shortest non-zero lattice vector.</li>
-<li><strong>CVP (closest vector problem):</strong> given a point that is not on the lattice, find the
-  nearest lattice point. <strong>BDD (bounded distance decoding)</strong> is the special case where the
+<li><strong><abbr title="shortest vector problem">SVP</abbr> (shortest vector problem):</strong> find the shortest non-zero lattice vector.</li>
+<li><strong><abbr title="closest vector problem">CVP</abbr> (closest vector problem):</strong> given a point that is not on the lattice, find the
+  nearest lattice point. <strong><abbr title="bounded distance decoding">BDD</abbr> (bounded distance decoding)</strong> is the special case where the
   point is promised to be very close to the lattice.</li>
 </ul>
-<p>In two dimensions you solve both by looking. With a good basis, BDD is easy in any
+<p>In two dimensions you solve both by looking. With a good basis, <abbr title="bounded distance decoding">BDD</abbr> is easy in any
 dimension: write the target in basis coordinates and round them (Babai's method). If the
 target is close enough to the lattice, the rounded coordinates give the nearest point. With a
 bad basis the rounded coordinates land far away. In dimension 500 or 1000, given only a bad
 basis, nobody knows an efficient way.</p>
-<p><strong>LWE is a lattice problem.</strong> The vectors \(A z \bmod q\), for all \(z \in \mathbb{Z}_q^n\),
+<p><strong><abbr title="learning with errors">LWE</abbr> is a lattice problem.</strong> The vectors \(A z \bmod q\), for all \(z \in \mathbb{Z}_q^n\),
 together with all multiples of \(q\) in each coordinate, form a lattice in \(\mathbb{Z}^\ell\) (a
 "\(q\)-ary" lattice). \(A s\) is one of its points, and \(b = A s + e\) is a point at distance
-\(\lVert e \rVert\) from it. Finding \(s\) is a BDD problem, and the only basis an attacker can
+\(\lVert e \rVert\) from it. Finding \(s\) is a <abbr title="bounded distance decoding">BDD</abbr> problem, and the only basis an attacker can
 write down comes from the random matrix \(A\): a bad one.</p>
 <p><strong>What matters is noise relative to \(q\).</strong> Dividing everything by \(q\), the equations hold up
 to an error of size about \(\lvert e \rvert / q\). With the noise fixed, a bigger \(q\) makes the
@@ -235,42 +236,42 @@ survive many multiplications (<a href="p8_multiplication_and_relinearization.htm
 bigger dimension to stay secure. That trade-off is the parameter table of
 <a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>.</p>
 <p><strong>The attack family: lattice reduction.</strong> Algorithms that turn a bad basis into a better one
-are the main tool against LWE. <strong>LLL</strong> (Lenstra, Lenstra, Lovász, 1982) runs in polynomial time
+are the main tool against <abbr title="learning with errors">LWE</abbr>. <strong><abbr title="Lenstra–Lenstra–Lovász lattice reduction">LLL</abbr></strong> (Lenstra, Lenstra, Lovász, 1982) runs in polynomial time
 but only guarantees a vector within a factor \(2^{(n-1)/2}\) of the shortest, which is useless
-for cryptographic dimensions. <strong>BKZ</strong> (Schnorr 1987; Schnorr and Euchner 1994) works on blocks
+for cryptographic dimensions. <strong><abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr></strong> (Schnorr 1987; Schnorr and Euchner 1994) works on blocks
 of \(\beta\) coordinates at a time and gets closer as \(\beta\) grows, at a cost exponential in
-\(\beta\). Breaking a parameter set means running BKZ with a large enough block size. The best
+\(\beta\). Breaking a parameter set means running <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> with a large enough block size. The best
 known methods for that inner step (lattice sieving) take roughly \(2^{0.29\beta}\) operations
 heuristically, and known quantum speedups only lower the constant in the exponent a little.
-Security estimates for FHE parameters are exactly this calculation
+Security estimates for <abbr title="fully homomorphic encryption">FHE</abbr> parameters are exactly this calculation
 (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>,
 <a href="../06_security.html#2-parameter-selection-dont-roll-your-own">06 §2</a>).</p>
 <h3 id="worst-case-hardness-in-one-paragraph">Worst-case hardness, in one paragraph<a class="headerlink" href="#worst-case-hardness-in-one-paragraph" title="Link to this section">#</a></h3>
 <p>Most cryptography assumes that <em>random</em> instances of a problem are hard, because that is what
-a random key produces. <strong>Regev (2005)</strong> proved something stronger for LWE: if an efficient
-algorithm solves LWE on random instances (with noise above a threshold that grows like
+a random key produces. <strong>Regev (2005)</strong> proved something stronger for <abbr title="learning with errors">LWE</abbr>: if an efficient
+algorithm solves <abbr title="learning with errors">LWE</abbr> on random instances (with noise above a threshold that grows like
 \(\sqrt{n}\)), then there is an efficient <strong>quantum</strong> algorithm that approximately solves the
-lattice problems GapSVP and SIVP on <strong>every</strong> lattice of dimension \(n\), to within factors
-polynomial in \(n\). (Both are approximate versions of SVP: <strong>GapSVP</strong> asks to decide roughly
-how short the shortest vector is, <strong>SIVP</strong> asks for \(n\) short linearly independent vectors.)
-So breaking random LWE would break the hardest instances of problems
+lattice problems <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr> and <abbr title="shortest independent vectors problem">SIVP</abbr> on <strong>every</strong> lattice of dimension \(n\), to within factors
+polynomial in \(n\). (Both are approximate versions of <abbr title="shortest vector problem">SVP</abbr>: <strong><abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></strong> asks to decide roughly
+how short the shortest vector is, <strong><abbr title="shortest independent vectors problem">SIVP</abbr></strong> asks for \(n\) short linearly independent vectors.)
+So breaking random <abbr title="learning with errors">LWE</abbr> would break the hardest instances of problems
 studied for decades. <strong>Peikert (2009)</strong> gave a classical, non-quantum version of the reduction
 for exponentially large moduli \(q \ge 2^{n/2}\), and Brakerski, Langlois, Peikert, Regev and
 Stehlé (2013) extended the classical result to polynomial moduli (from lattices of somewhat
 smaller dimension). Two caveats keep this
-honest. The results are asymptotic and say nothing about a concrete \(n\). And deployed FHE
+honest. The results are asymptotic and say nothing about a concrete \(n\). And deployed <abbr title="fully homomorphic encryption">FHE</abbr>
 parameters use noise (\(\sigma \approx 3.2\) at every dimension) smaller than the theorem's
 threshold, so their security rests on the attack estimates above, not on the theorem.</p>
 <h3 id="why-quantum-computers-do-not-help-as-far-as-anyone-knows">Why quantum computers do not help (as far as anyone knows)<a class="headerlink" href="#why-quantum-computers-do-not-help-as-far-as-anyone-knows" title="Link to this section">#</a></h3>
 <p>Shor's algorithm breaks factoring and discrete logarithms by finding a hidden period. No
-comparable structure is known in lattice problems. No known quantum algorithm solves LWE
+comparable structure is known in lattice problems. No known quantum algorithm solves <abbr title="learning with errors">LWE</abbr>
 substantially faster than classical ones; a 2024 claim of one was withdrawn within about ten
 days, after a bug was found (<a href="../02_math_foundations.html#7-why-this-is-post-quantum">02 §7</a>).
-That is why NIST's post-quantum key-encapsulation standard ML-KEM (FIPS 203,
-<a href="p4_public_key.html">P4</a>) is built on a variant of LWE, and why FHE is post-quantum too.</p>
+That is why <abbr title="National Institute of Standards and Technology">NIST</abbr>'s post-quantum key-encapsulation standard <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (<abbr title="Federal Information Processing Standard">FIPS</abbr> 203,
+<a href="p4_public_key.html">P4</a>) is built on a variant of <abbr title="learning with errors">LWE</abbr>, and why <abbr title="fully homomorphic encryption">FHE</abbr> is post-quantum too.</p>
 <h2 id="5-building-encryption-the-noisy-one-time-pad">5. Building encryption: the noisy one-time pad<a class="headerlink" href="#5-building-encryption-the-noisy-one-time-pad" title="Link to this section">#</a></h2>
 <p>The one-time pad mod \(q\) (<a href="p1_encryption_basics.html#the-pad-mod-n">P1 §4</a>) is \(c = m + k\)
-with a truly random pad \(k\). LWE encryption keeps that shape and changes two things:</p>
+with a truly random pad \(k\). <abbr title="learning with errors">LWE</abbr> encryption keeps that shape and changes two things:</p>
 <ol>
 <li>The pad is \(\langle a, s \rangle + e\): generated from the short key \(s\) and a public random
    \(a\), plus a little noise so that it looks random.</li>
@@ -286,7 +287,7 @@ What is left is the <strong>phase</strong>:</p>
 that is the form chapter 03 uses ("scale by \(t/q\) and round").</p>
 <p><strong>Security</strong> is the one-time-pad argument with a pseudo-random pad. Decision-LWE says
 \((a, \langle a, s \rangle + e)\) looks uniformly random. Adding \(\Delta \cdot m\) to a uniform
-value gives a uniform value. So \((a, b)\) looks uniform whatever \(m\) is, which is IND-CPA under
+value gives a uniform value. So \((a, b)\) looks uniform whatever \(m\) is, which is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> under
 the decision-LWE assumption. Every encryption uses a fresh \(a\) and \(e\), so encrypting the same
 message twice gives unrelated ciphertexts.</p>
 <h3 id="a-hand-worked-example">A hand-worked example<a class="headerlink" href="#a-hand-worked-example" title="Link to this section">#</a></h3>
@@ -473,7 +474,7 @@ ciphertexts in the \((c_0, c_1)\) form that
 <a href="p8_multiplication_and_relinearization.html#1-the-starting-point-ciphertexts-as-c0-c1">P8 §1</a>
 introduces.)</p>
 <h2 id="8-ring-lwe-polynomials-instead-of-vectors">8. Ring-LWE: polynomials instead of vectors<a class="headerlink" href="#8-ring-lwe-polynomials-instead-of-vectors" title="Link to this section">#</a></h2>
-<p>Plain LWE is bulky. One message mod \(t\) costs a ciphertext of \(n + 1\) numbers, and a public
+<p>Plain <abbr title="learning with errors">LWE</abbr> is bulky. One message mod \(t\) costs a ciphertext of \(n + 1\) numbers, and a public
 matrix \(A\) has \(n^2\) entries. <strong>Ring-LWE</strong> (Lyubashevsky, Peikert, Regev, 2010) replaces the
 vectors by polynomials in</p>
 <div class="math-display">\[R_q = \mathbb{Z}_q[X] / (X^N + 1)\]</div>
@@ -500,34 +501,34 @@ of Lyubashevsky, Peikert and Regev is for cyclotomic rings like this one.</p>
 first row of \(M_a\) is \((86, 76, 38, 94)\) and the second is \((3, 86, 76, 38)\); the whole matrix
 is in part 6's output, quoted in §9. Each column is the previous one shifted down by one, with the entry pushed out at the bottom coming back on top
 negated (\(-21 \equiv 76\), \(-59 \equiv 38\), \(-3 \equiv 94\)). This is a <strong>negacyclic</strong>
-matrix. An RLWE sample \((a, b = a \cdot s + e)\) is therefore \(N\) ordinary LWE
+matrix. An <abbr title="ring learning with errors">RLWE</abbr> sample \((a, b = a \cdot s + e)\) is therefore \(N\) ordinary <abbr title="learning with errors">LWE</abbr>
 samples whose vectors are the rows of \(M_a\), all sharing the secret \(s\).</p>
 <p>That is where the efficiency comes from:</p>
 <ul>
 <li><strong>Size.</strong> Storing \(a\) takes \(N\) numbers instead of the \(N^2\) of a random matrix. A ciphertext
-  \((a, b)\) of \(2N\) numbers carries \(N\) message coefficients, where LWE needs \(n + 1\) numbers per
+  \((a, b)\) of \(2N\) numbers carries \(N\) message coefficients, where <abbr title="learning with errors">LWE</abbr> needs \(n + 1\) numbers per
   message: roughly \(N/2\) times less data. The ratio of ciphertext size to message size is the
   <strong>ciphertext expansion</strong>: \(2N \log_2 q\) bits carry \(N \log_2 t\) bits, a factor
   \(2 \log_2 q / \log_2 t\) (about 55 with chapter 02's \(\log_2 q = 438\) and a 16-bit \(t\)).</li>
-<li><strong>Speed.</strong> \(a \cdot s\) costs \(O(N \log N)\) with the <strong>Number Theoretic Transform</strong> (NTT), an
-  FFT over \(\mathbb{Z}_q\) that needs \(q \equiv 1 \pmod{2N}\). A matrix-vector product costs
-  \(O(N^2)\). Chapter 02 explains the NTT
+<li><strong>Speed.</strong> \(a \cdot s\) costs \(O(N \log N)\) with the <strong>Number Theoretic Transform</strong> (<abbr title="number-theoretic transform">NTT</abbr>), an
+  <abbr title="fast Fourier transform">FFT</abbr> over \(\mathbb{Z}_q\) that needs \(q \equiv 1 \pmod{2N}\). A matrix-vector product costs
+  \(O(N^2)\). Chapter 02 explains the <abbr title="number-theoretic transform">NTT</abbr>
   (<a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4</a>); it is the kernel
-  that FHE hardware accelerates.</li>
+  that <abbr title="fully homomorphic encryption">FHE</abbr> hardware accelerates.</li>
 </ul>
-<p>The NTT in miniature, mod 17 as in chapter 02 (\(17 \equiv 1 \pmod 8\)): the roots of
+<p>The <abbr title="number-theoretic transform">NTT</abbr> in miniature, mod 17 as in chapter 02 (\(17 \equiv 1 \pmod 8\)): the roots of
 \(X^4 + 1\) mod 17 are \(2, 8, 15, 9\), that is \(2, 2^3, 2^5, 2^7\) (and \(2^4 = 16 \equiv -1\)).
 Evaluating at these four roots turns a polynomial into four numbers:
 \(1 + 2X + X^3 \mapsto (13, 2, 6, 0)\) and \(3 + X^2 \mapsto (7, 16, 7, 16)\). Multiplying
 pointwise gives \((6, 15, 8, 0)\), which is exactly the evaluation of their negacyclic product
 \(3 + 5X + X^2 + 5X^3\) from above. Each root \(r\) satisfies \(r^4 = -1\), so evaluation respects the
-rule \(X^4 = -1\), and one ring product costs \(N\) multiplications of numbers. The NTT computes the
+rule \(X^4 = -1\), and one ring product costs \(N\) multiplications of numbers. The <abbr title="number-theoretic transform">NTT</abbr> computes the
 evaluations, and the way back, in \(O(N \log N)\).</p>
 <p>The price is extra algebraic structure an attacker might exploit. Lyubashevsky, Peikert and
 Regev proved decision-RLWE hard assuming worst-case problems on <em>ideal</em> lattices are hard for
 quantum algorithms. No attack is known that does better on the power-of-two cyclotomic rings
-used in FHE than on plain LWE (<a href="../02_math_foundations.html#3-ring-lwe-the-efficient-version">02 §3</a>).
-ML-KEM sits in between: <strong>Module-LWE</strong>, small matrices of ring elements with \(N = 256\).</p>
+used in <abbr title="fully homomorphic encryption">FHE</abbr> than on plain <abbr title="learning with errors">LWE</abbr> (<a href="../02_math_foundations.html#3-ring-lwe-the-efficient-version">02 §3</a>).
+<abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> sits in between: <strong>Module-LWE</strong>, small matrices of ring elements with \(N = 256\).</p>
 <h3 id="an-rlwe-encryption">An RLWE encryption<a class="headerlink" href="#an-rlwe-encryption" title="Link to this section">#</a></h3>
 <p>Encryption and decryption look exactly like §5 with polynomials in place of vectors:
 \(b = a \cdot s + \Delta m + e\), and the phase \(b - a \cdot s\) is rounded coefficient by
@@ -574,7 +575,7 @@ Adding ciphertexts adds them coefficient by coefficient, but multiplying multipl
 polynomials, which mixes coefficients. <strong>Batching</strong> fixes that: if the plaintext modulus \(t\) is
 a prime with \(t \equiv 1 \pmod{2N}\), the Chinese Remainder Theorem splits \(\mathbb{Z}_t[X]/(X^N+1)\)
 into \(N\) independent "slots", and one homomorphic multiplication multiplies all \(N\) slots
-pairwise, like a SIMD instruction (<a href="../05_core_techniques.html#1-batching--simd-packing">05 §1</a>).
+pairwise, like a <abbr title="single instruction, multiple data">SIMD</abbr> instruction (<a href="../05_core_techniques.html#1-batching--simd-packing">05 §1</a>).
 With \(N = 16384\) that is 16384 multiplications for the price of one.</p>
 <h2 id="9-try-it">9. Try it<a class="headerlink" href="#9-try-it" title="Link to this section">#</a></h2>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p7_lwe_by_hand.py
@@ -603,7 +604,7 @@ parts in well under a second; the hand-worked example of §5 is part 3.</p>
 </tr>
 <tr>
 <td>3</td>
-<td>One LWE encryption and decryption by hand</td>
+<td>One <abbr title="learning with errors">LWE</abbr> encryption and decryption by hand</td>
 <td><a href="#5-building-encryption-the-noisy-one-time-pad">§5</a></td>
 </tr>
 <tr>
@@ -613,12 +614,12 @@ parts in well under a second; the hand-worked example of §5 is part 3.</p>
 </tr>
 <tr>
 <td>5</td>
-<td>Public-key LWE (Regev)</td>
+<td>Public-key <abbr title="learning with errors">LWE</abbr> (Regev)</td>
 <td><a href="#7-public-key-encryption-regevs-trick">§7</a></td>
 </tr>
 <tr>
 <td>6</td>
-<td>Ring-LWE: negacyclic products, the matrix \(M_a\), one RLWE encryption</td>
+<td>Ring-LWE: negacyclic products, the matrix \(M_a\), one <abbr title="ring learning with errors">RLWE</abbr> encryption</td>
 <td><a href="#8-ring-lwe-polynomials-instead-of-vectors">§8</a></td>
 </tr>
 </tbody>
@@ -666,10 +667,10 @@ the errors partly cancel). Set <code>LWE_DIM = 3</code> and write a brute-force 
 the candidates whose residuals on part 2's equations are all small.</p>
 <h2 id="10-how-this-connects-to-homomorphic-encryption">10. How this connects to homomorphic encryption<a class="headerlink" href="#10-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <ul>
-<li><strong>The noisy one-time pad.</strong> An LWE ciphertext is a one-time pad whose pad
+<li><strong>The noisy one-time pad.</strong> An <abbr title="learning with errors">LWE</abbr> ciphertext is a one-time pad whose pad
   \(\langle a, s \rangle\) is generated from a short key, plus a little noise. The noise makes the pad look random (that is
   the security), and the same noise grows with every operation (that is the limit).</li>
-<li><strong>Addition is free; the noise budget is not.</strong> Pads, messages and noises all add. Every FHE
+<li><strong>Addition is free; the noise budget is not.</strong> Pads, messages and noises all add. Every <abbr title="fully homomorphic encryption">FHE</abbr>
   scheme manages this budget; <a href="../03_how_it_works.html#1-a-toy-scheme-you-can-run">03 §1</a> runs
   the same scheme with bigger numbers.</li>
 <li><strong>The form of a ciphertext.</strong> In this chapter a ciphertext is \((a, b)\) with
@@ -684,36 +685,34 @@ the candidates whose residuals on part 2's equations are all small.</p>
 <h2 id="11-check-yourself">11. Check yourself<a class="headerlink" href="#11-check-yourself" title="Link to this section">#</a></h2>
 <ol>
 <li>With the chapter's key \(s = (71, 1, 60, 83)\), \(q = 97\), \(t = 4\), decrypt the ciphertext
-   \(((1, 0, 0, 0),\ 2)\). What is its noise?</li>
+   \(((1, 0, 0, 0),\ 2)\). What is its noise?
+<details class="answer"><summary>Show answer</summary><div><p>\(\langle a, s \rangle = 71\), so the phase is \(2 - 71 = -69 \equiv 28\). \(28 / 24 = 1.17\)
+   rounds to 1: the message is 1, with noise \(28 - 24 = +4\).</p></div></details></li>
 <li>Why does Gaussian elimination cope with noisy equations over the real numbers but not
-   mod \(q\)?</li>
-<li>Two messages are encrypted under the same key with the <strong>same</strong> mask \(a\). What can an
-   eavesdropper learn, and which P1 attack is this?</li>
-<li>With \(\Delta / 2 = 12\) and fresh noise \(\lvert e \rvert \le 3\), how many fresh ciphertexts
-   can you add with a guarantee of correct decryption (messages that do not wrap past \(t\))?
-   Why do more additions usually work in practice?</li>
-<li>In Regev's public-key scheme with \(\ell = 8\) public samples, how large may the public key's
-   noise be if decryption must always succeed with \(\Delta / 2 = 12\)?</li>
-<li>Compute \(X^2 \cdot (1 + 2X + 3X^2)\) in \(\mathbb{Z}_q[X]/(X^4 + 1)\).</li>
-</ol>
-<p><strong>Answers</strong></p>
-<ol>
-<li>\(\langle a, s \rangle = 71\), so the phase is \(2 - 71 = -69 \equiv 28\). \(28 / 24 = 1.17\)
-   rounds to 1: the message is 1, with noise \(28 - 24 = +4\).</li>
-<li>Over the reals, multiplying a small error by a moderate coefficient keeps it moderate, and
+   mod \(q\)?
+<details class="answer"><summary>Show answer</summary><div><p>Over the reals, multiplying a small error by a moderate coefficient keeps it moderate, and
    least squares averages errors out. Mod \(q\), multiplying by an inverse like \(25\) and reducing
    wraps a small error to an arbitrary-looking residue, so after elimination the error
-   \(A^{-1} e\) is spread over all of \(\mathbb{Z}_q\).</li>
-<li>\(b_1 - b_2 = \Delta (m_1 - m_2) + (e_1 - e_2)\): the pads cancel, and rounding
-   \((b_1 - b_2)/\Delta\) reveals \(m_1 - m_2\). It is the two-time pad.</li>
-<li>Three: \(\lvert e_1 + e_2 + e_3 \rvert \le 9 &lt; 12\), but four could reach exactly 12. In
+   \(A^{-1} e\) is spread over all of \(\mathbb{Z}_q\).</p></div></details></li>
+<li>Two messages are encrypted under the same key with the <strong>same</strong> mask \(a\). What can an
+   eavesdropper learn, and which P1 attack is this?
+<details class="answer"><summary>Show answer</summary><div><p>\(b_1 - b_2 = \Delta (m_1 - m_2) + (e_1 - e_2)\): the pads cancel, and rounding
+   \((b_1 - b_2)/\Delta\) reveals \(m_1 - m_2\). It is the two-time pad.</p></div></details></li>
+<li>With \(\Delta / 2 = 12\) and fresh noise \(\lvert e \rvert \le 3\), how many fresh ciphertexts
+   can you add with a guarantee of correct decryption (messages that do not wrap past \(t\))?
+   Why do more additions usually work in practice?
+<details class="answer"><summary>Show answer</summary><div><p>Three: \(\lvert e_1 + e_2 + e_3 \rvert \le 9 &lt; 12\), but four could reach exactly 12. In
    practice the errors are random and partly cancel, so the sum grows like \(\sqrt{k}\) rather
    than \(3k\); the run in <a href="../../code/primer/p7_lwe_by_hand.py">part 4 of the script</a> lasted 22
-   additions.</li>
-<li>A subset can contain all 8 samples, so \(8 B &lt; 12\): the public key's noise must satisfy
-   \(\lvert e_i \rvert \le 1\).</li>
-<li>\(X^2 + 2X^3 + 3X^4 = -3 + X^2 + 2X^3\), because \(X^4 = -1\).</li>
+   additions.</p></div></details></li>
+<li>In Regev's public-key scheme with \(\ell = 8\) public samples, how large may the public key's
+   noise be if decryption must always succeed with \(\Delta / 2 = 12\)?
+<details class="answer"><summary>Show answer</summary><div><p>A subset can contain all 8 samples, so \(8 B &lt; 12\): the public key's noise must satisfy
+   \(\lvert e_i \rvert \le 1\).</p></div></details></li>
+<li>Compute \(X^2 \cdot (1 + 2X + 3X^2)\) in \(\mathbb{Z}_q[X]/(X^4 + 1)\).
+<details class="answer"><summary>Show answer</summary><div><p>\(X^2 + 2X^3 + 3X^4 = -3 + X^2 + 2X^3\), because \(X^4 = -1\).</p></div></details></li>
 </ol>
+
 <h2 id="12-key-terms">12. Key terms<a class="headerlink" href="#12-key-terms" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -724,16 +723,16 @@ the candidates whose residuals on part 2's equations are all small.</p>
 </thead>
 <tbody>
 <tr>
-<td>LWE sample</td>
+<td><abbr title="learning with errors">LWE</abbr> sample</td>
 <td>\((a, \langle a, s \rangle + e \bmod q)\) with uniform \(a\) and small error \(e\)</td>
 </tr>
 <tr>
 <td>Search-LWE</td>
-<td>Find \(s\) from many LWE samples</td>
+<td>Find \(s\) from many <abbr title="learning with errors">LWE</abbr> samples</td>
 </tr>
 <tr>
 <td>Decision-LWE</td>
-<td>Tell LWE samples apart from uniformly random pairs; what encryption security needs</td>
+<td>Tell <abbr title="learning with errors">LWE</abbr> samples apart from uniformly random pairs; what encryption security needs</td>
 </tr>
 <tr>
 <td>Error / noise</td>
@@ -748,24 +747,24 @@ the candidates whose residuals on part 2's equations are all small.</p>
 <td>Short, nearly orthogonal vectors versus long, nearly parallel ones for the same lattice</td>
 </tr>
 <tr>
-<td>SVP, CVP, BDD</td>
+<td><abbr title="shortest vector problem">SVP</abbr>, <abbr title="closest vector problem">CVP</abbr>, <abbr title="bounded distance decoding">BDD</abbr></td>
 <td>Find a shortest vector; the closest lattice point; the closest point when it is very near</td>
 </tr>
 <tr>
-<td>GapSVP, SIVP</td>
-<td>Approximate SVP variants: estimate the shortest length; find \(n\) short independent vectors</td>
+<td><abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr>, <abbr title="shortest independent vectors problem">SIVP</abbr></td>
+<td>Approximate <abbr title="shortest vector problem">SVP</abbr> variants: estimate the shortest length; find \(n\) short independent vectors</td>
 </tr>
 <tr>
 <td>\(q\)-ary lattice</td>
-<td>The lattice of vectors congruent mod \(q\) to some \(A z\); LWE is BDD in it</td>
+<td>The lattice of vectors congruent mod \(q\) to some \(A z\); <abbr title="learning with errors">LWE</abbr> is <abbr title="bounded distance decoding">BDD</abbr> in it</td>
 </tr>
 <tr>
-<td>Lattice reduction (LLL, BKZ)</td>
-<td>Algorithms that improve a basis; the main attack on LWE</td>
+<td>Lattice reduction (<abbr title="Lenstra–Lenstra–Lovász lattice reduction">LLL</abbr>, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr>)</td>
+<td>Algorithms that improve a basis; the main attack on <abbr title="learning with errors">LWE</abbr></td>
 </tr>
 <tr>
 <td>Worst-case to average-case reduction</td>
-<td>A proof that solving random LWE instances would (approximately) solve every instance of a lattice problem</td>
+<td>A proof that solving random <abbr title="learning with errors">LWE</abbr> instances would (approximately) solve every instance of a lattice problem</td>
 </tr>
 <tr>
 <td>Scaling factor \(\Delta\)</td>
@@ -781,19 +780,19 @@ the candidates whose residuals on part 2's equations are all small.</p>
 </tr>
 <tr>
 <td>Regev encryption</td>
-<td>Public-key LWE: publish encryptions of 0, encrypt with a random subset sum</td>
+<td>Public-key <abbr title="learning with errors">LWE</abbr>: publish encryptions of 0, encrypt with a random subset sum</td>
 </tr>
 <tr>
 <td>Ring-LWE</td>
-<td>LWE with polynomials in \(\mathbb{Z}_q[X]/(X^N + 1)\) instead of vectors</td>
+<td><abbr title="learning with errors">LWE</abbr> with polynomials in \(\mathbb{Z}_q[X]/(X^N + 1)\) instead of vectors</td>
 </tr>
 <tr>
 <td>Negacyclic</td>
 <td>Multiplication mod \(X^N + 1\): coefficients wrap around with a sign flip</td>
 </tr>
 <tr>
-<td>NTT</td>
-<td>FFT over \(\mathbb{Z}_q\); multiplies ring elements in \(O(N \log N)\)</td>
+<td><abbr title="number-theoretic transform">NTT</abbr></td>
+<td><abbr title="fast Fourier transform">FFT</abbr> over \(\mathbb{Z}_q\); multiplies ring elements in \(O(N \log N)\)</td>
 </tr>
 <tr>
 <td>Ciphertext expansion</td>
@@ -801,11 +800,11 @@ the candidates whose residuals on part 2's equations are all small.</p>
 </tr>
 <tr>
 <td>Batching</td>
-<td>Packing \(N\) values into slots of one ciphertext via the CRT</td>
+<td>Packing \(N\) values into slots of one ciphertext via the <abbr title="Chinese remainder theorem">CRT</abbr></td>
 </tr>
 <tr>
 <td>Module-LWE</td>
-<td>Small matrices of ring elements; the basis of ML-KEM</td>
+<td>Small matrices of ring elements; the basis of <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr></td>
 </tr>
 </tbody>
 </table></div>
@@ -814,7 +813,7 @@ the candidates whose residuals on part 2's equations are all small.</p>
 <li>O. Regev, <em>On Lattices, Learning with Errors, Random Linear Codes, and Cryptography</em>,
   STOC 2005; J. ACM 56(6), 2009, <a href="https://doi.org/10.1145/1568318.1568324">https://doi.org/10.1145/1568318.1568324</a>; full text with a
   later proof fix: <a href="https://arxiv.org/abs/2401.03703">https://arxiv.org/abs/2401.03703</a>. Main theorem (quantum reduction from
-  GapSVP and SIVP), search-to-decision equivalence for prime \(q\), the public-key scheme of §7
+  <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr> and <abbr title="shortest independent vectors problem">SIVP</abbr>), search-to-decision equivalence for prime \(q\), the public-key scheme of §7
   and its leftover-hash argument; also draws \(\mathbb{Z}_p\) on a circle.</li>
 <li>O. Regev, <em>The Learning with Errors Problem</em> (survey), 2010.
   <a href="https://cims.nyu.edu/~regev/papers/lwesurvey.pdf">https://cims.nyu.edu/~regev/papers/lwesurvey.pdf</a></li>
@@ -827,13 +826,13 @@ the candidates whose residuals on part 2's equations are all small.</p>
   Rings</em>, EUROCRYPT 2010, <a href="https://doi.org/10.1007/978-3-642-13190-5_1">https://doi.org/10.1007/978-3-642-13190-5_1</a>; full version
   <a href="https://eprint.iacr.org/2012/230">https://eprint.iacr.org/2012/230</a></li>
 <li>A. K. Lenstra, H. W. Lenstra, L. Lovász, <em>Factoring Polynomials with Rational
-  Coefficients</em>, Math. Ann. 261, 1982 (LLL). <a href="https://doi.org/10.1007/BF01457454">https://doi.org/10.1007/BF01457454</a></li>
+  Coefficients</em>, Math. Ann. 261, 1982 (<abbr title="Lenstra–Lenstra–Lovász lattice reduction">LLL</abbr>). <a href="https://doi.org/10.1007/BF01457454">https://doi.org/10.1007/BF01457454</a></li>
 <li>C.-P. Schnorr, <em>A Hierarchy of Polynomial Time Lattice Basis Reduction Algorithms</em>, TCS 53,
   1987, <a href="https://doi.org/10.1016/0304-3975(87)90064-8">https://doi.org/10.1016/0304-3975(87)90064-8</a>; C.-P. Schnorr, M. Euchner, <em>Lattice
   Basis Reduction: Improved Practical Algorithms and Solving Subset Sum Problems</em>, Math.
-  Programming 66, 1994, <a href="https://doi.org/10.1007/BF01581144">https://doi.org/10.1007/BF01581144</a> (BKZ)</li>
+  Programming 66, 1994, <a href="https://doi.org/10.1007/BF01581144">https://doi.org/10.1007/BF01581144</a> (<abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr>)</li>
 <li>C. Peikert, <em>A Decade of Lattice Cryptography</em>, 2016. <a href="https://eprint.iacr.org/2015/939">https://eprint.iacr.org/2015/939</a></li>
-<li>NIST, FIPS 203, <em>Module-Lattice-Based Key-Encapsulation Mechanism Standard</em>, 2024.
+<li><abbr title="National Institute of Standards and Technology">NIST</abbr>, <abbr title="Federal Information Processing Standard">FIPS</abbr> 203, <em>Module-Lattice-Based Key-Encapsulation Mechanism Standard</em>, 2024.
   <a href="https://csrc.nist.gov/pubs/fips/203/final">https://csrc.nist.gov/pubs/fips/203/final</a></li>
 </ul>
 </article>

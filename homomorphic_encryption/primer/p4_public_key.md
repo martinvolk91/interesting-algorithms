@@ -612,7 +612,7 @@ decrypts to $6 \cdot 7 = 42$. In part 3b only the tally is decrypted, never a si
 6. A large quantum computer is switched on tomorrow. Which of these still protect a recording of
    today's traffic: RSA-OAEP, ECDHE with X25519, AES-128-GCM, AES-256-GCM, ML-KEM-768, BFV?
 
-### Answers
+**Answers**
 
 1. $A = 2^3 = 8$, $B = 2^7 = 128 \equiv 13$, and $K = B^a = 13^3 = 2197 \equiv 12$ (Bob: $A^b = 8^7 = 2^{21} = 2^{21 \bmod 11} = 2^{10} \equiv 12$).
    Eve sees $p, g, A, B$. She needs CDH: $g^{ab}$ from $g^a$ and $g^b$. Solving the discrete log

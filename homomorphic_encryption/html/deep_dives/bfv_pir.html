@@ -6,6 +6,7 @@
 <title>Deep dive: BFV and private information retrieval (caller ID)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -105,17 +106,17 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-bfv-and-private-information-retrieval-caller-id">Deep dive: BFV and private information retrieval (caller ID)<a class="headerlink" href="#deep-dive-bfv-and-private-information-retrieval-caller-id" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">04 Schemes</a>, <a href="../08_ecosystem_and_applications.html#3-application-areas">08 Applications</a> · siblings: <a href="ckks.html">CKKS</a>, <a href="tfhe.html">TFHE</a>, <a href="ckks_ind_cpa_d.html">IND-CPA-D</a></p>
+<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">04 Schemes</a>, <a href="../08_ecosystem_and_applications.html#3-application-areas">08 Applications</a> · siblings: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></a>, <a href="tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></a>, <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></a></p>
 <hr />
-<p>BFV (Brakerski 2012, Fan–Vercauteren 2012) does <strong>exact arithmetic on vectors of integers
-mod <code>t</code></strong>. It is the scheme behind the two best-known FHE deployments: Apple's <strong>Live Caller
+<p><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski 2012, Fan–Vercauteren 2012) does <strong>exact arithmetic on vectors of integers
+mod <code>t</code></strong>. It is the scheme behind the two best-known <abbr title="fully homomorphic encryption">FHE</abbr> deployments: Apple's <strong>Live Caller
 ID Lookup</strong> and Microsoft Edge's <strong>Password Monitor</strong>. Both are <em>private lookups</em>: the client
 learns something from a server's database, and the server doesn't learn what was looked up.</p>
 <p>This document has two parts:</p>
 <ul>
-<li><strong>Part I, BFV:</strong> batching, encryption, the noise budget, multiplication, key switching and
+<li><strong>Part I, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>:</strong> batching, encryption, the noise budget, multiplication, key switching and
   rotations, all running in <a href="../../code/toy_bfv.py"><code>../code/toy_bfv.py</code></a>.</li>
-<li><strong>Part II, PIR:</strong> a toy <strong>keyword private information retrieval</strong> service for caller ID,
+<li><strong>Part II, <abbr title="private information retrieval">PIR</abbr>:</strong> a toy <strong>keyword private information retrieval</strong> service for caller ID,
   in <a href="../../code/pir_caller_id.py"><code>../code/pir_caller_id.py</code></a>, and how real deployments differ.</li>
 </ul>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/toy_bfv.py<span class="w">          </span><span class="c1"># from the homomorphic_encryption/ folder, ~0.1 s</span>
@@ -127,12 +128,12 @@ numbers in the demo are in the 555-01xx range reserved for fiction, and the labe
 <hr />
 <h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
 <blockquote>
-<p>BFV keeps the message in the <strong>top bits</strong> of the ciphertext, <code>Δ·m</code> with <code>Δ = ⌊q/t⌋</code>, and the
+<p><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> keeps the message in the <strong>top bits</strong> of the ciphertext, <code>Δ·m</code> with <code>Δ = ⌊q/t⌋</code>, and the
 noise below it. Decryption scales by <code>t/q</code> and <strong>rounds the noise away</strong>, so results are
 exact. <strong>Batching</strong> turns one ciphertext into <code>N</code> independent integers mod <code>t</code>.</p>
-<p>PIR then becomes simple: multiply an <strong>encrypted one-hot selector</strong> by the plaintext
+<p><abbr title="private information retrieval">PIR</abbr> then becomes simple: multiply an <strong>encrypted one-hot selector</strong> by the plaintext
 database, and only the requested record survives. That is depth 1, no bootstrapping, and
-every slot is used: a perfect fit for BFV.</p>
+every slot is used: a perfect fit for <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>.</p>
 </blockquote>
 <h3 id="notation">Notation<a class="headerlink" href="#notation" title="Link to this section">#</a></h3>
 <div class="table-wrap"><table>
@@ -161,7 +162,7 @@ every slot is used: a perfect fit for BFV.</p>
 <td><code>q</code></td>
 <td>ciphertext modulus</td>
 <td>2¹²⁰</td>
-<td>~100–800 bits, as an RNS product of primes</td>
+<td>~100–800 bits, as an <abbr title="residue number system">RNS</abbr> product of primes</td>
 </tr>
 <tr>
 <td><code>Δ</code></td>
@@ -189,11 +190,11 @@ every slot is used: a perfect fit for BFV.</p>
 <h3 id="11-the-plaintext-ring-splits-into-slots">1.1 The plaintext ring splits into slots<a class="headerlink" href="#11-the-plaintext-ring-splits-into-slots" title="Link to this section">#</a></h3>
 <p>Plaintexts are polynomials in \(R_t = \mathbb{Z}_t[X]/(X^N+1)\). If <code>t</code> is a prime with
 \(t \equiv 1 \pmod{2N}\), then \(\mathbb{Z}_t\) contains a primitive <code>2N</code>-th root of unity <code>ψ</code>,
-and \(X^N + 1\) splits into <code>N</code> linear factors \((X - \psi^{2i+1})\). By the CRT:</p>
+and \(X^N + 1\) splits into <code>N</code> linear factors \((X - \psi^{2i+1})\). By the <abbr title="Chinese remainder theorem">CRT</abbr>:</p>
 <div class="math-display">\[\mathbb{Z}_t[X]/(X^N+1) \;\cong\; \underbrace{\mathbb{Z}_t \times \cdots \times \mathbb{Z}_t}_{N \text{ slots}}, \qquad m \mapsto \big(m(\psi), m(\psi^3), \dots\big)\]</div>
-<p>This is the same structure as the CKKS encoding (<a href="ckks.html#1-encoding">CKKS §1</a>), but over a
+<p>This is the same structure as the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> encoding (<a href="ckks.html#1-encoding"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> §1</a>), but over a
 finite field instead of \(\mathbb{C}\). Nothing is approximated, and all <code>N</code> slots are
-independent. CKKS has only <code>N/2</code> slots because the other half are complex conjugates.</p>
+independent. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> has only <code>N/2</code> slots because the other half are complex conjugates.</p>
 <p><strong>Toy numbers:</strong> <code>t = 257 = 2⁸ + 1</code> and <code>2N = 128</code> divides <code>t − 1 = 256</code>. 3 is a primitive
 root mod 257, so <code>ψ = 3^(256/128) = 9</code> (indeed <code>9⁶⁴ ≡ −1 mod 257</code>).</p>
 <div class="highlight"><pre><span></span><code><span class="n">PSI</span> <span class="o">=</span> <span class="nb">pow</span><span class="p">(</span><span class="n">_primitive_root</span><span class="p">(),</span> <span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span><span class="p">),</span> <span class="n">T</span><span class="p">)</span>        <span class="c1"># primitive 2N-th root of unity mod T</span>
@@ -214,10 +215,10 @@ coefficients[:8]   [231, 247, 103, 13, 242, 251, 229, 53]  (scrambled by the CRT
 decode(encode(x)) == x: True
 </code></pre></div>
 
-<p>Real libraries compute both directions with an NTT in \(O(N \log N)\).</p>
+<p>Real libraries compute both directions with an <abbr title="number-theoretic transform">NTT</abbr> in \(O(N \log N)\).</p>
 <h3 id="12-rows-and-rotations">1.2 Rows and rotations<a class="headerlink" href="#12-rows-and-rotations" title="Link to this section">#</a></h3>
 <p>The slots are ordered by the roots \(\psi^{5^j}\) (row 0) and \(\psi^{-5^j}\) (row 1), giving a
-<strong>2 × N/2</strong> grid. As in CKKS, the automorphism \(X \mapsto X^5\) maps the root of slot <code>j</code> to the
+<strong>2 × N/2</strong> grid. As in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the automorphism \(X \mapsto X^5\) maps the root of slot <code>j</code> to the
 root of slot <code>j+1</code>, so it <strong>rotates both rows left by one</strong>. \(X \mapsto X^{-1}\) <strong>swaps the
 rows</strong>. These are the only data movements available, and each costs a key switch (§4).</p>
 <div class="highlight"><pre><span></span><code>rotate left 1, row 0: [151, 165, 45, 172, 211, 68] ... was [96, 151, 165, 45, 172, 211]
@@ -230,7 +231,7 @@ simplest one.)</p>
 <h3 id="13-choosing-t">1.3 Choosing <code>t</code><a class="headerlink" href="#13-choosing-t" title="Link to this section">#</a></h3>
 <ul>
 <li><code>t</code> bounds the values: <strong>all slot arithmetic is mod <code>t</code>.</strong> To compute with ordinary
-  integers, keep every intermediate value below <code>t</code>, or split across several <code>t</code>'s with the CRT.</li>
+  integers, keep every intermediate value below <code>t</code>, or split across several <code>t</code>'s with the <abbr title="Chinese remainder theorem">CRT</abbr>.</li>
 <li>A bigger <code>t</code> means more noise per multiplication (§3). Each multiplication costs about
   <code>log₂(t·N)</code> bits of budget.</li>
 <li>Full batching needs \(t \equiv 1 \pmod{2N}\). The Fermat prime <strong>65537</strong> works for every
@@ -239,15 +240,15 @@ simplest one.)</p>
 <hr />
 <h2 id="2-encryption-decryption-and-the-noise-budget">2. Encryption, decryption and the noise budget<a class="headerlink" href="#2-encryption-decryption-and-the-noise-budget" title="Link to this section">#</a></h2>
 <h3 id="21-encrypt-and-decrypt">2.1 Encrypt and decrypt<a class="headerlink" href="#21-encrypt-and-decrypt" title="Link to this section">#</a></h3>
-<p>Keys and encryption are the standard RLWE ones (<a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>):</p>
+<p>Keys and encryption are the standard <abbr title="ring learning with errors">RLWE</abbr> ones (<a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>):</p>
 <ul>
 <li>secret <code>s</code> ternary; public key <code>pk = (−a·s + e, a)</code>;</li>
 <li><code>Enc(m) = (pk₀·u + e₁ + Δ·m,  pk₁·u + e₂)</code>;</li>
 <li><code>Dec</code>: compute <code>x = c₀ + c₁·s = Δ·m + v (mod q)</code>, then <strong><code>m = round(t·x/q) mod t</code></strong>.</li>
 </ul>
-<p>The rounding is what makes BFV exact and what distinguishes it from CKKS. It also means that
-decrypted outputs reveal nothing about the noise, so exact schemes are IND-CPA-D secure as
-long as decryption never fails (<a href="ckks_ind_cpa_d.html#6-its-not-only-ckks">IND-CPA-D deep dive §6</a>).</p>
+<p>The rounding is what makes <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> exact and what distinguishes it from <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. It also means that
+decrypted outputs reveal nothing about the noise, so exact schemes are <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> secure as
+long as decryption never fails (<a href="ckks_ind_cpa_d.html#6-its-not-only-ckks"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive §6</a>).</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">poly_add</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">poly_mul</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="p">))</span>                  <span class="c1"># = DELTA*m + e  (mod Q)</span>
     <span class="k">return</span> <span class="p">[</span><span class="n">round_div</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span> <span class="n">c</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span> <span class="o">%</span> <span class="n">T</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>              <span class="c1"># scale by T/Q and round: the noise vanishes</span>
@@ -317,7 +318,7 @@ x^(2^7) (depth 7)    budget   0.0 bits   decrypts correctly: False
 </tbody>
 </table></div>
 <p>So the toy supports <strong>depth 6</strong>. With <code>q = 2¹²⁰</code> and <code>t = 257</code>, that is the whole story of
-leveled BFV: <strong>budget ÷ (bits per multiplication) = depth.</strong></p>
+leveled <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>: <strong>budget ÷ (bits per multiplication) = depth.</strong></p>
 <p><strong>Never share the noise budget.</strong> It is a direct measurement of <code>‖v‖</code>, a function of the
 secret key. Apple's library documentation warns that sending noise budgets or decryption
 results back to the server can act as an oracle revealing the secret key (§8.4).</p>
@@ -326,7 +327,7 @@ results back to the server can act as an oracle revealing the secret key (§8.4)
 <h3 id="31-tensor-scale-round">3.1 Tensor, scale, round<a class="headerlink" href="#31-tensor-scale-round" title="Link to this section">#</a></h3>
 <p>Multiply the decryption equations (<a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">03 §4</a>):</p>
 <div class="math-display">\[(c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s) = d_0 + d_1 s + d_2 s^2\]</div>
-<p>In BFV this product must be computed <strong>over the integers</strong>, not mod <code>q</code>. Over the integers,
+<p>In <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> this product must be computed <strong>over the integers</strong>, not mod <code>q</code>. Over the integers,
 \(c_0 + c_1 s = \Delta m + v + q\,k\) for some small polynomial <code>k</code>, and the <code>q·k</code> terms only
 disappear after the scaling step. Scale each \(d_i\) by <code>t/q</code> and round:</p>
 <div class="math-display">\[\tfrac{t}{q}\,(\Delta m + v + qk)(\Delta m&#x27; + v&#x27; + qk&#x27;) \;\approx\; \Delta\, m m&#x27; + \underbrace{t\,(m v&#x27; + m&#x27; v + k v&#x27; + k&#x27; v)}_{\text{new noise}} + \dots \pmod{q}\]</div>
@@ -343,15 +344,15 @@ factor of about <code>t·‖s‖·N</code>. That is the ~14 bits per multiplicat
 </code></pre></div>
 
 <h3 id="32-in-real-libraries">3.2 In real libraries<a class="headerlink" href="#32-in-real-libraries" title="Link to this section">#</a></h3>
-<p>The integer tensor product is awkward in RNS, where <code>q</code> is a product of word-sized primes and
-there are no big integers. The two standard RNS variants handle the "scale by <code>t/q</code> and round"
+<p>The integer tensor product is awkward in <abbr title="residue number system">RNS</abbr>, where <code>q</code> is a product of word-sized primes and
+there are no big integers. The two standard <abbr title="residue number system">RNS</abbr> variants handle the "scale by <code>t/q</code> and round"
 step with <strong>base extensions</strong>: <strong>BEHZ</strong> (Bajard–Eynard–Hasan–Zucca 2016) and <strong>HPS</strong>
 (Halevi–Polyakov–Shoup 2019).</p>
 <h3 id="33-bfv-vs-bgv">3.3 BFV vs BGV<a class="headerlink" href="#33-bfv-vs-bgv" title="Link to this section">#</a></h3>
-<p>BGV puts the message in the <strong>low</strong> bits (<code>c₀ + c₁s = m + t·e</code>) and controls noise with
-<strong>modulus switching</strong> after each multiplication. BFV is "scale-invariant": it needs no modulus
-switching, at the price of the scaling step. With modern RNS implementations their performance
-is similar. Kim–Polyakov–Zucca (2021) found BFV better for small <code>t</code> and BGV for large <code>t</code>.
+<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> puts the message in the <strong>low</strong> bits (<code>c₀ + c₁s = m + t·e</code>) and controls noise with
+<strong>modulus switching</strong> after each multiplication. <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> is "scale-invariant": it needs no modulus
+switching, at the price of the scaling step. With modern <abbr title="residue number system">RNS</abbr> implementations their performance
+is similar. Kim–Polyakov–Zucca (2021) found <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> better for small <code>t</code> and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> for large <code>t</code>.
 Converting between them is cheap, and OpenFHE implements both.</p>
 <hr />
 <h2 id="4-key-switching-the-digit-size-trade-off">4. Key switching: the digit-size trade-off<a class="headerlink" href="#4-key-switching-the-digit-size-trade-off" title="Link to this section">#</a></h2>
@@ -426,9 +427,9 @@ speed and key size. Measured:</p>
 <p>Each extra 10 bits of digit costs about 10 bits of budget. This noise is a <strong>floor</strong>: added
 once per key switch, independent of the input's noise. That is why the first multiplication
 and a single rotation both cost ~28 bits in the toy.</p>
-<p>Real libraries mostly use <strong>hybrid key switching</strong> instead: a few RNS "digits" plus a
-temporary <strong>special modulus <code>P</code></strong> that divides the added noise away, as in the CKKS toy
-(<a href="ckks.html#31-multiplication-and-relinearization">CKKS §3.1</a>). The floor almost vanishes, at the
+<p>Real libraries mostly use <strong>hybrid key switching</strong> instead: a few <abbr title="residue number system">RNS</abbr> "digits" plus a
+temporary <strong>special modulus <code>P</code></strong> that divides the added noise away, as in the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> toy
+(<a href="ckks.html#31-multiplication-and-relinearization"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> §3.1</a>). The floor almost vanishes, at the
 cost of a larger key modulus <code>P·q</code>.</p>
 <h2 id="5-rotations-at-work-an-encrypted-inner-product">5. Rotations at work: an encrypted inner product<a class="headerlink" href="#5-rotations-at-work-an-encrypted-inner-product" title="Link to this section">#</a></h2>
 <p>Multiply slot-wise, then <strong>rotate and add</strong> with power-of-two shifts: <code>log₂(N/2)</code> rotations
@@ -465,26 +466,26 @@ from a provider's database <strong>without telling the provider who is calling</
 <td>tiny</td>
 </tr>
 <tr>
-<td><strong>Trivial PIR</strong>: download the whole database</td>
+<td><strong>Trivial <abbr title="private information retrieval">PIR</abbr></strong>: download the whole database</td>
 <td>perfect</td>
 <td>the whole database, re-synced as it changes (spam lists change constantly)</td>
 </tr>
 <tr>
-<td><strong>Single-server PIR with HE</strong></td>
-<td>the server learns nothing about the number (IND-CPA)</td>
+<td><strong>Single-server <abbr title="private information retrieval">PIR</abbr> with <abbr title="homomorphic encryption">HE</abbr></strong></td>
+<td>the server learns nothing about the number (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>)</td>
 <td>one query plus one response, and server work proportional to the database</td>
 </tr>
 </tbody>
 </table></div>
-<p>Single-server computational PIR goes back to Kushilevitz–Ostrovsky (1997). Two facts hold for
-<em>every</em> PIR scheme, and the toy makes both visible:</p>
+<p>Single-server computational <abbr title="private information retrieval">PIR</abbr> goes back to Kushilevitz–Ostrovsky (1997). Two facts hold for
+<em>every</em> <abbr title="private information retrieval">PIR</abbr> scheme, and the toy makes both visible:</p>
 <ol>
 <li><strong>The server must touch every record for every query.</strong> If it skipped some, it would learn
    that they weren't requested. Server work is \(\Omega(\text{database size})\).</li>
-<li><strong>PIR protects the client, not the database.</strong> The client may learn more than it asked
-   for. Preventing that is <em>symmetric</em> PIR, which needs extra machinery.</li>
+<li><strong><abbr title="private information retrieval">PIR</abbr> protects the client, not the database.</strong> The client may learn more than it asked
+   for. Preventing that is <em>symmetric</em> <abbr title="private information retrieval">PIR</abbr>, which needs extra machinery.</li>
 </ol>
-<p><strong>Why BFV fits:</strong> the answer must be exact (labels, IDs), the computation is
+<p><strong>Why <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> fits:</strong> the answer must be exact (labels, IDs), the computation is
 plaintext × ciphertext plus rotations (<strong>depth 1</strong>, no bootstrapping, small parameters), and
 batching processes <code>N</code> records per operation.</p>
 <h2 id="7-the-toy-caller-id-service">7. The toy caller-ID service<a class="headerlink" href="#7-the-toy-caller-id-service" title="Link to this section">#</a></h2>
@@ -544,7 +545,7 @@ full keyword.</p>
 
 <ul>
 <li><code>query ⊙ P_w</code> is slot-wise multiplication by a one-hot vector: <strong>every bucket except <code>b</code>
-  becomes 0</strong>. The server can't tell which one survived. All it sees is IND-CPA ciphertexts.</li>
+  becomes 0</strong>. The server can't tell which one survived. All it sees is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> ciphertexts.</li>
 <li>Rotating <code>part_w</code> right by <code>w</code> moves word <code>w</code> of bucket <code>b</code> into column <code>b + w</code>. Since only
   bucket <code>b</code> is non-zero, the shifted copies never collide. The sum is <strong>one ciphertext
   holding the whole bucket</strong>: slots <code>b … b+7</code> of <code>b</code>'s row, zeros elsewhere.</li>
@@ -567,28 +568,28 @@ matching tag.</p>
 
 <p>The client receives the <strong>whole bucket</strong>: three other numbers' tags and labels. Here the tags
 are 8-bit hashes, and phone numbers come from a small space, so a client could brute-force
-which numbers they belong to. This is PIR's asymmetry, and Apple's library documentation
+which numbers they belong to. This is <abbr title="private information retrieval">PIR</abbr>'s asymmetry, and Apple's library documentation
 states it plainly: the client may learn keyword–value pairs it didn't request. Fixes include
-deriving keywords with a server-keyed function (an OPRF) so that other tags can't be inverted,
-or full symmetric PIR.</p>
+deriving keywords with a server-keyed function (an <abbr title="oblivious pseudorandom function">OPRF</abbr>) so that other tags can't be inverted,
+or full symmetric <abbr title="private information retrieval">PIR</abbr>.</p>
 <h3 id="76-costs-and-why-pir-only-wins-at-scale">7.6 Costs, and why PIR only wins at scale<a class="headerlink" href="#76-costs-and-why-pir-only-wins-at-scale" title="Link to this section">#</a></h3>
 <div class="highlight"><pre><span></span><code>database: 60 numbers in 64 buckets of 4, 8 plaintexts of 64 slots
 query 1920 B, response 1920 B, Galois keys (sent once) 52 KB
 </code></pre></div>
 
 <p>The toy's query and response are each <strong>bigger than its whole database</strong> (60 entries of 2
-bytes). That is expected: PIR pays off only when the database is large, because query and
+bytes). That is expected: <abbr title="private information retrieval">PIR</abbr> pays off only when the database is large, because query and
 response sizes grow much more slowly than the database does (§8.1). The server's cost per
 query, though, always grows linearly with the database.</p>
-<p>The response still has <strong>~74 bits of noise budget</strong> after the whole computation. PIR barely
+<p>The response still has <strong>~74 bits of noise budget</strong> after the whole computation. <abbr title="private information retrieval">PIR</abbr> barely
 uses the budget, so real deployments pick small parameters and <strong>modulus-switch the response
 down</strong> to shrink it before sending.</p>
 <hr />
 <h2 id="8-from-the-toy-to-a-real-deployment">8. From the toy to a real deployment<a class="headerlink" href="#8-from-the-toy-to-a-real-deployment" title="Link to this section">#</a></h2>
 <p>Apple has published the overall architecture of Live Caller ID Lookup, the
-<code>swift-homomorphic-encryption</code> library (BFV, with a <code>PrivateInformationRetrieval</code> module), and
+<code>swift-homomorphic-encryption</code> library (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, with a <code>PrivateInformationRetrieval</code> module), and
 an example backend. In the sources I checked it has <strong>not</strong> published the exact production
-protocol and parameters. The techniques below are the standard ones from the PIR literature;
+protocol and parameters. The techniques below are the standard ones from the <abbr title="private information retrieval">PIR</abbr> literature;
 treat any mapping to Apple's internals as indicative.</p>
 <h3 id="81-scaling-the-database">8.1 Scaling the database<a class="headerlink" href="#81-scaling-the-database" title="Link to this section">#</a></h3>
 <ul>
@@ -599,7 +600,7 @@ treat any mapping to Apple's internals as indicative.</p>
   0/1 selectors itself, using automorphisms \(X \mapsto X^{N/2^j + 1}\) and key switching.</li>
 <li><strong>Multi-dimensional databases</strong> (MulPIR, Ali et al. 2021): arrange the plaintexts as a
   <code>d₁ × d₂</code> grid. Select a column with plaintext × ciphertext products, then a row with
-  <strong>ciphertext × ciphertext</strong> products. This is where BFV multiplication and relinearization
+  <strong>ciphertext × ciphertext</strong> products. This is where <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> multiplication and relinearization
   earn their keep. Communication drops to about \(O(\sqrt{\text{DB}})\) selectors, or less with
   expansion.</li>
 <li><strong>Response compression:</strong> modulus-switch the response to a small modulus before sending.</li>
@@ -621,40 +622,40 @@ treat any mapping to Apple's internals as indicative.</p>
   removes the IP address but can't see the destination.</li>
 <li><strong>Privacy Pass</strong>: anonymous tokens let the provider authenticate requests without linking
   them to a user.</li>
-<li><strong>Keyword PIR</strong>: hides the phone number itself.</li>
+<li><strong>Keyword <abbr title="private information retrieval">PIR</abbr></strong>: hides the phone number itself.</li>
 </ul>
-<p>HE alone would still leave the server knowing <em>which device</em> asked <em>when</em>. Real privacy needs
+<p><abbr title="homomorphic encryption">HE</abbr> alone would still leave the server knowing <em>which device</em> asked <em>when</em>. Real privacy needs
 all three.</p>
 <h3 id="84-dont-build-a-decryption-oracle">8.4 Don't build a decryption oracle<a class="headerlink" href="#84-dont-build-a-decryption-oracle" title="Link to this section">#</a></h3>
 <p>Apple's library README warns that the client must not send information about decrypted
 ciphertexts, including the <strong>noise budget</strong>, back to the server. That information can act as
-an oracle that reveals the secret key. It is the IND-CPA-D lesson
+an oracle that reveals the secret key. It is the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> lesson
 (<a href="ckks_ind_cpa_d.html">deep dive</a>) applied to an exact scheme. The README also tells clients to
-<strong>validate the decrypted format</strong>, because a malicious server can return garbage, and FHE
+<strong>validate the decrypted format</strong>, because a malicious server can return garbage, and <abbr title="fully homomorphic encryption">FHE</abbr>
 gives no integrity.</p>
 <h3 id="85-the-same-pattern-elsewhere">8.5 The same pattern elsewhere<a class="headerlink" href="#85-the-same-pattern-elsewhere" title="Link to this section">#</a></h3>
 <p><strong>Microsoft Edge Password Monitor</strong> checks saved passwords against breach lists with a
-private set intersection protocol: an OPRF, hashing into buckets, and BFV (SEAL) for the
+private set intersection protocol: an <abbr title="oblivious pseudorandom function">OPRF</abbr>, hashing into buckets, and <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (SEAL) for the
 encrypted lookup. <strong>Apple's Enhanced Visual Search</strong> uses a related private nearest-neighbour
 search. Same shape: shallow, exact, batched lookups against a big server-side database.</p>
 <hr />
 <h2 id="9-security-notes-on-the-toy">9. Security notes on the toy<a class="headerlink" href="#9-security-notes-on-the-toy" title="Link to this section">#</a></h2>
 <ul>
-<li><code>N = 64</code> with <code>q = 2¹²⁰</code> is nowhere near secure. The HE standard allows only ~27 bits of <code>q</code>
+<li><code>N = 64</code> with <code>q = 2¹²⁰</code> is nowhere near secure. The <abbr title="homomorphic encryption">HE</abbr> standard allows only ~27 bits of <code>q</code>
   at <code>N = 1024</code> (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>). Real
-  PIR uses <code>N</code> in the thousands with a <code>q</code> matched to it.</li>
-<li>The hashes are SHA-256-based but un-keyed, so the client can invert other tags (§7.5).</li>
+  <abbr title="private information retrieval">PIR</abbr> uses <code>N</code> in the thousands with a <code>q</code> matched to it.</li>
+<li>The hashes are <abbr title="Secure Hash Algorithm">SHA</abbr>-256-based but un-keyed, so the client can invert other tags (§7.5).</li>
 <li>No rate limiting or authentication: that's §8.3's job.</li>
 </ul>
 <h2 id="10-exercises">10. Exercises<a class="headerlink" href="#10-exercises" title="Link to this section">#</a></h2>
 <ol>
-<li><strong>BGV:</strong> put the message in the low bits, add modulus switching, and compare noise growth
-   with BFV.</li>
+<li><strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>:</strong> put the message in the low bits, add modulus switching, and compare noise growth
+   with <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>.</li>
 <li><strong>Hybrid key switching:</strong> replace the base-<code>w</code> digits with a special modulus <code>P</code> and watch
    the 28-bit floor disappear.</li>
 <li><strong>Oblivious query expansion:</strong> send <code>Enc(X^i)</code> and expand it server-side into selectors
    (SealPIR).</li>
-<li><strong>2-D PIR:</strong> arrange several plaintexts in a grid and select a row with a ciphertext ×
+<li><strong>2-D <abbr title="private information retrieval">PIR</abbr>:</strong> arrange several plaintexts in a grid and select a row with a ciphertext ×
    ciphertext product (MulPIR).</li>
 <li><strong>Cuckoo hashing</strong> for the keyword layer: no more overflow errors.</li>
 <li><strong>Response compression:</strong> modulus-switch the response to ~30 bits and measure the size and
@@ -665,18 +666,18 @@ search. Same shape: shallow, exact, batched lookups against a big server-side da
 <hr />
 <h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
 <ul>
-<li>Brakerski. <em>Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></li>
+<li>Brakerski. <em>Fully Homomorphic Encryption without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></li>
 <li>Fan, Vercauteren. <em>Somewhat Practical Fully Homomorphic Encryption</em>. <a href="https://eprint.iacr.org/2012/144">ePrint 2012/144</a></li>
-<li>Smart, Vercauteren. <em>Fully Homomorphic SIMD Operations</em>. Designs, Codes and Cryptography 2014. <a href="https://eprint.iacr.org/2011/133">ePrint 2011/133</a></li>
-<li>Gentry, Halevi, Smart. <em>Homomorphic Evaluation of the AES Circuit</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (slots, automorphisms, the hypercube)</li>
-<li>Bajard, Eynard, Hasan, Zucca. <em>A Full RNS Variant of FV-like Somewhat Homomorphic Encryption Schemes</em>. SAC 2016. <a href="https://eprint.iacr.org/2016/510">ePrint 2016/510</a></li>
-<li>Halevi, Polyakov, Shoup. <em>An Improved RNS Variant of the BFV Homomorphic Encryption Scheme</em>. CT-RSA 2019. <a href="https://eprint.iacr.org/2018/117">ePrint 2018/117</a></li>
+<li>Smart, Vercauteren. <em>Fully Homomorphic <abbr title="single instruction, multiple data">SIMD</abbr> Operations</em>. Designs, Codes and Cryptography 2014. <a href="https://eprint.iacr.org/2011/133">ePrint 2011/133</a></li>
+<li>Gentry, Halevi, Smart. <em>Homomorphic Evaluation of the <abbr title="Advanced Encryption Standard">AES</abbr> Circuit</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (slots, automorphisms, the hypercube)</li>
+<li>Bajard, Eynard, Hasan, Zucca. <em>A Full <abbr title="residue number system">RNS</abbr> Variant of FV-like Somewhat Homomorphic Encryption Schemes</em>. SAC 2016. <a href="https://eprint.iacr.org/2016/510">ePrint 2016/510</a></li>
+<li>Halevi, Polyakov, Shoup. <em>An Improved <abbr title="residue number system">RNS</abbr> Variant of the <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> Homomorphic Encryption Scheme</em>. CT-RSA 2019. <a href="https://eprint.iacr.org/2018/117">ePrint 2018/117</a></li>
 <li>Kim, Polyakov, Zucca. <em>Revisiting Homomorphic Encryption Schemes for Finite Fields</em>. Asiacrypt 2021. <a href="https://eprint.iacr.org/2021/204">ePrint 2021/204</a></li>
 <li>Kushilevitz, Ostrovsky. <em>Replication Is Not Needed: Single Database, Computationally-Private Information Retrieval</em>. FOCS 1997.</li>
-<li>Angel, Chen, Laine, Setty. <em>PIR with Compressed Queries and Amortized Query Processing</em> (SealPIR). IEEE S&amp;P 2018. <a href="https://eprint.iacr.org/2017/1142">ePrint 2017/1142</a></li>
-<li>Ali, Lepoint, Patel, Raykova, Schoppmann, Seth, Yeo. <em>Communication–Computation Trade-offs in PIR</em> (MulPIR). USENIX Security 2021. <a href="https://eprint.iacr.org/2019/1483">ePrint 2019/1483</a></li>
-<li>Apple. <a href="https://developer.apple.com/documentation/identitylookup/understanding-how-live-caller-id-lookup-preserves-privacy"><em>Understanding how Live Caller ID Lookup preserves privacy</em></a> (Oblivious HTTP, Privacy Pass, keyword PIR)</li>
-<li>Apple / Swift.org. <a href="https://swift.org/blog/announcing-swift-homomorphic-encryption/"><em>Announcing Swift Homomorphic Encryption</em></a> and <a href="https://github.com/apple/swift-homomorphic-encryption">swift-homomorphic-encryption</a> (PIR module, database tools, security warnings); <a href="https://github.com/apple/live-caller-id-lookup-example">live-caller-id-lookup-example</a></li>
+<li>Angel, Chen, Laine, Setty. <em><abbr title="private information retrieval">PIR</abbr> with Compressed Queries and Amortized Query Processing</em> (SealPIR). IEEE S&amp;P 2018. <a href="https://eprint.iacr.org/2017/1142">ePrint 2017/1142</a></li>
+<li>Ali, Lepoint, Patel, Raykova, Schoppmann, Seth, Yeo. <em>Communication–Computation Trade-offs in <abbr title="private information retrieval">PIR</abbr></em> (MulPIR). USENIX Security 2021. <a href="https://eprint.iacr.org/2019/1483">ePrint 2019/1483</a></li>
+<li>Apple. <a href="https://developer.apple.com/documentation/identitylookup/understanding-how-live-caller-id-lookup-preserves-privacy"><em>Understanding how Live Caller ID Lookup preserves privacy</em></a> (Oblivious HTTP, Privacy Pass, keyword <abbr title="private information retrieval">PIR</abbr>)</li>
+<li>Apple / Swift.org. <a href="https://swift.org/blog/announcing-swift-homomorphic-encryption/"><em>Announcing Swift Homomorphic Encryption</em></a> and <a href="https://github.com/apple/swift-homomorphic-encryption">swift-homomorphic-encryption</a> (<abbr title="private information retrieval">PIR</abbr> module, database tools, security warnings); <a href="https://github.com/apple/live-caller-id-lookup-example">live-caller-id-lookup-example</a></li>
 </ul>
 <blockquote>
 <p>Several ePrint numbers above are cited from memory. If a link doesn't match its title,

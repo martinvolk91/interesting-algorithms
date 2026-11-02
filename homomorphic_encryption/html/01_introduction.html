@@ -6,6 +6,7 @@
 <title>01 · Introduction: what homomorphic encryption is</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -80,13 +81,13 @@ function renderMath() {
 <hr />
 <blockquote>
 <p><strong>New to cryptography?</strong> This chapter moves fast. The <a href="primer/p1_encryption_basics.html">primer</a>
-builds up everything it relies on, from keys and the one-time pad through AES, public-key
-crypto, IND-CPA, lattices and LWE to relinearization and bootstrapping. It has hand-worked
+builds up everything it relies on, from keys and the one-time pad through <abbr title="Advanced Encryption Standard">AES</abbr>, public-key
+crypto, <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>, lattices and <abbr title="learning with errors">LWE</abbr> to relinearization and bootstrapping. It has hand-worked
 examples and a runnable script per chapter. Its last chapter maps every term used here to
 the place where it is explained.</p>
 </blockquote>
 <h2 id="1-the-problem-it-solves">1. The problem it solves<a class="headerlink" href="#1-the-problem-it-solves" title="Link to this section">#</a></h2>
-<p>Classical encryption protects data <strong>at rest</strong> (disk encryption) and <strong>in transit</strong> (TLS).
+<p>Classical encryption protects data <strong>at rest</strong> (disk encryption) and <strong>in transit</strong> (<abbr title="Transport Layer Security">TLS</abbr>).
 As soon as you want someone to <em>do something</em> with your data, though, they have to decrypt it,
 so the data is exposed <strong>in use</strong>.</p>
 <div class="highlight"><pre><span></span><code>Today:      you --TLS--&gt; cloud [decrypts, computes on plaintext, re-encrypts] --TLS--&gt; you
@@ -141,17 +142,17 @@ anything out. Only you have the key to open the box.</p>
 <li><strong>Compactness</strong>: the output ciphertext's size must not depend on <code>f</code>. Otherwise you could
   "evaluate" by simply attaching a description of <code>f</code> to the input ciphertexts and letting the
   client do all the work at decryption time.</li>
-<li><strong>Security</strong>: ciphertexts must be <strong>IND-CPA</strong> secure (semantically secure). Seeing
+<li><strong>Security</strong>: ciphertexts must be <strong><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr></strong> secure (semantically secure). Seeing
   ciphertexts reveals nothing about the plaintexts. See <a href="06_security.html">06 Security</a>.</li>
 </ul>
 <p>Both are unpacked in the two subsections below.</p>
-<p>Why addition and multiplication? Over bits, <strong>XOR = addition mod 2</strong> and <strong>AND =
-multiplication mod 2</strong>, and {XOR, AND} is functionally complete. Any computable function
+<p>Why addition and multiplication? Over bits, <strong><abbr title="exclusive or">XOR</abbr> = addition mod 2</strong> and <strong>AND =
+multiplication mod 2</strong>, and {<abbr title="exclusive or">XOR</abbr>, AND} is functionally complete. Any computable function
 (with a bounded running time) can be written as a circuit of these gates. A scheme that
 supports unlimited additions <strong>and</strong> multiplications can therefore evaluate anything.</p>
 <h3 id="why-compactness-matters">Why compactness matters<a class="headerlink" href="#why-compactness-matters" title="Link to this section">#</a></h3>
 <p>Correctness alone is too easy to satisfy. Here is a "homomorphic" scheme built from plain
-AES that meets the correctness requirement above:</p>
+<abbr title="Advanced Encryption Standard">AES</abbr> that meets the correctness requirement above:</p>
 <div class="highlight"><pre><span></span><code>Enc(m)       = AES_k(m)
 Eval(f, c)   = (c, f)              # do nothing: staple f to the ciphertext
 Dec((c, f))  = f(AES_k⁻¹(c))       # the client decrypts, then runs f itself
@@ -159,7 +160,7 @@ Dec((c, f))  = f(AES_k⁻¹(c))       # the client decrypts, then runs f itself
 
 <ul>
 <li><strong>Correct</strong>: decryption really returns <code>f(m)</code>.</li>
-<li><strong>Secure</strong>: the server only ever sees AES ciphertexts.</li>
+<li><strong>Secure</strong>: the server only ever sees <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts.</li>
 <li><strong>Useless</strong>: the server did no work. The client gets back its own ciphertext plus a to-do
   list and computes <code>f</code> itself during "decryption". It is like an accountant who hands back
   your sealed envelope with a note saying "add these up".</li>
@@ -178,11 +179,11 @@ grew exponentially with depth. The hard part was unlimited operations <strong>an
 outputs.</p>
 <p>Where you meet compactness in the real schemes:</p>
 <ul>
-<li><strong>Relinearization keeps the size fixed.</strong> An RLWE ciphertext is two polynomials
+<li><strong>Relinearization keeps the size fixed.</strong> An <abbr title="ring learning with errors">RLWE</abbr> ciphertext is two polynomials
   \((c_0, c_1)\), decrypted as \(c_0 + c_1 s\). Multiplying two of them gives three,
   decrypted as \(d_0 + d_1 s + d_2 s^2\), and every further multiplication without cleanup adds
   more. The ciphertext size would follow <code>f</code>. Relinearization (<a href="03_how_it_works.html">03</a>)
-  folds the result back to two polynomials. (GSW-style schemes avoid the growth by
+  folds the result back to two polynomials. (<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>-style schemes avoid the growth by
   construction.)</li>
 <li><strong>Bootstrapping removes the last dependence on <code>f</code>.</strong> Leveled schemes size the modulus for a
   depth <code>L</code>, so their parameters depend on how <em>deep</em> <code>f</code> is, though not on how <em>big</em> it is:
@@ -193,7 +194,7 @@ outputs.</p>
   server's work still grows with <code>f</code>. Only the output size and the decryption cost are fixed.</li>
 </ul>
 <h3 id="what-ind-cpa-means">What IND-CPA means<a class="headerlink" href="#what-ind-cpa-means" title="Link to this section">#</a></h3>
-<p><strong>IND-CPA</strong> stands for <em>indistinguishability under chosen-plaintext attack</em>. It is defined as
+<p><strong><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr></strong> stands for <em>indistinguishability under chosen-plaintext attack</em>. It is defined as
 a game between a challenger and an attacker:</p>
 <ol>
 <li>The challenger generates the keys and gives the attacker the public key. The attacker can
@@ -205,7 +206,7 @@ a game between a challenger and an attacker:</p>
    \(c^* = \mathrm{Enc}(pk, m_b)\).</li>
 <li>The attacker outputs a guess \(b&#x27;\).</li>
 </ol>
-<p>The scheme is IND-CPA secure if no efficient attacker does noticeably better than a coin flip:</p>
+<p>The scheme is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure if no efficient attacker does noticeably better than a coin flip:</p>
 <div class="math-display">\[\mathrm{Adv}(\mathcal{A}) = \Big\lvert \Pr[b&#x27; = b] - \tfrac{1}{2} \Big\rvert \le \mathrm{negl}(\lambda)\]</div>
 <p>At 128-bit security that means roughly \(2^{128}\) work to get any useful edge. Even when the
 attacker chooses both candidates, the ciphertext gives away nothing about which one it is.
@@ -213,25 +214,25 @@ The notion is equivalent to <em>semantic security</em>.</p>
 <p>What follows from the definition:</p>
 <ul>
 <li><strong>Encryption must be randomized.</strong> With deterministic encryption the attacker encrypts \(m_0\)
-  itself and compares the result with \(c^*\). Textbook RSA is deterministic, so it is <strong>not</strong>
-  IND-CPA secure (§3). LWE schemes get their randomness from the random mask and the noise:
+  itself and compares the result with \(c^*\). Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> is deterministic, so it is <strong>not</strong>
+  <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure (§3). <abbr title="learning with errors">LWE</abbr> schemes get their randomness from the random mask and the noise:
   encrypting 0 twice gives two completely different-looking ciphertexts.</li>
-<li><strong>It matches the HE threat model.</strong> The untrusted server is exactly the attacker in the game:
+<li><strong>It matches the <abbr title="homomorphic encryption">HE</abbr> threat model.</strong> The untrusted server is exactly the attacker in the game:
   it holds the public and evaluation keys, sees the ciphertexts and computes on them.
-  IND-CPA says it learns nothing about the plaintexts. The evaluation keys (relinearization,
+  <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> says it learns nothing about the plaintexts. The evaluation keys (relinearization,
   rotation, bootstrapping) are encryptions of the secret key, or functions of it, under
   itself, so this also assumes <strong>circular security</strong> (<a href="02_math_foundations.html">02 §7</a>).</li>
-<li><strong>Stronger notions are impossible.</strong> IND-CCA2 also lets the attacker ask for the decryption
+<li><strong>Stronger notions are impossible.</strong> <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> also lets the attacker ask for the decryption
   of any ciphertext except \(c^*\). A homomorphic scheme fails by design: the attacker computes
   \(c^* + \mathrm{Enc}(0)\), a different ciphertext with the same plaintext, asks for its
-  decryption and wins. Malleability is the whole point of HE (§5), so IND-CPA is the
-  realistic target. <a href="06_security.html">06 §1</a> covers the weaker CCA1 notion, which most
+  decryption and wins. Malleability is the whole point of <abbr title="homomorphic encryption">HE</abbr> (§5), so <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> is the
+  realistic target. <a href="06_security.html">06 §1</a> covers the weaker <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> notion, which most
   lattice schemes also fail.</li>
-<li><strong>It says nothing about shared decryptions.</strong> IND-CPA assumes the attacker never sees a
-  decrypted result. For exact schemes seeing one adds little, but CKKS decryption also returns
+<li><strong>It says nothing about shared decryptions.</strong> <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> assumes the attacker never sees a
+  decrypted result. For exact schemes seeing one adds little, but <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption also returns
   the noise, and one shared decryption is enough to recover the key. That gap is the
-  IND-CPA-D notion; the attack is reproduced on the toy in the
-  <a href="deep_dives/ckks_ind_cpa_d.html">IND-CPA-D deep dive</a>.</li>
+  <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> notion; the attack is reproduced on the toy in the
+  <a href="deep_dives/ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>.</li>
 </ul>
 <h2 id="3-the-taxonomy-phe--she--lhe--fhe">3. The taxonomy: PHE → SHE → LHE → FHE<a class="headerlink" href="#3-the-taxonomy-phe--she--lhe--fhe" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
@@ -245,39 +246,39 @@ The notion is equivalent to <em>semantic security</em>.</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Partially HE (PHE)</strong></td>
+<td><strong>Partially <abbr title="homomorphic encryption">HE</abbr> (<abbr title="partially homomorphic encryption">PHE</abbr>)</strong></td>
 <td>One operation, unlimited times</td>
-<td>RSA (×), ElGamal (×), Paillier (+), Goldwasser–Micali (⊕)</td>
+<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr> (×), ElGamal (×), Paillier (+), Goldwasser–Micali (⊕)</td>
 <td>Cheap, mature, used in e-voting and ad measurement</td>
 </tr>
 <tr>
-<td><strong>Somewhat HE (SHE)</strong></td>
+<td><strong>Somewhat <abbr title="homomorphic encryption">HE</abbr> (<abbr title="somewhat homomorphic encryption">SHE</abbr>)</strong></td>
 <td>Both + and ×, but only a few multiplications</td>
-<td>BGN (2005, 1 mult via pairings), early lattice schemes</td>
+<td><abbr title="the Boneh–Goh–Nissim scheme">BGN</abbr> (2005, 1 mult via pairings), early lattice schemes</td>
 <td>Noise blows up after a few levels</td>
 </tr>
 <tr>
-<td><strong>Leveled HE (LHE)</strong></td>
+<td><strong>Leveled <abbr title="homomorphic encryption">HE</abbr> (<abbr title="leveled homomorphic encryption">LHE</abbr>)</strong></td>
 <td>Any circuit up to a depth <code>L</code> chosen at key generation</td>
-<td>BGV / BFV / CKKS without bootstrapping</td>
+<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> / <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> / <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> without bootstrapping</td>
 <td><strong>What most real deployments use</strong>: parameters sized for the exact circuit</td>
 </tr>
 <tr>
-<td><strong>Fully HE (FHE)</strong></td>
+<td><strong>Fully <abbr title="homomorphic encryption">HE</abbr> (<abbr title="fully homomorphic encryption">FHE</abbr>)</strong></td>
 <td>Any circuit, unbounded depth</td>
 <td>Any of the above <strong>plus bootstrapping</strong></td>
 <td>Bootstrapping is the expensive part</td>
 </tr>
 </tbody>
 </table></div>
-<p>"FHE" is often used loosely for the whole lattice-based family, even when a deployment never
+<p>"<abbr title="fully homomorphic encryption">FHE</abbr>" is often used loosely for the whole lattice-based family, even when a deployment never
 bootstraps. Jeremy Kun's production survey, for instance, notes that Apple's and Microsoft's
-deployments are technically SHE/LHE.</p>
+deployments are technically <abbr title="somewhat homomorphic encryption">SHE</abbr>/<abbr title="leveled homomorphic encryption">LHE</abbr>.</p>
 <h3 id="partially-homomorphic-examples-worth-seeing-once">Partially homomorphic examples (worth seeing once)<a class="headerlink" href="#partially-homomorphic-examples-worth-seeing-once" title="Link to this section">#</a></h3>
-<p><strong>Textbook RSA</strong> (the repo already has an RSA implementation in <a href="../../python_rsa"><code>../python_rsa</code></a>):</p>
+<p><strong>Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr></strong> (the repo already has an <abbr title="Rivest–Shamir–Adleman">RSA</abbr> implementation in <a href="../../python_rsa"><code>../python_rsa</code></a>):</p>
 <div class="math-display">\[E(a)\cdot E(b) = a^e b^e = (ab)^e = E(ab) \pmod n\]</div>
-<p>Textbook RSA is deterministic and therefore <strong>not</strong> IND-CPA secure, so this is a curiosity
-rather than a usable HE scheme.</p>
+<p>Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> is deterministic and therefore <strong>not</strong> <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure, so this is a curiosity
+rather than a usable <abbr title="homomorphic encryption">HE</abbr> scheme.</p>
 <p><strong>Paillier</strong> (1999): additively homomorphic and semantically secure.
 Public key <code>n = pq</code>, <code>g = n + 1</code>. To encrypt, pick a random <code>r</code> and compute</p>
 <p>\[E(m) = g^m \cdot r^n \bmod n^2\]
@@ -301,7 +302,7 @@ That mathematics is lattices.</p>
 </tr>
 <tr>
 <td>1982</td>
-<td>Goldwasser–Micali: XOR-homomorphic, the first probabilistic (semantically secure) encryption</td>
+<td>Goldwasser–Micali: <abbr title="exclusive or">XOR</abbr>-homomorphic, the first probabilistic (semantically secure) encryption</td>
 </tr>
 <tr>
 <td>1985</td>
@@ -317,67 +318,67 @@ That mathematics is lattices.</p>
 </tr>
 <tr>
 <td>2005</td>
-<td>Regev introduces <strong>Learning With Errors (LWE)</strong>, the problem everything below is built on</td>
+<td>Regev introduces <strong>Learning With Errors (<abbr title="learning with errors">LWE</abbr>)</strong>, the problem everything below is built on</td>
 </tr>
 <tr>
 <td><strong>2009</strong></td>
-<td><strong>Gentry's PhD thesis / STOC paper</strong>: the first FHE (ideal lattices + <em>bootstrapping</em>)</td>
+<td><strong>Gentry's PhD thesis / STOC paper</strong>: the first <abbr title="fully homomorphic encryption">FHE</abbr> (ideal lattices + <em>bootstrapping</em>)</td>
 </tr>
 <tr>
 <td>2010</td>
-<td>van Dijk–Gentry–Halevi–Vaikuntanathan (DGHV): FHE over the integers. Lyubashevsky–Peikert–Regev: <strong>Ring-LWE</strong></td>
+<td>van Dijk–Gentry–Halevi–Vaikuntanathan (<abbr title="the van Dijk–Gentry–Halevi–Vaikuntanathan scheme (FHE over the integers)">DGHV</abbr>): <abbr title="fully homomorphic encryption">FHE</abbr> over the integers. Lyubashevsky–Peikert–Regev: <strong>Ring-LWE</strong></td>
 </tr>
 <tr>
 <td>2011</td>
-<td>Brakerski–Vaikuntanathan (BV): FHE from (R)LWE with <strong>relinearization</strong>. Gentry–Halevi: first implementation, ~30 min per bootstrap</td>
+<td>Brakerski–Vaikuntanathan (<abbr title="the Brakerski–Vaikuntanathan scheme">BV</abbr>): <abbr title="fully homomorphic encryption">FHE</abbr> from (R)<abbr title="learning with errors">LWE</abbr> with <strong>relinearization</strong>. Gentry–Halevi: first implementation, ~30 min per bootstrap</td>
 </tr>
 <tr>
 <td>2012</td>
-<td><strong>BGV</strong> (leveled FHE, modulus switching); Brakerski / Fan–Vercauteren → <strong>BFV</strong> (scale-invariant)</td>
+<td><strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr></strong> (leveled <abbr title="fully homomorphic encryption">FHE</abbr>, modulus switching); Brakerski / Fan–Vercauteren → <strong><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></strong> (scale-invariant)</td>
 </tr>
 <tr>
 <td>2013</td>
-<td><strong>GSW</strong> (Gentry–Sahai–Waters): "approximate eigenvector", no relinearization, asymmetric noise growth</td>
+<td><strong><abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr></strong> (Gentry–Sahai–Waters): "approximate eigenvector", no relinearization, asymmetric noise growth</td>
 </tr>
 <tr>
 <td>2015</td>
-<td><strong>FHEW</strong> (Ducas–Micciancio): bootstrapping a NAND gate in under a second</td>
+<td><strong><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong> (Ducas–Micciancio): bootstrapping a <abbr title="not-and (a logic gate)">NAND</abbr> gate in under a second</td>
 </tr>
 <tr>
 <td>2016</td>
-<td><strong>TFHE</strong> (Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017)</td>
+<td><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong> (Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017)</td>
 </tr>
 <tr>
 <td>2017</td>
-<td><strong>CKKS</strong> (Cheon–Kim–Kim–Song): approximate arithmetic on real/complex numbers</td>
+<td><strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong> (Cheon–Kim–Kim–Song): approximate arithmetic on real/complex numbers</td>
 </tr>
 <tr>
 <td>2018</td>
-<td>CKKS bootstrapping; HomomorphicEncryption.org publishes a community <strong>security standard</strong></td>
+<td><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping; HomomorphicEncryption.org publishes a community <strong>security standard</strong></td>
 </tr>
 <tr>
 <td>2019</td>
-<td>ISO/IEC 18033-6 standardizes <em>partially</em> HE (ElGamal, Paillier)</td>
+<td><abbr title="International Organization for Standardization">ISO</abbr>/IEC 18033-6 standardizes <em>partially</em> <abbr title="homomorphic encryption">HE</abbr> (ElGamal, Paillier)</td>
 </tr>
 <tr>
 <td>2021</td>
-<td>Li–Micciancio: <strong>IND-CPA-D</strong> passive key-recovery attack on CKKS. DARPA <strong>DPRIVE</strong> hardware program kicks off. Programmable bootstrapping (Chillotti–Joye–Paillier)</td>
+<td>Li–Micciancio: <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> passive key-recovery attack on <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. <abbr title="Defense Advanced Research Projects Agency">DARPA</abbr> <strong><abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr></strong> hardware program kicks off. Programmable bootstrapping (Chillotti–Joye–Paillier)</td>
 </tr>
 <tr>
 <td>2022</td>
-<td><strong>Gödel Prize</strong> to Brakerski, Gentry, Vaikuntanathan for FHE. OpenFHE released (successor of PALISADE)</td>
+<td><strong>Gödel Prize</strong> to Brakerski, Gentry, Vaikuntanathan for <abbr title="fully homomorphic encryption">FHE</abbr>. OpenFHE released (successor of PALISADE)</td>
 </tr>
 <tr>
 <td>2024</td>
-<td>Apple ships <strong>Live Caller ID Lookup</strong> (BFV-based PIR) in iOS 18 and open-sources swift-homomorphic-encryption. CKKS learns to bootstrap bits and small integers. A claimed quantum attack on LWE (Chen) is withdrawn after a bug is found</td>
+<td>Apple ships <strong>Live Caller ID Lookup</strong> (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>-based <abbr title="private information retrieval">PIR</abbr>) in iOS 18 and open-sources swift-homomorphic-encryption. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> learns to bootstrap bits and small integers. A claimed quantum attack on <abbr title="learning with errors">LWE</abbr> (Chen) is withdrawn after a bug is found</td>
 </tr>
 <tr>
 <td>2025</td>
-<td>Gentry–Lee: <strong>FHE for matrix arithmetic</strong> (ePrint 2025/1935). Zama Protocol (TFHE + threshold MPC) launches on Ethereum mainnet (Dec 2025)</td>
+<td>Gentry–Lee: <strong><abbr title="fully homomorphic encryption">FHE</abbr> for matrix arithmetic</strong> (ePrint 2025/1935). Zama Protocol (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> + threshold <abbr title="secure multiparty computation">MPC</abbr>) launches on Ethereum mainnet (Dec 2025)</td>
 </tr>
 <tr>
 <td>2026</td>
-<td><strong>Intel Heracles</strong> FHE accelerator chip shown at ISSCC. ISO/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut FHEW/TFHE bootstrapping depth to 3 NTT layers (vs 500+). Google promotes the <strong>HEIR</strong> compiler for encrypted AI</td>
+<td><strong>Intel Heracles</strong> <abbr title="fully homomorphic encryption">FHE</abbr> accelerator chip shown at ISSCC. <abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping depth to 3 <abbr title="number-theoretic transform">NTT</abbr> layers (vs 500+). Google promotes the <strong>HEIR</strong> compiler for encrypted AI</td>
 </tr>
 </tbody>
 </table></div>
@@ -386,18 +387,18 @@ That mathematics is lattices.</p>
 <p>These limits matter as much as the capabilities:</p>
 <ul>
 <li><strong>No integrity.</strong> The server can compute the <em>wrong</em> function, or garbage, and you can't
-  tell. Fixing this needs verifiable computation (ZK proofs over FHE), redundancy, or a TEE.</li>
+  tell. Fixing this needs verifiable computation (<abbr title="zero knowledge">ZK</abbr> proofs over <abbr title="fully homomorphic encryption">FHE</abbr>), redundancy, or a <abbr title="trusted execution environment">TEE</abbr>.</li>
 <li><strong>No hiding of the function by default.</strong> Ciphertext noise can leak <em>what</em> was computed.
   Circuit privacy needs extra work (noise flooding, sanitization).</li>
 <li><strong>No data-dependent control flow.</strong> The server can't branch on an encrypted value, because it
   doesn't know the value. Every <code>if</code> becomes "compute both branches and select arithmetically",
-  and loops need a public bound. This is why FHE programs are written as <strong>circuits</strong>.</li>
+  and loops need a public bound. This is why <abbr title="fully homomorphic encryption">FHE</abbr> programs are written as <strong>circuits</strong>.</li>
 <li><strong>Ciphertext expansion.</strong> A ciphertext is typically 10–10,000× larger than its plaintext
   (batching amortizes this).</li>
-<li><strong>Malleable by design.</strong> Anyone can modify ciphertexts meaningfully, so HE can never be
-  IND-CCA2 secure.</li>
-<li><strong>Multi-user data needs extra machinery.</strong> Plain FHE has one key owner. Computing over data
-  from several parties needs threshold or multi-key FHE, or a combination with MPC.</li>
+<li><strong>Malleable by design.</strong> Anyone can modify ciphertexts meaningfully, so <abbr title="homomorphic encryption">HE</abbr> can never be
+  <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> secure.</li>
+<li><strong>Multi-user data needs extra machinery.</strong> Plain <abbr title="fully homomorphic encryption">FHE</abbr> has one key owner. Computing over data
+  from several parties needs threshold or multi-key <abbr title="fully homomorphic encryption">FHE</abbr>, or a combination with <abbr title="secure multiparty computation">MPC</abbr>.</li>
 </ul>
 <hr />
 <h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>

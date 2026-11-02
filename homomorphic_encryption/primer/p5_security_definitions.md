@@ -617,7 +617,7 @@ What to look for:
 6. A CKKS-based analytics service publishes every decrypted result. The scheme is IND-CPA secure.
    Is the secret key safe?
 
-### Answers
+**Answers**
 
 1. No. Encryption is now deterministic: the same message always gets the same nonce and the same
    ciphertext. The adversary asks the oracle for $\mathrm{Enc}(m_0)$ and compares it with $c^*$,

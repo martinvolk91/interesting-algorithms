@@ -6,6 +6,7 @@
 <title>P8 · Multiplying ciphertexts: relinearization and modulus switching</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -106,7 +107,7 @@ function renderMath() {
 </details>
 <article>
 <h1 id="p8--multiplying-ciphertexts-relinearization-and-modulus-switching">P8 · Multiplying ciphertexts: relinearization and modulus switching<a class="headerlink" href="#p8--multiplying-ciphertexts-relinearization-and-modulus-switching" title="Link to this section">#</a></h1>
-<p><a href="p7_lattices_and_lwe.html">← P7 Lattices and LWE</a> · <a href="../index.html">index</a> · next: <a href="p9_bootstrapping.html">P9 Bootstrapping →</a></p>
+<p><a href="p7_lattices_and_lwe.html">← P7 Lattices and <abbr title="learning with errors">LWE</abbr></a> · <a href="../index.html">index</a> · next: <a href="p9_bootstrapping.html">P9 Bootstrapping →</a></p>
 <hr />
 <p>P7 ended with an encryption scheme that can add: pads add, messages add, noises add. This
 chapter makes it multiply. Multiplication works, but it has two side effects that shape all of
@@ -115,15 +116,15 @@ bigger</strong>. The fixes for those two side effects are the words that make ch
 read: relinearization, key switching, modulus switching, levels and multiplicative depth.</p>
 <p><strong>In this chapter</strong></p>
 <ul>
-<li>Multiply two LWE ciphertexts by hand and see why the product has three parts and decrypts
+<li>Multiply two <abbr title="learning with errors">LWE</abbr> ciphertexts by hand and see why the product has three parts and decrypts
   with the key vector <code>(1, s, s²)</code>.</li>
 <li>Say what "relinearization" literally means, build a relinearization key, and see why the
   naive version destroys the message while <strong>digit (gadget) decomposition</strong> saves it.</li>
 <li>Recognise <strong>key switching</strong> as the general tool behind relinearization and slot rotations,
-  and know why it dominates the cost of FHE.</li>
+  and know why it dominates the cost of <abbr title="fully homomorphic encryption">FHE</abbr>.</li>
 <li>Use <strong>modulus switching</strong> to shrink the noise, and explain why that helps even though the
   noise-to-modulus ratio stays the same.</li>
-<li>Count <strong>levels</strong> and <strong>multiplicative depth</strong>, and see why FHE programmers prefer trees to
+<li>Count <strong>levels</strong> and <strong>multiplicative depth</strong>, and see why <abbr title="fully homomorphic encryption">FHE</abbr> programmers prefer trees to
   chains.</li>
 <li>Tell <strong>evaluation keys</strong> apart from the secret key.</li>
 </ul>
@@ -133,7 +134,7 @@ is split into numbered parts, and the text says which part shows what.</p>
 <p><a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">Chapter 03 §4–6</a> is the
 compact version of this chapter. Read it afterwards as a summary.</p>
 <h2 id="1-the-starting-point-ciphertexts-as-c0-c1">1. The starting point: ciphertexts as (c0, c1)<a class="headerlink" href="#1-the-starting-point-ciphertexts-as-c0-c1" title="Link to this section">#</a></h2>
-<p>In P7 an LWE ciphertext is a pair <code>(a, b)</code> with</p>
+<p>In P7 an <abbr title="learning with errors">LWE</abbr> ciphertext is a pair <code>(a, b)</code> with</p>
 <div class="math-display">\[b = \langle a, s \rangle + \Delta m + e \pmod q, \qquad \Delta = \lfloor q/t \rfloor\]</div>
 <p>To decrypt, you subtract the pad and round. The phase is \(\varphi = b - \langle a, s\rangle = \Delta m + e\),
 and the message is \(\mathrm{round}(\varphi/\Delta) \bmod t\). This is correct while \(\lvert e\rvert &lt; \Delta/2\).
@@ -226,7 +227,7 @@ representatives keep later products small.</p>
 <li>Decryption is guaranteed correct while noise &lt; Δ/2.</li>
 <li><strong>noise budget</strong> = \(\log_2\big((\Delta/2)/\text{noise}\big)\) bits: how many more bits the noise
   can grow before decryption breaks. It is essentially the "invariant noise budget" that
-  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy BFV
+  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>
   (<code>q = 2^60</code>, <code>Δ = 2^56</code>) has noise about 5 and a budget of about 52.7 bits
   (<a href="../../code/primer/p8_relinearization.py">part 2 of the script</a>).</li>
 </ul>
@@ -258,10 +259,10 @@ next two sections take them in turn.</p>
 <h2 id="3-the-scale-problem-and-the-noise-problem">3. The scale problem and the noise problem<a class="headerlink" href="#3-the-scale-problem-and-the-noise-problem" title="Link to this section">#</a></h2>
 <h3 id="31-the-message-is-at-the-wrong-scale">3.1 The message is at the wrong scale<a class="headerlink" href="#31-the-message-is-at-the-wrong-scale" title="Link to this section">#</a></h3>
 <p>In the running example Δ² = 1 000 000, and mod <code>q = 10000</code> that is 0. The message has
-vanished from the phase entirely. The toy BFV has the same problem: Δ² = 2¹¹² is a multiple
+vanished from the phase entirely. The toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> has the same problem: Δ² = 2¹¹² is a multiple
 of <code>q = 2^60</code>, and decrypting the raw tensor gives garbage
 (<a href="../../code/primer/p8_relinearization.py">part 2 of the script</a>).</p>
-<p><strong>BFV's fix</strong> is to multiply every component by \(t/q\) (which is \(1/\Delta\) here) and round to
+<p><strong><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>'s fix</strong> is to multiply every component by \(t/q\) (which is \(1/\Delta\) here) and round to
 the nearest integer. That turns \(\Delta^2 m_1 m_2\) into \(\Delta m_1 m_2\), turns
 \(\Delta(m_1 e_2 + m_2 e_1)\) into \(m_1 e_2 + m_2 e_1\), and makes \(e_1 e_2\) negligible.</p>
 <div class="table-wrap"><table>
@@ -299,7 +300,7 @@ round(5990/1000) = 6 = 2·3. The noise is 5990 − 6000 = −10.</p>
 <p><strong>Why the scaling is done over the integers</strong> (optional on a first read). Mod <code>q</code> you cannot
 divide by Δ at all: Δ divides <code>q</code> (<code>q = t·Δ</code>), so Δ has no inverse mod <code>q</code>. Nor can you reduce
 mod <code>q</code> first and scale afterwards, because the two steps do not commute: a wrap-around by
-<code>q</code> before the scaling becomes a jump by <code>t</code> after it. So BFV computes <code>d0, d1, d2</code> from the
+<code>q</code> before the scaling becomes a jump by <code>t</code> after it. So <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> computes <code>d0, d1, d2</code> from the
 centred values as ordinary integers and scales <em>before</em> reducing. Over the integers each
 phase is \(\Delta m + e + q j\), where the integer <code>j</code> counts wrap-arounds. Here
 −7998 = 2002 − 10000, so \(j_1 = -1\), and likewise \(j_2 = -1\). When you multiply out
@@ -310,7 +311,7 @@ multiples of <code>q</code> and vanish, but \(t(j_1 e_2 + j_2 e_1)\) survives:</
 0.355 − 3·0.017 − 9·0.478 ≈ −4. Total −10, as measured.</p>
 <h3 id="32-noise-grows-multiplicatively">3.2 Noise grows multiplicatively<a class="headerlink" href="#32-noise-grows-multiplicatively" title="Link to this section">#</a></h3>
 <p>The dominant term is \(t\,(j_1 e_2 + j_2 e_1)\): the old noise gets <strong>multiplied</strong> by roughly
-<code>t · j</code>. That is where chapter 03's rule of thumb, "BFV multiplies the noise by about
+<code>t · j</code>. That is where chapter 03's rule of thumb, "<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> multiplies the noise by about
 <code>t · N</code>", comes from. With polynomials, \(c_0 + c_1 s\) wraps around much more often: each
 coefficient of \(c_1 s\) is a sum of <code>N</code> products of a number up to <code>q/2</code> with a small key
 coefficient, so the wrap count <code>j</code> becomes a polynomial with coefficients of order \(\sqrt N\)
@@ -319,10 +320,10 @@ coefficient, so the wrap count <code>j</code> becomes a polynomial with coeffici
 <code>t · N</code>. In the toy (<code>N = 16</code>, <code>t = 16</code>, so <code>t · N = 256</code>) one multiplication takes the noise
 from 5 to 540 (script, part 2), a factor of 108. That costs about 7 bits of budget, where an
 addition costs at most 1 bit.</p>
-<p>BGV, the other exact scheme, puts the message in the <em>low</em> bits: \(c_0 + c_1 s = m + t e\).
+<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, the other exact scheme, puts the message in the <em>low</em> bits: \(c_0 + c_1 s = m + t e\).
 With <code>t = 10</code>, <code>m = 7</code> and <code>e = 3</code> the phase is 7 + 10·3 = 37. Decryption takes the phase in
 the centred range and reduces it mod <code>t</code>: 37 mod 10 = 7 (with <code>e = −3</code> the phase is −23, and
-−23 mod 10 = 7 too). This works while \(\lvert m + t e \rvert &lt; q/2\). BGV has no scale problem,
+−23 mod 10 = 7 too). This works while \(\lvert m + t e \rvert &lt; q/2\). <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> has no scale problem,
 but the product of two phases is \(m_1 m_2 + t\,(m_1 e_2 + m_2 e_1 + t\, e_1 e_2)\): the noise
 contains \(e_1 e_2\) and roughly <strong>squares</strong>. §8 shows how modulus switching tames that.</p>
 <h2 id="4-the-size-problem-ciphertexts-grow">4. The size problem: ciphertexts grow<a class="headerlink" href="#4-the-size-problem-ciphertexts-grow" title="Link to this section">#</a></h2>
@@ -361,7 +362,7 @@ compute \(d_2 s^2\) itself, because that needs <code>s</code>.</p>
 <p>The key owner, who knows <code>s</code>, publishes a <strong>relinearization key</strong>: an encryption of \(s^2\)
 under <code>s</code>, in the same <code>(c0, c1)</code> form as any ciphertext.</p>
 <div class="math-display">\[\mathrm{rlk} = (k_0, k_1) = (-a s + \varepsilon + s^2,\ a), \qquad k_0 + k_1 s = s^2 + \varepsilon\]</div>
-<p>Here <code>a</code> is random and <code>ε</code> is a small error, as in any LWE encryption. The second component is
+<p>Here <code>a</code> is random and <code>ε</code> is a small error, as in any <abbr title="learning with errors">LWE</abbr> encryption. The second component is
 <code>+a</code> where §1 had <code>−a</code>: <code>a</code> is uniformly random, so its sign does not matter, and keys are
 usually written with <code>+a</code> (chapter 03 does too). By hand, with <code>a = 1234</code>
 and <code>ε = 2</code>: \(k_0 = -3702 + 2 + 9 = -3691 \equiv 6309\). Check: 6309 + 3·1234 = 10011 ≡ 11 = 9 + 2.</p>
@@ -372,13 +373,13 @@ and <code>ε = 2</code>: \(k_0 = -3702 + 2 + 9 = -3691 \equiv 6309\). Check: 630
 <code>q</code>, as random-looking as anything mod <code>q</code>. Their product is huge.</p>
 <p>By hand, \(d_2 = 1744\): <code>u = (1744·6309, 1744·1234) mod q = (2896, 2096)</code>. The new ciphertext is
 <code>(−4275 + 2896, 1523 + 2096) = (−1379, 3619)</code>. Its phase is −1379 + 3·3619 = 9478, which decrypts
-to 9 instead of 6. The added noise is 1744·2 = 3488, far above the limit of 500. In the toy BFV
+to 9 instead of 6. The added noise is 1744·2 = 3488, far above the limit of 500. In the toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>
 the result is the same, at scale: the noise reaches \(2^{59}\) against a limit of \(2^{55}\)
 (<a href="../../code/primer/p8_relinearization.py">part 4 of the script</a>).</p>
 <h3 id="54-why-the-key-can-be-public">5.4 Why the key can be public<a class="headerlink" href="#54-why-the-key-can-be-public" title="Link to this section">#</a></h3>
 <p>The relinearization key goes to the server, so it must be safe to publish.</p>
 <ul>
-<li><strong>It looks random.</strong> <code>(−a s + ε, a)</code> is an RLWE sample, and under the RLWE assumption (P7) it
+<li><strong>It looks random.</strong> <code>(−a s + ε, a)</code> is an <abbr title="ring learning with errors">RLWE</abbr> sample, and under the <abbr title="ring learning with errors">RLWE</abbr> assumption (P7) it
   is indistinguishable from random. Adding \(s^2\) to its first part is like adding a message to
   a one-time pad: the pad hides it.</li>
 <li><strong>It does not let anyone decrypt.</strong> Decryption needs \(c_0 + c_1 s\), so it needs <code>s</code>. The key
@@ -386,8 +387,8 @@ the result is the same, at scale: the noise reaches \(2^{59}\) against a limit o
   still encrypted under <code>s</code>. It is an <strong>evaluation key</strong>: material that lets the server
   compute, not decrypt (§10).</li>
 <li><strong>The caveat: circular security.</strong> The key encrypts a function of the secret key under that
-  same key, a case the RLWE assumption does not cover. Assuming it is still safe is a mild form
-  of <strong>circular security</strong>; Brakerski–Vaikuntanathan and BGV avoided it in theory with a fresh
+  same key, a case the <abbr title="ring learning with errors">RLWE</abbr> assumption does not cover. Assuming it is still safe is a mild form
+  of <strong>circular security</strong>; Brakerski–Vaikuntanathan and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> avoided it in theory with a fresh
   key per level, while libraries use one key, and no attack is known. Bootstrapping needs the
   strong form, explained in <a href="p9_bootstrapping.html#7-circular-security">P9 §7</a>.</li>
 </ul>
@@ -481,7 +482,7 @@ different bases (its noise before relinearization is \(2^{9.1}\)):</p>
 <p>The last row, <code>w = q</code>, is the naive key: one digit, which is \(d_2\) itself. The added noise
 grows roughly in proportion to <code>w</code> (here between about 15·w and 40·w), while the key size
 grows with the number of digits \(\ell = \lceil \log_w q \rceil\).</p>
-<p><strong>Names.</strong> Brakerski–Vaikuntanathan decompose into bits (base 2), and BGV call the two halves
+<p><strong>Names.</strong> Brakerski–Vaikuntanathan decompose into bits (base 2), and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> call the two halves
 <code>BitDecomp</code> (split into bits) and <code>Powersof2</code> (multiply the key by 1, 2, 4, …). Today the
 vector \(g = (1, w, w^2, \dots)\) is called the <strong>gadget</strong>, and splitting into digits is
 <strong>gadget decomposition</strong>.</p>
@@ -499,7 +500,7 @@ noise still −10. The price: the key lives modulo <code>Pq</code>, and a bigger
 (<a href="p7_lattices_and_lwe.html#4-lattices-in-pictures">P7 §4</a>), so \(\log_2(Pq)\) must fit the table
 of <a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>. Modern libraries combine
 both ideas in <strong>hybrid key switching</strong>: split \(d_2\) into a few large digits, aligned with the
-RNS primes of §9.1, and pick <code>P</code> about the size of one digit. Then (digit × ε) / <code>P</code> stays
+<abbr title="residue number system">RNS</abbr> primes of §9.1, and pick <code>P</code> about the size of one digit. Then (digit × ε) / <code>P</code> stays
 small with a much smaller <code>P</code> (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</p>
 <h2 id="7-key-switching-the-general-tool">7. Key switching: the general tool<a class="headerlink" href="#7-key-switching-the-general-tool" title="Link to this section">#</a></h2>
 <p>Relinearization takes a term \(d_2 \cdot s^2\), a piece of ciphertext "under the key \(s^2\)", and
@@ -513,7 +514,7 @@ it by any other key <code>s'</code> and you get <strong>key switching</strong>.<
   return \((c_0 + u_0,\ u_1)\). Then \((c_0 + u_0) + u_1 s = \Delta m + e + \sum_i c_1^{(i)} \varepsilon_i\):
   the same message, now under <code>s</code>.</li>
 </ul>
-<p>BGV (2012) introduced this general view and the name. Its uses:</p>
+<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (2012) introduced this general view and the name. Its uses:</p>
 <ul>
 <li><strong>Relinearization</strong>: <code>s' = s²</code>.</li>
 <li><strong>Rotations.</strong> Batching packs many values into the slots of one plaintext (P7). The map
@@ -523,18 +524,18 @@ it by any other key <code>s'</code> and you get <strong>key switching</strong>.<
   with a <strong>Galois key</strong> (encryptions of \(w^i s(X^k)\) under <code>s</code>) brings it back. Each rotation amount needs its own key, or is composed from
   power-of-two rotations (<a href="../05_core_techniques.html#2-rotations-galois-automorphisms">05 §2</a>).</li>
 <li><strong>Moving to a different key</strong> in general: to a smaller key or dimension, for example at the
-  end of TFHE bootstrapping (<a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 §8</a>),
+  end of <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping (<a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 §8</a>),
   or between schemes (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</li>
 </ul>
-<p><strong>Cost.</strong> One key switch needs about <code>2ℓ</code> ring multiplications (each an NTT-based product,
+<p><strong>Cost.</strong> One key switch needs about <code>2ℓ</code> ring multiplications (each an <abbr title="number-theoretic transform">NTT</abbr>-based product,
 P7) plus the decomposition. A key-switching key is <code>ℓ</code> ciphertexts. With chapter 02's numbers
 (<code>N = 2^14</code>, <code>log q = 438</code>), one ciphertext is about 1.8 MB
 (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>). A key with <code>ℓ = 3</code>
 digits is then about 5.4 MB, and a set of 30 rotation keys about 160 MB. Key switching is the
-most expensive routine in RLWE-based FHE and the main target of hardware acceleration.</p>
+most expensive routine in <abbr title="ring learning with errors">RLWE</abbr>-based <abbr title="fully homomorphic encryption">FHE</abbr> and the main target of hardware acceleration.</p>
 <h2 id="8-modulus-switching-dividing-the-noise-away">8. Modulus switching: dividing the noise away<a class="headerlink" href="#8-modulus-switching-dividing-the-noise-away" title="Link to this section">#</a></h2>
 <h3 id="81-the-operation">8.1 The operation<a class="headerlink" href="#81-the-operation" title="Link to this section">#</a></h3>
-<p>Take an LWE ciphertext mod <code>q</code> and scale every number down to a smaller modulus <code>q'</code>,
+<p>Take an <abbr title="learning with errors">LWE</abbr> ciphertext mod <code>q</code> and scale every number down to a smaller modulus <code>q'</code>,
 rounding to the nearest integer. This section goes back to P7's <code>(a, b)</code> form with a vector
 mask <code>a</code>, because the rounding acts on each coordinate of <code>a</code> separately; \((c_0, c_1) = (b, -a)\)
 works the same way.</p>
@@ -549,7 +550,7 @@ Rounding changes each number by at most 1/2: \(b&#x27; = \tfrac{q&#x27;}{q} b + 
 <div class="math-display">\[\lvert e&#x27; \rvert \le \tfrac{q&#x27;}{q} \lvert e \rvert + \tfrac{1}{2}\big(1 + \lVert s \rVert_1\big)\]</div>
 <p>The noise shrinks by the same factor as the modulus, plus a rounding term. The rounding term
 is small <em>because the secret is small</em>: one more reason secrets are ternary. Lemma 1 of the
-BGV paper states the same fact for messages in the low bits (there the rounding must also keep
+<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> paper states the same fact for messages in the low bits (there the rounding must also keep
 the ciphertext unchanged mod 2, and the rounding term is at most \(\lVert s \rVert_1\)). It needs
 no key at all; anyone can do it.</p>
 <h3 id="82-by-hand">8.2 By hand<a class="headerlink" href="#82-by-hand" title="Link to this section">#</a></h3>
@@ -597,7 +598,7 @@ b = 9698 + 7000 + 300 = 16998 ≡ 6998.</p>
 ciphertext decrypts to round(7.3) = 7. The rounding term is
 \(r_b - \langle r_a, s\rangle = 0.02 - (-0.21 - 0.23 + 0.46) = 0\).</p>
 <p><strong>Noise 300 → 3. But noise/Δ was 0.3 and is still 0.3.</strong>
-<a href="../../code/primer/p8_relinearization.py">Part 7 of the script</a> shows the same on a 32-dimensional LWE
+<a href="../../code/primer/p8_relinearization.py">Part 7 of the script</a> shows the same on a 32-dimensional <abbr title="learning with errors">LWE</abbr>
 ciphertext with ternary <code>s</code> (\(\lVert s\rVert_1 = 23\), so the rounding term is at most 12):</p>
 <div class="highlight"><pre><span></span><code> modulus      Δ       noise      e*q2/q   noise/Δ  decrypts to
     2^40   2^36  1073741824  1073741824    0.0156           11
@@ -613,8 +614,8 @@ ciphertext with ternary <code>s</code> (\(\lVert s\rVert_1 = 23\), so the roundi
 <p>The absolute noise falls by the factor <code>q'/q</code> and the ratio stays at 1/64, until the rounding
 term takes over at the small moduli.</p>
 <h3 id="83-why-shrink-the-noise-if-the-ratio-stays-the-same">8.3 Why shrink the noise if the ratio stays the same?<a class="headerlink" href="#83-why-shrink-the-noise-if-the-ratio-stays-the-same" title="Link to this section">#</a></h3>
-<p>The BGV paper asks exactly this. The answer: <strong>multiplication cares about the absolute
-noise.</strong> Take BGV-style noise that squares at every multiplication. In an idealized model that
+<p>The <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> paper asks exactly this. The answer: <strong>multiplication cares about the absolute
+noise.</strong> Take <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>-style noise that squares at every multiplication. In an idealized model that
 ignores the factors <code>t</code> and <code>N</code>, start with \(q = 2^{100}\) and fresh noise \(2^{10}\). Decryption fails
 once the noise reaches <code>q</code>.</p>
 <div class="table-wrap"><table>
@@ -668,40 +669,40 @@ once the noise reaches <code>q</code>.</p>
 exponentially more.
 The noise stays near its fresh size; the modulus is what gets used up.</p>
 <h3 id="84-bgv-and-bfv">8.4 BGV and BFV<a class="headerlink" href="#84-bgv-and-bfv" title="Link to this section">#</a></h3>
-<p>In <strong>BGV</strong> the message sits in the low bits, so plain rounding would disturb it; BGV rounds to
+<p>In <strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr></strong> the message sits in the low bits, so plain rounding would disturb it; <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> rounds to
 the nearest values that keep the ciphertext unchanged mod <code>t</code>
 (<a href="../03_how_it_works.html#6-modulus-switching-bgv-trading-modulus-for-noise">03 §6</a>). With the
-message in the high bits, as here, plain rounding is enough. In <strong>BFV</strong>, the <code>t/q</code> step of
+message in the high bits, as here, plain rounding is enough. In <strong><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></strong>, the <code>t/q</code> step of
 every multiplication (§3) already divides the noise. That is why Brakerski's 2012 paper is
-titled "FHE <em>without</em> modulus switching", and why BFV noise grows by a roughly fixed factor
-per multiplication instead of squaring. BFV implementations still offer modulus switching,
+titled "<abbr title="fully homomorphic encryption">FHE</abbr> <em>without</em> modulus switching", and why <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> noise grows by a roughly fixed factor
+per multiplication instead of squaring. <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> implementations still offer modulus switching,
 mainly to shrink a result ciphertext before sending it back.</p>
 <h2 id="9-levels-leveled-he-and-multiplicative-depth">9. Levels, leveled HE and multiplicative depth<a class="headerlink" href="#9-levels-leveled-he-and-multiplicative-depth" title="Link to this section">#</a></h2>
 <h3 id="91-levels-and-leveled-he">9.1 Levels and leveled HE<a class="headerlink" href="#91-levels-and-leveled-he" title="Link to this section">#</a></h3>
-<p>In BGV and CKKS, the parameters fix a <strong>modulus chain</strong> \(q_L &gt; q_{L-1} &gt; \dots &gt; q_0\). A fresh
+<p>In <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the parameters fix a <strong>modulus chain</strong> \(q_L &gt; q_{L-1} &gt; \dots &gt; q_0\). A fresh
 ciphertext starts at the top, <strong>level</strong> <code>L</code>. Each multiplication is followed by one switch down,
 which uses up one level. In real libraries the modulus is a product of primes of 30–60 bits,
 \(q_\ell = p_0 p_1 \cdots p_\ell\), and each number mod \(q_\ell\) is stored as its residues mod
-each prime. This <strong>residue number system</strong> (RNS) is the Chinese Remainder Theorem put to work:
+each prime. This <strong>residue number system</strong> (<abbr title="residue number system">RNS</abbr>) is the Chinese Remainder Theorem put to work:
 all arithmetic runs on machine words, one prime at a time
 (<a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5</a>, which writes the primes
 \(q_i\)). Dividing by the last prime \(p_\ell\) and dropping it is a modulus switch from \(q_\ell\)
 to \(q_{\ell-1}\), so going down a level literally means dropping one prime. At level 0 there is no room for another multiplication:
 decrypt, or bootstrap (<a href="p9_bootstrapping.html">P9</a>). To combine two ciphertexts at different
-levels, first switch the higher one down. BFV has no explicit chain by default, but its noise
+levels, first switch the higher one down. <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> has no explicit chain by default, but its noise
 budget plays the same role: each multiplication spends a roughly fixed number of bits, and
 people still speak of "levels" for the number of multiplications that fit.</p>
 <p>A <strong>leveled</strong> scheme is set up for a maximum depth <code>L</code> chosen in advance. It can then evaluate
 any circuit of depth at most <code>L</code>, of any size, without bootstrapping. The parameters depend on
-the depth, not on the number of operations. That is the "leveled FHE without bootstrapping" of
-BGV's title, and most deployed BGV, BFV and CKKS applications work this way
+the depth, not on the number of operations. That is the "leveled <abbr title="fully homomorphic encryption">FHE</abbr> without bootstrapping" of
+<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>'s title, and most deployed <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> applications work this way
 (<a href="../04_schemes.html">04</a>).</p>
 <h3 id="92-multiplicative-depth-chains-and-trees">9.2 Multiplicative depth: chains and trees<a class="headerlink" href="#92-multiplicative-depth-chains-and-trees" title="Link to this section">#</a></h3>
 <p><strong>Multiplicative depth</strong> is the largest number of multiplications on any path from an input
 to the output. <a href="p6_computing_on_ciphertexts.html#7-multiplicative-depth">P6 §7</a> draws the
 product of eight values both ways: as a chain of depth 7 and as a balanced tree of depth 3,
 each with seven multiplications. Depth, rather than the number of operations, decides how big
-<code>q</code> must be. In real BFV and CKKS each level costs very roughly 30–60 bits of <code>q</code> (the table
+<code>q</code> must be. In real <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> each level costs very roughly 30–60 bits of <code>q</code> (the table
 in <a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a> works out to about 45
 bits per multiplication). <code>q</code> then decides how big <code>N</code> must be for security, and <code>N</code> decides
 the cost of everything.</p>
@@ -727,25 +728,25 @@ tree  ((x1*x2)*(x3*x4))*((x5*x6)*(x7*x8))  depth 3  budget  20.8 bits   correct:
 <li>After that, every level costs about 7 bits, because the noise is <em>multiplied</em> by a roughly
   fixed factor (§3.2). The budget falls linearly with depth.</li>
 <li>With the same seven multiplications, the chain runs out of budget and decrypts wrongly. The
-  tree finishes with 20.8 bits to spare. FHE compilers rebalance expression trees for exactly
+  tree finishes with 20.8 bits to spare. <abbr title="fully homomorphic encryption">FHE</abbr> compilers rebalance expression trees for exactly
   this reason. Computing \(x^{16}\) by repeated squaring costs depth 4, not 15.</li>
 </ul>
 <h3 id="93-ckks-rescaling-in-one-paragraph">9.3 CKKS rescaling, in one paragraph<a class="headerlink" href="#93-ckks-rescaling-in-one-paragraph" title="Link to this section">#</a></h3>
-<p>CKKS (Cheon–Kim–Kim–Song, 2017) encrypts real or complex numbers scaled by a large Δ such as
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song, 2017) encrypts real or complex numbers scaled by a large Δ such as
 \(2^{40}\), and accepts the noise as a small rounding error. One ciphertext holds \(N/2\) complex
 values, not \(N\): the slots are the values of the message polynomial at the complex roots of
 \(X^N + 1\), and since the polynomial has real coefficients those values come in conjugate
 pairs, so only half of them are free. Decryption and decoding return \(z + e/\Delta\) for the
 encoded values \(z\): the noise is never rounded away, it becomes part of the result. That is
-why sharing a CKKS decryption can leak <code>e</code>, and with it the key (IND-CPA-D,
+why sharing a <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption can leak <code>e</code>, and with it the key (<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>,
 <a href="p5_security_definitions.html#8-what-ind-cpa-does-not-cover">P5 §8</a> and the
-<a href="../deep_dives/ckks_ind_cpa_d.html">IND-CPA-D deep dive</a>).</p>
-<p>After a multiplication the scale is Δ², exactly the problem of §3.1. Instead of BFV's <code>t/q</code>
-trick, CKKS <strong>rescales</strong>: it divides the ciphertext by the last prime of the chain,
+<a href="../deep_dives/ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>).</p>
+<p>After a multiplication the scale is Δ², exactly the problem of §3.1. Instead of <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>'s <code>t/q</code>
+trick, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> <strong>rescales</strong>: it divides the ciphertext by the last prime of the chain,
 \(p_\ell \approx \Delta\) (the same name chapter 03 §7 uses), which is the modulus switch
 from \(q_\ell\) to \(q_{\ell-1} = q_\ell / p_\ell\) of §9.1. That brings the scale back to about
 Δ, divides the noise by \(p_\ell\) as well, and uses up one level. It is the fixed-point
-arithmetic habit of shifting right after each multiplication, done on ciphertexts. In CKKS, the modulus chain is literally a budget of multiplications. See
+arithmetic habit of shifting right after each multiplication, done on ciphertexts. In <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the modulus chain is literally a budget of multiplications. See
 <a href="../deep_dives/ckks.html#4-rescaling">deep_dives/ckks.md §4</a>.</p>
 <h2 id="10-evaluation-keys-versus-the-secret-key">10. Evaluation keys versus the secret key<a class="headerlink" href="#10-evaluation-keys-versus-the-secret-key" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
@@ -791,11 +792,11 @@ arithmetic habit of shifting right after each multiplication, done on ciphertext
 </tbody>
 </table></div>
 <p>The last three are <strong>evaluation keys</strong>. Only the secret-key holder can make them, because
-making them needs <code>s</code>. They are public, and they are large: for BGV, BFV and CKKS they often
-dominate memory and bandwidth, from hundreds of MB to several GB (TFHE's are tens of MB,
+making them needs <code>s</code>. They are public, and they are large: for <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> they often
+dominate memory and bandwidth, from hundreds of MB to several GB (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>'s are tens of MB,
 <a href="p9_bootstrapping.html#10-what-bootstrapping-costs">P9 §10</a>). None of them lets anyone decrypt,
 because each is an encryption under <code>s</code> and removing that encryption needs <code>s</code>. All of them
-encrypt values that depend on the key, so their security rests on RLWE plus a
+encrypt values that depend on the key, so their security rests on <abbr title="ring learning with errors">RLWE</abbr> plus a
 circular-security-style assumption (§5.4).</p>
 <h2 id="11-try-it">11. Try it<a class="headerlink" href="#11-try-it" title="Link to this section">#</a></h2>
 <p>Run from <code>homomorphic_encryption/</code>:</p>
@@ -803,7 +804,7 @@ circular-security-style assumption (§5.4).</p>
 </code></pre></div>
 
 <p><a href="../../code/primer/p8_relinearization.py"><code>code/primer/p8_relinearization.py</code></a> is a
-self-contained toy BFV with <code>N = 16</code>, <code>t = 16</code>, <code>q = 2^60</code>. It is insecure and meant to be
+self-contained toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> with <code>N = 16</code>, <code>t = 16</code>, <code>q = 2^60</code>. It is insecure and meant to be
 read. Parts 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers.</p>
 <div class="table-wrap"><table>
 <thead>
@@ -846,7 +847,7 @@ read. Parts 2, 4, 5 and 7 first re-check this chapter's hand-worked numbers.</p>
 </tr>
 <tr>
 <td>7</td>
-<td>Modulus switching on a plain LWE ciphertext</td>
+<td>Modulus switching on a plain <abbr title="learning with errors">LWE</abbr> ciphertext</td>
 <td><a href="#82-by-hand">§8.2</a></td>
 </tr>
 </tbody>
@@ -891,9 +892,9 @@ toy BFV, w = 2^15 (4 digits): before 3 components, noise 2^9.1;  after 2 compone
 we can evaluate any arithmetic circuit (P6). Multiplying ciphertexts works because the
 decryption equations multiply. It also makes ciphertexts <strong>bigger</strong> (the \(s^2\) term) and
 <strong>noisier</strong> (the noise is multiplied, not added). Relinearization, which is key switching with
-an evaluation key, fixes the size. Modulus switching, or BFV's built-in scaling, keeps the
+an evaluation key, fixes the size. Modulus switching, or <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>'s built-in scaling, keeps the
 noise growth to a fixed number of bits per multiplication. What remains is a budget: <code>L</code>
-levels, spent one per level of multiplicative depth. That is a leveled HE scheme, and for
+levels, spent one per level of multiplicative depth. That is a leveled <abbr title="homomorphic encryption">HE</abbr> scheme, and for
 circuits of known depth it is all you need. To compute <em>without</em> a depth limit, something must
 refill the budget. That is bootstrapping, in <a href="p9_bootstrapping.html">P9</a>. For the compact
 version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">03 §4</a>,
@@ -902,44 +903,42 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <h2 id="13-check-yourself">13. Check yourself<a class="headerlink" href="#13-check-yourself" title="Link to this section">#</a></h2>
 <ol>
 <li>Why does the product of two ciphertexts have three components, and why can the server
-   compute them without the secret key?</li>
-<li>A ciphertext with 3 components is multiplied by one with 4 components, without
-   relinearization. How many components does the result have, and which key vector decrypts
-   it?</li>
-<li>Why does relinearizing with a single encryption of \(s^2\) fail? With <code>w = 10</code>, <code>ℓ = 4</code> and
-   key errors of absolute value at most 3, what is the largest noise that gadget
-   relinearization can add for single numbers?</li>
-<li>Modulus switching from <code>q = 10000</code> to <code>q' = 100</code> turned noise 300 into noise 3, but noise/Δ
-   stayed 0.3. Why is that useful?</li>
-<li>What is the smallest multiplicative depth with which you can compute \(x^8 \cdot y\)? And
-   \(x_1 x_2 \cdots x_{16}\)?</li>
-<li>The server holds the relinearization key and the Galois keys. Why can it still not decrypt,
-   and which extra assumption is involved?</li>
-</ol>
-<p><strong>Answers</strong></p>
-<ol>
-<li>Multiplying the two decryption equations \((c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s)\) gives terms in \(1\),
+   compute them without the secret key?
+<details class="answer"><summary>Show answer</summary><div><p>Multiplying the two decryption equations \((c_0 + c_1 s)(c_0&#x27; + c_1&#x27; s)\) gives terms in \(1\),
    \(s\) and \(s^2\), so three coefficients \(d_0, d_1, d_2\). Each is a product or a sum of products
    of ciphertext numbers. <code>s</code> only appears in the key vector <code>(1, s, s²)</code>, which the server
-   never needs.</li>
-<li>3 + 4 − 1 = 6 components, decrypted with <code>(1, s, s², s³, s⁴, s⁵)</code>: a degree-2 polynomial in
-   <code>s</code> times a degree-3 one gives degree 5.</li>
-<li>The extra noise is \(d_2 \cdot \varepsilon\), and \(d_2\) is a full-size number mod <code>q</code>, so the
+   never needs.</p></div></details></li>
+<li>A ciphertext with 3 components is multiplied by one with 4 components, without
+   relinearization. How many components does the result have, and which key vector decrypts
+   it?
+<details class="answer"><summary>Show answer</summary><div><p>3 + 4 − 1 = 6 components, decrypted with <code>(1, s, s², s³, s⁴, s⁵)</code>: a degree-2 polynomial in
+   <code>s</code> times a degree-3 one gives degree 5.</p></div></details></li>
+<li>Why does relinearizing with a single encryption of \(s^2\) fail? With <code>w = 10</code>, <code>ℓ = 4</code> and
+   key errors of absolute value at most 3, what is the largest noise that gadget
+   relinearization can add for single numbers?
+<details class="answer"><summary>Show answer</summary><div><p>The extra noise is \(d_2 \cdot \varepsilon\), and \(d_2\) is a full-size number mod <code>q</code>, so the
    product is huge (3488 against a limit of 500 in the example). With digits, the extra noise is
-   \(\sum_i d_2^{(i)} \varepsilon_i\), at most 4 · 9 · 3 = 108.</li>
-<li>The next multiplication acts on the absolute noise, not on the ratio. In BGV it roughly
+   \(\sum_i d_2^{(i)} \varepsilon_i\), at most 4 · 9 · 3 = 108.</p></div></details></li>
+<li>Modulus switching from <code>q = 10000</code> to <code>q' = 100</code> turned noise 300 into noise 3, but noise/Δ
+   stayed 0.3. Why is that useful?
+<details class="answer"><summary>Show answer</summary><div><p>The next multiplication acts on the absolute noise, not on the ratio. In <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> it roughly
    squares the noise: from <code>B</code> it would go to <code>B²</code>, then <code>B⁴</code>, doubling its bit length each
    time. Switching down after each multiplication brings the noise back to about <code>B</code>, so every
    level costs a fixed <code>log₂ B</code> bits of modulus. That is the difference between about <code>log₂ L</code>
-   and about <code>L</code> levels when <code>q ≈ B^L</code> (§8.3).</li>
-<li>\(x^8 y\) is a product of 9 factors, and a binary tree with 9 leaves has depth at least
+   and about <code>L</code> levels when <code>q ≈ B^L</code> (§8.3).</p></div></details></li>
+<li>What is the smallest multiplicative depth with which you can compute \(x^8 \cdot y\)? And
+   \(x_1 x_2 \cdots x_{16}\)?
+<details class="answer"><summary>Show answer</summary><div><p>\(x^8 y\) is a product of 9 factors, and a binary tree with 9 leaves has depth at least
    ⌈log₂ 9⌉ = 4. Depth 4 is achievable: \(x^2, x^4, x^8\) by squaring (depth 3), then times <code>y</code>.
-   \(x_1 \cdots x_{16}\) has depth ⌈log₂ 16⌉ = 4 as a balanced tree, against 15 as a chain.</li>
-<li>Every evaluation key is an encryption under <code>s</code>. Using it produces ciphertexts that are still
-   under <code>s</code>, and stripping an encryption under <code>s</code> requires <code>s</code>. Under RLWE the keys look
+   \(x_1 \cdots x_{16}\) has depth ⌈log₂ 16⌉ = 4 as a balanced tree, against 15 as a chain.</p></div></details></li>
+<li>The server holds the relinearization key and the Galois keys. Why can it still not decrypt,
+   and which extra assumption is involved?
+<details class="answer"><summary>Show answer</summary><div><p>Every evaluation key is an encryption under <code>s</code>. Using it produces ciphertexts that are still
+   under <code>s</code>, and stripping an encryption under <code>s</code> requires <code>s</code>. Under <abbr title="ring learning with errors">RLWE</abbr> the keys look
    random. Because they encrypt functions of <code>s</code> itself, their safety also needs a (weak)
-   circular-security assumption.</li>
+   circular-security assumption.</p></div></details></li>
 </ol>
+
 <h2 id="14-key-terms">14. Key terms<a class="headerlink" href="#14-key-terms" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -951,7 +950,7 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <tbody>
 <tr>
 <td><code>(c0, c1)</code> form</td>
-<td>The LWE/RLWE ciphertext written as <code>(b, −a)</code>, so that \(c_0 + c_1 s = \Delta m + e\)</td>
+<td>The <abbr title="learning with errors">LWE</abbr>/<abbr title="ring learning with errors">RLWE</abbr> ciphertext written as <code>(b, −a)</code>, so that \(c_0 + c_1 s = \Delta m + e\)</td>
 </tr>
 <tr>
 <td>key vector</td>
@@ -966,7 +965,7 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <td>\(\log_2((\Delta/2)/\text{noise})\): bits of noise growth left before decryption fails</td>
 </tr>
 <tr>
-<td>scale-invariant (BFV)</td>
+<td>scale-invariant (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>)</td>
 <td>Multiplication rescales by <code>t/q</code> and rounds, so the message returns to scale Δ</td>
 </tr>
 <tr>
@@ -1002,7 +1001,7 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <td>Scaling a ciphertext from <code>q</code> to a smaller <code>q'</code> with rounding; noise shrinks by about <code>q'/q</code></td>
 </tr>
 <tr>
-<td>rescaling (CKKS)</td>
+<td>rescaling (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>)</td>
 <td>Modulus switching by a prime \(p_\ell \approx \Delta\) to bring the scale from Δ² back to Δ</td>
 </tr>
 <tr>
@@ -1010,11 +1009,11 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <td>The decreasing moduli \(q_L &gt; \dots &gt; q_0\); a ciphertext's level is its position on the chain</td>
 </tr>
 <tr>
-<td>RNS</td>
-<td>Storing a number mod \(q = p_0 \cdots p_L\) as its residues mod each prime (CRT); a level is one prime</td>
+<td><abbr title="residue number system">RNS</abbr></td>
+<td>Storing a number mod \(q = p_0 \cdots p_L\) as its residues mod each prime (<abbr title="Chinese remainder theorem">CRT</abbr>); a level is one prime</td>
 </tr>
 <tr>
-<td>leveled HE</td>
+<td>leveled <abbr title="homomorphic encryption">HE</abbr></td>
 <td>A scheme whose parameters support any circuit up to a fixed depth <code>L</code>, without bootstrapping</td>
 </tr>
 <tr>
@@ -1034,21 +1033,21 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <h2 id="15-sources-and-further-reading">15. Sources and further reading<a class="headerlink" href="#15-sources-and-further-reading" title="Link to this section">#</a></h2>
 <ul>
 <li>Z. Brakerski, V. Vaikuntanathan, <em>Efficient Fully Homomorphic Encryption from (Standard)
-  LWE</em>, FOCS 2011. Introduces re-linearization and dimension-modulus reduction.
+  <abbr title="learning with errors">LWE</abbr></em>, FOCS 2011. Introduces re-linearization and dimension-modulus reduction.
   <a href="https://eprint.iacr.org/2011/344">https://eprint.iacr.org/2011/344</a></li>
 <li>Z. Brakerski, C. Gentry, V. Vaikuntanathan, <em>(Leveled) Fully Homomorphic Encryption without
   Bootstrapping</em>, ITCS 2012. §1.3–1.5 motivate modulus switching (Lemma 1 and the "ladder of
   moduli" argument used in §8.3). §3.2 introduces key switching, <code>BitDecomp</code> and <code>Powersof2</code>,
-  and notes why BV's relinearization used different keys per level.
+  and notes why <abbr title="the Brakerski–Vaikuntanathan scheme">BV</abbr>'s relinearization used different keys per level.
   <a href="https://eprint.iacr.org/2011/277">https://eprint.iacr.org/2011/277</a></li>
-<li>Z. Brakerski, <em>Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP</em>,
+<li>Z. Brakerski, <em>Fully Homomorphic Encryption without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em>,
   CRYPTO 2012. The scale-invariant scheme: the same modulus throughout.
   <a href="https://eprint.iacr.org/2012/078">https://eprint.iacr.org/2012/078</a></li>
 <li>J. Fan, F. Vercauteren, <em>Somewhat Practical Fully Homomorphic Encryption</em>, 2012. Brakerski's
-  scheme over rings (BFV), with two optimised relinearization variants.
+  scheme over rings (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>), with two optimised relinearization variants.
   <a href="https://eprint.iacr.org/2012/144">https://eprint.iacr.org/2012/144</a></li>
 <li>J. H. Cheon, A. Kim, M. Kim, Y. Song, <em>Homomorphic Encryption for Arithmetic of Approximate
-  Numbers</em> (CKKS), ASIACRYPT 2017. <a href="https://eprint.iacr.org/2016/421">https://eprint.iacr.org/2016/421</a></li>
+  Numbers</em> (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>), ASIACRYPT 2017. <a href="https://eprint.iacr.org/2016/421">https://eprint.iacr.org/2016/421</a></li>
 <li>H. Chen, K. Laine, R. Player, <em>Simple Encrypted Arithmetic Library - SEAL v2.2</em>, manual,
   Microsoft Research, 2017. Defines the invariant noise budget as \(-\log_2(2\nu)\), the same
   quantity as this chapter's budget when <code>q</code> is a multiple of <code>t</code>.
@@ -1056,7 +1055,7 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
 <li>In this repository: <a href="../03_how_it_works.html#4-homomorphic-multiplication-the-hard-part">03 How it works §4–7</a>
   (compact version), <a href="../deep_dives/ckks.html#4-rescaling">deep_dives/ckks.md §4</a> (rescaling in
   depth), <a href="../deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a> and
-  <a href="../../code/toy_bfv.py">code/toy_bfv.py</a> (a fuller BFV with batching and rotations).</li>
+  <a href="../../code/toy_bfv.py">code/toy_bfv.py</a> (a fuller <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> with batching and rotations).</li>
 </ul>
 </article>
 <footer class="pager"><a href="../primer/p7_lattices_and_lwe.html">← P7 · Lattices and LWE: encryption from noisy equations</a><a href="../primer/p9_bootstrapping.html">P9 · Bootstrapping: resetting the noise →</a></footer>

@@ -6,6 +6,7 @@
 <title>Homomorphic Encryption</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -66,11 +67,11 @@ function renderMath() {
 <article>
 <h1 id="homomorphic-encryption">Homomorphic Encryption<a class="headerlink" href="#homomorphic-encryption" title="Link to this section">#</a></h1>
 <blockquote>
-<p><strong>Homomorphic encryption (HE)</strong> lets someone compute on data <strong>while it stays encrypted</strong>.
+<p><strong>Homomorphic encryption (<abbr title="homomorphic encryption">HE</abbr>)</strong> lets someone compute on data <strong>while it stays encrypted</strong>.
 You encrypt <code>x</code>, hand the ciphertext to an untrusted server, the server computes <code>f</code> on it
 without ever seeing <code>x</code>, and you decrypt the result to get <code>f(x)</code>.</p>
 </blockquote>
-<p>This folder is a living research notebook on HE: what it is, how it works mathematically,
+<p>This folder is a living research notebook on <abbr title="homomorphic encryption">HE</abbr>: what it is, how it works mathematically,
 which schemes exist, and where research stands as of <strong>late 2026</strong>. It starts as an
 overview. Each chapter ends with <strong>deep-dive candidates</strong>: topics to expand into their own
 documents later.</p>
@@ -84,7 +85,7 @@ documents later.</p>
 so they need an internet connection; everything else works offline.</p>
 <hr />
 <h2 id="new-to-cryptography-start-with-the-primer">New to cryptography? Start with the primer<a class="headerlink" href="#new-to-cryptography-start-with-the-primer" title="Link to this section">#</a></h2>
-<p>The chapters below assume you already know what IND-CPA, noise, relinearization and
+<p>The chapters below assume you already know what <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>, noise, relinearization and
 bootstrapping mean. The primer builds all of that up for a reader who knows programming and
 basic math (modular arithmetic, linear algebra, polynomials, probability) and has used crypto
 libraries, but has not studied cryptography itself. Every chapter has hand-worked examples, a
@@ -105,33 +106,33 @@ runnable script in <a href="../code/primer/"><code>code/primer/</code></a> and s
 </tr>
 <tr>
 <td>P2</td>
-<td><a href="primer/p2_aes.html">How AES works inside</a></td>
-<td>Block ciphers, confusion and diffusion, GF(2⁸), every AES step computed by a from-scratch AES-128, the avalanche effect, why AES is useless for HE</td>
+<td><a href="primer/p2_aes.html">How <abbr title="Advanced Encryption Standard">AES</abbr> works inside</a></td>
+<td>Block ciphers, confusion and diffusion, <abbr title="Galois field (a finite field)">GF</abbr>(2⁸), every <abbr title="Advanced Encryption Standard">AES</abbr> step computed by a from-scratch <abbr title="Advanced Encryption Standard">AES</abbr>-128, the avalanche effect, why <abbr title="Advanced Encryption Standard">AES</abbr> is useless for <abbr title="homomorphic encryption">HE</abbr></td>
 </tr>
 <tr>
 <td>P3</td>
 <td><a href="primer/p3_modes_and_integrity.html">Modes, nonces and integrity</a></td>
-<td>ECB's leaks, CBC, CTR, nonce reuse, malleability and the bit-flipping attack, MACs and authenticated encryption</td>
+<td><abbr title="electronic codebook (a block cipher mode)">ECB</abbr>'s leaks, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, <abbr title="counter mode (a block cipher mode)">CTR</abbr>, nonce reuse, malleability and the bit-flipping attack, <abbr title="message authentication code">MAC</abbr>s and authenticated encryption</td>
 </tr>
 <tr>
 <td>P4</td>
 <td><a href="primer/p4_public_key.html">Public-key cryptography</a></td>
-<td>Diffie–Hellman, RSA through HE eyes, ElGamal, hybrid encryption (TLS), quantum computers and post-quantum lattices</td>
+<td>Diffie–Hellman, <abbr title="Rivest–Shamir–Adleman">RSA</abbr> through <abbr title="homomorphic encryption">HE</abbr> eyes, ElGamal, hybrid encryption (<abbr title="Transport Layer Security">TLS</abbr>), quantum computers and post-quantum lattices</td>
 </tr>
 <tr>
 <td>P5</td>
 <td><a href="primer/p5_security_definitions.html">What "secure" means</a></td>
-<td>Attack models, the IND-CPA game played in code, semantic security, reductions, why homomorphic schemes can never be CCA2 secure</td>
+<td>Attack models, the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game played in code, semantic security, reductions, why homomorphic schemes can never be <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> secure</td>
 </tr>
 <tr>
 <td>P6</td>
 <td><a href="primer/p6_computing_on_ciphertexts.html">Computing on ciphertexts</a></td>
-<td>Homomorphisms, Paillier and friends, circuits, multiplicative depth, SHE / LHE / FHE</td>
+<td>Homomorphisms, Paillier and friends, circuits, multiplicative depth, <abbr title="somewhat homomorphic encryption">SHE</abbr> / <abbr title="leveled homomorphic encryption">LHE</abbr> / <abbr title="fully homomorphic encryption">FHE</abbr></td>
 </tr>
 <tr>
 <td>P7</td>
-<td><a href="primer/p7_lattices_and_lwe.html">Lattices and LWE</a></td>
-<td>Noisy linear equations, LWE encryption by hand, noise and the noise budget, public-key LWE, Ring-LWE</td>
+<td><a href="primer/p7_lattices_and_lwe.html">Lattices and <abbr title="learning with errors">LWE</abbr></a></td>
+<td>Noisy linear equations, <abbr title="learning with errors">LWE</abbr> encryption by hand, noise and the noise budget, public-key <abbr title="learning with errors">LWE</abbr>, Ring-LWE</td>
 </tr>
 <tr>
 <td>P8</td>
@@ -145,7 +146,7 @@ runnable script in <a href="../code/primer/"><code>code/primer/</code></a> and s
 </tr>
 </tbody>
 </table></div>
-<p><strong>Short on time?</strong> P1–P5 are background, and only parts of them are needed for HE. The
+<p><strong>Short on time?</strong> P1–P5 are background, and only parts of them are needed for <abbr title="homomorphic encryption">HE</abbr>. The
 minimum path is P1 §1–2 and §4–6, the fast path marked at the top of P2, P3 §6–7, P4 §4–5,
 P5 §4 and §6–7, and then P6–P9 in full.</p>
 <hr />
@@ -162,42 +163,42 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <tr>
 <td>01</td>
 <td><a href="01_introduction.html">Introduction</a></td>
-<td>Intuition, definitions, PHE / SHE / LHE / FHE taxonomy, history timeline</td>
+<td>Intuition, definitions, <abbr title="partially homomorphic encryption">PHE</abbr> / <abbr title="somewhat homomorphic encryption">SHE</abbr> / <abbr title="leveled homomorphic encryption">LHE</abbr> / <abbr title="fully homomorphic encryption">FHE</abbr> taxonomy, history timeline</td>
 </tr>
 <tr>
 <td>02</td>
 <td><a href="02_math_foundations.html">Mathematical foundations</a></td>
-<td>Lattices, LWE, Ring-LWE, polynomial rings, NTT, why it's post-quantum</td>
+<td>Lattices, <abbr title="learning with errors">LWE</abbr>, Ring-LWE, polynomial rings, <abbr title="number-theoretic transform">NTT</abbr>, why it's post-quantum</td>
 </tr>
 <tr>
 <td>03</td>
 <td><a href="03_how_it_works.html">How it works</a></td>
-<td>Encryption from LWE, adding and multiplying ciphertexts, noise, relinearization, modulus switching, bootstrapping. Includes a runnable toy</td>
+<td>Encryption from <abbr title="learning with errors">LWE</abbr>, adding and multiplying ciphertexts, noise, relinearization, modulus switching, bootstrapping. Includes a runnable toy</td>
 </tr>
 <tr>
 <td>04</td>
 <td><a href="04_schemes.html">The schemes</a></td>
-<td>The "generations": Gentry, BGV, BFV, GSW, FHEW / TFHE, CKKS, and the new matrix scheme (Gentry–Lee). Comparison table</td>
+<td>The "generations": Gentry, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>, <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, and the new matrix scheme (Gentry–Lee). Comparison table</td>
 </tr>
 <tr>
 <td>05</td>
 <td><a href="05_core_techniques.html">Core techniques</a></td>
-<td>Batching (SIMD), rotations, RNS, programmable bootstrapping, polynomial approximation, scheme switching, threshold / multi-key FHE, compilers</td>
+<td>Batching (<abbr title="single instruction, multiple data">SIMD</abbr>), rotations, <abbr title="residue number system">RNS</abbr>, programmable bootstrapping, polynomial approximation, scheme switching, threshold / multi-key <abbr title="fully homomorphic encryption">FHE</abbr>, compilers</td>
 </tr>
 <tr>
 <td>06</td>
 <td><a href="06_security.html">Security</a></td>
-<td>Parameter selection, IND-CPA vs IND-CPA-D, the CKKS key-recovery attacks, circuit privacy, integrity, quantum</td>
+<td>Parameter selection, <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> vs <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>, the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> key-recovery attacks, circuit privacy, integrity, quantum</td>
 </tr>
 <tr>
 <td>07</td>
 <td><a href="07_state_of_the_art_2026.html">State of the art (2026)</a></td>
-<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted LLMs, hardware (Intel Heracles), standards (ISO/IEC 28033), compilers</td>
+<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted <abbr title="large language model">LLM</abbr>s, hardware (Intel Heracles), standards (<abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033), compilers</td>
 </tr>
 <tr>
 <td>08</td>
 <td><a href="08_ecosystem_and_applications.html">Ecosystem and applications</a></td>
-<td>Libraries, real deployments (Apple, Microsoft, Zama…), where HE fits vs MPC / TEEs / ZK</td>
+<td>Libraries, real deployments (Apple, Microsoft, Zama…), where <abbr title="homomorphic encryption">HE</abbr> fits vs <abbr title="secure multiparty computation">MPC</abbr> / <abbr title="trusted execution environment">TEE</abbr>s / <abbr title="zero knowledge">ZK</abbr></td>
 </tr>
 <tr>
 <td>09</td>
@@ -216,87 +217,87 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 </thead>
 <tbody>
 <tr>
-<td><a href="deep_dives/ckks.html">CKKS: encoding, rescaling, bootstrapping</a></td>
-<td>Canonical embedding and slots, worked N=4 example, rescaling as fixed-point shifts, scale drift in RNS, the full bootstrapping pipeline (ModRaise → CoeffToSlot → EvalMod → SlotToCoeff) with measured precision trade-offs</td>
+<td><a href="deep_dives/ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>: encoding, rescaling, bootstrapping</a></td>
+<td>Canonical embedding and slots, worked N=4 example, rescaling as fixed-point shifts, scale drift in <abbr title="residue number system">RNS</abbr>, the full bootstrapping pipeline (ModRaise → CoeffToSlot → EvalMod → SlotToCoeff) with measured precision trade-offs</td>
 </tr>
 <tr>
-<td><a href="deep_dives/bfv_pir.html">BFV and private information retrieval</a></td>
-<td>Batching over Z_t, the noise budget, BFV multiplication (tensor, scale, round), the key-switching digit trade-off, rotations, then a working keyword-PIR caller-ID lookup and how Apple's Live Caller ID differs</td>
+<td><a href="deep_dives/bfv_pir.html"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and private information retrieval</a></td>
+<td>Batching over Z_t, the noise budget, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> multiplication (tensor, scale, round), the key-switching digit trade-off, rotations, then a working keyword-PIR caller-ID lookup and how Apple's Live Caller ID differs</td>
 </tr>
 <tr>
-<td><a href="deep_dives/ckks_ind_cpa_d.html">Breaking CKKS: the IND-CPA-D attack</a></td>
-<td>Key recovery from one shared decryption (reproduced on the toy), noise flooding and its precision cost, the averaging attack on weak flooding, and the same problem in BFV / TFHE / threshold FHE</td>
+<td><a href="deep_dives/ckks_ind_cpa_d.html">Breaking <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>: the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attack</a></td>
+<td>Key recovery from one shared decryption (reproduced on the toy), noise flooding and its precision cost, the averaging attack on weak flooding, and the same problem in <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> / threshold <abbr title="fully homomorphic encryption">FHE</abbr></td>
 </tr>
 <tr>
-<td><a href="deep_dives/threshold_fhe.html">Threshold and multiparty FHE (and Zama)</a></td>
-<td>Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's KMS mapped onto the toy</td>
+<td><a href="deep_dives/threshold_fhe.html">Threshold and multiparty <abbr title="fully homomorphic encryption">FHE</abbr> (and Zama)</a></td>
+<td>Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's <abbr title="key management service">KMS</abbr> mapped onto the toy</td>
 </tr>
 <tr>
-<td><a href="deep_dives/hardware.html">Hardware: NTT, key switching, GPUs and ASICs</a></td>
-<td>Profiles of our toys, a real NTT (63× over schoolbook at N=2048), RNS limbs, a key-switching cost model showing why FHE is memory-bound, then CPUs, GPUs, FPGAs, F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles</td>
+<td><a href="deep_dives/hardware.html">Hardware: <abbr title="number-theoretic transform">NTT</abbr>, key switching, <abbr title="graphics processing unit">GPU</abbr>s and <abbr title="application-specific integrated circuit">ASIC</abbr>s</a></td>
+<td>Profiles of our toys, a real <abbr title="number-theoretic transform">NTT</abbr> (63× over schoolbook at N=2048), <abbr title="residue number system">RNS</abbr> limbs, a key-switching cost model showing why <abbr title="fully homomorphic encryption">FHE</abbr> is memory-bound, then <abbr title="central processing unit">CPU</abbr>s, <abbr title="graphics processing unit">GPU</abbr>s, <abbr title="field-programmable gate array">FPGA</abbr>s, F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles</td>
 </tr>
 <tr>
-<td><a href="deep_dives/tfhe.html">TFHE: programmable bootstrapping</a></td>
-<td>Torus encoding and the padding bit, LWE / GLWE / GGSW, gadget decomposition, external product and CMux, the five PBS steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input LUTs</td>
+<td><a href="deep_dives/tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: programmable bootstrapping</a></td>
+<td>Torus encoding and the padding bit, <abbr title="learning with errors">LWE</abbr> / <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> / <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, gadget decomposition, external product and CMux, the five <abbr title="programmable bootstrapping">PBS</abbr> steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input <abbr title="lookup table">LUT</abbr>s</td>
 </tr>
 </tbody>
 </table></div>
 <p>Code (pure Python, no dependencies, <strong>not secure</strong>):</p>
 <ul>
-<li><a href="../code/primer/"><code>code/primer/</code></a>: one small script per primer chapter (one-time pad, AES-128 from scratch, modes and tampering, Diffie–Hellman / RSA / ElGamal, the IND-CPA game, Paillier and circuits, LWE by hand, relinearization, bootstrapping).</li>
-<li><a href="../code/toy_lwe.py"><code>code/toy_lwe.py</code></a>: a ~50-line toy LWE scheme showing homomorphic addition and how noise eventually breaks decryption.</li>
-<li><a href="../code/toy_ckks.py"><code>code/toy_ckks.py</code></a>: a complete toy CKKS (encode, encrypt, multiply, relinearize, rescale, rotate, conjugate) <strong>including a working homomorphic bootstrapping</strong>.</li>
-<li><a href="../code/toy_bfv.py"><code>code/toy_bfv.py</code></a>: a toy BFV with batching, exact slot-wise arithmetic, relinearization, rotations and noise-budget measurement.</li>
-<li><a href="../code/pir_caller_id.py"><code>code/pir_caller_id.py</code></a>: keyword PIR on the toy BFV: a caller-ID lookup where the server never learns the number.</li>
-<li><a href="../code/threshold_bfv.py"><code>code/threshold_bfv.py</code></a>: threshold FHE on the toy BFV: joint keys, 2-of-3 decryption with smudging, re-encryption, and the key-recovery attack without smudging.</li>
-<li><a href="../code/hw_profile.py"><code>code/hw_profile.py</code></a>: profiles of the toys, a negacyclic NTT vs schoolbook, RNS limbs, and a hybrid key-switching cost model.</li>
+<li><a href="../code/primer/"><code>code/primer/</code></a>: one small script per primer chapter (one-time pad, <abbr title="Advanced Encryption Standard">AES</abbr>-128 from scratch, modes and tampering, Diffie–Hellman / <abbr title="Rivest–Shamir–Adleman">RSA</abbr> / ElGamal, the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game, Paillier and circuits, <abbr title="learning with errors">LWE</abbr> by hand, relinearization, bootstrapping).</li>
+<li><a href="../code/toy_lwe.py"><code>code/toy_lwe.py</code></a>: a ~50-line toy <abbr title="learning with errors">LWE</abbr> scheme showing homomorphic addition and how noise eventually breaks decryption.</li>
+<li><a href="../code/toy_ckks.py"><code>code/toy_ckks.py</code></a>: a complete toy <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (encode, encrypt, multiply, relinearize, rescale, rotate, conjugate) <strong>including a working homomorphic bootstrapping</strong>.</li>
+<li><a href="../code/toy_bfv.py"><code>code/toy_bfv.py</code></a>: a toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> with batching, exact slot-wise arithmetic, relinearization, rotations and noise-budget measurement.</li>
+<li><a href="../code/pir_caller_id.py"><code>code/pir_caller_id.py</code></a>: keyword <abbr title="private information retrieval">PIR</abbr> on the toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>: a caller-ID lookup where the server never learns the number.</li>
+<li><a href="../code/threshold_bfv.py"><code>code/threshold_bfv.py</code></a>: threshold <abbr title="fully homomorphic encryption">FHE</abbr> on the toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>: joint keys, 2-of-3 decryption with smudging, re-encryption, and the key-recovery attack without smudging.</li>
+<li><a href="../code/hw_profile.py"><code>code/hw_profile.py</code></a>: profiles of the toys, a negacyclic <abbr title="number-theoretic transform">NTT</abbr> vs schoolbook, <abbr title="residue number system">RNS</abbr> limbs, and a hybrid key-switching cost model.</li>
 <li><a href="../code/ckks_attack.py"><code>code/ckks_attack.py</code></a>: the Li–Micciancio key-recovery attack on <code>toy_ckks.py</code>, noise flooding, and an averaging attack that breaks weak flooding.</li>
-<li><a href="../code/toy_tfhe.py"><code>code/toy_tfhe.py</code></a>: a complete toy TFHE with <strong>programmable bootstrapping</strong> (arbitrary lookup tables, NAND gates, a 2-bit × 2-bit multiply in one bootstrap).</li>
+<li><a href="../code/toy_tfhe.py"><code>code/toy_tfhe.py</code></a>: a complete toy <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> with <strong>programmable bootstrapping</strong> (arbitrary lookup tables, <abbr title="not-and (a logic gate)">NAND</abbr> gates, a 2-bit × 2-bit multiply in one bootstrap).</li>
 </ul>
 <hr />
 <h2 id="the-60-second-version">The 60-second version<a class="headerlink" href="#the-60-second-version" title="Link to this section">#</a></h2>
 <ol>
 <li><strong>The idea is old (1978).</strong> Rivest, Adleman and Dertouzos asked for "privacy homomorphisms"
-   right after RSA. Textbook RSA is already <em>multiplicatively</em> homomorphic:
+   right after <abbr title="Rivest–Shamir–Adleman">RSA</abbr>. Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> is already <em>multiplicatively</em> homomorphic:
    <code>Enc(a) · Enc(b) = Enc(a · b)</code> (see <a href="../../python_rsa"><code>../python_rsa</code></a>). Paillier (1999) is
    <em>additively</em> homomorphic. Getting <strong>both</strong> addition and multiplication an <strong>unlimited</strong>
    number of times took 31 years.</li>
 <li><strong>Gentry (2009)</strong> built the first <em>fully</em> homomorphic scheme. His key trick was
    <strong>bootstrapping</strong>: homomorphically running the decryption circuit to "refresh" a ciphertext.</li>
 <li><strong>Every practical scheme today is built on lattices</strong>, specifically the
-   <strong>Learning With Errors (LWE)</strong> problem and its ring variant <strong>RLWE</strong>. Ciphertexts carry a
+   <strong>Learning With Errors (<abbr title="learning with errors">LWE</abbr>)</strong> problem and its ring variant <strong><abbr title="ring learning with errors">RLWE</abbr></strong>. Ciphertexts carry a
    small random <strong>noise</strong> that hides the message. The noise grows with each operation, and
    bootstrapping resets it.</li>
 <li><strong>There are four main scheme families:</strong><ul>
-<li><strong>BGV / BFV</strong>: exact integer arithmetic mod <code>t</code>, thousands of values packed per ciphertext.</li>
-<li><strong>CKKS</strong>: <em>approximate</em> real/complex arithmetic, the workhorse for ML and statistics.</li>
-<li><strong>FHEW / TFHE</strong>: bit- or small-integer-level, very fast bootstrapping, arbitrary lookup tables.</li>
-<li><strong>Matrix FHE (Gentry–Lee, 2025)</strong>: a newer scheme with native encrypted matrix multiplication.</li>
+<li><strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> / <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></strong>: exact integer arithmetic mod <code>t</code>, thousands of values packed per ciphertext.</li>
+<li><strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong>: <em>approximate</em> real/complex arithmetic, the workhorse for <abbr title="machine learning">ML</abbr> and statistics.</li>
+<li><strong><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong>: bit- or small-integer-level, very fast bootstrapping, arbitrary lookup tables.</li>
+<li><strong>Matrix <abbr title="fully homomorphic encryption">FHE</abbr> (Gentry–Lee, 2025)</strong>: a newer scheme with native encrypted matrix multiplication.</li>
 </ul>
 </li>
 <li><strong>Performance is the whole story.</strong> In 2011 the first implementation needed about 30 minutes
-   for a single bootstrap. Today a TFHE bootstrap takes milliseconds on a CPU core and under
-   1 ms on a GPU. End-to-end workloads are still about 10²–10⁴× slower than plaintext,
-   depending heavily on the workload and hardware. Prototype ASICs (Intel Heracles,
+   for a single bootstrap. Today a <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrap takes milliseconds on a <abbr title="central processing unit">CPU</abbr> core and under
+   1 ms on a <abbr title="graphics processing unit">GPU</abbr>. End-to-end workloads are still about 10²–10⁴× slower than plaintext,
+   depending heavily on the workload and hardware. Prototype <abbr title="application-specific integrated circuit">ASIC</abbr>s (Intel Heracles,
    ISSCC 2026) report a further ~1000–5000× over a Xeon on core operations.</li>
-<li><strong>It is in production, narrowly.</strong> Apple (Live Caller ID Lookup, BFV-based PIR), Microsoft
+<li><strong>It is in production, narrowly.</strong> Apple (Live Caller ID Lookup, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>-based <abbr title="private information retrieval">PIR</abbr>), Microsoft
    Edge (Password Monitor) and Zama's confidential-token protocol on Ethereum all use it.
-   Frontier-scale private LLM inference under FHE is <strong>not</strong> practical yet: the best systems
+   Frontier-scale private <abbr title="large language model">LLM</abbr> inference under <abbr title="fully homomorphic encryption">FHE</abbr> is <strong>not</strong> practical yet: the best systems
    are still about 10⁴× slower than plaintext.</li>
-<li><strong>It is post-quantum.</strong> It rests on the same lattice problems as NIST's ML-KEM. It is being
-   standardized as <strong>ISO/IEC 28033</strong> (parts at Draft International Standard stage in 2026).</li>
+<li><strong>It is post-quantum.</strong> It rests on the same lattice problems as <abbr title="National Institute of Standards and Technology">NIST</abbr>'s <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>. It is being
+   standardized as <strong><abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033</strong> (parts at Draft International Standard stage in 2026).</li>
 </ol>
 <hr />
 <h2 id="suggested-deep-dives-pick-one-and-ask">Suggested deep dives (pick one and ask)<a class="headerlink" href="#suggested-deep-dives-pick-one-and-ask" title="Link to this section">#</a></h2>
 <ul>
-<li><del>Walk through <strong>CKKS</strong> end to end</del> → done: <a href="deep_dives/ckks.html">deep_dives/ckks.md</a>.</li>
-<li><del><strong>TFHE programmable bootstrapping</strong>, step by step</del> → done: <a href="deep_dives/tfhe.html">deep_dives/tfhe.md</a>.</li>
-<li><del><strong>Implement</strong> BFV from scratch</del> → done: <a href="../code/toy_bfv.py"><code>code/toy_bfv.py</code></a>.</li>
-<li><del>The <strong>IND-CPA-D attack</strong> on CKKS</del> → done: <a href="deep_dives/ckks_ind_cpa_d.html">deep_dives/ckks_ind_cpa_d.md</a>.</li>
+<li><del>Walk through <strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong> end to end</del> → done: <a href="deep_dives/ckks.html">deep_dives/ckks.md</a>.</li>
+<li><del><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> programmable bootstrapping</strong>, step by step</del> → done: <a href="deep_dives/tfhe.html">deep_dives/tfhe.md</a>.</li>
+<li><del><strong>Implement</strong> <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> from scratch</del> → done: <a href="../code/toy_bfv.py"><code>code/toy_bfv.py</code></a>.</li>
+<li><del>The <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attack</strong> on <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></del> → done: <a href="deep_dives/ckks_ind_cpa_d.html">deep_dives/ckks_ind_cpa_d.md</a>.</li>
 <li><del><strong>Hardware</strong></del> → done: <a href="deep_dives/hardware.html">deep_dives/hardware.md</a>.</li>
 <li><strong>Encrypted transformers</strong>: how softmax, LayerNorm and GELU get approximated by polynomials.</li>
-<li><del><strong>PIR</strong> as the killer app</del> → done: <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a>.</li>
-<li><del><strong>Threshold / multiparty FHE</strong> and Zama</del> → done: <a href="deep_dives/threshold_fhe.html">deep_dives/threshold_fhe.md</a>.</li>
+<li><del><strong><abbr title="private information retrieval">PIR</abbr></strong> as the killer app</del> → done: <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a>.</li>
+<li><del><strong>Threshold / multiparty <abbr title="fully homomorphic encryption">FHE</abbr></strong> and Zama</del> → done: <a href="deep_dives/threshold_fhe.html">deep_dives/threshold_fhe.md</a>.</li>
 </ul>
 </article>
 <footer class="pager"><span></span><a href="primer/p1_encryption_basics.html">P1 · What encryption is: keys, secrecy and the one-time pad →</a></footer>

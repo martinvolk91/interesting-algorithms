@@ -6,6 +6,7 @@
 <title>P2 · Block ciphers: how AES works inside</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -85,10 +86,7 @@ function renderMath() {
 </li>
 <li><a href="#10-try-it">10. Try it</a></li>
 <li><a href="#11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption</a></li>
-<li><a href="#12-check-yourself">12. Check yourself</a><ul>
-<li><a href="#answers">Answers</a></li>
-</ul>
-</li>
+<li><a href="#12-check-yourself">12. Check yourself</a></li>
 <li><a href="#13-key-terms">13. Key terms</a></li>
 <li><a href="#14-sources-and-further-reading">14. Sources and further reading</a></li>
 </ul>
@@ -99,19 +97,19 @@ function renderMath() {
 <p><a href="p1_encryption_basics.html">← P1 Encryption basics</a> · <a href="../index.html">index</a> · next: <a href="p3_modes_and_integrity.html">P3 Modes and integrity →</a></p>
 <hr />
 <p>P1 ended with the one-time pad: perfectly secret, and homomorphic, because its keys simply
-add. AES is built the opposite way. It scrambles 16 bytes so thoroughly that no algebraic
+add. <abbr title="Advanced Encryption Standard">AES</abbr> is built the opposite way. It scrambles 16 bytes so thoroughly that no algebraic
 relation between plaintexts survives into the ciphertexts. Seeing exactly how it does that,
-and which single step is responsible, explains both why AES is trusted everywhere and why
-nobody can compute on AES ciphertexts.</p>
+and which single step is responsible, explains both why <abbr title="Advanced Encryption Standard">AES</abbr> is trusted everywhere and why
+nobody can compute on <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
 <li>say what a block cipher is and what it means for one to be secure;</li>
 <li>add, multiply and invert bytes in the field \(\mathrm{GF}(2^8)\) by hand;</li>
-<li>follow AES-128 through one full round on the official FIPS 197 test vector;</li>
+<li>follow <abbr title="Advanced Encryption Standard">AES</abbr>-128 through one full round on the official <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 test vector;</li>
 <li>explain why SubBytes is the only non-linear step, and why a cipher without one falls to
   Gaussian elimination;</li>
-<li>describe the key schedule, the 10/12/14 rounds, AES-NI and what the best attacks achieve;</li>
-<li>explain why AES ciphertexts carry no usable algebra, and what transciphering is.</li>
+<li>describe the key schedule, the 10/12/14 rounds, <abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr> and what the best attacks achieve;</li>
+<li>explain why <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts carry no usable algebra, and what transciphering is.</li>
 </ul>
 <p><strong>Companion script:</strong> <a href="../../code/primer/p2_mini_aes.py"><code>code/primer/p2_mini_aes.py</code></a>. Run it from
 the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p2_mini_aes.py</code>. Its output is
@@ -123,11 +121,11 @@ the round structure), the paragraph "The point that matters most" in
 <a href="#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra">§8</a> and
 <a href="#11-how-this-connects-to-homomorphic-encryption">§11</a>. The \(\mathrm{GF}(2^8)\) arithmetic of
 §3, the details of the other round steps, the key schedule (§5), decryption (§6), the
-avalanche statistics (§7), AES-NI and the attack history (§9) are optional on a first read.</p>
+avalanche statistics (§7), <abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr> and the attack history (§9) are optional on a first read.</p>
 </blockquote>
 <h2 id="1-what-a-block-cipher-is">1. What a block cipher is<a class="headerlink" href="#1-what-a-block-cipher-is" title="Link to this section">#</a></h2>
 <p>A <strong>block cipher</strong> takes a key and a block of fixed size and returns a block of the same size.
-With the key you can go back. For AES the block is always 128 bits (16 bytes) and the key is
+With the key you can go back. For <abbr title="Advanced Encryption Standard">AES</abbr> the block is always 128 bits (16 bytes) and the key is
 128, 192 or 256 bits.</p>
 <p>Precisely, a block cipher is a pair of functions \(E\) and \(D\) with</p>
 <div class="math-display">\[E: \{0,1\}^{\ell} \times \{0,1\}^{128} \to \{0,1\}^{128}, \qquad D_K(E_K(P)) = P \text{ for every key } K \text{ and block } P,\]</div>
@@ -141,24 +139,24 @@ selects one permutation of the 128-bit blocks from a huge family.</p>
 128-bit key can select only \(2^{128}\) of them, a vanishing fraction. The security goal is that
 this does not matter: to anyone without the key, \(E_K\) should be indistinguishable from a
 permutation drawn uniformly at random from all of them. A block cipher with this property is a
-<strong>pseudorandom permutation (PRP)</strong>. <a href="p5_security_definitions.html">P5</a> makes "indistinguishable"
+<strong>pseudorandom permutation (<abbr title="pseudorandom permutation">PRP</abbr>)</strong>. <a href="p5_security_definitions.html">P5</a> makes "indistinguishable"
 precise; for now read it as "no efficient test tells the two apart".</p>
 <p>Why not simply use the one-time pad from <a href="p1_encryption_basics.html">P1</a> as a block cipher?
-\(E_K(P) = P \oplus K\) is a keyed permutation too, but it is hopeless as a PRP:</p>
+\(E_K(P) = P \oplus K\) is a keyed permutation too, but it is hopeless as a <abbr title="pseudorandom permutation">PRP</abbr>:</p>
 <ul>
 <li>one known pair \((P, C)\) gives away the key: \(K = P \oplus C\);</li>
 <li>\(E_K(P_1) \oplus E_K(P_2) = P_1 \oplus P_2\) for every key, a relation that a random
   permutation would almost never satisfy.</li>
 </ul>
-<p>The XOR structure passes straight through the cipher. The whole job of AES is to destroy every
+<p>The <abbr title="exclusive or">XOR</abbr> structure passes straight through the cipher. The whole job of <abbr title="Advanced Encryption Standard">AES</abbr> is to destroy every
 relation of that kind, while staying fast and exactly invertible.</p>
 <p>Two remarks before we open the box. First, a block cipher alone is not yet a way to encrypt
 messages: it handles exactly 16 bytes and is deterministic. <a href="p3_modes_and_integrity.html">P3</a>
-fixes that with modes of operation. Second, some history. AES's predecessor DES (1977) had a
-56-bit key and 64-bit blocks, both too small today. NIST ran an open competition for a
+fixes that with modes of operation. Second, some history. <abbr title="Advanced Encryption Standard">AES</abbr>'s predecessor <abbr title="Data Encryption Standard">DES</abbr> (1977) had a
+56-bit key and 64-bit blocks, both too small today. <abbr title="National Institute of Standards and Technology">NIST</abbr> ran an open competition for a
 successor from 1997: fifteen candidates, five finalists (MARS, RC6, Rijndael, Serpent,
-Twofish), and on 2 October 2000 it chose <strong>Rijndael</strong> by Joan Daemen and Vincent Rijmen. AES
-was published as FIPS 197 on 26 November 2001. A 2023 update made editorial changes only; the
+Twofish), and on 2 October 2000 it chose <strong>Rijndael</strong> by Joan Daemen and Vincent Rijmen. <abbr title="Advanced Encryption Standard">AES</abbr>
+was published as <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 on 26 November 2001. A 2023 update made editorial changes only; the
 algorithm is unchanged.</p>
 <h2 id="2-confusion-diffusion-and-substitution-permutation-networks">2. Confusion, diffusion and substitution-permutation networks<a class="headerlink" href="#2-confusion-diffusion-and-substitution-permutation-networks" title="Link to this section">#</a></h2>
 <p>In 1949 Claude Shannon named the two properties a good cipher needs:</p>
@@ -198,20 +196,20 @@ bit and every key bit.</p>
 cards in order; several in a row leave nothing recognisable. Precisely: each round is a simple,
 invertible map, and the strength comes from composing many of them.</p>
 <h2 id="3-arithmetic-on-bytes-a-field-with-256-elements">3. Arithmetic on bytes: a field with 256 elements<a class="headerlink" href="#3-arithmetic-on-bytes-a-field-with-256-elements" title="Link to this section">#</a></h2>
-<p>AES computes on bytes, but not with integer arithmetic mod 256. \(\mathbb{Z}_{256}\) is not a
-field: 2 has no inverse mod 256, and AES needs to divide. Instead it uses the field with 256
-elements, written \(\mathrm{GF}(2^8)\) (GF for Galois field).</p>
+<p><abbr title="Advanced Encryption Standard">AES</abbr> computes on bytes, but not with integer arithmetic mod 256. \(\mathbb{Z}_{256}\) is not a
+field: 2 has no inverse mod 256, and <abbr title="Advanced Encryption Standard">AES</abbr> needs to divide. Instead it uses the field with 256
+elements, written \(\mathrm{GF}(2^8)\) (<abbr title="Galois field (a finite field)">GF</abbr> for Galois field).</p>
 <h3 id="31-bytes-as-polynomials">3.1 Bytes as polynomials<a class="headerlink" href="#31-bytes-as-polynomials" title="Link to this section">#</a></h3>
 <p>Read the 8 bits of a byte \(b_7 b_6 \dots b_0\) as the coefficients of a polynomial of degree at
 most 7, with coefficients in \(\{0, 1\}\) and arithmetic on coefficients mod 2:</p>
 <div class="math-display">\[b_7 x^7 + b_6 x^6 + \dots + b_1 x + b_0.\]</div>
-<p>FIPS 197 writes bytes in hex inside braces. For example {57} = 0101 0111 is
+<p><abbr title="Federal Information Processing Standard">FIPS</abbr> 197 writes bytes in hex inside braces. For example {57} = 0101 0111 is
 \(x^6 + x^4 + x^2 + x + 1\), and {83} = 1000 0011 is \(x^7 + x + 1\).</p>
 <h3 id="32-addition-is-xor">3.2 Addition is XOR<a class="headerlink" href="#32-addition-is-xor" title="Link to this section">#</a></h3>
-<p>Add polynomials coefficient by coefficient, mod 2. Since \(1 + 1 = 0\), this is bitwise XOR:</p>
+<p>Add polynomials coefficient by coefficient, mod 2. Since \(1 + 1 = 0\), this is bitwise <abbr title="exclusive or">XOR</abbr>:</p>
 <div class="math-display">\[\{57\} + \{83\} = (x^6 + x^4 + x^2 + x + 1) + (x^7 + x + 1) = x^7 + x^6 + x^4 + x^2 = \{d4\}.\]</div>
 <p>Every element is its own negative (\(a + a = 0\)), so subtraction is the same as addition. That
-is why "subtract the modulus" below is again just XOR.</p>
+is why "subtract the modulus" below is again just <abbr title="exclusive or">XOR</abbr>.</p>
 <h3 id="33-multiplication-multiply-then-reduce">3.3 Multiplication: multiply, then reduce<a class="headerlink" href="#33-multiplication-multiply-then-reduce" title="Link to this section">#</a></h3>
 <p>To multiply two bytes, multiply their polynomials (coefficients mod 2) and reduce the result
 modulo the fixed polynomial</p>
@@ -222,7 +220,7 @@ product of two polynomials of lower degree (with coefficients mod 2), the polyno
 a prime. You already know that
 \(\mathbb{Z}_p\) is a field when \(p\) is prime. In the same way, polynomials mod an irreducible
 \(m(x)\) form a field: every non-zero byte has a multiplicative inverse.</p>
-<p><strong>Worked example</strong> (the one in FIPS 197): \(\{57\} \cdot \{83\}\).</p>
+<p><strong>Worked example</strong> (the one in <abbr title="Federal Information Processing Standard">FIPS</abbr> 197): \(\{57\} \cdot \{83\}\).</p>
 <p>Multiply \(x^6 + x^4 + x^2 + x + 1\) by each term of \(x^7 + x + 1\):</p>
 <div class="highlight"><pre><span></span><code>  (x^6 + x^4 + x^2 + x + 1) * 1    =                          x^6 + x^4       + x^2 + x + 1
   (x^6 + x^4 + x^2 + x + 1) * x    =                    x^7 +       x^5 + x^3 + x^2 + x
@@ -232,7 +230,7 @@ a prime. You already know that
 </code></pre></div>
 
 <p>The pairs \(x^7\), \(x^2\) and \(x\) each appear twice and cancel. Now reduce mod \(m(x)\) by long
-division; each step cancels the leading term by subtracting (XOR-ing) a shifted copy of \(m(x)\):</p>
+division; each step cancels the leading term by subtracting (<abbr title="exclusive or">XOR</abbr>-ing) a shifted copy of \(m(x)\):</p>
 <div class="highlight"><pre><span></span><code>    x^13 + x^11 + x^9 + x^8 + x^6 + x^5 + x^4 + x^3 + 1
   - x^5 * m(x) = x^13 + x^9 + x^8 + x^6 + x^5
   = x^11 + x^4 + x^3 + 1
@@ -244,7 +242,7 @@ division; each step cancels the leading term by subtracting (XOR-ing) a shifted 
 <h3 id="34-the-fast-way-xtime">3.4 The fast way: xtime<a class="headerlink" href="#34-the-fast-way-xtime" title="Link to this section">#</a></h3>
 <p>Multiplying by \(x\) (the byte {02}) shifts every coefficient up by one: a left shift. If a bit
 falls off the top, an \(x^8\) term appeared; since \(x^8 \equiv x^4 + x^3 + x + 1 \pmod{m(x)}\),
-replace it by XOR-ing {1b}. FIPS 197 calls this <code>xtime</code>:</p>
+replace it by <abbr title="exclusive or">XOR</abbr>-ing {1b}. <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 calls this <code>xtime</code>:</p>
 <div class="highlight"><pre><span></span><code>{57} * {02} = 1010 1110                                  = {ae}
 {57} * {04} = {ae} shifted = 1 0101 1100 -&gt; 0101 1100 ^ 0001 1011 = {47}
 {57} * {08} = {47} shifted                               = {8e}
@@ -262,10 +260,10 @@ replace it by XOR-ing {1b}. FIPS 197 calls this <code>xtime</code>:</p>
 the extended Euclidean algorithm on polynomials (as for modular inverses of integers);
 \(a^{-1} = a^{254}\), because the 255 non-zero elements form a multiplicative group, so
 \(a^{255} = 1\); or, as the toy does (script, part 1), trying all 255 candidates.</p>
-<p>AES needs the field structure twice: SubBytes uses inverses, and MixColumns uses a matrix that
+<p><abbr title="Advanced Encryption Standard">AES</abbr> needs the field structure twice: SubBytes uses inverses, and MixColumns uses a matrix that
 must be invertible over this field so that decryption exists.</p>
 <h2 id="4-the-aes-state-and-one-round">4. The AES state and one round<a class="headerlink" href="#4-the-aes-state-and-one-round" title="Link to this section">#</a></h2>
-<p>AES arranges the 16 bytes of a block in a 4×4 matrix called the <strong>state</strong>, filled column by
+<p><abbr title="Advanced Encryption Standard">AES</abbr> arranges the 16 bytes of a block in a 4×4 matrix called the <strong>state</strong>, filled column by
 column: byte \(\mathit{in}_i\) goes to row \(i \bmod 4\), column \(\lfloor i/4 \rfloor\).</p>
 <div class="highlight"><pre><span></span><code>               col 0  col 1  col 2  col 3
       row 0  [  in0    in4    in8    in12 ]
@@ -274,7 +272,7 @@ column: byte \(\mathit{in}_i\) goes to row \(i \bmod 4\), column \(\lfloor i/4 \
       row 3  [  in3    in7    in11   in15 ]
 </code></pre></div>
 
-<p>AES-128 encryption is then:</p>
+<p><abbr title="Advanced Encryption Standard">AES</abbr>-128 encryption is then:</p>
 <div class="highlight"><pre><span></span><code>state = plaintext XOR roundkey[0]
 for round = 1 .. 9:
     SubBytes -&gt; ShiftRows -&gt; MixColumns -&gt; AddRoundKey(roundkey[round])
@@ -282,9 +280,9 @@ round 10:
     SubBytes -&gt; ShiftRows -&gt;               AddRoundKey(roundkey[10])
 </code></pre></div>
 
-<p>Here is round 1 on the official test vector of FIPS 197 (2001), Appendix C.1: plaintext
+<p>Here is round 1 on the official test vector of <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 (2001), Appendix C.1: plaintext
 <code>00112233445566778899aabbccddeeff</code>, key <code>000102030405060708090a0b0c0d0e0f</code>. "start" is the
-plaintext XOR the key. This is real output from
+plaintext <abbr title="exclusive or">XOR</abbr> the key. This is real output from
 <a href="../../code/primer/p2_mini_aes.py">part 3 of the script</a>:</p>
 <div class="highlight"><pre><span></span><code>start         SubBytes      ShiftRows     MixColumns    round key 1   AddRoundKey
 00 40 80 c0   63 09 cd ba   63 09 cd ba   5f 57 f7 1d   d6 d2 da d6   89 85 2d cb
@@ -314,20 +312,20 @@ where rotl rotates the byte left. Worked example, \(S(\{53\})\): the inverse is 
   XOR of all    1110 1101  = {ed}
 </code></pre></div>
 
-<p>So \(S(\{53\}) = \{ed\}\), the example FIPS 197 gives. In the trace, row 0 column 0 is
+<p>So \(S(\{53\}) = \{ed\}\), the example <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 gives. In the trace, row 0 column 0 is
 \(S(\{00\}) = \{63\}\) and row 1 column 0 is \(S(\{10\}) = \{ca\}\).</p>
 <p><strong>Why the inverse?</strong> Kaisa Nyberg showed in 1993 that inversion in \(\mathrm{GF}(2^n)\) resists
 the two main statistical attacks on block ciphers unusually well. <strong>Differential
-cryptanalysis</strong> encrypts pairs of inputs with a chosen XOR difference and looks for an output
-difference that occurs more often than chance. <strong>Linear cryptanalysis</strong> looks for a XOR of some
+cryptanalysis</strong> encrypts pairs of inputs with a chosen <abbr title="exclusive or">XOR</abbr> difference and looks for an output
+difference that occurs more often than chance. <strong>Linear cryptanalysis</strong> looks for a <abbr title="exclusive or">XOR</abbr> of some
 plaintext, ciphertext and key bits that is 0 noticeably more or less often than half the time.
-Both need an S-box whose input–output behaviour is biased. For the AES S-box (computed with the
+Both need an S-box whose input–output behaviour is biased. For the <abbr title="Advanced Encryption Standard">AES</abbr> S-box (computed with the
 toy):</p>
 <ul>
 <li>for every non-zero input difference \(a\) and every output difference \(d\), at most 4 of the
   256 inputs \(x\) satisfy \(S(x \oplus a) \oplus S(x) = d\), so a difference propagates in a
   given way with probability at most \(4/256 = 2^{-6}\);</li>
-<li>every linear approximation (a XOR of some input bits equal to a XOR of some output bits)
+<li>every linear approximation (a <abbr title="exclusive or">XOR</abbr> of some input bits equal to a <abbr title="exclusive or">XOR</abbr> of some output bits)
   holds for between 112 and 144 of the 256 inputs, never far from the 128 of a coin flip.</li>
 </ul>
 <p><strong>Why the affine map?</strong> On its own, \(x \mapsto x^{-1}\) has a very simple algebraic description
@@ -345,9 +343,9 @@ four bytes of any column end up in four different columns, ready to be mixed wit
 in the next step. ShiftRows only moves bytes around, so it is linear.</p>
 <h3 id="43-mixcolumns">4.3 MixColumns<a class="headerlink" href="#43-mixcolumns" title="Link to this section">#</a></h3>
 <p>Each column \((a_0, a_1, a_2, a_3)\) is multiplied by a fixed matrix over \(\mathrm{GF}(2^8)\),
-where "+" is XOR and "·" is the field multiplication of §3:</p>
+where "+" is <abbr title="exclusive or">XOR</abbr> and "·" is the field multiplication of §3:</p>
 <div class="math-display">\[\begin{pmatrix} b_0 \\ b_1 \\ b_2 \\ b_3 \end{pmatrix} = \begin{pmatrix} 02 &amp; 03 &amp; 01 &amp; 01 \\ 01 &amp; 02 &amp; 03 &amp; 01 \\ 01 &amp; 01 &amp; 02 &amp; 03 \\ 03 &amp; 01 &amp; 01 &amp; 02 \end{pmatrix} \begin{pmatrix} a_0 \\ a_1 \\ a_2 \\ a_3 \end{pmatrix}\]</div>
-<p>(FIPS 197 also describes it as multiplying the column, read as a polynomial with byte
+<p>(<abbr title="Federal Information Processing Standard">FIPS</abbr> 197 also describes it as multiplying the column, read as a polynomial with byte
 coefficients, by \(\{03\}x^3 + \{01\}x^2 + \{01\}x + \{02\}\) modulo \(x^4 + 1\). Same thing.)</p>
 <p><strong>Worked example</strong>, the first column after ShiftRows in the trace, \((63, 53, e0, 8c)\):</p>
 <div class="highlight"><pre><span></span><code>b0 = {02}*{63}  ^  {03}*{53}  ^  {e0}  ^  {8c}
@@ -362,24 +360,24 @@ b1 = {63}  ^  {02}*{53}  ^  {03}*{e0}  ^  {8c}
 </code></pre></div>
 
 <p>Both match the MixColumns column of the trace (5f, 72, …).</p>
-<p><strong>Why this matrix?</strong> It is <strong>MDS</strong> (maximum distance separable): if \(k\) of the four input bytes
+<p><strong>Why this matrix?</strong> It is <strong><abbr title="maximum distance separable">MDS</abbr></strong> (maximum distance separable): if \(k\) of the four input bytes
 of a column change, at least \(5 - k\) output bytes change. A single changed byte therefore
 changes all four bytes of its column. Its inverse matrix (entries {0e}, {0b}, {0d}, {09}) is
-used for decryption. MixColumns is linear too: multiplying by a constant distributes over XOR,
+used for decryption. MixColumns is linear too: multiplying by a constant distributes over <abbr title="exclusive or">XOR</abbr>,
 so \(\mathrm{MC}(a \oplus b) = \mathrm{MC}(a) \oplus \mathrm{MC}(b)\).</p>
 <h3 id="44-addroundkey">4.4 AddRoundKey<a class="headerlink" href="#44-addroundkey" title="Link to this section">#</a></h3>
-<p>XOR the state with a 16-byte <strong>round key</strong>. This is the only step that involves the key;
-without it anyone could run the cipher. XOR-ing the same round key again undoes it.</p>
+<p><abbr title="exclusive or">XOR</abbr> the state with a 16-byte <strong>round key</strong>. This is the only step that involves the key;
+without it anyone could run the cipher. <abbr title="exclusive or">XOR</abbr>-ing the same round key again undoes it.</p>
 <h3 id="45-why-the-last-round-has-no-mixcolumns">4.5 Why the last round has no MixColumns<a class="headerlink" href="#45-why-the-last-round-has-no-mixcolumns" title="Link to this section">#</a></h3>
 <p>A MixColumns in the last round would add nothing. It is keyless and linear, so it can be moved
 past the final key addition, \(\mathrm{MC}(x) \oplus K = \mathrm{MC}(x \oplus \mathrm{MC}^{-1}(K))\),
 and then anyone could peel it off the ciphertext. Leaving it out costs no security, saves time,
-and gives decryption the same shape as encryption (FIPS 197's "equivalent inverse cipher").</p>
+and gives decryption the same shape as encryption (<abbr title="Federal Information Processing Standard">FIPS</abbr> 197's "equivalent inverse cipher").</p>
 <h2 id="5-the-key-schedule">5. The key schedule<a class="headerlink" href="#5-the-key-schedule" title="Link to this section">#</a></h2>
-<p>The <strong>key schedule</strong> (FIPS 197: KeyExpansion) stretches the cipher key into \(N_r + 1\) round
-keys, 11 for AES-128. It reuses the same parts: a byte rotation, the S-box and XOR.</p>
+<p>The <strong>key schedule</strong> (<abbr title="Federal Information Processing Standard">FIPS</abbr> 197: KeyExpansion) stretches the cipher key into \(N_r + 1\) round
+keys, 11 for <abbr title="Advanced Encryption Standard">AES</abbr>-128. It reuses the same parts: a byte rotation, the S-box and <abbr title="exclusive or">XOR</abbr>.</p>
 <p>Think of the key as 4-byte <strong>words</strong> \(w_0, \dots, w_{N_k - 1}\) (each word becomes one column
-of a round key). For AES-128, \(N_k = 4\) and, for \(i = 4, \dots, 43\):</p>
+of a round key). For <abbr title="Advanced Encryption Standard">AES</abbr>-128, \(N_k = 4\) and, for \(i = 4, \dots, 43\):</p>
 <div class="math-display">\[w_i = w_{i-4} \oplus \begin{cases} \mathrm{SubWord}(\mathrm{RotWord}(w_{i-1})) \oplus \mathrm{Rcon}_{i/4} &amp; \text{if } i \equiv 0 \pmod 4, \\ w_{i-1} &amp; \text{otherwise.} \end{cases}\]</div>
 <ul>
 <li>RotWord rotates a word by one byte: \([a_0, a_1, a_2, a_3] \to [a_1, a_2, a_3, a_0]\).</li>
@@ -400,7 +398,7 @@ w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 <p>These are the first two columns of "round key 1" in the trace of
 <a href="../../code/primer/p2_mini_aes.py">part 3 of the script</a> (read down the columns: <code>d6 aa 74 fd</code>,
 <code>d2 af 72 fa</code>).</p>
-<p>The three AES variants differ only in key length and number of rounds; the block is always
+<p>The three <abbr title="Advanced Encryption Standard">AES</abbr> variants differ only in key length and number of rounds; the block is always
 128 bits:</p>
 <div class="table-wrap"><table>
 <thead>
@@ -414,21 +412,21 @@ w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 </thead>
 <tbody>
 <tr>
-<td>AES-128</td>
+<td><abbr title="Advanced Encryption Standard">AES</abbr>-128</td>
 <td>128 bits</td>
 <td>4</td>
 <td>10</td>
 <td>11</td>
 </tr>
 <tr>
-<td>AES-192</td>
+<td><abbr title="Advanced Encryption Standard">AES</abbr>-192</td>
 <td>192 bits</td>
 <td>6</td>
 <td>12</td>
 <td>13</td>
 </tr>
 <tr>
-<td>AES-256</td>
+<td><abbr title="Advanced Encryption Standard">AES</abbr>-256</td>
 <td>256 bits</td>
 <td>8</td>
 <td>14</td>
@@ -436,11 +434,11 @@ w5 = w1 XOR w4 = 04050607 XOR d6aa74fd = d2af72fa
 </tr>
 </tbody>
 </table></div>
-<p>The rule is \(N_r = N_k + 6\). AES-256 adds one extra SubWord when \(i \bmod 8 = 4\). The toy's
+<p>The rule is \(N_r = N_k + 6\). <abbr title="Advanced Encryption Standard">AES</abbr>-256 adds one extra SubWord when \(i \bmod 8 = 4\). The toy's
 <code>key_expansion</code> handles all three, and part 4 of the script checks the 192- and 256-bit test
 vectors.</p>
-<p>The key schedule is the lightest part of AES, and it is where the <strong>related-key</strong> attacks live:
-Biryukov and Khovratovich (2009) break AES-256 in about \(2^{99.5}\) time if the attacker can get
+<p>The key schedule is the lightest part of <abbr title="Advanced Encryption Standard">AES</abbr>, and it is where the <strong>related-key</strong> attacks live:
+Biryukov and Khovratovich (2009) break <abbr title="Advanced Encryption Standard">AES</abbr>-256 in about \(2^{99.5}\) time if the attacker can get
 encryptions under several unknown keys with chosen differences between them. Correctly used
 protocols never give an attacker that power, so these attacks do not threaten normal use.</p>
 <h2 id="6-decryption">6. Decryption<a class="headerlink" href="#6-decryption" title="Link to this section">#</a></h2>
@@ -453,8 +451,8 @@ protocols never give an attacker that power, so these attacks do not threaten no
 </ul>
 <p>This is <code>decrypt_block</code> in the script, and
 <a href="../../code/primer/p2_mini_aes.py">part 2 of the script</a> uses it to decrypt the C.1 ciphertext.
-The bigger InvMixColumns constants make decryption a little slower in software. Modes like CTR
-and GCM (<a href="p3_modes_and_integrity.html">P3</a>) never call it.</p>
+The bigger InvMixColumns constants make decryption a little slower in software. Modes like <abbr title="counter mode (a block cipher mode)">CTR</abbr>
+and <abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr> (<a href="p3_modes_and_integrity.html">P3</a>) never call it.</p>
 <h2 id="7-the-avalanche-effect">7. The avalanche effect<a class="headerlink" href="#7-the-avalanche-effect" title="Link to this section">#</a></h2>
 <p>Change one bit of the input and about half of the output bits flip; the two ciphertexts look
 unrelated. This is the <strong>avalanche effect</strong>. From
@@ -483,7 +481,7 @@ after each round:</p>
 <p>After two rounds every output byte depends on every input byte. The remaining rounds are there
 for confusion: to make the dependence so tangled that statistical attacks find nothing.
 Daemen and Rijmen's <strong>wide trail</strong> argument quantifies this. Follow a difference through the
-cipher; an S-box is <strong>active</strong> if its input difference is non-zero. Because MixColumns is MDS,
+cipher; an S-box is <strong>active</strong> if its input difference is non-zero. Because MixColumns is <abbr title="maximum distance separable">MDS</abbr>,
 every differential or linear trail through four rounds has at least 25 active S-boxes. Each
 active S-box passes a given difference with probability at most \(2^{-6}\), so any four-round
 differential trail has probability at most \((2^{-6})^{25} = 2^{-150}\), far too small to
@@ -508,7 +506,7 @@ exploit.</p>
 </tr>
 <tr>
 <td>AddRoundKey</td>
-<td>affine (XOR with a constant)</td>
+<td>affine (<abbr title="exclusive or">XOR</abbr> with a constant)</td>
 </tr>
 <tr>
 <td>affine part of SubBytes</td>
@@ -524,12 +522,12 @@ exploit.</p>
 affine maps is affine:</p>
 <div class="math-display">\[E_K(x) = M \cdot x \oplus v_K.\]</div>
 <p>\(M\) is a \(128 \times 128\) bit matrix built from ShiftRows, MixColumns and the S-box's affine
-map. The key enters only through XOR, so <strong>\(M\) does not depend on the key</strong>. Anyone can compute
+map. The key enters only through <abbr title="exclusive or">XOR</abbr>, so <strong>\(M\) does not depend on the key</strong>. Anyone can compute
 it from the public specification. Only the constant \(v_K\) depends on the key. The cipher is then
 broken in every way that matters:</p>
 <ul>
-<li>It is XOR-homomorphic (affinely): \(E_K(a \oplus b) = E_K(a) \oplus E_K(b) \oplus E_K(0)\).</li>
-<li>One known pair \((p, c)\) decrypts every other ciphertext \(c&#x27;\) without the key. XOR-ing the two
+<li>It is <abbr title="exclusive or">XOR</abbr>-homomorphic (affinely): \(E_K(a \oplus b) = E_K(a) \oplus E_K(b) \oplus E_K(0)\).</li>
+<li>One known pair \((p, c)\) decrypts every other ciphertext \(c&#x27;\) without the key. <abbr title="exclusive or">XOR</abbr>-ing the two
   equations removes \(v_K\): \(c \oplus c&#x27; = M \cdot (p \oplus p&#x27;)\), so
   \(p&#x27; = p \oplus M^{-1}(c \oplus c&#x27;)\). Computing \(M^{-1}\) is Gaussian elimination over
   \(\mathrm{GF}(2)\) on 128 unknowns: instant.</li>
@@ -553,52 +551,52 @@ recovered without the key: b&#39;wire 1M to Eve!!&#39;
 <p>With the real S-box the same test fails completely (part 6 of the script): over 1000 trials,
 \(E(a \oplus b)\) and \(E(a) \oplus E(b) \oplus E(0)\) differ in 63.9 of 128 bits on average,
 exactly what unrelated random strings give.</p>
-<p>Could one still write real AES as equations and solve them? Since \(y = x^{-1}\) means
-\(x \cdot y = 1\) for non-zero \(x\), AES can be written as a large system of quadratic equations.
+<p>Could one still write real <abbr title="Advanced Encryption Standard">AES</abbr> as equations and solve them? Since \(y = x^{-1}\) means
+\(x \cdot y = 1\) for non-zero \(x\), <abbr title="Advanced Encryption Standard">AES</abbr> can be written as a large system of quadratic equations.
 In 2002 Courtois and Pieprzyk proposed that such systems might be solvable (the "XSL" method).
 Later analysis, notably Cid and Leurent (2005), found that XSL does not work as claimed, and no
-algebraic attack on full AES is known. Quadratic systems are much harder than linear ones.</p>
+algebraic attack on full <abbr title="Advanced Encryption Standard">AES</abbr> is known. Quadratic systems are much harder than linear ones.</p>
 <p>Keep this section in mind for <a href="p7_lattices_and_lwe.html">P7</a>. Gaussian elimination is the
-attacker's best friend, and AES defeats it with a non-linear S-box. LWE defeats it in a
+attacker's best friend, and <abbr title="Advanced Encryption Standard">AES</abbr> defeats it with a non-linear S-box. <abbr title="learning with errors">LWE</abbr> defeats it in a
 different way: it keeps every equation linear but adds a little random noise to each one, and
 that alone makes elimination fail. Keeping the linearity is what lets homomorphic encryption
 compute.</p>
 <h2 id="9-speed-and-security-today">9. Speed and security today<a class="headerlink" href="#9-speed-and-security-today" title="Link to this section">#</a></h2>
 <h3 id="91-aes-in-hardware-aes-ni">9.1 AES in hardware: AES-NI<a class="headerlink" href="#91-aes-in-hardware-aes-ni" title="Link to this section">#</a></h3>
-<p>Since the Westmere processors of 2010, Intel CPUs have had the <strong>AES New Instructions
-(AES-NI)</strong>. <code>AESENC</code> performs one complete middle round (ShiftRows, SubBytes, MixColumns,
+<p>Since the Westmere processors of 2010, Intel <abbr title="central processing unit">CPU</abbr>s have had the <strong><abbr title="Advanced Encryption Standard">AES</abbr> New Instructions
+(<abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr>)</strong>. <code>AESENC</code> performs one complete middle round (ShiftRows, SubBytes, MixColumns,
 AddRoundKey) in a single instruction, and <code>AESENCLAST</code> the final round. <code>AESDEC</code> and
 <code>AESDECLAST</code> do the same for decryption, and <code>AESKEYGENASSIST</code> and <code>AESIMC</code> help with the key
-schedule. AMD has the same instructions, and ARMv8 CPUs have their own equivalents. Intel
-reported about 1.3 CPU cycles per byte for AES-128 in parallel modes (such as CTR) on a 2010
+schedule. AMD has the same instructions, and ARMv8 <abbr title="central processing unit">CPU</abbr>s have their own equivalents. Intel
+reported about 1.3 <abbr title="central processing unit">CPU</abbr> cycles per byte for <abbr title="Advanced Encryption Standard">AES</abbr>-128 in parallel modes (such as <abbr title="counter mode (a block cipher mode)">CTR</abbr>) on a 2010
 Core i7-980X, which means gigabytes per second on one core; newer chips are faster still.</p>
-<p>Hardware support matters for security as well as speed. Fast software AES uses lookup tables
-indexed by key-dependent bytes, and which table entries sit in the CPU cache leaks through
-timing. Bernstein (2005) and Osvik, Shamir and Tromer (2006) recovered AES keys this way. The
+<p>Hardware support matters for security as well as speed. Fast software <abbr title="Advanced Encryption Standard">AES</abbr> uses lookup tables
+indexed by key-dependent bytes, and which table entries sit in the <abbr title="central processing unit">CPU</abbr> cache leaks through
+timing. Bernstein (2005) and Osvik, Shamir and Tromer (2006) recovered <abbr title="Advanced Encryption Standard">AES</abbr> keys this way. The
 hardware instructions take the same time whatever the data. (The toy in this chapter is the
 opposite of all this: slow, branchy and leaky. It is for reading only.)</p>
 <h3 id="92-how-secure-is-aes">9.2 How secure is AES?<a class="headerlink" href="#92-how-secure-is-aes" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Best attack on the full cipher:</strong> biclique cryptanalysis (Bogdanov, Khovratovich and
-  Rechberger, ASIACRYPT 2011) recovers the key in about \(2^{126.1}\) operations for AES-128,
-  \(2^{189.7}\) for AES-192 and \(2^{254.4}\) for AES-256. Refinements (Tao and Wu, 2015) bring
-  AES-128 down to about \(2^{126.0}\). That is roughly four times faster than trying all
+  Rechberger, ASIACRYPT 2011) recovers the key in about \(2^{126.1}\) operations for <abbr title="Advanced Encryption Standard">AES</abbr>-128,
+  \(2^{189.7}\) for <abbr title="Advanced Encryption Standard">AES</abbr>-192 and \(2^{254.4}\) for <abbr title="Advanced Encryption Standard">AES</abbr>-256. Refinements (Tao and Wu, 2015) bring
+  <abbr title="Advanced Encryption Standard">AES</abbr>-128 down to about \(2^{126.0}\). That is roughly four times faster than trying all
   \(2^{128}\) keys, and completely impractical. It is a theoretical milestone, not a weakness.</li>
-<li><strong>Related-key attacks</strong> on AES-192 and AES-256 (§5) need a setting that correct use never
+<li><strong>Related-key attacks</strong> on <abbr title="Advanced Encryption Standard">AES</abbr>-192 and <abbr title="Advanced Encryption Standard">AES</abbr>-256 (§5) need a setting that correct use never
   provides.</li>
 <li><strong>Real-world breaks</strong> come from implementations (cache timing, power analysis, fault
   injection) and from misuse: wrong modes, repeated nonces, missing integrity. That is the
   subject of <a href="p3_modes_and_integrity.html">P3</a>.</li>
 <li><strong>Quantum computers:</strong> Grover's algorithm would search a \(k\)-bit key space in about
   \(2^{k/2}\) quantum steps; <a href="p4_public_key.html#grover-symmetric-keys-survive">P4 §9</a> explains why
-  AES-128 survives this and why AES-256 is the conservative choice for long-term secrets.</li>
+  <abbr title="Advanced Encryption Standard">AES</abbr>-128 survives this and why <abbr title="Advanced Encryption Standard">AES</abbr>-256 is the conservative choice for long-term secrets.</li>
 </ul>
 <h2 id="10-try-it">10. Try it<a class="headerlink" href="#10-try-it" title="Link to this section">#</a></h2>
 <p>Run from <code>homomorphic_encryption/</code>:</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p2_mini_aes.py
 </code></pre></div>
 
-<p><a href="../../code/primer/p2_mini_aes.py">The script</a> implements AES from the field arithmetic up,
+<p><a href="../../code/primer/p2_mini_aes.py">The script</a> implements <abbr title="Advanced Encryption Standard">AES</abbr> from the field arithmetic up,
 computes the S-box instead of pasting it, checks itself against official vectors, and runs the
 experiments of §7 and §8. It takes a few seconds. The parts of its output, and where this
 chapter explains them:</p>
@@ -618,7 +616,7 @@ chapter explains them:</p>
 </tr>
 <tr>
 <td>2</td>
-<td>FIPS 197 Appendix C.1: encrypt and decrypt one block</td>
+<td><abbr title="Federal Information Processing Standard">FIPS</abbr> 197 Appendix C.1: encrypt and decrypt one block</td>
 <td><a href="#4-the-aes-state-and-one-round">§4</a>, <a href="#6-decryption">§6</a></td>
 </tr>
 <tr>
@@ -628,7 +626,7 @@ chapter explains them:</p>
 </tr>
 <tr>
 <td>4</td>
-<td>More official vectors, including AES-192 and AES-256</td>
+<td>More official vectors, including <abbr title="Advanced Encryption Standard">AES</abbr>-192 and <abbr title="Advanced Encryption Standard">AES</abbr>-256</td>
 <td><a href="#5-the-key-schedule">§5</a></td>
 </tr>
 <tr>
@@ -638,7 +636,7 @@ chapter explains them:</p>
 </tr>
 <tr>
 <td>6</td>
-<td>AES is not homomorphic: \(\mathrm{Enc}(a \oplus b)\) vs \(\mathrm{Enc}(a) \oplus \mathrm{Enc}(b)\)</td>
+<td><abbr title="Advanced Encryption Standard">AES</abbr> is not homomorphic: \(\mathrm{Enc}(a \oplus b)\) vs \(\mathrm{Enc}(a) \oplus \mathrm{Enc}(b)\)</td>
 <td><a href="#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra">§8</a>, <a href="#11-how-this-connects-to-homomorphic-encryption">§11</a></td>
 </tr>
 <tr>
@@ -688,99 +686,97 @@ a ^ b              = 2e176fd9a34eda85ab52bd5d3213a927
 Enc(a^b) vs Enc(a)^Enc(b)^Enc(0): average 63.9 of 128 bits differ over 1000 trials (64 = unrelated)
 </code></pre></div>
 
-<p>The hex lines of part 3 use the labels of FIPS 197 (2001) Appendix C.1, so you can
-compare them line by line with the standard. (The 2023 update of FIPS 197 moved these example
-vectors to NIST's website.)</p>
+<p>The hex lines of part 3 use the labels of <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 (2001) Appendix C.1, so you can
+compare them line by line with the standard. (The 2023 update of <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 moved these example
+vectors to <abbr title="National Institute of Standards and Technology">NIST</abbr>'s website.)</p>
 <p>Things to try:</p>
 <ul>
 <li>Pass <code>LINEAR_SBOX</code> as the third argument of <code>encrypt_block</code> in the avalanche experiment
   (part 5). How many bits change now? Does the answer depend on the key or the plaintext, or
   only on which bit you flipped? (Hint: §8.)</li>
 <li>Print every state that <code>encrypt_states</code> yields for the C.1 vector of part 2 and compare them
-  with FIPS 197 (2001) Appendix C.1: the state after round \(r\) is the standard's
+  with <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 (2001) Appendix C.1: the state after round \(r\) is the standard's
   <code>round[r+1].start</code>, and the state after round 10 is the output.</li>
-<li>Print <code>SBOX</code> as a 16×16 table and compare it with the S-box table in FIPS 197.</li>
+<li>Print <code>SBOX</code> as a 16×16 table and compare it with the S-box table in <abbr title="Federal Information Processing Standard">FIPS</abbr> 197.</li>
 </ul>
 <h2 id="11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption<a class="headerlink" href="#11-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <ul>
-<li><strong>AES is the anti-homomorphic cipher.</strong> The one-time pad keeps the algebra of the plaintexts
-  (keys add). AES destroys it on purpose. \(\mathrm{Dec}(\mathrm{Enc}(a) \oplus \mathrm{Enc}(b))\)
-  is garbage, and no other operation on AES ciphertexts corresponds to a useful operation on
-  plaintexts. This is not an accident: any such relation would let an attacker tell AES from a
-  random permutation, so the PRP goal of §1 forbids it.</li>
+<li><strong><abbr title="Advanced Encryption Standard">AES</abbr> is the anti-homomorphic cipher.</strong> The one-time pad keeps the algebra of the plaintexts
+  (keys add). <abbr title="Advanced Encryption Standard">AES</abbr> destroys it on purpose. \(\mathrm{Dec}(\mathrm{Enc}(a) \oplus \mathrm{Enc}(b))\)
+  is garbage, and no other operation on <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts corresponds to a useful operation on
+  plaintexts. This is not an accident: any such relation would let an attacker tell <abbr title="Advanced Encryption Standard">AES</abbr> from a
+  random permutation, so the <abbr title="pseudorandom permutation">PRP</abbr> goal of §1 forbids it.</li>
 <li><strong>Linearity is a liability for a deterministic cipher.</strong> §8 showed a cipher that <em>is</em>
-  XOR-homomorphic, and it is broken by one known plaintext. Homomorphic schemes escape this by
+  <abbr title="exclusive or">XOR</abbr>-homomorphic, and it is broken by one known plaintext. Homomorphic schemes escape this by
   being randomized and noisy: every encryption uses fresh randomness
-  (<a href="p3_modes_and_integrity.html">P3</a>, <a href="p5_security_definitions.html">P5</a>), and LWE hides its linear
+  (<a href="p3_modes_and_integrity.html">P3</a>, <a href="p5_security_definitions.html">P5</a>), and <abbr title="learning with errors">LWE</abbr> hides its linear
   structure under noise (<a href="p7_lattices_and_lwe.html">P7</a>).</li>
-<li><strong>Computing on AES ciphertexts means running AES inside HE.</strong> This is <strong>transciphering</strong>
-  (also called hybrid HE). The client sends data encrypted under AES, which costs only 16 bytes
-  per block, plus an HE encryption of the AES key, once. The server evaluates AES <em>decryption</em>
-  homomorphically and ends up with HE ciphertexts of the data, without ever seeing it. Upload
+<li><strong>Computing on <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts means running <abbr title="Advanced Encryption Standard">AES</abbr> inside <abbr title="homomorphic encryption">HE</abbr>.</strong> This is <strong>transciphering</strong>
+  (also called hybrid <abbr title="homomorphic encryption">HE</abbr>). The client sends data encrypted under <abbr title="Advanced Encryption Standard">AES</abbr>, which costs only 16 bytes
+  per block, plus an <abbr title="homomorphic encryption">HE</abbr> encryption of the <abbr title="Advanced Encryption Standard">AES</abbr> key, once. The server evaluates <abbr title="Advanced Encryption Standard">AES</abbr> <em>decryption</em>
+  homomorphically and ends up with <abbr title="homomorphic encryption">HE</abbr> ciphertexts of the data, without ever seeing it. Upload
   is tiny; the server pays for it in computation. See
   <a href="../05_core_techniques.html#10-bandwidth-tricks">05 §10</a>.</li>
-<li><strong>AES is expensive inside HE because of the S-box.</strong> Everything else in AES is linear and
-  cheap under HE. Each S-box is an inversion in \(\mathrm{GF}(2^8)\), which costs several
-  sequential ciphertext multiplications (or a few dozen AND gates on bits), and AES-128 needs
+<li><strong><abbr title="Advanced Encryption Standard">AES</abbr> is expensive inside <abbr title="homomorphic encryption">HE</abbr> because of the S-box.</strong> Everything else in <abbr title="Advanced Encryption Standard">AES</abbr> is linear and
+  cheap under <abbr title="homomorphic encryption">HE</abbr>. Each S-box is an inversion in \(\mathrm{GF}(2^8)\), which costs several
+  sequential ciphertext multiplications (or a few dozen AND gates on bits), and <abbr title="Advanced Encryption Standard">AES</abbr>-128 needs
   160 of them in 10 sequential rounds, plus 40 more in the key schedule. The multiplicative
   depth (<a href="p6_computing_on_ciphertexts.html">P6</a>) adds up round after round. Gentry, Halevi and
   Smart (CRYPTO 2012) were the first to do it: about 36 hours for one evaluation that
   processed 54 blocks in parallel, just under 40 minutes per block. An updated HElib
   implementation took about 4 minutes on a laptop for up to 120 blocks (about 2 seconds per
-  block, amortized). With TFHE, Belaïd et
+  block, amortized). With <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, Belaïd et
   al. (2025) report 32 seconds per block on a single core. These numbers come from different
   schemes and machines; treat them as orders of magnitude.</li>
-<li><strong>HE-friendly ciphers</strong> are symmetric ciphers designed to be cheap inside HE: few
+<li><strong><abbr title="homomorphic encryption">HE</abbr>-friendly ciphers</strong> are symmetric ciphers designed to be cheap inside <abbr title="homomorphic encryption">HE</abbr>: few
   multiplications and low multiplicative depth. Examples include LowMC (2015), Kreyvium (2016),
   Rasta (2018), Elisabeth (2022) and Pasta (2023). They are much younger and less studied than
-  AES, and some have been attacked: Elisabeth-4 was broken below its claimed 128-bit security
+  <abbr title="Advanced Encryption Standard">AES</abbr>, and some have been attacked: Elisabeth-4 was broken below its claimed 128-bit security
   (Gilbert et al., 2023). Treat them as an active research area rather than drop-in standards.</li>
 <li><strong>The compactness "cheat"</strong> in <a href="../01_introduction.html#why-compactness-matters">01 §2</a> uses
-  AES, and this chapter shows why it has to be a cheat: AES allows no computation, so the
+  <abbr title="Advanced Encryption Standard">AES</abbr>, and this chapter shows why it has to be a cheat: <abbr title="Advanced Encryption Standard">AES</abbr> allows no computation, so the
   server can only staple the function to the ciphertext and hand all the work back to the
   client.</li>
 </ul>
 <h2 id="12-check-yourself">12. Check yourself<a class="headerlink" href="#12-check-yourself" title="Link to this section">#</a></h2>
 <ol>
-<li>Why does AES compute in \(\mathrm{GF}(2^8)\) rather than in the integers mod 256?</li>
-<li>Compute \(\{02\} \cdot \{80\}\) and \(\{03\} \cdot \{80\}\) by hand.</li>
-<li>Which of SubBytes, ShiftRows, MixColumns and AddRoundKey are affine over bits? What would
-   go wrong if all four were?</li>
-<li>Why can the last round leave out MixColumns without losing security?</li>
-<li>Flipping one plaintext bit changes about 16 state bits after round 1 and about 64 after
-   round 2. Where do these two numbers come from?</li>
-<li>A server holds \(\mathrm{AES}_K(m_1)\) and \(\mathrm{AES}_K(m_2)\) but not \(K\). Can it produce
-   \(\mathrm{AES}_K(m_1 \oplus m_2)\)? Why is the answer good news for AES and bad news for
-   computing on encrypted data, and how does transciphering get around it?</li>
-</ol>
-<h3 id="answers">Answers<a class="headerlink" href="#answers" title="Link to this section">#</a></h3>
-<ol>
-<li>\(\mathbb{Z}_{256}\) is not a field: even numbers such as 2 have no inverse mod 256. AES
+<li>Why does <abbr title="Advanced Encryption Standard">AES</abbr> compute in \(\mathrm{GF}(2^8)\) rather than in the integers mod 256?
+<details class="answer"><summary>Show answer</summary><div><p>\(\mathbb{Z}_{256}\) is not a field: even numbers such as 2 have no inverse mod 256. <abbr title="Advanced Encryption Standard">AES</abbr>
    needs inverses for the S-box and an invertible MixColumns matrix. Polynomials over
    \(\mathrm{GF}(2)\) modulo the irreducible \(m(x) = x^8 + x^4 + x^3 + x + 1\) form a field with
-   256 elements, so every non-zero byte is invertible, and addition is a cheap XOR.</li>
-<li>\(\{80\} = x^7\). Shifting gives \(x^8\), which overflows, so XOR with {1b}:
-   \(\{02\} \cdot \{80\} = \{1b\}\). Then \(\{03\} \cdot \{80\} = \{02\} \cdot \{80\} \oplus \{80\} = \{1b\} \oplus \{80\} = \{9b\}\).</li>
-<li>ShiftRows and MixColumns are linear, AddRoundKey is affine, and SubBytes is affine except
+   256 elements, so every non-zero byte is invertible, and addition is a cheap <abbr title="exclusive or">XOR</abbr>.</p></div></details></li>
+<li>Compute \(\{02\} \cdot \{80\}\) and \(\{03\} \cdot \{80\}\) by hand.
+<details class="answer"><summary>Show answer</summary><div><p>\(\{80\} = x^7\). Shifting gives \(x^8\), which overflows, so <abbr title="exclusive or">XOR</abbr> with {1b}:
+   \(\{02\} \cdot \{80\} = \{1b\}\). Then \(\{03\} \cdot \{80\} = \{02\} \cdot \{80\} \oplus \{80\} = \{1b\} \oplus \{80\} = \{9b\}\).</p></div></details></li>
+<li>Which of SubBytes, ShiftRows, MixColumns and AddRoundKey are affine over bits? What would
+   go wrong if all four were?
+<details class="answer"><summary>Show answer</summary><div><p>ShiftRows and MixColumns are linear, AddRoundKey is affine, and SubBytes is affine except
    for the inversion. If the inversion were gone, the whole cipher would be
    \(E_K(x) = M x \oplus v_K\) with \(M\) public and key-independent. One known pair then decrypts
    every other ciphertext (\(p&#x27; = p \oplus M^{-1}(c \oplus c&#x27;)\)), and linear equations give the
-   key. §8 runs this attack (<a href="../../code/primer/p2_mini_aes.py">part 7 of the script</a>).</li>
-<li>MixColumns is keyless and linear, so a final one could be moved behind the last
+   key. §8 runs this attack (<a href="../../code/primer/p2_mini_aes.py">part 7 of the script</a>).</p></div></details></li>
+<li>Why can the last round leave out MixColumns without losing security?
+<details class="answer"><summary>Show answer</summary><div><p>MixColumns is keyless and linear, so a final one could be moved behind the last
    AddRoundKey (by changing that round key to \(\mathrm{MC}^{-1}(K)\)), and anyone could then
    undo it on the ciphertext. It would add work but no security. Omitting it also makes
-   decryption mirror encryption.</li>
-<li>Round 1: SubBytes turns a one-bit difference into a random-looking byte difference (about 4
-   of 8 bits), and MixColumns spreads one changed byte to all 4 bytes of its column (MDS
+   decryption mirror encryption.</p></div></details></li>
+<li>Flipping one plaintext bit changes about 16 state bits after round 1 and about 64 after
+   round 2. Where do these two numbers come from?
+<details class="answer"><summary>Show answer</summary><div><p>Round 1: SubBytes turns a one-bit difference into a random-looking byte difference (about 4
+   of 8 bits), and MixColumns spreads one changed byte to all 4 bytes of its column (<abbr title="maximum distance separable">MDS</abbr>
    property): about \(4 \times 4 = 16\) bits. Round 2: ShiftRows puts those 4 bytes into 4
-   different columns, MixColumns spreads each, and all 16 bytes differ, about half of 128 bits.</li>
-<li>No. There is no known way to combine AES ciphertexts into an encryption of any function of
-   the plaintexts, and the existence of one would make AES distinguishable from a random
+   different columns, MixColumns spreads each, and all 16 bytes differ, about half of 128 bits.</p></div></details></li>
+<li>A server holds \(\mathrm{AES}_K(m_1)\) and \(\mathrm{AES}_K(m_2)\) but not \(K\). Can it produce
+   \(\mathrm{AES}_K(m_1 \oplus m_2)\)? Why is the answer good news for <abbr title="Advanced Encryption Standard">AES</abbr> and bad news for
+   computing on encrypted data, and how does transciphering get around it?
+<details class="answer"><summary>Show answer</summary><div><p>No. There is no known way to combine <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts into an encryption of any function of
+   the plaintexts, and the existence of one would make <abbr title="Advanced Encryption Standard">AES</abbr> distinguishable from a random
    permutation, a break. That is exactly what you want from a cipher and exactly what rules out
-   computing on its ciphertexts. Transciphering moves the problem into an HE scheme: the server
-   evaluates AES decryption homomorphically, using an HE encryption of \(K\), and gets HE
-   ciphertexts of \(m_1\) and \(m_2\) on which it can compute.</li>
+   computing on its ciphertexts. Transciphering moves the problem into an <abbr title="homomorphic encryption">HE</abbr> scheme: the server
+   evaluates <abbr title="Advanced Encryption Standard">AES</abbr> decryption homomorphically, using an <abbr title="homomorphic encryption">HE</abbr> encryption of \(K\), and gets <abbr title="homomorphic encryption">HE</abbr>
+   ciphertexts of \(m_1\) and \(m_2\) on which it can compute.</p></div></details></li>
 </ol>
+
 <h2 id="13-key-terms">13. Key terms<a class="headerlink" href="#13-key-terms" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -795,7 +791,7 @@ vectors to NIST's website.)</p>
 <td>Keyed permutation on fixed-size blocks, with an inverse for each key</td>
 </tr>
 <tr>
-<td>Pseudorandom permutation (PRP)</td>
+<td>Pseudorandom permutation (<abbr title="pseudorandom permutation">PRP</abbr>)</td>
 <td>Keyed permutation that no efficient test can tell apart from a random permutation</td>
 </tr>
 <tr>
@@ -820,15 +816,15 @@ vectors to NIST's website.)</p>
 </tr>
 <tr>
 <td>xtime</td>
-<td>Multiplication by {02}: shift left, XOR {1b} on overflow</td>
+<td>Multiplication by {02}: shift left, <abbr title="exclusive or">XOR</abbr> {1b} on overflow</td>
 </tr>
 <tr>
 <td>State</td>
-<td>The 4×4 byte matrix AES works on, filled column by column</td>
+<td>The 4×4 byte matrix <abbr title="Advanced Encryption Standard">AES</abbr> works on, filled column by column</td>
 </tr>
 <tr>
 <td>S-box / SubBytes</td>
-<td>Byte substitution \(x \mapsto \mathrm{affine}(x^{-1})\); the only non-linear step of AES</td>
+<td>Byte substitution \(x \mapsto \mathrm{affine}(x^{-1})\); the only non-linear step of <abbr title="Advanced Encryption Standard">AES</abbr></td>
 </tr>
 <tr>
 <td>ShiftRows</td>
@@ -836,15 +832,15 @@ vectors to NIST's website.)</p>
 </tr>
 <tr>
 <td>MixColumns</td>
-<td>Multiply each column by a fixed MDS matrix over \(\mathrm{GF}(2^8)\)</td>
+<td>Multiply each column by a fixed <abbr title="maximum distance separable">MDS</abbr> matrix over \(\mathrm{GF}(2^8)\)</td>
 </tr>
 <tr>
-<td>MDS matrix</td>
+<td><abbr title="maximum distance separable">MDS</abbr> matrix</td>
 <td>Matrix such that \(k\) changed input bytes change at least \(5 - k\) output bytes</td>
 </tr>
 <tr>
 <td>AddRoundKey</td>
-<td>XOR the state with a round key; the only step that uses the key</td>
+<td><abbr title="exclusive or">XOR</abbr> the state with a round key; the only step that uses the key</td>
 </tr>
 <tr>
 <td>Key schedule</td>
@@ -864,63 +860,63 @@ vectors to NIST's website.)</p>
 </tr>
 <tr>
 <td>Biclique attack</td>
-<td>Best known key-recovery attack on full AES, only marginally faster than brute force</td>
+<td>Best known key-recovery attack on full <abbr title="Advanced Encryption Standard">AES</abbr>, only marginally faster than brute force</td>
 </tr>
 <tr>
-<td>AES-NI</td>
-<td>CPU instructions that run an AES round in hardware, fast and in constant time</td>
+<td><abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr></td>
+<td><abbr title="central processing unit">CPU</abbr> instructions that run an <abbr title="Advanced Encryption Standard">AES</abbr> round in hardware, fast and in constant time</td>
 </tr>
 <tr>
 <td>Transciphering</td>
-<td>Evaluating a symmetric cipher's decryption under HE to turn compact ciphertexts into HE ciphertexts</td>
+<td>Evaluating a symmetric cipher's decryption under <abbr title="homomorphic encryption">HE</abbr> to turn compact ciphertexts into <abbr title="homomorphic encryption">HE</abbr> ciphertexts</td>
 </tr>
 <tr>
-<td>HE-friendly cipher</td>
+<td><abbr title="homomorphic encryption">HE</abbr>-friendly cipher</td>
 <td>Symmetric cipher designed for low multiplicative depth, to make transciphering cheap</td>
 </tr>
 </tbody>
 </table></div>
 <h2 id="14-sources-and-further-reading">14. Sources and further reading<a class="headerlink" href="#14-sources-and-further-reading" title="Link to this section">#</a></h2>
 <ul>
-<li>NIST, <em>FIPS 197: Advanced Encryption Standard (AES)</em>, 26 November 2001; updated 9 May 2023
+<li><abbr title="National Institute of Standards and Technology">NIST</abbr>, <em><abbr title="Federal Information Processing Standard">FIPS</abbr> 197: Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>)</em>, 26 November 2001; updated 9 May 2023
   (editorial changes only). Current version:
   <a href="https://csrc.nist.gov/pubs/fips/197/final">csrc.nist.gov/pubs/fips/197/final</a>. The 2001
   edition contains the {57}·{83} example (§4.2) and the test vectors of Appendix C:
-  <a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf">NIST.FIPS.197.pdf</a>.</li>
-<li>NIST, <em>SP 800-38A: Recommendation for Block Cipher Modes of Operation</em>, December 2001
+  <a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf"><abbr title="National Institute of Standards and Technology">NIST</abbr>.<abbr title="Federal Information Processing Standard">FIPS</abbr>.197.pdf</a>.</li>
+<li><abbr title="National Institute of Standards and Technology">NIST</abbr>, <em><abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38A: Recommendation for Block Cipher Modes of Operation</em>, December 2001
   (test vector F.1.1):
   <a href="https://csrc.nist.gov/pubs/sp/800/38/a/final">csrc.nist.gov/pubs/sp/800/38/a/final</a>.</li>
 <li>J. Nechvatal et al., <em>Report on the Development of the Advanced Encryption Standard</em>, J. Res.
-  NIST 106(3), 2001: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4863838/">PMC4863838</a>.</li>
+  <abbr title="National Institute of Standards and Technology">NIST</abbr> 106(3), 2001: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4863838/">PMC4863838</a>.</li>
 <li>C. E. Shannon, "Communication Theory of Secrecy Systems", <em>Bell System Technical Journal</em>
   28(4), 1949: <a href="https://doi.org/10.1002/j.1538-7305.1949.tb00928.x">doi:10.1002/j.1538-7305.1949.tb00928.x</a>.</li>
 <li>J. Daemen, V. Rijmen, <em>The Design of Rijndael</em>, Springer, 2002 (2nd ed. 2020). Design
   rationale, wide trail strategy.</li>
 <li>K. Nyberg, "Differentially uniform mappings for cryptography", EUROCRYPT 1993:
   <a href="https://doi.org/10.1007/3-540-48285-7_6">doi:10.1007/3-540-48285-7_6</a>.</li>
-<li>A. Bogdanov, D. Khovratovich, C. Rechberger, "Biclique Cryptanalysis of the Full AES",
+<li>A. Bogdanov, D. Khovratovich, C. Rechberger, "Biclique Cryptanalysis of the Full <abbr title="Advanced Encryption Standard">AES</abbr>",
   ASIACRYPT 2011: <a href="https://eprint.iacr.org/2011/449">ePrint 2011/449</a>.</li>
-<li>B. Tao, H. Wu, "Improving the Biclique Cryptanalysis of AES", ACISP 2015:
+<li>B. Tao, H. Wu, "Improving the Biclique Cryptanalysis of <abbr title="Advanced Encryption Standard">AES</abbr>", ACISP 2015:
   <a href="https://doi.org/10.1007/978-3-319-19962-7_3">doi:10.1007/978-3-319-19962-7_3</a>.</li>
-<li>A. Biryukov, D. Khovratovich, "Related-key Cryptanalysis of the Full AES-192 and AES-256",
+<li>A. Biryukov, D. Khovratovich, "Related-key Cryptanalysis of the Full <abbr title="Advanced Encryption Standard">AES</abbr>-192 and <abbr title="Advanced Encryption Standard">AES</abbr>-256",
   ASIACRYPT 2009: <a href="https://eprint.iacr.org/2009/317">ePrint 2009/317</a>.</li>
 <li>C. Cid, G. Leurent, "An Analysis of the XSL Algorithm", ASIACRYPT 2005:
   <a href="https://www.iacr.org/archive/asiacrypt2005/328/328.pdf">PDF</a>.</li>
-<li>S. Gueron, <em>Intel Advanced Encryption Standard (AES) New Instructions Set</em>, white paper,
-  rev. 3.01, 2012. K. Akdemir et al., <em>Breakthrough AES Performance with Intel AES New
+<li>S. Gueron, <em>Intel Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>) New Instructions Set</em>, white paper,
+  rev. 3.01, 2012. K. Akdemir et al., <em>Breakthrough <abbr title="Advanced Encryption Standard">AES</abbr> Performance with Intel <abbr title="Advanced Encryption Standard">AES</abbr> New
   Instructions</em>, Intel white paper, 2010 (the ~1.3 cycles/byte figure on the Core i7-980X).
   Both are reachable from Intel's
-  <a href="https://www.intel.com/content/www/us/en/developer/articles/tool/intel-advanced-encryption-standard-aes-instructions-set.html">AES-NI article page</a>.</li>
-<li>D. J. Bernstein, "Cache-timing attacks on AES", 2005:
+  <a href="https://www.intel.com/content/www/us/en/developer/articles/tool/intel-advanced-encryption-standard-aes-instructions-set.html"><abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr> article page</a>.</li>
+<li>D. J. Bernstein, "Cache-timing attacks on <abbr title="Advanced Encryption Standard">AES</abbr>", 2005:
   <a href="https://cr.yp.to/antiforgery/cachetiming-20050414.pdf">PDF</a>. D. A. Osvik, A. Shamir,
-  E. Tromer, "Cache Attacks and Countermeasures: the Case of AES", CT-RSA 2006:
+  E. Tromer, "Cache Attacks and Countermeasures: the Case of <abbr title="Advanced Encryption Standard">AES</abbr>", CT-RSA 2006:
   <a href="https://eprint.iacr.org/2005/271">ePrint 2005/271</a>.</li>
-<li>C. Gentry, S. Halevi, N. P. Smart, "Homomorphic Evaluation of the AES Circuit", CRYPTO 2012:
+<li>C. Gentry, S. Halevi, N. P. Smart, "Homomorphic Evaluation of the <abbr title="Advanced Encryption Standard">AES</abbr> Circuit", CRYPTO 2012:
   <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (the ePrint version describes the
   updated HElib implementation).</li>
-<li>S. Belaïd et al., "Further Improvements in AES Execution over TFHE", 2025:
+<li>S. Belaïd et al., "Further Improvements in <abbr title="Advanced Encryption Standard">AES</abbr> Execution over <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>", 2025:
   <a href="https://eprint.iacr.org/2025/075">ePrint 2025/075</a>.</li>
-<li>HE-friendly ciphers: LowMC, Albrecht et al., EUROCRYPT 2015
+<li><abbr title="homomorphic encryption">HE</abbr>-friendly ciphers: LowMC, Albrecht et al., EUROCRYPT 2015
   (<a href="https://eprint.iacr.org/2016/687">ePrint 2016/687</a>); Kreyvium, Canteaut et al., FSE 2016
   (<a href="https://eprint.iacr.org/2015/113">ePrint 2015/113</a>); Rasta, Dobraunig et al., CRYPTO 2018
   (<a href="https://eprint.iacr.org/2018/181">ePrint 2018/181</a>); Pasta, Dobraunig et al., TCHES 2023

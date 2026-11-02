@@ -41,6 +41,11 @@ function renderMath() {
 </script>"""
 LIST_ITEM = re.compile(r"^\s*([-*+]|\d+\.)\s")
 PLACEHOLDER = "MATHPLACEHOLDER{}END"
+FIGURES = ROOT / "figures"                  # figures/<name>.html, plus charts.js and figures.css
+FIGURE_MARKER = re.compile(r"^<!-- figure: ([a-z0-9][a-z0-9-]*)( replaces the code block below)? -->[ \t]*$", re.M)
+CODE_BLOCK = re.compile(r"\s*\n(```[^\n]*\n.*?\n```)[ \t]*(?=\n|$)", re.S)
+FIGURE_PLACEHOLDER = "FIGUREPLACEHOLDER{}END"
+ABBR_SKIP = {"code", "pre", "script", "style", "abbr", "h1", "h2", "h3", "h4", "h5", "h6", "title"}
 
 
 # ---------------------------------------------------------------- Markdown clean-up
@@ -190,8 +195,127 @@ def nav(page, titles):
     return "\n".join(items)
 
 
+# ---------------------------------------------------------------- figures
+def extract_figures(text):
+    """Swap each `<!-- figure: name -->` line for a placeholder paragraph. GitHub hides the
+    comment, so the Markdown reads as before; the HTML gets figures/<name>.html in its place.
+    `<!-- figure: name replaces the code block below -->` also drops the fenced block right
+    under it from the HTML, for a drawing that redraws an ASCII diagram GitHub still shows."""
+    names, out, pos = [], [], 0
+    for m in FIGURE_MARKER.finditer(text):
+        out += [text[pos:m.start()], "\n" + FIGURE_PLACEHOLDER.format(len(names)) + "\n"]
+        names.append(m.group(1))
+        pos = m.end()
+        if m.group(2):
+            block = CODE_BLOCK.match(text, pos)
+            if not block:
+                raise SystemExit(f"figure '{m.group(1)}': no code block right below its marker")
+            pos = block.end()
+    return "".join(out) + text[pos:], names
+
+
+def insert_figures(body, names, page):
+    """Put the figures in after Markdown and math are done, so their HTML and JavaScript pass
+    through untouched (math inside a figure is written as \\( \\) directly)."""
+    for i, name in enumerate(names):
+        source = FIGURES / f"{name}.html"
+        if not source.exists():
+            raise SystemExit(f"{page}: figure '{name}' has no file figures/{name}.html")
+        slot = f"<p>{FIGURE_PLACEHOLDER.format(i)}</p>"
+        if body.count(slot) != 1:
+            raise SystemExit(f"{page}: figure marker '{name}' must be a line of its own")
+        body = body.replace(slot, source.read_text().strip())
+    return body
+
+
+# ---------------------------------------------------------------- abbreviations
+def load_abbreviations():
+    """abbreviations.txt -> ({abbr: full term}, one regex that matches any of them)."""
+    terms = {}
+    for line in (ROOT / "abbreviations.txt").read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            short, full = (part.strip() for part in line.split("=", 1))
+            terms[short] = full
+    alternatives = "|".join(re.escape(a) for a in sorted(terms, key=len, reverse=True))
+    return terms, re.compile(rf"(?<![\w-])({alternatives})(?=s?(?!\w))")
+
+
+ABBREVIATIONS, ABBR_PATTERN = load_abbreviations()
+
+
+def add_abbreviations(body):
+    """Wrap every abbreviation in body text in <abbr title="..."> for a hover tooltip. Runs
+    while math is still a placeholder, and skips code, headings and existing <abbr>s."""
+    parts = re.split(r"(<[^>]+>)", body)
+    depth = 0
+    for i, part in enumerate(parts):
+        tag = re.match(r"<(/?)([a-zA-Z0-9]+)", part)
+        if tag and tag.group(2).lower() in ABBR_SKIP and not part.endswith("/>"):
+            depth += -1 if tag.group(1) else 1
+        elif not part.startswith("<") and depth == 0:
+            parts[i] = ABBR_PATTERN.sub(
+                lambda m: f'<abbr title="{html.escape(ABBREVIATIONS[m.group(1)])}">{m.group(1)}</abbr>', part)
+    return "".join(parts)
+
+
+# ---------------------------------------------------------------- hidden answers
+def block_end(text, start, tag):
+    """Index just past the </tag> that closes the <tag> at `start`, counting nested ones."""
+    depth = 0
+    for m in re.finditer(rf"<(/?){tag}\b[^>]*>", text[start:]):
+        depth += -1 if m.group(1) else 1
+        if depth == 0:
+            return start + m.end()
+    raise ValueError(f"unclosed <{tag}>")
+
+
+def list_items(ol):
+    """The inner HTML of each top-level <li> of an <ol>...</ol> string."""
+    items, depth, begin = [], 0, None
+    for m in re.finditer(r"<(/?)li\b[^>]*>", ol):
+        if not m.group(1):
+            depth += 1
+            if depth == 1:
+                begin = m.end()
+        else:
+            depth -= 1
+            if depth == 0:
+                items.append(ol[begin:m.start()].strip())
+    return items
+
+
+def hide_answers(body, page):
+    """In a "Check yourself" section, move answer n under question n behind a "Show answer"
+    toggle. The Markdown keeps its plain questions list, **Answers** line and answers list."""
+    head = re.search(r'<h2 id="[^"]*check-yourself">', body)
+    if not head:
+        return body
+    end = body.find("<h2", head.end())
+    end = len(body) if end < 0 else end
+    section = body[head.end():end]
+    q_start = section.find("<ol>")
+    marker = section.find("<p><strong>Answers</strong></p>")
+    if q_start < 0 or marker < 0:
+        raise SystemExit(f"{page}: Check yourself needs a numbered list, **Answers**, a numbered list")
+    q_end = block_end(section, q_start, "ol")
+    a_start = section.find("<ol>", marker)
+    a_end = block_end(section, a_start, "ol")
+    questions = list_items(section[q_start:q_end])
+    answers = list_items(section[a_start:a_end])
+    if len(questions) != len(answers):
+        raise SystemExit(f"{page}: {len(questions)} questions but {len(answers)} answers")
+    items = []
+    for q, a in zip(questions, answers):
+        a = a if a.startswith("<p>") else f"<p>{a}</p>"
+        items.append(f'<li>{q}\n<details class="answer"><summary>Show answer</summary><div>{a}</div></details></li>')
+    new = (section[:q_start] + "<ol>\n" + "\n".join(items) + "\n</ol>" + section[q_end:marker]
+           + section[a_end:])
+    return body[:head.end()] + new + body[end:]
+
+
 def render(page, titles):
     text = normalize_blocks((ROOT / page).read_text())
+    text, figures = extract_figures(text)
     text, store = extract_math(text)
     md = markdown.Markdown(
         extensions=["tables", "fenced_code", "codehilite", "toc", "sane_lists"],
@@ -200,12 +324,15 @@ def render(page, titles):
             "toc": {"slugify": github_slug, "permalink": "#", "permalink_title": "Link to this section",
                     "toc_depth": "2-3"},
         })
-    body = wrap_tables(rewrite_links(restore_math(md.convert(text), store)))
+    body = add_abbreviations(md.convert(text))
+    body = wrap_tables(rewrite_links(restore_math(body, store)))
+    body = insert_figures(hide_answers(body, page), figures, page)
     toc = restore_math(md.toc, store)
     idx = PAGES.index(page)
     prev_link = f'<a href="{rel(page, PAGES[idx - 1])}">← {html.escape(titles[PAGES[idx - 1]])}</a>' if idx else "<span></span>"
     next_link = f'<a href="{rel(page, PAGES[idx + 1])}">{html.escape(titles[PAGES[idx + 1]])} →</a>' if idx + 1 < len(PAGES) else "<span></span>"
-    css = "../" * page.count("/") + "assets/style.css"
+    assets = "../" * page.count("/") + "assets"
+    charts = f'<script src="{assets}/charts.js"></script>\n' if figures else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -213,8 +340,9 @@ def render(page, titles):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(titles[page])}</title>
 <link rel="stylesheet" href="{KATEX}/katex.min.css">
-<link rel="stylesheet" href="{css}">
-{RENDER_MATH}
+<link rel="stylesheet" href="{assets}/style.css">
+<link rel="stylesheet" href="{assets}/figures.css">
+{charts}{RENDER_MATH}
 <script defer src="{KATEX}/katex.min.js"></script>
 <script defer src="{KATEX}/contrib/auto-render.min.js" onload="renderMath()"></script>
 </head>
@@ -306,6 +434,8 @@ def build():
     dark = HtmlFormatter(style="github-dark").get_style_defs(".highlight")
     (OUT / "assets" / "style.css").write_text(
         STYLE + light + "\n@media (prefers-color-scheme: dark) {\n" + dark + "\n}\n")
+    for name in ("charts.js", "figures.css"):
+        (OUT / "assets" / name).write_text((FIGURES / name).read_text())
     for page in PAGES:
         target = out_path(page)
         target.parent.mkdir(parents=True, exist_ok=True)

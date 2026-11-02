@@ -6,6 +6,7 @@
 <title>P1 · What encryption is: keys, secrecy and the one-time pad</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -94,10 +95,7 @@ function renderMath() {
 <li><a href="#9-symmetric-and-public-key-encryption">9. Symmetric and public-key encryption</a></li>
 <li><a href="#10-try-it">10. Try it</a></li>
 <li><a href="#11-how-this-connects-to-homomorphic-encryption">11. How this connects to homomorphic encryption</a></li>
-<li><a href="#12-check-yourself">12. Check yourself</a><ul>
-<li><a href="#answers">Answers</a></li>
-</ul>
-</li>
+<li><a href="#12-check-yourself">12. Check yourself</a></li>
 <li><a href="#13-key-terms">13. Key terms</a></li>
 <li><a href="#14-sources-and-further-reading">14. Sources and further reading</a></li>
 </ul>
@@ -105,7 +103,7 @@ function renderMath() {
 </details>
 <article>
 <h1 id="p1--what-encryption-is-keys-secrecy-and-the-one-time-pad">P1 · What encryption is: keys, secrecy and the one-time pad<a class="headerlink" href="#p1--what-encryption-is-keys-secrecy-and-the-one-time-pad" title="Link to this section">#</a></h1>
-<p><a href="../index.html">← index</a> · next: <a href="p2_aes.html">P2 Block ciphers and AES →</a></p>
+<p><a href="../index.html">← index</a> · next: <a href="p2_aes.html">P2 Block ciphers and <abbr title="Advanced Encryption Standard">AES</abbr> →</a></p>
 <hr />
 <p>Homomorphic encryption is still encryption: before it can compute on hidden data, it has to
 hide the data. This chapter sets up the vocabulary and the yardsticks the whole primer uses:
@@ -118,7 +116,7 @@ noise.</p>
 <li>name the goals of cryptography, use its vocabulary (plaintext, ciphertext, key, <code>Enc</code>, <code>Dec</code>)
   and state Kerckhoffs's principle;</li>
 <li>explain why classical ciphers fall to frequency analysis;</li>
-<li>encrypt with the one-time pad (XOR and mod n) and prove that it is perfectly secret;</li>
+<li>encrypt with the one-time pad (<abbr title="exclusive or">XOR</abbr> and mod n) and prove that it is perfectly secret;</li>
 <li>explain its price, and break a pad that was used twice;</li>
 <li>explain computational security, "128-bit security", and symmetric vs public-key encryption;</li>
 <li>see why the pad mod n can already add encrypted numbers, but not multiply them.</li>
@@ -145,18 +143,18 @@ Its output is split into numbered parts, and the text says which part shows what
 <tr>
 <td><strong>Integrity</strong></td>
 <td>Has anyone changed the data?</td>
-<td>Message authentication codes (MACs), authenticated encryption (P3)</td>
+<td>Message authentication codes (<abbr title="message authentication code">MAC</abbr>s), authenticated encryption (P3)</td>
 </tr>
 <tr>
 <td><strong>Authenticity</strong></td>
 <td>Who sent the data?</td>
-<td>MACs with a shared key (P3), digital signatures (P4)</td>
+<td><abbr title="message authentication code">MAC</abbr>s with a shared key (P3), digital signatures (P4)</td>
 </tr>
 </tbody>
 </table></div>
 <p>Encryption alone gives only the first. A ciphertext can be secret and still be tampered with,
 as §5 shows for the one-time pad.</p>
-<p>HE provides confidentiality in a new place: while the data is <strong>in use</strong>
+<p><abbr title="homomorphic encryption">HE</abbr> provides confidentiality in a new place: while the data is <strong>in use</strong>
 (<a href="../01_introduction.html#1-the-problem-it-solves">01 §1</a>). It deliberately gives up the
 integrity of ciphertexts, because the whole point is that someone else can change them in a
 controlled way. Checking that the server computed the right thing needs separate tools
@@ -173,7 +171,7 @@ controlled way. Checking that the server computed the right thing needs separate
 from <code>K</code>, <code>Enc(k, m)</code> returns a ciphertext <code>c</code>, and <code>Dec(k, c)</code> returns a message. The one
 non-negotiable property is <strong>correctness</strong>: decryption undoes encryption.</p>
 <div class="math-display">\[\mathrm{Dec}(k, \mathrm{Enc}(k, m)) = m \quad \text{for every key } k \text{ and every message } m\]</div>
-<p>Two remarks for later. Real <code>Enc</code> algorithms usually also take a fresh random value (an IV or
+<p>Two remarks for later. Real <code>Enc</code> algorithms usually also take a fresh random value (an <abbr title="initialization vector">IV</abbr> or
 nonce); P3 and P5 explain why encryption <em>must</em> be randomized. And chapter 01's
 <code>(KeyGen, Enc, Dec, Eval)</code> is this same template with a public key and one extra algorithm,
 <code>Eval</code>, that computes on ciphertexts (P6).</p>
@@ -193,12 +191,12 @@ reasons for it:</p>
 <ul>
 <li><strong>The algorithm will leak.</strong> It sits in every device, binary and specification. A key is
   small and easy to replace; an algorithm is not.</li>
-<li><strong>Public algorithms get public scrutiny.</strong> AES was chosen in an open competition (P2). A
+<li><strong>Public algorithms get public scrutiny.</strong> <abbr title="Advanced Encryption Standard">AES</abbr> was chosen in an open competition (P2). A
   secret design has only been attacked by its authors.</li>
 <li><strong>It makes security measurable.</strong> If only the key is secret, security becomes a statement
   about the key space and the best known attack, which we can count (§8).</li>
 </ul>
-<p>All HE schemes and libraries are public. The server even receives the evaluation keys (public
+<p>All <abbr title="homomorphic encryption">HE</abbr> schemes and libraries are public. The server even receives the evaluation keys (public
 helper keys that let the server compute but not decrypt; P8). The only secret is the secret
 key, and security rests on the hardness of the underlying math problem.</p>
 <h2 id="3-classical-ciphers-and-why-they-fall">3. Classical ciphers and why they fall<a class="headerlink" href="#3-classical-ciphers-and-why-they-fall" title="Link to this section">#</a></h2>
@@ -228,7 +226,7 @@ column.</p>
 <h3 id="the-xor-version">The XOR version<a class="headerlink" href="#the-xor-version" title="Link to this section">#</a></h3>
 <p>For bits, encryption and decryption are the same operation:</p>
 <div class="math-display">\[c = m \oplus k, \qquad c \oplus k = m \oplus k \oplus k = m\]</div>
-<p>because \(k \oplus k = 0\). For bytes and strings, XOR bit by bit. One byte by hand:</p>
+<p>because \(k \oplus k = 0\). For bytes and strings, <abbr title="exclusive or">XOR</abbr> bit by bit. One byte by hand:</p>
 <div class="highlight"><pre><span></span><code>m       = &#39;H&#39;  = 0100 1000   (0x48)
 k              = 1011 0101   (0xB5)
 c = m ⊕ k      = 1111 1101   (0xFD)
@@ -240,10 +238,10 @@ gives noise; laying the same sheet over again cancels it.</p>
 <h3 id="the-pad-mod-n">The pad mod n<a class="headerlink" href="#the-pad-mod-n" title="Link to this section">#</a></h3>
 <p>The same idea works with numbers. Messages and keys live in \(\mathbb{Z}_n = \{0, \dots, n-1\}\):</p>
 <div class="math-display">\[c = (m + k) \bmod n, \qquad m = (c - k) \bmod n\]</div>
-<p>XOR is the case \(n = 2\), applied bit by bit (addition mod 2 is XOR). Both versions say: <strong>add
+<p><abbr title="exclusive or">XOR</abbr> is the case \(n = 2\), applied bit by bit (addition mod 2 is <abbr title="exclusive or">XOR</abbr>). Both versions say: <strong>add
 a random pad, then subtract it again.</strong> By hand with \(n = 1000\): \(m = 120\), \(k = 905\) gives
 \(c = 1025 \bmod 1000 = 25\), and \(25 - 905 = -880 \equiv 120 \pmod{1000}\).</p>
-<p>This version is the one to remember for HE. An LWE ciphertext (P7) has exactly the shape
+<p>This version is the one to remember for <abbr title="homomorphic encryption">HE</abbr>. An <abbr title="learning with errors">LWE</abbr> ciphertext (P7) has exactly the shape
 \(b = \langle a, s \rangle + \Delta \cdot m + e \pmod q\): a message, plus a pad, plus noise.
 Here <code>a</code> is a public random vector, <code>s</code> the secret key, \(\langle a, s \rangle\) their inner
 product (the pad), <code>Δ</code> a large scaling constant that lifts the message <code>m</code>, and <code>e</code> a small
@@ -251,7 +249,7 @@ random error; <code>q</code> is the modulus. All of this is explained in P7.</p>
 <h3 id="where-it-came-from">Where it came from<a class="headerlink" href="#where-it-came-from" title="Link to this section">#</a></h3>
 <blockquote>
 <p><strong>Aside.</strong> In 1917 Gilbert Vernam of AT&amp;T built a teleprinter cipher that combined each 5-bit
-character of the message, impulse by impulse, with a character from a key tape: XOR in modern
+character of the message, impulse by impulse, with a character from a key tape: <abbr title="exclusive or">XOR</abbr> in modern
 terms. The patent, <em>Secret Signaling System</em> (US 1,310,719), was filed in September 1918 and
 granted in July 1919. David Kahn's classic account credits Vernam with the need for a random
 key and Joseph Mauborgne of the US Army Signal Corps with the need for a key that never
@@ -305,7 +303,7 @@ real key. Every 14-character message is possible, and Eve has no way to prefer o
   length matters.</li>
 <li><strong>Integrity.</strong> Flipping bit <code>i</code> of <code>c</code> flips bit <code>i</code> of <code>m</code>, and adding <code>x</code> to a ciphertext
   mod n adds <code>x</code> to the plaintext. Eve can change a message predictably without reading it.
-  Such a scheme is <strong>malleable</strong>. P3 turns this into an attack on real systems; HE turns it into
+  Such a scheme is <strong>malleable</strong>. P3 turns this into an attack on real systems; <abbr title="homomorphic encryption">HE</abbr> turns it into
   the main feature (§11).</li>
 </ul>
 <h2 id="6-the-price-of-perfection">6. The price of perfection<a class="headerlink" href="#6-the-price-of-perfection" title="Link to this section">#</a></h2>
@@ -326,12 +324,12 @@ distribution</strong> problem differently.</p>
 <h3 id="the-key-must-never-be-reused-the-two-time-pad">The key must never be reused: the two-time pad<a class="headerlink" href="#the-key-must-never-be-reused-the-two-time-pad" title="Link to this section">#</a></h3>
 <p>Encrypt two messages with the same key and the key cancels:</p>
 <div class="math-display">\[c_1 \oplus c_2 = (m_1 \oplus k) \oplus (m_2 \oplus k) = m_1 \oplus m_2\]</div>
-<p>The XOR of two English texts is far from random, and Eve can now attack it without knowing
+<p>The <abbr title="exclusive or">XOR</abbr> of two English texts is far from random, and Eve can now attack it without knowing
 anything about the key. Cryptanalysts say the two messages are <strong>in depth</strong>.</p>
 <ul>
 <li><strong>Known plaintext.</strong> If Eve knows part of \(m_1\) (a standard header, a greeting), she gets the
   same part of \(m_2 = (c_1 \oplus c_2) \oplus m_1\), and of the key, \(k = c_1 \oplus m_1\).</li>
-<li><strong>Crib dragging.</strong> Eve guesses a likely word (a <strong>crib</strong>) such as <code>" the "</code>, XORs it into
+<li><strong>Crib dragging.</strong> Eve guesses a likely word (a <strong>crib</strong>) such as <code>" the "</code>, <abbr title="exclusive or">XOR</abbr>s it into
   every position of \(c_1 \oplus c_2\), and looks for readable output. Where the guess is right,
   a piece of the other message appears. Each new fragment suggests the next guess.</li>
 </ul>
@@ -353,12 +351,12 @@ to reconstruct the codebook. About 3,000 messages were at least partially read. 
 Soviet espionage in the US, including the atomic spies. The project ran until 1 October 1980,
 and NSA released the translations from 1995 on.</p>
 <p><em>WEP.</em> The original Wi-Fi encryption generated an RC4 keystream from the secret key and a
-public 24-bit IV. Borisov, Goldberg and Wagner (2001) showed that a busy access point exhausts
-all \(2^{24}\) IVs in less than half a day, and that with random IVs a repeat is expected after
+public 24-bit <abbr title="initialization vector">IV</abbr>. Borisov, Goldberg and Wagner (2001) showed that a busy access point exhausts
+all \(2^{24}\) <abbr title="initialization vector">IV</abbr>s in less than half a day, and that with random <abbr title="initialization vector">IV</abbr>s a repeat is expected after
 about 5,000 packets (the birthday paradox). Every repeat is a two-time pad.</p>
 </blockquote>
 <p>The lesson carries through the whole primer: <strong>every pad must be fresh.</strong> Stream ciphers ensure
-it with a nonce (§7, P3). LWE ensures it with a fresh random vector <code>a</code> in every ciphertext
+it with a nonce (§7, P3). <abbr title="learning with errors">LWE</abbr> ensures it with a fresh random vector <code>a</code> in every ciphertext
 (P7).</p>
 <h2 id="7-stream-ciphers-growing-a-short-key-into-a-long-pad">7. Stream ciphers: growing a short key into a long pad<a class="headerlink" href="#7-stream-ciphers-growing-a-short-key-into-a-long-pad" title="Link to this section">#</a></h2>
 <p>The practical fix keeps the one-time pad's structure, \(c = m \oplus \text{pad}\), but replaces
@@ -371,10 +369,10 @@ requirement is that no efficient algorithm can tell its output from truly random
  message m ─────────────────────────XOR──────&gt; ciphertext c
 </code></pre></div>
 
-<p>The toy generator in <a href="../../code/primer/p1_one_time_pad.py">part 5 of the script</a> is SHA-256 in
-counter mode: block <code>i</code> of the pad is <code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong>AES in
+<p>The toy generator in <a href="../../code/primer/p1_one_time_pad.py">part 5 of the script</a> is <abbr title="Secure Hash Algorithm">SHA</abbr>-256 in
+counter mode: block <code>i</code> of the pad is <code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong><abbr title="Advanced Encryption Standard">AES</abbr> in
 counter mode</strong> (block <code>i</code> is <code>AES_k(nonce ‖ i)</code>; P2 and P3) or <strong>ChaCha20</strong> (standardised for
-IETF protocols in RFC 8439). The nonce is public, but it must never repeat under the same key:
+<abbr title="Internet Engineering Task Force">IETF</abbr> protocols in <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8439). The nonce is public, but it must never repeat under the same key:
 the same <code>(k, nonce)</code> gives the same pad, and we are back to the two-time pad. Part 5 checks
 this as well.</p>
 <h3 id="the-catch-no-longer-perfectly-secret">The catch: no longer perfectly secret<a class="headerlink" href="#the-catch-no-longer-perfectly-secret" title="Link to this section">#</a></h3>
@@ -393,7 +391,7 @@ operations.</strong></p>
 is possible in principle but needs an infeasible amount of computation. It relaxes perfect
 secrecy in two ways: the attacker's computing power is limited, and the attacker is allowed a
 tiny probability of success (a lucky first guess of a 128-bit key succeeds with probability
-\(2^{-128} \approx 3 \times 10^{-39}\)). In exchange, keys become short and reusable. Every practical scheme in this primer, HE
+\(2^{-128} \approx 3 \times 10^{-39}\)). In exchange, keys become short and reusable. Every practical scheme in this primer, <abbr title="homomorphic encryption">HE</abbr>
 included, is computationally secure. P5 makes the definition precise (efficient attackers,
 negligible success probability, security games).</p>
 <p>Shannon saw this coming. In the same 1949 paper he suggested designing ciphers so that breaking
@@ -402,23 +400,23 @@ simultaneous equations of a complex type. Learning With Errors (P7) is exactly t
 problem: linear equations made hard by a little noise.</p>
 <h3 id="bits-of-security">Bits of security<a class="headerlink" href="#bits-of-security" title="Link to this section">#</a></h3>
 <p>A scheme has <strong>κ-bit security</strong> (κ is the Greek letter kappa) if the best known attack costs
-about \(2^\kappa\) operations; "128-bit security" means κ = 128. NIST calls this the <strong>security
+about \(2^\kappa\) operations; "128-bit security" means κ = 128. <abbr title="National Institute of Standards and Technology">NIST</abbr> calls this the <strong>security
 strength</strong>: a number associated with the amount of work needed to break the system. For an
 ideal cipher with a <code>k</code>-bit key, the best attack is brute force: \(2^k\) trials in the worst
 case, \(2^{k-1}\) on average. So \(\kappa = k\). (P5 uses the same letter, and refines the count.)</p>
-<p>Key length and security strength differ in general. NIST SP 800-57 rates AES-128, RSA with a
+<p>Key length and security strength differ in general. <abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-57 rates <abbr title="Advanced Encryption Standard">AES</abbr>-128, <abbr title="Rivest–Shamir–Adleman">RSA</abbr> with a
 3072-bit modulus and elliptic curves of 256–383 bits all at <strong>128 bits</strong>, because factoring has
-attacks far better than trying every key. HE is rated the same way: when chapter 02 says that
+attacks far better than trying every key. <abbr title="homomorphic encryption">HE</abbr> is rated the same way: when chapter 02 says that
 <code>N = 16384</code>, <code>log q = 438</code> is "128-bit secure", it means the best known lattice attacks are
 estimated to cost about \(2^{128}\) operations (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>).</p>
 <p>Each extra bit doubles the work. Doubling the attacker's hardware buys one bit, a thousandfold
 increase buys ten.</p>
 <h3 id="brute-force-in-numbers">Brute force in numbers<a class="headerlink" href="#brute-force-in-numbers" title="Link to this section">#</a></h3>
-<p>DES, the US standard block cipher from 1977, had a 56-bit key. In 1998 the Electronic Frontier
-Foundation built a dedicated key-search machine for under $250,000 that found a DES key in 56
+<p><abbr title="Data Encryption Standard">DES</abbr>, the US standard block cipher from 1977, had a 56-bit key. In 1998 the Electronic Frontier
+Foundation built a dedicated key-search machine for under $250,000 that found a <abbr title="Data Encryption Standard">DES</abbr> key in 56
 hours. In January 1999, together with the volunteers of distributed.net, it found one in
 22 hours and 15 minutes, testing about 245 billion keys per second. That ended 56-bit keys, and
-AES (P2) starts at 128 bits.</p>
+<abbr title="Advanced Encryption Standard">AES</abbr> (P2) starts at 128 bits.</p>
 <p><a href="../../code/primer/p1_one_time_pad.py">Part 6 of the script</a> measures how fast plain Python tries
 keys of its toy cipher and extrapolates. Times are for the whole key space; on average the key
 turns up halfway.</p>
@@ -427,7 +425,7 @@ turns up halfway.</p>
 <tr>
 <th>Key bits</th>
 <th>This laptop, Python (~5.7 × 10⁵ keys/s)</th>
-<th>EFF DES cracker + distributed.net, 1999 (2.45 × 10¹¹ keys/s)</th>
+<th>EFF <abbr title="Data Encryption Standard">DES</abbr> cracker + distributed.net, 1999 (2.45 × 10¹¹ keys/s)</th>
 <th>Whole Bitcoin network (~10²¹ hashes/s)</th>
 </tr>
 </thead>
@@ -469,16 +467,16 @@ turns up halfway.</p>
 <li>\(2^{128} \approx 3.4 \times 10^{38}\). Even at \(10^{21}\) operations per second (roughly the
   hashing rate of the entire Bitcoin network today), that takes about \(10^{10}\) years, close to
   the age of the universe.</li>
-<li>The same rate would exhaust an <strong>80-bit</strong> key in 20 minutes. NIST no longer approves security
+<li>The same rate would exhaust an <strong>80-bit</strong> key in 20 minutes. <abbr title="National Institute of Standards and Technology">NIST</abbr> no longer approves security
   strengths below 112 bits for protecting new data.</li>
 <li>A quantum computer could in principle run Grover's search algorithm, which "halves the
-  bits"; <a href="p4_public_key.html#grover-symmetric-keys-survive">P4 §9</a> explains why AES-128 survives
+  bits"; <a href="p4_public_key.html#grover-symmetric-keys-survive">P4 §9</a> explains why <abbr title="Advanced Encryption Standard">AES</abbr>-128 survives
   anyway.</li>
 </ul>
 <blockquote>
 <p><strong>Aside: the numbers behind the comparison.</strong> Bitcoin mining is one of the largest
 computations running today: roughly \(10^{21}\) hashes per second for the whole network in
-2025–2026 (about \(1.1 \times 10^{21}\) in February 2026). Mining chips cannot test AES keys,
+2025–2026 (about \(1.1 \times 10^{21}\) in February 2026). Mining chips cannot test <abbr title="Advanced Encryption Standard">AES</abbr> keys,
 so this only sets the scale. At that rate, \(2^{128}\) operations take \(3.4 \times 10^{17}\)
 seconds, about \(1.1 \times 10^{10}\) years: roughly 0.8 times the age of the universe
 (13.8 billion years). On paper: \(10^{21} \approx 2^{70}\) per second and a year is about
@@ -519,8 +517,8 @@ must share it beforehand. <strong>Public-key</strong> (asymmetric) encryption sp
 </tr>
 <tr>
 <td>Examples</td>
-<td>One-time pad, AES, ChaCha20</td>
-<td>RSA, ElGamal, ML-KEM (P4)</td>
+<td>One-time pad, <abbr title="Advanced Encryption Standard">AES</abbr>, ChaCha20</td>
+<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr>, ElGamal, <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (P4)</td>
 </tr>
 <tr>
 <td>Speed</td>
@@ -534,21 +532,21 @@ must share it beforehand. <strong>Public-key</strong> (asymmetric) encryption sp
 </tr>
 </tbody>
 </table></div>
-<p>You already know RSA: \((n, e)\) is the public key and \(d\) the secret one. In practice the two
-are combined: public-key cryptography agrees on a fresh symmetric key, and AES or ChaCha20
-encrypts the data. That is <strong>hybrid encryption</strong>, and P4 shows how TLS does it.</p>
+<p>You already know <abbr title="Rivest–Shamir–Adleman">RSA</abbr>: \((n, e)\) is the public key and \(d\) the secret one. In practice the two
+are combined: public-key cryptography agrees on a fresh symmetric key, and <abbr title="Advanced Encryption Standard">AES</abbr> or ChaCha20
+encrypts the data. That is <strong>hybrid encryption</strong>, and P4 shows how <abbr title="Transport Layer Security">TLS</abbr> does it.</p>
 <p>One structural fact: <strong>public-key encryption can never be perfectly secret.</strong> An attacker with
 unlimited time and the public key can encrypt every candidate message with every possible
 random choice and compare the results with the ciphertext. Public-key security is always
 computational.</p>
-<p>HE comes in both flavours. The toy in <a href="../../code/toy_lwe.py"><code>../code/toy_lwe.py</code></a> is
-secret-key; public-key LWE (Regev's scheme) is in P7. In a deployment, the client keeps <code>sk</code>
+<p><abbr title="homomorphic encryption">HE</abbr> comes in both flavours. The toy in <a href="../../code/toy_lwe.py"><code>../code/toy_lwe.py</code></a> is
+secret-key; public-key <abbr title="learning with errors">LWE</abbr> (Regev's scheme) is in P7. In a deployment, the client keeps <code>sk</code>
 and hands the server <code>pk</code> and the evaluation keys (public helper keys that let the server
 compute but not decrypt; P8), as in <a href="../01_introduction.html#2-formal-definition">01 §2</a>.</p>
 <h2 id="10-try-it">10. Try it<a class="headerlink" href="#10-try-it" title="Link to this section">#</a></h2>
 <p><a href="../../code/primer/p1_one_time_pad.py"><code>../code/primer/p1_one_time_pad.py</code></a> runs every example in
-this chapter: the XOR pad and the fake key, the one-byte posterior check, the two-time pad with
-crib dragging, the pad mod 1000, the SHA-256 stream cipher, and a brute-force search with
+this chapter: the <abbr title="exclusive or">XOR</abbr> pad and the fake key, the one-byte posterior check, the two-time pad with
+crib dragging, the pad mod 1000, the <abbr title="Secure Hash Algorithm">SHA</abbr>-256 stream cipher, and a brute-force search with
 timing. From <code>homomorphic_encryption/</code>:</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/primer/p1_one_time_pad.py
 </code></pre></div>
@@ -565,7 +563,7 @@ timing. From <code>homomorphic_encryption/</code>:</p>
 <tbody>
 <tr>
 <td>1</td>
-<td>One-time pad with XOR, and a second key that "explains" the same ciphertext</td>
+<td>One-time pad with <abbr title="exclusive or">XOR</abbr>, and a second key that "explains" the same ciphertext</td>
 <td><a href="#4-the-one-time-pad">§4</a>, <a href="#5-perfect-secrecy-why-the-one-time-pad-cannot-be-broken">§5</a></td>
 </tr>
 <tr>
@@ -656,21 +654,21 @@ and so do the keys:</p>
 <div class="math-display">\[(m_1 + k_1) + (m_2 + k_2) \equiv (m_1 + m_2) + (k_1 + k_2) \pmod n\]</div>
 <p>In <a href="../../code/primer/p1_one_time_pad.py">part 4 of the script</a>, a server adds 25 + 574 + 965 ≡ 564
 (mod 1000) without learning anything (each ciphertext alone is perfectly secret). The client
-subtracts the key sum 905 + 234 + 870 ≡ 9 and gets 555 = 120 + 340 + 95. The XOR pad does the
-same for XOR. This is the first step toward HE, and a preview of why malleability
+subtracts the key sum 905 + 234 + 870 ≡ 9 and gets 555 = 120 + 340 + 95. The <abbr title="exclusive or">XOR</abbr> pad does the
+same for <abbr title="exclusive or">XOR</abbr>. This is the first step toward <abbr title="homomorphic encryption">HE</abbr>, and a preview of why malleability
 (<a href="p3_modes_and_integrity.html#7-malleability-changing-a-message-without-reading-it">P3 §7</a>) is
-HE's main feature rather than a bug.</p>
-<p>Why this is not yet HE:</p>
+<abbr title="homomorphic encryption">HE</abbr>'s main feature rather than a bug.</p>
+<p>Why this is not yet <abbr title="homomorphic encryption">HE</abbr>:</p>
 <ol>
 <li><strong>Key bookkeeping.</strong> The client must store a key as large as all its data and remember which
-   keys went into each result. LWE fixes this with a pad \(\langle a, s \rangle\): a fresh public
+   keys went into each result. <abbr title="learning with errors">LWE</abbr> fixes this with a pad \(\langle a, s \rangle\): a fresh public
    random vector <code>a</code> travels inside each ciphertext, and one short secret <code>s</code> is reused. Adding
    ciphertexts \((a_1, b_1) + (a_2, b_2) = (a_1 + a_2, b_1 + b_2)\) adds the pads automatically,
    and the client only ever needs <code>s</code> (P7).</li>
 <li><strong>A pad built linearly from a short key is not enough.</strong> If every pad were exactly
    \(\langle a, s \rangle\), each known plaintext would give one linear equation in the unknown
    entries of <code>s</code>. As many known plaintexts as <code>s</code> has entries give a square linear system,
-   solved by Gaussian elimination. LWE adds a small noise <code>e</code> to each pad, and that noise is
+   solved by Gaussian elimination. <abbr title="learning with errors">LWE</abbr> adds a small noise <code>e</code> to each pad, and that noise is
    what makes it hard. The noise also grows with every operation, which limits computation (P7–P9).</li>
 <li>
 <p><strong>Multiplication does not come for free.</strong></p>
@@ -678,47 +676,45 @@ HE's main feature rather than a bug.</p>
 <p>Subtracting \(k_1 k_2\) is not enough: in part 4 of the script it gives 580 instead of \(m_1 m_2 \bmod 1000 = 800\).
 The result can be decrypted as \(c_1 c_2 - k_2 c_1 - k_1 c_2 + k_1 k_2\), but only if the server
 also keeps \(c_1\) and \(c_2\): the ciphertext grows from one number to three, and decryption
-becomes quadratic in the keys. LWE ciphertexts hit exactly this problem (two components
+becomes quadratic in the keys. <abbr title="learning with errors">LWE</abbr> ciphertexts hit exactly this problem (two components
 become three, with an \(s^2\) term), and <strong>relinearization</strong> shrinks them back (P8).</p>
 </li>
 </ol>
-<p>A stream cipher like AES-CTR is also "message XOR pad", so XOR of ciphertexts carries over in
-the same way. But its pad comes out of AES, which scrambles the key so thoroughly that no
-algebra survives (P2). HE needs pads with structure, and \(\langle a, s \rangle + e\) is that
+<p>A stream cipher like <abbr title="Advanced Encryption Standard">AES</abbr>-CTR is also "message <abbr title="exclusive or">XOR</abbr> pad", so <abbr title="exclusive or">XOR</abbr> of ciphertexts carries over in
+the same way. But its pad comes out of <abbr title="Advanced Encryption Standard">AES</abbr>, which scrambles the key so thoroughly that no
+algebra survives (P2). <abbr title="homomorphic encryption">HE</abbr> needs pads with structure, and \(\langle a, s \rangle + e\) is that
 structure.</p>
 <h2 id="12-check-yourself">12. Check yourself<a class="headerlink" href="#12-check-yourself" title="Link to this section">#</a></h2>
 <ol>
-<li>A one-byte XOR one-time pad produces the ciphertext <code>0x7D</code>. Eve's prior is <code>Y</code> with 0.9 and
-   <code>N</code> with 0.1. Which key would each message need, and what is her posterior?</li>
-<li>Why can a 4-bit key never encrypt 8-bit messages with perfect secrecy, however it is used?</li>
-<li>Alice encrypted two messages with the same pad. What does Eve compute first, and what does
-   she get if she knows one of the messages?</li>
-<li>A stream cipher with a 128-bit key encrypts a 1 MB file. Is it perfectly secret? Could an
-   attacker with unlimited time read it, and why does that not matter in practice?</li>
-<li>With the pad mod 1000, \(c_1 = 25\) (key 905) and \(c_2 = 574\) (key 234). The server returns
-   \(c_1 + c_2 \bmod 1000\). What is that ciphertext, which key decrypts it, and to what?</li>
-<li>Why is 80-bit security no longer acceptable while 128-bit is? Use the rate of
-   \(10^{21}\) operations per second.</li>
-</ol>
-<h3 id="answers">Answers<a class="headerlink" href="#answers" title="Link to this section">#</a></h3>
-<ol>
-<li><code>Y</code> = 0x59 needs the key 0x59 ⊕ 0x7D = <code>0x24</code>; <code>N</code> = 0x4E needs <code>0x33</code>. Both keys have
+<li>A one-byte <abbr title="exclusive or">XOR</abbr> one-time pad produces the ciphertext <code>0x7D</code>. Eve's prior is <code>Y</code> with 0.9 and
+   <code>N</code> with 0.1. Which key would each message need, and what is her posterior?
+<details class="answer"><summary>Show answer</summary><div><p><code>Y</code> = 0x59 needs the key 0x59 ⊕ 0x7D = <code>0x24</code>; <code>N</code> = 0x4E needs <code>0x33</code>. Both keys have
    probability 1/256, so the posterior equals the prior: still 0.9 and 0.1. She learned
-   nothing.</li>
-<li>Counting: with 16 keys, a ciphertext can decrypt to at most 16 of the 256 messages. The other
+   nothing.</p></div></details></li>
+<li>Why can a 4-bit key never encrypt 8-bit messages with perfect secrecy, however it is used?
+<details class="answer"><summary>Show answer</summary><div><p>Counting: with 16 keys, a ciphertext can decrypt to at most 16 of the 256 messages. The other
    240 become impossible once <code>c</code> is seen, so any prior that gave them weight changes. Shannon:
-   perfect secrecy needs at least as many keys as messages.</li>
-<li>She XORs the ciphertexts: \(c_1 \oplus c_2 = m_1 \oplus m_2\), and the key is gone. Knowing \(m_1\)
+   perfect secrecy needs at least as many keys as messages.</p></div></details></li>
+<li>Alice encrypted two messages with the same pad. What does Eve compute first, and what does
+   she get if she knows one of the messages?
+<details class="answer"><summary>Show answer</summary><div><p>She <abbr title="exclusive or">XOR</abbr>s the ciphertexts: \(c_1 \oplus c_2 = m_1 \oplus m_2\), and the key is gone. Knowing \(m_1\)
    gives \(m_2 = c_1 \oplus c_2 \oplus m_1\) and the key \(k = c_1 \oplus m_1\). Even without
-   known plaintext, crib dragging usually recovers both, as in Venona.</li>
-<li>No: there are only \(2^{128}\) keys and far more possible files. An unbounded attacker tries all
+   known plaintext, crib dragging usually recovers both, as in Venona.</p></div></details></li>
+<li>A stream cipher with a 128-bit key encrypts a 1 MB file. Is it perfectly secret? Could an
+   attacker with unlimited time read it, and why does that not matter in practice?
+<details class="answer"><summary>Show answer</summary><div><p>No: there are only \(2^{128}\) keys and far more possible files. An unbounded attacker tries all
    keys, and only one gives a sensible file. It does not matter because \(2^{128}\) operations are
-   about \(10^{10}\) years even at Bitcoin-network scale. The security is computational.</li>
-<li>\(25 + 574 = 599\). The key is \(905 + 234 = 1139 \equiv 139\), and \(599 - 139 = 460 = 120 + 340\).</li>
-<li>\(2^{80} \approx 1.2 \times 10^{24}\) operations take about \(1.2 \times 10^{3}\) s, some
+   about \(10^{10}\) years even at Bitcoin-network scale. The security is computational.</p></div></details></li>
+<li>With the pad mod 1000, \(c_1 = 25\) (key 905) and \(c_2 = 574\) (key 234). The server returns
+   \(c_1 + c_2 \bmod 1000\). What is that ciphertext, which key decrypts it, and to what?
+<details class="answer"><summary>Show answer</summary><div><p>\(25 + 574 = 599\). The key is \(905 + 234 = 1139 \equiv 139\), and \(599 - 139 = 460 = 120 + 340\).</p></div></details></li>
+<li>Why is 80-bit security no longer acceptable while 128-bit is? Use the rate of
+   \(10^{21}\) operations per second.
+<details class="answer"><summary>Show answer</summary><div><p>\(2^{80} \approx 1.2 \times 10^{24}\) operations take about \(1.2 \times 10^{3}\) s, some
    20 minutes, at \(10^{21}\) per second. \(2^{128}\) is \(2^{48} \approx 3 \times 10^{14}\) times more:
-   about \(10^{10}\) years. Each bit doubles the work, so the 48-bit gap is decisive.</li>
+   about \(10^{10}\) years. Each bit doubles the work, so the 48-bit gap is decisive.</p></div></details></li>
 </ol>
+
 <h2 id="13-key-terms">13. Key terms<a class="headerlink" href="#13-key-terms" title="Link to this section">#</a></h2>
 <div class="table-wrap"><table>
 <thead>
@@ -758,7 +754,7 @@ structure.</p>
 </tr>
 <tr>
 <td>One-time pad</td>
-<td>Add a truly random key as long as the message (XOR or mod n), used once</td>
+<td>Add a truly random key as long as the message (<abbr title="exclusive or">XOR</abbr> or mod n), used once</td>
 </tr>
 <tr>
 <td>Perfect secrecy</td>
@@ -828,15 +824,15 @@ structure.</p>
   3,000 messages read, end in 1980. <a href="https://media.defense.gov/2021/Jun/29/2002752012/-1/-1/0/VENONA_AN_OVERVIEW.PDF">https://media.defense.gov/2021/Jun/29/2002752012/-1/-1/0/VENONA_AN_OVERVIEW.PDF</a></li>
 <li>N. Borisov, I. Goldberg, D. Wagner, "Intercepting Mobile Communications: The Insecurity of
   802.11", MobiCom 2001. Keystream reuse in WEP. <a href="https://csclub.uwaterloo.ca/~iagoldbe/pubs/wep-mob01.pdf">https://csclub.uwaterloo.ca/~iagoldbe/pubs/wep-mob01.pdf</a></li>
-<li>EFF press release on DES Challenge III (19 January 1999): 22 h 15 min, 245 billion keys/s.
+<li>EFF press release on <abbr title="Data Encryption Standard">DES</abbr> Challenge III (19 January 1999): 22 h 15 min, 245 billion keys/s.
   <a href="https://w2.eff.org/Privacy/Crypto/Crypto_misc/DESCracker/HTML/19990119_deschallenge3.html">https://w2.eff.org/Privacy/Crypto/Crypto_misc/DESCracker/HTML/19990119_deschallenge3.html</a></li>
-<li>NIST SP 800-57 Part 1 Rev. 5 (2020): security strength, Table 2 (AES-128 ≈ RSA-3072 ≈
-  ECC-256). <a href="https://doi.org/10.6028/NIST.SP.800-57pt1r5">https://doi.org/10.6028/NIST.SP.800-57pt1r5</a></li>
+<li><abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-57 Part 1 Rev. 5 (2020): security strength, Table 2 (<abbr title="Advanced Encryption Standard">AES</abbr>-128 ≈ <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-3072 ≈
+  ECC-256). <a href="https://doi.org/10.6028/NIST.SP.800-57pt1r5">https://doi.org/10.6028/<abbr title="National Institute of Standards and Technology">NIST</abbr>.<abbr title="Special Publication (a NIST document series)">SP</abbr>.800-57pt1r5</a></li>
 <li>B. Schneier, <em>Applied Cryptography</em>, 2nd ed., Wiley, 1996, §7.1 "Thermodynamic Limitations"
   (the \(2^{187}\) and \(2^{219}\) counters).</li>
 <li>J. D. Cook, "Exahash, Zettahash, Yottahash" (22 February 2026): Bitcoin hash rate about
   \(1.1 \times 10^{21}\) per second. <a href="https://www.johndcook.com/blog/2026/02/22/zettahash/">https://www.johndcook.com/blog/2026/02/22/zettahash/</a></li>
-<li>Y. Nir, A. Langley, RFC 8439, <em>ChaCha20 and Poly1305 for IETF Protocols</em>, 2018.
+<li>Y. Nir, A. Langley, <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8439, <em>ChaCha20 and Poly1305 for <abbr title="Internet Engineering Task Force">IETF</abbr> Protocols</em>, 2018.
   <a href="https://www.rfc-editor.org/rfc/rfc8439">https://www.rfc-editor.org/rfc/rfc8439</a></li>
 <li>Further reading: J. Katz and Y. Lindell, <em>Introduction to Modern Cryptography</em>, 3rd ed.,
   2020, chapters 1–3; D. Boneh and V. Shoup, <em>A Graduate Course in Applied Cryptography</em>,

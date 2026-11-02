@@ -477,7 +477,7 @@ Things to try:
 6. Why can't a server that computes on HE ciphertexts return results protected by AES-GCM-style
    authentication? What does that mean for a client that does not trust the server?
 
-### Answers
+**Answers**
 
 1. Choose $m_0$ = two equal blocks $X \| X$ and $m_1$ = two different blocks $X \| Y$. Under ECB
    the challenge ciphertext has two equal blocks exactly when it encrypts $m_0$. With one-block

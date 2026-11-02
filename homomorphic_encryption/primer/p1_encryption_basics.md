@@ -564,7 +564,7 @@ structure.
 6. Why is 80-bit security no longer acceptable while 128-bit is? Use the rate of
    $10^{21}$ operations per second.
 
-### Answers
+**Answers**
 
 1. `Y` = 0x59 needs the key 0x59 ⊕ 0x7D = `0x24`; `N` = 0x4E needs `0x33`. Both keys have
    probability 1/256, so the posterior equals the prior: still 0.9 and 0.1. She learned

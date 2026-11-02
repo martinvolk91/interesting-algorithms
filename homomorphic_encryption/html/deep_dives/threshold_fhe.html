@@ -6,6 +6,7 @@
 <title>Deep dive: threshold and multiparty FHE (and the Zama Protocol)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/figures.css">
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -96,18 +97,18 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol">Deep dive: threshold and multiparty FHE (and the Zama Protocol)<a class="headerlink" href="#deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../05_core_techniques.html#8-multi-party-variants">05 Core techniques §8</a>, <a href="bfv_pir.html">BFV deep dive</a>, <a href="ckks_ind_cpa_d.html">IND-CPA-D deep dive</a></p>
+<p><a href="../index.html">index</a> · background: <a href="../05_core_techniques.html#8-multi-party-variants">05 Core techniques §8</a>, <a href="bfv_pir.html"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> deep dive</a>, <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a></p>
 <hr />
-<p>Plain FHE has <strong>one key owner</strong>. That breaks down when:</p>
+<p>Plain <abbr title="fully homomorphic encryption">FHE</abbr> has <strong>one key owner</strong>. That breaks down when:</p>
 <ul>
 <li><strong>several parties contribute data</strong> (hospitals, banks) and none of them should be able to
   decrypt the others' data alone; or</li>
 <li><strong>nobody should hold the key at all</strong>, as on a public blockchain where encrypted balances and
   contract state are shared by everyone and decrypted only under agreed rules.</li>
 </ul>
-<p><strong>Threshold FHE</strong> splits the secret key among <code>n</code> parties so that any <code>t</code> of them can decrypt
+<p><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong> splits the secret key among <code>n</code> parties so that any <code>t</code> of them can decrypt
 together, and fewer than <code>t</code> learn nothing. This document builds a toy version on top of the
-toy BFV and then maps it onto the <strong>Zama Protocol</strong>, the largest deployment of threshold FHE
+toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and then maps it onto the <strong>Zama Protocol</strong>, the largest deployment of threshold <abbr title="fully homomorphic encryption">FHE</abbr>
 today. The code is in <a href="../../code/threshold_bfv.py"><code>../code/threshold_bfv.py</code></a>:</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/threshold_bfv.py<span class="w">    </span><span class="c1"># from the homomorphic_encryption/ folder, ~0.3 s</span>
 </code></pre></div>
@@ -186,38 +187,38 @@ a research field rather than a one-liner:</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Threshold FHE</strong> (t-of-n)</td>
+<td><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong> (t-of-n)</td>
 <td>one public key, secret Shamir-shared</td>
 <td>any <code>t</code> parties</td>
 <td>Asharov et al. 2012; Boneh et al. 2018 ("universal thresholdizer")</td>
 </tr>
 <tr>
-<td><strong>Multiparty HE (MHE)</strong> (n-of-n)</td>
+<td><strong>Multiparty <abbr title="homomorphic encryption">HE</abbr> (<abbr title="multiparty homomorphic encryption">MHE</abbr>)</strong> (n-of-n)</td>
 <td>collective keys from additive contributions</td>
 <td>all <code>n</code> parties</td>
 <td>Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021; implemented in Lattigo</td>
 </tr>
 <tr>
-<td><strong>Multi-key FHE</strong></td>
+<td><strong>Multi-key <abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
 <td>each party keeps its own key; ciphertexts are extended on the fly</td>
 <td>all parties whose data was used</td>
 <td>López-Alt–Tromer–Vaikuntanathan 2012; cost grows with the number of parties</td>
 </tr>
 <tr>
-<td><strong>FHE + generic MPC</strong></td>
-<td>keys generated and used inside a general MPC protocol</td>
-<td><code>t</code> parties via MPC</td>
-<td>the Zama Protocol's KMS (§7)</td>
+<td><strong><abbr title="fully homomorphic encryption">FHE</abbr> + generic <abbr title="secure multiparty computation">MPC</abbr></strong></td>
+<td>keys generated and used inside a general <abbr title="secure multiparty computation">MPC</abbr> protocol</td>
+<td><code>t</code> parties via <abbr title="secure multiparty computation">MPC</abbr></td>
+<td>the Zama Protocol's <abbr title="key management service">KMS</abbr> (§7)</td>
 </tr>
 </tbody>
 </table></div>
-<p>The toy combines the first two: MHE-style key generation from additive contributions, then
+<p>The toy combines the first two: <abbr title="multiparty homomorphic encryption">MHE</abbr>-style key generation from additive contributions, then
 Shamir sharing for t-of-n decryption.</p>
 <hr />
 <h2 id="2-distributed-key-generation">2. Distributed key generation<a class="headerlink" href="#2-distributed-key-generation" title="Link to this section">#</a></h2>
 <h3 id="21-the-collective-public-key">2.1 The collective public key<a class="headerlink" href="#21-the-collective-public-key" title="Link to this section">#</a></h3>
 <p>All parties agree on a common random polynomial <code>a</code>, a <strong>common reference string</strong>. Each party
-<code>i</code> samples its own small \(s_i\) and publishes \(-a\,s_i + e_i\). The sum is a valid RLWE public
+<code>i</code> samples its own small \(s_i\) and publishes \(-a\,s_i + e_i\). The sum is a valid <abbr title="ring learning with errors">RLWE</abbr> public
 key for \(s = \sum_i s_i\):</p>
 <div class="math-display">\[pk = \Big(\sum_i (-a\,s_i + e_i),\ a\Big) = (-a\,s + e,\ a), \qquad e = \sum_i e_i\]</div>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">collective_public_key</span><span class="p">(</span><span class="n">contribs</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
@@ -250,7 +251,7 @@ coefficients in −3..3. That is information-theoretic hiding.</p>
 \(\lambda_j = \prod_{k \ne j} \frac{k}{k - j}\) need inverses of differences like <code>2 − 1</code> and
 <code>3 − 1</code>. Modulo a power of two, even numbers have no inverse, and among any three party ids
 two differ by an even number. So the threshold demo sets <code>Q = 2¹²⁰ − 119</code>, the largest prime
-below 2¹²⁰. Real libraries use a product of large primes (RNS), where every small difference
+below 2¹²⁰. Real libraries use a product of large primes (<abbr title="residue number system">RNS</abbr>), where every small difference
 is invertible. (The alternative is Shoup's trick of clearing denominators with <code>n!</code>, which
 costs noise.)</p>
 <p>Production DKGs add <strong>verifiable secret sharing</strong> (commitments that let parties detect a
@@ -299,9 +300,9 @@ ciphertext multiplication leaves <strong>69.9</strong> bits of budget with the j
 with a single-party key, i.e. about 5.6 bits.</p>
 <p><strong>Galois keys</strong> are easier: \(\sigma_k(s) = \sum_i \sigma_k(s_i)\) is linear in the
 contributions, so one round like §2.1 suffices.</p>
-<p><strong>TFHE bootstrapping keys</strong> are the hardest. They are GGSW encryptions of the individual
-<strong>bits</strong> of <code>s</code>, and extracting bits of a secret-shared value needs a general MPC protocol.
-This is the most expensive part of setting up threshold TFHE, and it is what the Zama KMS's
+<p><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping keys</strong> are the hardest. They are <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> encryptions of the individual
+<strong>bits</strong> of <code>s</code>, and extracting bits of a secret-shared value needs a general <abbr title="secure multiparty computation">MPC</abbr> protocol.
+This is the most expensive part of setting up threshold <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, and it is what the Zama <abbr title="key management service">KMS</abbr>'s
 distributed key generation does (§7).</p>
 <hr />
 <h2 id="3-computing-on-jointly-encrypted-data">3. Computing on jointly encrypted data<a class="headerlink" href="#3-computing-on-jointly-encrypted-data" title="Link to this section">#</a></h2>
@@ -315,7 +316,7 @@ untrusted server sums them and squares the totals:</p>
 <div class="highlight"><pre><span></span><code>true totals per age group: [19, 8, 17, 16, 18, 16, 13, 12]
 </code></pre></div>
 
-<p><strong>Evaluation is unchanged.</strong> The server runs ordinary BFV, and it neither knows nor cares that
+<p><strong>Evaluation is unchanged.</strong> The server runs ordinary <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, and it neither knows nor cares that
 the key is shared. All the multiparty machinery lives in key generation and decryption.</p>
 <hr />
 <h2 id="4-threshold-decryption">4. Threshold decryption<a class="headerlink" href="#4-threshold-decryption" title="Link to this section">#</a></h2>
@@ -352,7 +353,7 @@ party [2] alone: [31, 64, 85, 70, 243, 5, 235, 1]  correct: False
 <p>If a party publishes a wrong \(h_j\), the toy simply decrypts to garbage, and nobody can tell
 who cheated. Real systems add <strong>zero-knowledge proofs</strong> of correct partial decryption, or use
 <strong>robust</strong> protocols with more than <code>t</code> participants and error correction (Reed–Solomon
-decoding of shares). The Zama KMS is designed to output correctly even with up to a third of
+decoding of shares). The Zama <abbr title="key management service">KMS</abbr> is designed to output correctly even with up to a third of
 its nodes malicious (§7).</p>
 <hr />
 <h2 id="5-why-smudging-is-mandatory">5. Why smudging is mandatory<a class="headerlink" href="#5-why-smudging-is-mandatory" title="Link to this section">#</a></h2>
@@ -370,17 +371,17 @@ over <code>t</code> shares, i.e. <strong>the key</strong>:</p>
 </code></pre></div>
 
 <h3 id="52-the-exact-scheme-surprise">5.2 The exact-scheme surprise<a class="headerlink" href="#52-the-exact-scheme-surprise" title="Link to this section">#</a></h3>
-<p>In single-key BFV, decryption <strong>rounds</strong> the noise away, which is why exact schemes are
-IND-CPA-D secure (<a href="bfv_pir.html#21-encrypt-and-decrypt">BFV §2.1</a>). In threshold decryption the
+<p>In single-key <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, decryption <strong>rounds</strong> the noise away, which is why exact schemes are
+<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> secure (<a href="bfv_pir.html#21-encrypt-and-decrypt"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> §2.1</a>). In threshold decryption the
 <strong>unrounded</strong> value \(c_0 + \sum h_j = \Delta m + e\) is computed in the open, by whoever
-combines the partials. The noise <code>e</code> depends on the secret key, so <strong>threshold BFV, BGV and
-TFHE face the same problem as CKKS</strong> in the
-<a href="ckks_ind_cpa_d.html">IND-CPA-D deep dive</a>: the noise must be statistically hidden.</p>
+combines the partials. The noise <code>e</code> depends on the secret key, so <strong>threshold <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and
+<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> face the same problem as <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong> in the
+<a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>: the noise must be statistically hidden.</p>
 <h3 id="53-how-much-smudging">5.3 How much smudging<a class="headerlink" href="#53-how-much-smudging" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Small noise is not enough.</strong> σ = 3.2 defeats the one-shot linear solve (the "no" below),
   but it does not <em>statistically</em> hide <code>e</code>. The averaging and lattice attacks from the
-  IND-CPA-D deep dive still apply.</li>
+  <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive still apply.</li>
 <li><strong>The smudging lemma</strong> says \(\sigma_{sm} \approx 2^{\lambda} \cdot |e|\) for λ bits of
   statistical security, where <code>|e|</code> is the noise of the ciphertext being decrypted. Measured in
   the toy: about \(2^{8.7}\) for the summed counts and \(2^{40.9}\) after one multiplication. The
@@ -399,19 +400,19 @@ TFHE face the same problem as CKKS</strong> in the
 
 <p>Over 20 trials each, 2¹⁰⁸ still decrypted correctly every time and 2¹¹⁰ never did
 (\(\Delta \approx 2^{112}\)). So the modulus has to hold the message, plus the computation noise,
-plus <strong>about λ extra bits</strong> for smudging. This is the "flooding tax" of threshold FHE.</p>
+plus <strong>about λ extra bits</strong> for smudging. This is the "flooding tax" of threshold <abbr title="fully homomorphic encryption">FHE</abbr>.</p>
 <h3 id="54-tfhe-has-no-room-noahs-ark">5.4 TFHE has no room: Noah's Ark<a class="headerlink" href="#54-tfhe-has-no-room-noahs-ark" title="Link to this section">#</a></h3>
-<p>TFHE uses a small modulus (2⁶⁴) packed tightly with message and noise, so there are no 40 spare
+<p><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> uses a small modulus (2⁶⁴) packed tightly with message and noise, so there are no 40 spare
 bits for smudging. Zama's <strong>"Noah's Ark"</strong> paper (Dahl et al., WAHC 2023,
 <a href="https://eprint.iacr.org/2023/815">ePrint 2023/815</a>) shows noise flooding still works:
-before threshold decryption, <strong>use TFHE's fast bootstrapping to move the ciphertext into a
+before threshold decryption, <strong>use <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>'s fast bootstrapping to move the ciphertext into a
 scheme with larger parameters</strong>, then flood there. The security proof is a simulation
 argument. Newer work tries to cut the cost further:</p>
 <ul>
 <li><strong>Ajax</strong> (<a href="https://eprint.iacr.org/2025/1834">ePrint 2025/1834</a>) points out that
   flooding-based threshold decryption needs large parameters or a costly switch, and proposes
   an improvement.</li>
-<li><strong>High-throughput UC threshold FHE decryption</strong> (<a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a>)
+<li><strong>High-throughput UC threshold <abbr title="fully homomorphic encryption">FHE</abbr> decryption</strong> (<a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a>)
   aims to avoid noise flooding altogether.</li>
 </ul>
 <hr />
@@ -470,31 +471,31 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 <tbody>
 <tr>
 <td>3 parties, threshold 2</td>
-<td>13 KMS nodes, 2/3 majority</td>
+<td>13 <abbr title="key management service">KMS</abbr> nodes, 2/3 majority</td>
 </tr>
 <tr>
 <td>collective public key (§2.1)</td>
-<td>the network's FHE public key, which every user encrypts to</td>
+<td>the network's <abbr title="fully homomorphic encryption">FHE</abbr> public key, which every user encrypts to</td>
 </tr>
 <tr>
 <td>Shamir shares of <code>s</code> (§2.2)</td>
-<td>key shares held by KMS nodes, from an MPC distributed key generation</td>
+<td>key shares held by <abbr title="key management service">KMS</abbr> nodes, from an <abbr title="secure multiparty computation">MPC</abbr> distributed key generation</td>
 </tr>
 <tr>
 <td>collective relinearization key (§2.3)</td>
-<td>TFHE bootstrapping and key-switching keys, generated in MPC: the heavy part</td>
+<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping and key-switching keys, generated in <abbr title="secure multiparty computation">MPC</abbr>: the heavy part</td>
 </tr>
 <tr>
 <td>untrusted server (§3)</td>
-<td>coprocessors running TFHE-rs, cross-checked by majority vote</td>
+<td>coprocessors running <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs, cross-checked by majority vote</td>
 </tr>
 <tr>
 <td>threshold decryption + smudging (§4–5)</td>
-<td><strong>public decryption</strong>: KMS threshold decryption with noise flooding (Noah's Ark)</td>
+<td><strong>public decryption</strong>: <abbr title="key management service">KMS</abbr> threshold decryption with noise flooding (Noah's Ark)</td>
 </tr>
 <tr>
 <td>re-encryption to a user's key (§6)</td>
-<td><strong>user decryption</strong>: the KMS delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention ML-KEM), not an FHE key switch</td>
+<td><strong>user decryption</strong>: the <abbr title="key management service">KMS</abbr> delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>), not an <abbr title="fully homomorphic encryption">FHE</abbr> key switch</td>
 </tr>
 <tr>
 <td>no access control</td>
@@ -502,32 +503,32 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 </tr>
 <tr>
 <td>semi-honest, no proofs</td>
-<td>robust MPC, enclave attestation, ZK proofs of input encryption</td>
+<td>robust <abbr title="secure multiparty computation">MPC</abbr>, enclave attestation, <abbr title="zero knowledge">ZK</abbr> proofs of input encryption</td>
 </tr>
 </tbody>
 </table></div>
 <h3 id="72-what-the-trust-model-rests-on">7.2 What the trust model rests on<a class="headerlink" href="#72-what-the-trust-model-rests-on" title="Link to this section">#</a></h3>
 <ul>
-<li><strong>Confidentiality</strong> requires that fewer than the threshold of KMS nodes collude. Enclaves add
+<li><strong>Confidentiality</strong> requires that fewer than the threshold of <abbr title="key management service">KMS</abbr> nodes collude. Enclaves add
   defence in depth: per the litepaper, extracting key shares outside the protocol would need
   AWS <em>and</em> several node operators to collude.</li>
 <li><strong>Correctness</strong> of computation rests on the coprocessor majority and on public
-  re-computability: FHE evaluation is deterministic, so anyone can check it.</li>
-<li><strong>Availability</strong> requires enough honest KMS nodes online to reach the threshold.</li>
-<li><strong>The KMS is, by design, a decryption service.</strong> The ACL decides <em>who</em> may decrypt <em>what</em>.
-  That is exactly the IND-CPA-D setting, which is why noise flooding and negligible
+  re-computability: <abbr title="fully homomorphic encryption">FHE</abbr> evaluation is deterministic, so anyone can check it.</li>
+<li><strong>Availability</strong> requires enough honest <abbr title="key management service">KMS</abbr> nodes online to reach the threshold.</li>
+<li><strong>The <abbr title="key management service">KMS</abbr> is, by design, a decryption service.</strong> The ACL decides <em>who</em> may decrypt <em>what</em>.
+  That is exactly the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> setting, which is why noise flooding and negligible
   failure probabilities are non-negotiable here.</li>
 <li>The input proofs are not post-quantum yet. The litepaper notes a lattice-based replacement is
-  planned. The FHE itself is lattice-based.</li>
+  planned. The <abbr title="fully homomorphic encryption">FHE</abbr> itself is lattice-based.</li>
 </ul>
 <hr />
 <h2 id="8-other-uses-of-threshold-and-multiparty-fhe">8. Other uses of threshold and multiparty FHE<a class="headerlink" href="#8-other-uses-of-threshold-and-multiparty-fhe" title="Link to this section">#</a></h2>
 <ul>
-<li><strong>Medical and financial consortia:</strong> joint statistics, GWAS and survival analysis without
-  pooling data (Lattigo's MHE, Tune Insight).</li>
+<li><strong>Medical and financial consortia:</strong> joint statistics, <abbr title="genome-wide association study">GWAS</abbr> and survival analysis without
+  pooling data (Lattigo's <abbr title="multiparty homomorphic encryption">MHE</abbr>, Tune Insight).</li>
 <li><strong>Federated learning:</strong> encrypted model aggregation with no central key holder.</li>
 <li><strong>Voting and sealed-bid auctions:</strong> tally or compare, then threshold-decrypt only the result.</li>
-<li><strong>Thresholdizing other cryptography:</strong> Boneh et al. show threshold FHE can turn signatures
+<li><strong>Thresholdizing other cryptography:</strong> Boneh et al. show threshold <abbr title="fully homomorphic encryption">FHE</abbr> can turn signatures
   and other primitives into threshold versions generically.</li>
 </ul>
 <hr />
@@ -556,14 +557,14 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 <hr />
 <h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
 <ul>
-<li>Asharov, Jain, López-Alt, Tromer, Vaikuntanathan, Wichs. <em>Multiparty Computation with Low Communication, Computation and Interaction via Threshold FHE</em>. Eurocrypt 2012. <a href="https://eprint.iacr.org/2011/613">ePrint 2011/613</a></li>
+<li>Asharov, Jain, López-Alt, Tromer, Vaikuntanathan, Wichs. <em>Multiparty Computation with Low Communication, Computation and Interaction via Threshold <abbr title="fully homomorphic encryption">FHE</abbr></em>. Eurocrypt 2012. <a href="https://eprint.iacr.org/2011/613">ePrint 2011/613</a></li>
 <li>López-Alt, Tromer, Vaikuntanathan. <em>On-the-Fly Multiparty Computation on the Cloud via Multikey Fully Homomorphic Encryption</em>. STOC 2012. <a href="https://eprint.iacr.org/2013/094">ePrint 2013/094</a></li>
 <li>Boneh, Gennaro, Goldfeder, Jain, Kim, Rasmussen, Sahai. <em>Threshold Cryptosystems from Threshold Fully Homomorphic Encryption</em>. CRYPTO 2018. <a href="https://eprint.iacr.org/2017/956">ePrint 2017/956</a></li>
 <li>Mouchet, Troncoso-Pastoriza, Bossuat, Hubaux. <em>Multiparty Homomorphic Encryption from Ring-Learning-with-Errors</em>. PETS 2021. <a href="https://eprint.iacr.org/2020/304">ePrint 2020/304</a></li>
 <li>Dahl, Demmler, Smart, et al. (Zama). <em>Noah's Ark: Efficient Threshold-FHE Using Noise Flooding</em>. WAHC 2023. <a href="https://eprint.iacr.org/2023/815">ePrint 2023/815</a></li>
-<li><em>Ajax</em> (threshold FHE decryption). <a href="https://eprint.iacr.org/2025/1834">ePrint 2025/1834</a></li>
-<li><em>High-Throughput Universally Composable Threshold FHE Decryption</em>. <a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a></li>
-<li>Zama. <a href="https://docs.zama.org/protocol/zama-protocol-litepaper"><em>Zama Confidential Blockchain Protocol Litepaper</em></a> · <a href="https://www.zama.org/post/zama-protocol-testnet-update-mpc-partners-better-performance-audits-and-new-features"><em>Testnet update: MPC partners …</em></a> · <a href="https://docs.zama.org/protocol/relayer-sdk-guides/fhevm-relayer/decryption/user-decryption"><em>User decryption</em> (relayer SDK guide)</a> · <a href="https://docs.zama.org/protocol/protocol/overview"><em>FHE on blockchain</em> (protocol overview)</a></li>
+<li><em>Ajax</em> (threshold <abbr title="fully homomorphic encryption">FHE</abbr> decryption). <a href="https://eprint.iacr.org/2025/1834">ePrint 2025/1834</a></li>
+<li><em>High-Throughput Universally Composable Threshold <abbr title="fully homomorphic encryption">FHE</abbr> Decryption</em>. <a href="https://eprint.iacr.org/2025/1781">ePrint 2025/1781</a></li>
+<li>Zama. <a href="https://docs.zama.org/protocol/zama-protocol-litepaper"><em>Zama Confidential Blockchain Protocol Litepaper</em></a> · <a href="https://www.zama.org/post/zama-protocol-testnet-update-mpc-partners-better-performance-audits-and-new-features"><em>Testnet update: <abbr title="secure multiparty computation">MPC</abbr> partners …</em></a> · <a href="https://docs.zama.org/protocol/relayer-sdk-guides/fhevm-relayer/decryption/user-decryption"><em>User decryption</em> (relayer SDK guide)</a> · <a href="https://docs.zama.org/protocol/protocol/overview"><em><abbr title="fully homomorphic encryption">FHE</abbr> on blockchain</em> (protocol overview)</a></li>
 </ul>
 <blockquote>
 <p>The ePrint numbers for Asharov et al., López-Alt et al., Boneh et al. and Mouchet et al. are
