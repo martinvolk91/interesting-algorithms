@@ -1,0 +1,160 @@
+<figure class="diagram" id="d-n08-deployment-map">
+  <div class="map" role="img" aria-label="Applications of FHE by scheme family and status. In production: Apple Live Caller ID Lookup, Apple Enhanced Visual Search and Microsoft Edge Password Monitor on BFV, and the Zama Protocol on TFHE; nothing on CKKS. Pilots: cross-organization analytics and genomics, and encrypted ML inference. Research: encrypted LLM inference."></div>
+  <figcaption>The applications of §3 placed by scheme family and status. Everything shipping is a
+    shallow lookup on BFV or a TFHE token protocol. CKKS, the scheme behind most encrypted-ML
+    work, has pilots and research but no deployment named in these notes. Entries that span two
+    schemes use either one, or the sources don't say which.</figcaption>
+</figure>
+<script>
+(() => {
+  const host = document.querySelector('#d-n08-deployment-map .map');
+  const NS = 'http://www.w3.org/2000/svg';
+  const SCHEMES = [
+    { name: 'BGV / BFV', sub: 'exact integers' },
+    { name: 'CKKS', sub: 'approximate numbers' },
+    { name: 'FHEW / TFHE', sub: 'bits, small integers' },
+  ];
+  const STATUS = [
+    { id: 'prod', name: 'In production', series: 6 },
+    { id: 'pilot', name: 'Pilots', series: 4 },
+    { id: 'research', name: 'Research', series: 7 },
+  ];
+  // Facts from 08 §3 and 07 §3, §8. cols: the scheme columns an entry belongs to.
+  const ITEMS = [
+    { status: 'prod', cols: [0], lines: ['Apple Live Caller ID Lookup', 'Apple Enhanced Visual Search',
+      'Microsoft Edge Password Monitor'], note: 'shallow lookups, no bootstrapping' },
+    { status: 'prod', cols: [1], empty: true, lines: ['nothing shipping yet'] },
+    { status: 'prod', cols: [2], lines: ['Zama Protocol: confidential tokens on Ethereum, since Dec 2025'],
+      note: 'TFHE + threshold MPC' },
+    { status: 'pilot', cols: [0, 1], lines: ['Cross-organization analytics, genomics'],
+      note: 'financial crime, hospitals; often multiparty HE' },
+    { status: 'pilot', cols: [1, 2], lines: ['Encrypted ML inference: fraud, credit, medical risk'],
+      note: 'CKKS pipelines; Concrete ML on TFHE' },
+    { status: 'research', cols: [1, 2], lines: ['Encrypted LLM inference, about 10⁴× slower than plaintext'],
+      note: 'CKKS, and CKKS/TFHE hybrids' },
+  ];
+  const LINE = 18, PAD = 10, GAP = 8;
+
+  function el(tag, attrs, parent, text) {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text !== undefined) n.textContent = text;
+    parent.appendChild(n);
+    return n;
+  }
+  // Greedy word wrap, measured with the real font.
+  function wrap(svg, text, maxW) {
+    const probe = el('text', { x: 0, y: -50 }, svg);
+    const out = [];
+    let cur = '';
+    for (const w of text.split(' ')) {
+      const next = cur ? cur + ' ' + w : w;
+      probe.textContent = next;
+      if (cur && probe.getComputedTextLength() > maxW) { out.push(cur); cur = w; } else cur = next;
+    }
+    if (cur) out.push(cur);
+    probe.remove();
+    return out;
+  }
+  // One box: optional status tag, wrapped lines, then a muted note. Returns the rect.
+  function box(svg, x, y, w, item, tag) {
+    const st = STATUS.find(s => s.id === item.status);
+    const g = el('g', {}, svg);
+    const rect = el('rect', { x, y, width: w, height: 10, rx: 6 }, g);
+    if (item.empty) {
+      rect.setAttribute('fill', 'none');
+      rect.setAttribute('stroke', 'var(--line-strong)');
+      rect.setAttribute('stroke-dasharray', '5 4');
+    } else {
+      rect.setAttribute('fill', `var(--series-${st.series})`);
+      rect.setAttribute('fill-opacity', st.id === 'pilot' ? 0.14 : 0.12);
+      rect.setAttribute('stroke', `var(--series-${st.series})`);
+    }
+    let ty = y + PAD;
+    if (tag) {
+      el('text', { x: x + PAD, y: ty + 11, 'font-weight': 650, style: 'fill: var(--muted); font-size: 12px' }, g, tag);
+      ty += LINE;
+    }
+    for (const line of item.lines) {
+      for (const part of wrap(svg, line, w - 2 * PAD)) {
+        el('text', { x: x + PAD, y: ty + 12, style: item.empty ? 'fill: var(--muted)' : '' }, g, part);
+        ty += LINE;
+      }
+    }
+    if (item.note) {
+      ty += 4;
+      for (const part of wrap(svg, item.note, w - 2 * PAD)) {
+        el('text', { x: x + PAD, y: ty + 12, style: 'fill: var(--muted)' }, g, part);
+        ty += LINE;
+      }
+    }
+    rect.setAttribute('height', ty - y + PAD - 2);
+    return rect;
+  }
+
+  // Wide: status bands as rows, scheme families as columns.
+  function wide(svg, W) {
+    const cw = (W - 2 * GAP) / 3, colX = i => i * (cw + GAP);
+    SCHEMES.forEach((s, i) => {
+      el('text', { x: colX(i) + cw / 2, y: 16, 'text-anchor': 'middle', 'font-weight': 650 }, svg, s.name);
+      el('text', { x: colX(i) + cw / 2, y: 34, 'text-anchor': 'middle', style: 'fill: var(--muted)' }, svg, s.sub);
+    });
+    let y = 50;
+    for (const st of STATUS) {
+      const label = el('text', { x: 0, y: y + 13, 'font-weight': 650 }, svg, st.name);
+      el('line', { x1: label.getComputedTextLength() + 10, x2: W, y1: y + 9, y2: y + 9, stroke: 'var(--line)' }, svg);
+      y += 24;
+      // pack this status's entries into rows: a new row whenever two entries share a column
+      const rows = [];
+      for (const it of ITEMS.filter(o => o.status === st.id)) {
+        let row = rows.find(r => it.cols.every(c => !r.used.has(c)));
+        if (!row) { row = { used: new Set(), items: [] }; rows.push(row); }
+        it.cols.forEach(c => row.used.add(c));
+        row.items.push(it);
+      }
+      for (const r of rows) {
+        const rects = r.items.map(it => {
+          const x = colX(it.cols[0]), w = colX(it.cols[it.cols.length - 1]) + cw - x;
+          return box(svg, x, y, w, it);
+        });
+        const h = Math.max(...rects.map(rc => +rc.getAttribute('height')));
+        rects.forEach(rc => rc.setAttribute('height', h));        // equal heights within a row
+        y += h + GAP;
+      }
+      y += 8;
+    }
+    return y - 8 - GAP;
+  }
+
+  // Narrow: one block per scheme family, its entries stacked and tagged with their status.
+  function narrow(svg, W) {
+    let y = 0;
+    SCHEMES.forEach((s, i) => {
+      const name = el('text', { x: 0, y: y + 14, 'font-weight': 650 }, svg, s.name);
+      el('text', { x: name.getComputedTextLength() + 8, y: y + 14, style: 'fill: var(--muted)' }, svg, s.sub);
+      y += 24;
+      for (const st of STATUS) {
+        for (const it of ITEMS.filter(o => o.status === st.id && o.cols.includes(i))) {
+          y += +box(svg, 0, y, W, it, st.name).getAttribute('height') + GAP;
+        }
+      }
+      y += 14;
+    });
+    return y - 14 - GAP;
+  }
+
+  let lastW = 0;
+  function render() {
+    const W = Math.max(280, Math.min(760, host.clientWidth || 600));
+    lastW = host.clientWidth;
+    host.textContent = '';
+    const svg = el('svg', { viewBox: `0 0 ${W} 100` }, host);
+    const H = W >= 540 ? wide(svg, W) : narrow(svg, W);
+    svg.setAttribute('viewBox', `0 0 ${W} ${Math.ceil(H + 2)}`);
+  }
+  render();
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => { if (Math.abs(host.clientWidth - lastW) > 2) render(); }).observe(host);
+  }
+})();
+</script>

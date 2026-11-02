@@ -13,32 +13,32 @@ it is explained.
 | Term | Meaning |
 |---|---|
 | **Automorphism (Galois)** | Ring map `X ↦ X^k` (`k` odd). Permutes slots and gives **rotations**. Needs a Galois key to switch back to the original secret key |
-| **Batching / SIMD packing** | Encoding many values into one plaintext via the CRT so that one operation acts on all **slots** |
-| **BKZ** | Lattice basis-reduction algorithm. Its cost model underpins concrete security estimates |
-| **Blind rotation** | Core of FHEW/TFHE bootstrapping: rotates a test polynomial by the encrypted phase using CMux gates |
-| **Bootstrapping** | Homomorphically evaluating decryption with an encrypted secret key to reset the noise. Turns leveled HE into FHE |
+| **Batching / SIMD packing** | Encoding many values into one plaintext via the Chinese remainder theorem (CRT) so that one operation acts on all **slots**, like single instruction, multiple data (SIMD) instructions on a processor |
+| **BKZ** | Block Korkine–Zolotarev lattice reduction, a lattice basis-reduction algorithm. Its cost model underpins concrete security estimates |
+| **Blind rotation** | Core of bootstrapping in FHEW (the Ducas–Micciancio scheme) and TFHE (torus fully homomorphic encryption): rotates a test polynomial by the encrypted phase using CMux gates |
+| **Bootstrapping** | Homomorphically evaluating decryption with an encrypted secret key to reset the noise. Turns leveled homomorphic encryption (HE) into fully homomorphic encryption (FHE) |
 | **Circuit privacy** | The output ciphertext reveals nothing about the evaluated function. Achieved by sanitization |
 | **Circular security** | The assumption that publishing `Enc_sk(sk)` is safe. Needed for bootstrapping |
-| **CMux** | Encrypted multiplexer `b ? x : y` built from the GGSW × GLWE external product |
-| **CRT** | Chinese Remainder Theorem. Underlies batching, the NTT and RNS |
-| **Δ (scale / scaling factor)** | Multiplier that lifts the message above the noise (BFV: `q/t`; CKKS: e.g. 2⁴⁰) |
+| **CMux** | Encrypted multiplexer `b ? x : y` built from the GGSW × GLWE external product: a GGSW ciphertext (general GSW, after the Gentry–Sahai–Waters scheme) times a GLWE ciphertext (general learning with errors) |
+| **CRT** | Chinese Remainder Theorem. Underlies batching, the number-theoretic transform (NTT) and the residue number system (RNS) |
+| **Δ (scale / scaling factor)** | Multiplier that lifts the message above the noise (in BFV, the Brakerski/Fan–Vercauteren scheme: `q/t`; in CKKS, the Cheon–Kim–Kim–Song scheme: e.g. 2⁴⁰) |
 | **Depth (multiplicative)** | Longest chain of sequential multiplications in the circuit. Determines parameters |
 | **Evaluation keys** | Public keys for the server: relinearization, Galois/rotation and bootstrapping keys |
 | **External product** | GGSW × GLWE → GLWE. Cheap, with low noise growth. The workhorse of TFHE |
 | **Gadget decomposition** | Splitting a large value into small digits (base `w`) to keep key-switching noise small |
 | **GGSW / GLWE** | Ring versions of GSW and LWE ciphertexts, as used in TFHE |
 | **IND-CPA** | Indistinguishability under chosen-plaintext attack: the standard semantic-security notion |
-| **IND-CPA-D** | IND-CPA where the adversary also sees decryptions of honestly computed ciphertexts. CKKS needs noise flooding to achieve it |
+| **IND-CPA-D** | IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts. CKKS needs noise flooding to achieve it |
 | **Key switching** | Turning a ciphertext under key `s'` into one under `s` using an encryption of `s'` under `s`. The expensive primitive |
 | **Level** | Remaining modulus budget, i.e. the number of RNS primes left. Each rescale or modulus switch uses one |
 | **Leveled HE** | Supports circuits up to a fixed depth `L` without bootstrapping |
 | **LUT** | Lookup table. Evaluated for free by programmable bootstrapping |
 | **LWE / RLWE / MLWE** | Learning With Errors over integers, polynomial rings or modules. The hardness foundation |
-| **Modulus switching** | Scaling a ciphertext to a smaller modulus to shrink the noise (BGV) |
+| **Modulus switching** | Scaling a ciphertext to a smaller modulus to shrink the noise (in BGV, the Brakerski–Gentry–Vaikuntanathan scheme) |
 | **Noise / error** | The small random term hiding the message. It grows with operations |
 | **Noise budget** | How much noise growth remains before decryption fails |
 | **Noise flooding** | Adding large fresh noise to hide the computation noise: for circuit privacy, threshold decryption and IND-CPA-D |
-| **NTT** | Number Theoretic Transform, the FFT over `Z_q`. Makes ring multiplication `O(N log N)` |
+| **NTT** | Number Theoretic Transform, the fast Fourier transform (FFT) over `Z_q`. Makes ring multiplication `O(N log N)` |
 | **PBS** | Programmable bootstrapping: TFHE bootstrapping that also applies a LUT |
 | **Plaintext modulus `t`** | Message space `Z_t` for BGV/BFV/TFHE |
 | **Relinearization** | Reducing a 3-component product ciphertext to 2 components using the relinearization key |
@@ -67,7 +67,7 @@ it is explained.
 - Acar, Aksu, Uluagac, Conti, *"A Survey on Homomorphic Encryption Schemes: Theory and Implementation"*, ACM Computing Surveys 2018.
 - Shai Halevi, *"Homomorphic Encryption"*, in *Tutorials on the Foundations of Cryptography* (2017).
 - Chris Peikert, *"A Decade of Lattice Cryptography"* ([ePrint 2015/939](https://eprint.iacr.org/2015/939)). The lattice background.
-- Al Badawi et al., *SoK: Private LLM Inference using Approximate HE* ([ePrint 2026/935](https://eprint.iacr.org/2026/935)). The current state of encrypted AI.
+- Al Badawi et al., *SoK: Private LLM Inference using Approximate HE* ([ePrint 2026/935](https://eprint.iacr.org/2026/935)). The current state of encrypted AI, in particular of large language models (LLMs).
 
 ### Foundational papers (chronological)
 | Year | Paper | Link |
@@ -78,7 +78,7 @@ it is explained.
 | 2010 | Lyubashevsky, Peikert, Regev, *On Ideal Lattices and Learning with Errors over Rings* | [ePrint 2012/230](https://eprint.iacr.org/2012/230) |
 | 2011 | Brakerski, Vaikuntanathan, *Efficient FHE from (Standard) LWE* | [ePrint 2011/344](https://eprint.iacr.org/2011/344) |
 | 2012 | Brakerski, Gentry, Vaikuntanathan, *(Leveled) FHE without Bootstrapping* (**BGV**) | [ePrint 2011/277](https://eprint.iacr.org/2011/277) |
-| 2012 | Brakerski, *FHE without Modulus Switching from Classical GapSVP* | [ePrint 2012/078](https://eprint.iacr.org/2012/078) |
+| 2012 | Brakerski, *FHE without Modulus Switching from Classical GapSVP* (GapSVP: the gap shortest vector problem) | [ePrint 2012/078](https://eprint.iacr.org/2012/078) |
 | 2012 | Fan, Vercauteren, *Somewhat Practical FHE* (**BFV**) | [ePrint 2012/144](https://eprint.iacr.org/2012/144) |
 | 2013 | Gentry, Sahai, Waters, *HE from LWE: Conceptually-Simpler, Asymptotically-Faster, Attribute-Based* (**GSW**) | [ePrint 2013/340](https://eprint.iacr.org/2013/340) |
 | 2014 | Halevi, Shoup, *Algorithms in HElib* | [ePrint 2014/106](https://eprint.iacr.org/2014/106) |
@@ -96,10 +96,10 @@ it is explained.
 
 ### Code to read and run
 - [OpenFHE](https://github.com/openfheorg/openfhe-development) and [openfhe-python](https://github.com/openfheorg/openfhe-python) (examples for every scheme)
-- [TFHE-rs](https://github.com/zama-ai/tfhe-rs) · [Concrete ML](https://github.com/zama-ai/concrete-ml)
+- [TFHE-rs](https://github.com/zama-ai/tfhe-rs) · [Concrete ML](https://github.com/zama-ai/concrete-ml) (encrypted machine learning)
 - [Microsoft SEAL](https://github.com/microsoft/SEAL) (very readable examples)
 - [Lattigo](https://github.com/tuneinsight/lattigo) · [HElib](https://github.com/homenc/HElib)
-- [Apple swift-homomorphic-encryption](https://github.com/apple/swift-homomorphic-encryption) (a real PIR deployment)
+- [Apple swift-homomorphic-encryption](https://github.com/apple/swift-homomorphic-encryption) (a real private information retrieval (PIR) deployment)
 - [Google HEIR](https://github.com/google/heir)
 - [TenSEAL](https://github.com/OpenMined/TenSEAL) (quick CKKS in Python)
 

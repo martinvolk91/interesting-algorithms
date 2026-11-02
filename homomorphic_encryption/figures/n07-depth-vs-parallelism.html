@@ -1,0 +1,63 @@
+<figure class="widget" id="w-n07-depth-vs-parallelism">
+  <p class="widget-title">Same work, fewer sequential layers</p>
+  <p class="widget-hint">Drag the slider to the right. The standard bootstrap stays at 500 steps; the 3-layer one keeps getting faster until it reaches 3.</p>
+  <div class="controls"></div>
+  <div class="c-steps"></div>
+  <div class="readout"></div>
+  <figcaption>A model, not a benchmark. Both methods do the same 500 units of work (one unit = one
+    sequential layer of standard FHEW/TFHE bootstrapping, "500+" in §1). The standard method must
+    do them one after another. The 2026 method (ePrint 2026/1730) groups them into 3 layers of
+    about 167 independent units. Each unit takes one time step, and the hardware runs up to the
+    chosen number at once. With one unit at a time, both take about 500 steps. With enough
+    parallel hardware, the depth sets the floor.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n07-depth-vs-parallelism';
+  const WORK = 500;                       // "500+ sequential NTT layers" (07 §1)
+  const OLD = Array(WORK).fill(1);        // 500 layers of 1 unit each
+  const NEW = [167, 167, 166];            // the same 500 units in 3 layers (depth 3, 07 §1)
+  const steps = (layers, p) => layers.reduce((t, w) => t + Math.ceil(w / p), 0);
+  const int = v => Math.round(v).toLocaleString('en-US');
+
+  // precompute both curves once, on every integer P from 1 to 1000
+  const PS = DS.math.range(1000).map(i => i + 1);
+  const oldCurve = PS.map(p => [p, steps(OLD, p)]);
+  const newCurve = PS.map(p => [p, steps(NEW, p)]);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const lanes = ui.slider({ label: 'Units the hardware runs at once', min: 1, max: 1000, value: 40, log: true,
+    format: v => int(v) });
+  const P = () => Math.max(1, Math.round(lanes.value));
+
+  const chart = DS.chart(root + ' .c-steps', {
+    x: { type: 'log', domain: [1, 1000], label: 'Units the hardware runs at once', tipLabel: 'units at once:', tipFormat: int,
+      format: int },
+    y: { type: 'log', domain: [1, 1000], label: 'Time steps for one bootstrap', format: int },
+    height: 300,
+    ariaLabel: 'Time steps for one bootstrap against the number of units the hardware runs at once, for 500 sequential layers and for 3 layers.',
+    draw(c) {
+      const p = P();
+      c.line(oldCurve, { series: 2, thick: true, label: 'standard (500 layers)', format: int });
+      c.line(newCurve, { series: 1, thick: true, label: '2026 (3 layers)', format: int });
+      c.hline(3, { series: 'muted', dash: true, label: 'floor = depth 3', at: 'left' });
+      c.vline(p, { series: 'ink', dash: true });
+      c.point(p, steps(OLD, p), { series: 2 });
+      c.point(p, steps(NEW, p), { series: 1 });
+      c.legend([{ label: 'Standard FHEW/TFHE: 500 layers of 1 unit', series: 2 },
+                { label: '2026/1730: 3 layers of ~167 units', series: 1 }]);
+    },
+  });
+
+  function readout() {
+    const p = P(), a = steps(OLD, p), b = steps(NEW, p);
+    DS.stats(root + ' .readout', [
+      { label: 'Standard: 500 layers', value: int(a) + ' steps', note: 'one layer waits for the previous one' },
+      { label: '2026: 3 layers', value: int(b) + ' steps', note: '3 × ⌈167 / ' + int(p) + '⌉' + (b === 3 ? ', at the floor' : '') },
+      { label: 'Latency gain', value: (a / b).toFixed(a / b < 10 ? 1 : 0) + '×', tone: a / b > 1.5 ? 'good' : undefined,
+        note: a / b < 1.05 ? 'no gain without parallel hardware' : 'same total work' },
+    ]);
+  }
+  readout();
+})();
+</script>

@@ -1,0 +1,74 @@
+<figure class="widget" id="w-n07-bootstrap-timeline">
+  <p class="widget-title">Time per bootstrap, 2011 to 2026</p>
+  <p class="widget-hint">Hover a point for its source. Switch off the batched results: what is left is the wait for a single bootstrap.</p>
+  <div class="controls"></div>
+  <div class="c-time"></div>
+  <div class="readout"></div>
+  <figcaption>Log scale: each grid line is 10× faster than the one above. Blue: the wall-clock time
+    of one bootstrap (2011–2017 from ch. 01 §4; the H100 figure from §1). Orange: batched results
+    from §1, where many bootstraps run together and the total time is divided by their count.
+    Arrows mark upper bounds ("under 1 s"). The systems, parameters and hardware all differ, so
+    read the picture for orders of magnitude only.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n07-bootstrap-timeline';
+  // Every value as stated in the notes; amortized = total time / number of bootstraps.
+  const SINGLE = [
+    { x: 2011, y: 30 * 60, name: 'Gentry–Halevi', short: '~30 min', under: false,
+      tip: '2011, Gentry–Halevi, first implementation: about 30 minutes per bootstrap (ch. 01 §4)' },
+    { x: 2015, y: 1, name: 'FHEW', short: '< 1 s', under: true,
+      tip: '2015, FHEW: one NAND gate bootstrapped in under 1 s (ch. 01 §4)' },
+    { x: 2016, y: 0.1, name: 'TFHE', short: '< 0.1 s', under: true,
+      tip: '2016, TFHE: gate bootstrapping in under 0.1 s (ch. 01 §4)' },
+    { x: 2017, y: 0.013, name: 'TFHE', short: '13 ms', under: false,
+      tip: '2017, TFHE: about 13 ms (ch. 01 §4)' },
+    { x: 2026, y: 1e-3, name: 'TFHE, 1 H100', short: '< 1 ms', under: true,
+      tip: '2026, TFHE on one NVIDIA H100: under 1 ms (vendor figure, §1)' },
+  ];
+  const PER8 = 1 / 189000;                       // 189 000 bootstraps/s across 8 H100s (§1)
+  const BATCH = [
+    { x: 2024, y: 3.75e-3, name: 'CKKS 8-bit LUT', short: '3.75 ms', side: 'left',
+      tip: '2024, CKKS small-integer bootstrapping: 3.75 ms per 8-bit LUT, amortized over 2¹² ciphertexts, one thread (§1)' },
+    { x: 2026, y: 211e-6, name: 'LSTM', short: '211 µs',
+      tip: '2026, PBS inside an encrypted LSTM: 211 µs amortized (ePrint 2026/1091, §1)' },
+    { x: 2026, y: PER8, name: '8 H100s', short: (PER8 * 1e6).toFixed(1) + ' µs',
+      tip: '2026, TFHE on 8 NVIDIA H100s: 189 000 bootstraps/s, so ' + (PER8 * 1e6).toFixed(1) +
+        ' µs each, or ' + (8 * PER8 * 1e6).toFixed(0) + ' µs of one GPU\'s time (vendor figure, §1)' },
+  ];
+  const fmtT = v => v >= 1e4 ? '10⁴ s' : v >= 1 ? Math.round(v) + ' s' : v >= 1e-3 ? Math.round(v * 1e3) + ' ms' : Math.round(v * 1e6) + ' µs';
+
+  const ui = DS.controls(root + ' .controls', () => chart.update());
+  const showBatch = ui.toggle({ label: 'Show batched (amortized) results', value: true });
+
+  const chart = DS.chart(root + ' .c-time', {
+    x: { domain: [2009, 2030], tickValues: [2010, 2014, 2018, 2022, 2026], format: v => String(v), label: 'Year' },
+    y: { type: 'log', domain: [1e-6, 1e4], label: 'Time per bootstrap', format: fmtT },
+    height: 360, margin: { l: 82 },
+    ariaLabel: 'Time per bootstrap from 2011 to 2026 on a log scale, single bootstraps and batched results.',
+    draw(c) {
+      const wide = c.W >= 560;
+      for (const p of SINGLE) if (p.under) c.arrow(p.x, p.y, p.x, p.y / 4, { series: 1, thin: true, head: 6 });
+      c.scatter(SINGLE.map(p => ({ x: p.x, y: p.y, tip: p.tip })), { series: 1, r: 5 });
+      if (showBatch.value) c.scatter(BATCH.map(p => ({ x: p.x, y: p.y, tip: p.tip })), { series: 2, r: 5 });
+      const label = (p, left) => c.text(p.x, p.y, wide ? p.name + ': ' + p.short : p.short,
+        { dx: left ? -10 : 10, dy: left ? -8 : 4, anchor: left ? 'end' : 'start' });
+      SINGLE.forEach(p => label(p, false));
+      if (showBatch.value) BATCH.forEach(p => {
+        if (p.side === 'left' && !wide) c.text(p.x, p.y, p.short, { dx: 9, dy: -7 });   // phone: no room on the left
+        else label(p, p.side === 'left');
+      });
+      c.legend([{ label: 'One bootstrap (latency)', series: 1, kind: 'dot' },
+                ...(showBatch.value ? [{ label: 'Batched, per bootstrap (amortized)', series: 2, kind: 'dot' }] : [])]);
+    },
+  });
+
+  const first = SINGLE[0].y, last = SINGLE[SINGLE.length - 1].y;
+  DS.stats(root + ' .readout', [
+    { label: 'One bootstrap, 2011 → 2026', value: '≥ ' + (first / last / 1e6).toFixed(1) + ' million×',
+      note: '30 min → under 1 ms', tone: 'good' },
+    { label: 'Batched on 8 GPUs', value: (PER8 * 1e6).toFixed(1) + ' µs', note: '1 / 189 000 per second' },
+    { label: '§9 goal for TFHE', value: 'ms → µs', note: 'for a single bootstrap' },
+  ]);
+})();
+</script>

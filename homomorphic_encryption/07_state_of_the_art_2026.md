@@ -12,26 +12,36 @@
 
 ## 0. The picture in ten bullets
 
-1. **The scheme landscape is stable but converging.** BGV/BFV, CKKS and TFHE remain the big
-   three. CKKS is absorbing TFHE's strength (functional bootstrapping on discrete data), and
-   TFHE is absorbing batching ideas. A new matrix-native scheme (Gentry–Lee) appeared in late
-   2025.
+1. **The scheme landscape is stable but converging.** The big three remain BGV/BFV (the
+   Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes), CKKS (the
+   Cheon–Kim–Kim–Song scheme) and TFHE (torus fully homomorphic encryption). CKKS is absorbing
+   TFHE's strength (functional bootstrapping on discrete data), and TFHE is absorbing batching
+   ideas. A new matrix-native scheme (Gentry–Lee) appeared in late 2025.
 2. **Bootstrapping is still the bottleneck and the main research target.** CRYPTO 2026 has
-   results that cut FHEW/TFHE bootstrapping from 500+ sequential NTT layers to 3.
-3. **Hardware has arrived as silicon.** Intel's **Heracles** FHE accelerator (DARPA DPRIVE)
-   was presented at ISSCC 2026 with ~10³× speedups over a 24-core Xeon on core operations.
-   Startups (Niobium, Cornami, Optalysys, Fabric) are building chips.
-4. **GPUs are the practical accelerator today.** TFHE bootstraps take under 1 ms on an H100.
-   GPU CKKS libraries (FIDESlib, Cheddar, Phantom) report 1–2 orders of magnitude over
-   optimized CPU code.
-5. **Encrypted LLM inference works but isn't practical.** 21 CKKS frameworks have run
-   end-to-end private inference up to 8B-parameter models, but the best are still about
-   **10⁴× slower** than plaintext.
-6. **Security research has shifted from "is LWE hard?" to "how do real systems leak?"**: the
-   IND-CPA-D attacks on CKKS, BFV, TFHE and scheme switching (ch. 06).
-7. **Standardization is close.** ISO/IEC 28033 (FHE) Parts 2 (BGV/BFV), 3 (CKKS) and 4
-   (CGGI/TFHE) reached Draft International Standard ballots in early 2026.
-8. **Compilers are maturing.** Google's MLIR-based **HEIR** is positioning itself as the common
+   results that cut bootstrapping in FHEW (the Ducas–Micciancio scheme) and TFHE from 500+
+   sequential number-theoretic transform (NTT) layers to 3.
+3. **Hardware has arrived as silicon.** Intel's **Heracles** fully homomorphic encryption (FHE)
+   accelerator, from the Defense Advanced Research Projects Agency (DARPA) program Data
+   Protection in Virtual Environments (DPRIVE), was presented at ISSCC 2026 with ~10³× speedups
+   over a 24-core Xeon on core operations. Startups (Niobium, Cornami, Optalysys, Fabric) are
+   building chips.
+4. **Graphics processing units (GPUs) are the practical accelerator today.** TFHE bootstraps
+   take under 1 ms on an H100. GPU CKKS libraries (FIDESlib, Cheddar, Phantom) report 1–2
+   orders of magnitude over optimized code on a central processing unit (CPU).
+5. **Encrypted large language model (LLM) inference works but isn't practical.** 21 CKKS
+   frameworks have run end-to-end private inference up to 8B-parameter models, but the best are
+   still about **10⁴× slower** than plaintext.
+6. **Security research has shifted from "is learning with errors (LWE) hard?" to "how do real
+   systems leak?"**: attacks in the IND-CPA-D model (indistinguishability under chosen-plaintext
+   attack with decryptions: the attacker also sees decryptions of honestly computed
+   ciphertexts) against CKKS, BFV, TFHE and scheme switching (ch. 06).
+7. **Standardization is close.** The International Organization for Standardization (ISO) and
+   the International Electrotechnical Commission (IEC) are writing an FHE standard,
+   ISO/IEC 28033. Its Parts 2 (BGV/BFV), 3 (CKKS) and 4 (TFHE, also called CGGI after
+   Chillotti–Gama–Georgieva–Izabachène) reached Draft International Standard (DIS) ballots in
+   early 2026.
+8. **Compilers are maturing.** Google's **HEIR**, built on the Multi-Level Intermediate
+   Representation (MLIR) compiler framework, is positioning itself as the common
    layer across schemes, libraries and hardware.
 9. **Production deployments are real but narrow**: private lookups (Apple, Microsoft) and
    confidential blockchain tokens (Zama). General encrypted backends are not shipping.
@@ -49,35 +59,43 @@
   - With a **sparse, small-norm LWE secret** (Hamming weight `h`), blind-rotation cost drops
     from Õ(n²) to **Õ(n·h)** Z_q-multiplications. That gives a **4.5–7.5× speedup** over
     OpenFHE's gate and functional bootstrapping.
-  - With a new **structured-secret RLWE variant** and a relinearization-free BV-style
-    multiplication, the **sequential NTT/INTT depth drops to 3** (versus 500+ in standard
-    FHEW/TFHE) at similar total work. The authors expect large latency wins on GPUs and other
-    parallel hardware.
+  - With a new **structured-secret ring learning with errors (RLWE) variant** and a
+    relinearization-free multiplication in the style of the Brakerski–Vaikuntanathan (BV)
+    scheme, the **sequential depth of NTTs and inverse number-theoretic transforms (INTTs)
+    drops to 3** (versus 500+ in standard FHEW/TFHE) at similar total work. The authors expect
+    large latency wins on GPUs and other parallel hardware.
   - Includes a security analysis of the new assumption (worst-case to average-case and
     search-to-decision reductions, concrete attacks). It is a new assumption, so expect
     follow-up cryptanalysis.
 - **GPU TFHE:** bootstrapping latency reported as **< 1 ms on an NVIDIA H100** and about
   **189 000 bootstraps/s across 8 H100s** (Zama; vendor figures via secondary sources).
-- **Encrypted LSTM via PBS** (ePrint [2026/1091](https://eprint.iacr.org/2026/1091)):
-  211 µs amortized per bootstrap, and 5.2 s inference for a 128-token sequence.
+- **Encrypted LSTM (long short-term memory network) via programmable bootstrapping (PBS)**
+  (ePrint [2026/1091](https://eprint.iacr.org/2026/1091)): 211 µs amortized per bootstrap, and
+  5.2 s inference for a 128-token sequence.
+
+Why depth 3 matters even at the same total work: the standard blind rotation is a chain, so
+each step waits for the previous one, and extra parallel hardware sits idle.
+
+<!-- figure: n07-depth-vs-parallelism -->
 
 ### CKKS
 
 - **MRFHE: Mixed-Radix FHE with Better Batch Bootstrapping** (Cheon et al., ePrint
-  [2026/853](https://eprint.iacr.org/2026/853)): recasts the DFT steps of CKKS bootstrapping
-  as **batched matrix multiplications** with a constant number of key switches per
-  ciphertext. Implemented in Lattigo.
+  [2026/853](https://eprint.iacr.org/2026/853)): recasts the discrete Fourier transform (DFT)
+  steps of CKKS bootstrapping as **batched matrix multiplications** with a constant number of
+  key switches per ciphertext. Implemented in Lattigo.
 - **Discrete / functional CKKS bootstrapping** (2024–2025): bootstrapping **bits**
   (Bae–Cheon–Kim–Stehlé, Eurocrypt 2024, [2024/767](https://eprint.iacr.org/2024/767)),
-  **small integers** with LUTs (Bae–Kim–Stehlé–Suvanto, Asiacrypt 2024,
+  **small integers** with lookup tables (LUTs) (Bae–Kim–Stehlé–Suvanto, Asiacrypt 2024,
   [2024/1637](https://eprint.iacr.org/2024/1637)): **3.75 ms amortized per 8-bit LUT** over
   2¹² ciphertexts, single-threaded at 128-bit security, **general functional bootstrapping**
   (Alexandru–Kim–Polyakov, [2024/1623](https://eprint.iacr.org/2024/1623)), modular
   reduction ([2024/1638](https://eprint.iacr.org/2024/1638)), and **high-precision discrete
   CKKS** for noise flooding (Choe–Kim–Stehlé–Suvanto, [2025/1786](https://eprint.iacr.org/2025/1786)).
   Together these turn CKKS into a credible "do everything" scheme.
-- **GPU CKKS:** FIDESlib reports **≥ 70×** faster bootstrapping than AVX-optimized OpenFHE
-  (secondary source). Cheddar and Phantom are other high-performance GPU libraries.
+- **GPU CKKS:** FIDESlib reports **≥ 70×** faster bootstrapping than OpenFHE optimized with
+  Advanced Vector Extensions (AVX) (secondary source). Cheddar and Phantom are other
+  high-performance GPU libraries.
 
 ### Matrix FHE
 
@@ -85,6 +103,12 @@
   (CRYPTO 2026; ePrint [2026/956](https://eprint.iacr.org/2026/956)): bootstrapping for the
   Gentry–Lee scheme. Linear transformations take **20.1 %** of bootstrapping time, versus
   **54.9–71.7 %** in prior CKKS work.
+
+For scale, the older numbers from ch. 01 §4: the first implementation (Gentry–Halevi, 2011)
+needed about 30 minutes per bootstrap, FHEW (2015) under 1 s, and TFHE under 0.1 s in 2016 and
+about 13 ms by 2017.
+
+<!-- figure: n07-bootstrap-timeline -->
 
 ## 2. New schemes
 
@@ -96,11 +120,11 @@
 
 ## 3. Encrypted AI and LLM inference
 
-**Status (per the 2026 SoK):** CKKS-based private LLM inference is *algorithmically feasible*
-but *operationally impractical* for interactive use.
+**Status (per the 2026 SoK, a systematization-of-knowledge paper):** CKKS-based private LLM
+inference is *algorithmically feasible* but *operationally impractical* for interactive use.
 
-- **SoK: Private LLM Inference using Approximate HE.** Al Badawi, Alexandru, Polyakov,
-  Vaikuntanathan (ePrint [2026/935](https://eprint.iacr.org/2026/935)).
+- **SoK: Private LLM Inference using Approximate HE** (homomorphic encryption). Al Badawi,
+  Alexandru, Polyakov, Vaikuntanathan (ePrint [2026/935](https://eprint.iacr.org/2026/935)).
   - 21 CKKS frameworks have shown **end-to-end private LLM inference, up to 8B parameters**
     (Llama-3-8B).
   - Only **5 of 21 are model-preserving**: they run the unmodified model with the whole prompt
@@ -125,27 +149,29 @@ but *operationally impractical* for interactive use.
 - GPU encrypted GPT-2-class inference: about **200× over CPU baselines** (ICML 2025, as cited
   by secondary sources). That is still far from interactive.
 
-**Reality check:** for private LLM inference *today*, confidential GPUs and TEEs are the
-practical option. FHE wins where trust in hardware vendors is unacceptable, or for small and
-medium models (logistic regression, trees, small NNs), which run in **seconds** under CKKS or
+**Reality check:** for private LLM inference *today*, confidential GPUs and trusted execution
+environments (TEEs) are the practical option. FHE wins where trust in hardware vendors is
+unacceptable, or for small and medium models (logistic regression, trees, small neural
+networks), which run in **seconds** under CKKS or with Zama's machine learning (ML) library
 Concrete ML.
 
 ## 4. Hardware acceleration
 
 **Why FHE needs custom hardware:** the work is dominated by NTTs, modular multiplication over
-wide RNS limbs, automorphisms (data permutations) and, above all, **memory bandwidth**:
-key-switching keys are hundreds of MB to GB and are streamed for every rotation and
-relinearization.
+wide residue number system (RNS) limbs, automorphisms (data permutations) and, above all,
+**memory bandwidth**: key-switching keys are hundreds of MB to GB and are streamed for every
+rotation and relinearization.
 
 > **Deep dive:** [deep_dives/hardware.md](deep_dives/hardware.md) measures where the time goes
 > in our toys, implements the NTT and RNS, models key switching at bootstrapping size
 > (memory-bound by ~3–18×), and walks through GPUs, F1, BTS, CraterLake, ARK, SHARP and Heracles.
 
 ### Academic ASIC lineage (simulated designs)
+Application-specific integrated circuits (ASICs) from academia, simulated rather than built:
 F1 (MICRO 2021) → BTS and CraterLake (ISCA 2022) → ARK (MICRO 2022) → SHARP (ISCA 2023) →
 systolic designs such as Osiris (arXiv [2408.09593](https://arxiv.org/abs/2408.09593)). These
 showed 1000×+ speedups over CPU in simulation and set the architecture template: many NTT
-lanes, huge on-chip SRAM, HBM, and on-the-fly key generation.
+lanes, huge on-chip SRAM, high-bandwidth memory (HBM), and on-the-fly key generation.
 
 ### DARPA DPRIVE (2021–) and Intel Heracles
 - **Intel Heracles**, presented at **ISSCC (Feb 2026)** after about five years of DPRIVE
@@ -163,8 +189,9 @@ lanes, huge on-chip SRAM, HBM, and on-the-fly key generation.
 - **Fabric Cryptography**: a cryptography-focused processor.
 
 ### GPUs (available now)
-TFHE-rs CUDA backend, FIDESlib, Cheddar, Phantom, HEaaN-GPU. For batched CKKS and PBS-heavy
-TFHE, GPUs give roughly **10–100×** over CPU (vendor and secondary figures).
+TFHE-rs with its Compute Unified Device Architecture (CUDA) backend for NVIDIA GPUs, FIDESlib,
+Cheddar, Phantom, HEaaN-GPU. For batched CKKS and PBS-heavy TFHE, GPUs give roughly **10–100×**
+over CPU (vendor and secondary figures).
 
 ## 5. Standardization
 
@@ -176,7 +203,7 @@ TFHE, GPUs give roughly **10–100×** over CPU (vendor and secondary figures).
 | **ISO/IEC 28033-2** | Exact arithmetic on modular integers (BGV/BFV) | DIS, Jan 2026. BSI lists an adoption dated 30 Jan 2026 (status ambiguous across sources) |
 | **ISO/IEC 28033-3** | Approximate numbers (CKKS) | DIS, ballot closed 27 Mar 2026 |
 | **ISO/IEC 28033-4** | Look-up table evaluation (CGGI / TFHE) | DIS 4.2, voting closed 19 Feb 2026 |
-| NIST multi-party threshold cryptography call (IR 8214C) | Includes FHE among the "special" primitives for threshold schemes | Ongoing |
+| National Institute of Standards and Technology (NIST) multi-party threshold cryptography call (IR 8214C) | Includes FHE among the "special" primitives for threshold schemes | Ongoing |
 
 Check the ISO website for the current stage before relying on the ISO entries; drafts move.
 
@@ -203,16 +230,19 @@ Check the ISO website for the current stage before relying on the ISO entries; d
 
 ## 8. Industry and deployments
 
-- **Apple**: Live Caller ID Lookup (iOS 18, BFV-based PIR), Enhanced Visual Search (BFV +
-  differential privacy + anonymization network), and the open-source `swift-homomorphic-encryption`.
-- **Microsoft**: Edge Password Monitor (BFV in SEAL, inside a PSI protocol).
+- **Apple**: Live Caller ID Lookup (iOS 18, BFV-based private information retrieval, PIR),
+  Enhanced Visual Search (BFV + differential privacy + anonymization network), and the
+  open-source `swift-homomorphic-encryption`.
+- **Microsoft**: Edge Password Monitor (BFV in SEAL, inside a private set intersection (PSI)
+  protocol).
 - **Zama**: the **Zama Protocol** went live on **Ethereum mainnet on 31 Dec 2025** (TFHE + threshold
-  MPC for confidential tokens, ERC-7984). It runs at about 20 TPS on CPU. The CEO claims
+  secure multiparty computation (MPC) for confidential tokens, ERC-7984). It runs at about
+  20 transactions per second (TPS) on CPU. The CEO claims
   **1 000 confidential transfers/s on GPUs** (self-reported, without methodology). Roadmap
   targets of 10k TPS (2028) and 100k TPS (2030) are aspirational.
 - **Google**: HEIR, Private Join and Compute (additive HE).
 - **Duality, CryptoLab (HEaaN), DESILO, Inpher, Tune Insight**: enterprise analytics,
-  healthcare, finance (AML), and genomics pilots.
+  healthcare, finance (anti-money laundering, AML), and genomics pilots.
 - Jeremy Kun's [*FHE in production*](https://jeremykun.com/fhe-in-production) keeps a
   skeptical list of what is truly deployed versus pilots and rumours.
 
