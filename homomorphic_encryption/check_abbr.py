@@ -16,7 +16,9 @@ for title, short in abbrs:
     seen.add(short)
     first = re.search(r"(?<![a-z])" + re.escape(short.lower()) + r"(?![a-z])", text)
     upto = text[: first.end() + 200] if first else text
-    words = [w for w in re.findall(r"[a-z]+", html.unescape(title).lower()) if len(w) > 3][:3]
+    # the spelled-out term is the part of the title before any "(" or ":" note
+    main = re.split(r"[(:]", html.unescape(title))[0]
+    words = [w for w in re.findall(r"[a-z]+", main.lower()) if len(w) > 3][:3]
     if not all(w in upto for w in words):
         problems.append(f"{short:10s} '{title}' is not spelled out before its first use")
 print("\n".join(problems) if problems else f"All {len(seen)} abbreviations are spelled out at first use.")

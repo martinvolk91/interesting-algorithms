@@ -85,7 +85,7 @@ documents later.</p>
 so they need an internet connection; everything else works offline.</p>
 <hr />
 <h2 id="new-to-cryptography-start-with-the-primer">New to cryptography? Start with the primer<a class="headerlink" href="#new-to-cryptography-start-with-the-primer" title="Link to this section">#</a></h2>
-<p>The chapters below assume you already know what <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>, noise, relinearization and
+<p>The chapters below assume you already know what <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> (indistinguishability under chosen-plaintext attack), noise, relinearization and
 bootstrapping mean. The primer builds all of that up for a reader who knows programming and
 basic math (modular arithmetic, linear algebra, polynomials, probability) and has used crypto
 libraries, but has not studied cryptography itself. Every chapter has hand-worked examples, a
@@ -107,32 +107,32 @@ runnable script in <a href="../code/primer/"><code>code/primer/</code></a> and s
 <tr>
 <td>P2</td>
 <td><a href="primer/p2_aes.html">How <abbr title="Advanced Encryption Standard">AES</abbr> works inside</a></td>
-<td>Block ciphers, confusion and diffusion, <abbr title="Galois field (a finite field)">GF</abbr>(2⁸), every <abbr title="Advanced Encryption Standard">AES</abbr> step computed by a from-scratch <abbr title="Advanced Encryption Standard">AES</abbr>-128, the avalanche effect, why <abbr title="Advanced Encryption Standard">AES</abbr> is useless for <abbr title="homomorphic encryption">HE</abbr></td>
+<td>The Advanced Encryption Standard: block ciphers, confusion and diffusion, the Galois field <abbr title="Galois field (a finite field)">GF</abbr>(2⁸), every <abbr title="Advanced Encryption Standard">AES</abbr> step computed by a from-scratch <abbr title="Advanced Encryption Standard">AES</abbr>-128, the avalanche effect, why <abbr title="Advanced Encryption Standard">AES</abbr> is useless for <abbr title="homomorphic encryption">HE</abbr></td>
 </tr>
 <tr>
 <td>P3</td>
 <td><a href="primer/p3_modes_and_integrity.html">Modes, nonces and integrity</a></td>
-<td><abbr title="electronic codebook (a block cipher mode)">ECB</abbr>'s leaks, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, <abbr title="counter mode (a block cipher mode)">CTR</abbr>, nonce reuse, malleability and the bit-flipping attack, <abbr title="message authentication code">MAC</abbr>s and authenticated encryption</td>
+<td>The leaks of electronic codebook (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>) mode, cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>), counter mode (<abbr title="counter mode (a block cipher mode)">CTR</abbr>), nonce reuse, malleability and the bit-flipping attack, message authentication codes (<abbr title="message authentication code">MAC</abbr>s) and authenticated encryption</td>
 </tr>
 <tr>
 <td>P4</td>
 <td><a href="primer/p4_public_key.html">Public-key cryptography</a></td>
-<td>Diffie–Hellman, <abbr title="Rivest–Shamir–Adleman">RSA</abbr> through <abbr title="homomorphic encryption">HE</abbr> eyes, ElGamal, hybrid encryption (<abbr title="Transport Layer Security">TLS</abbr>), quantum computers and post-quantum lattices</td>
+<td>Diffie–Hellman, Rivest–Shamir–Adleman (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>) through <abbr title="homomorphic encryption">HE</abbr> eyes, ElGamal, hybrid encryption (as in Transport Layer Security, <abbr title="Transport Layer Security">TLS</abbr>), quantum computers and post-quantum lattices</td>
 </tr>
 <tr>
 <td>P5</td>
 <td><a href="primer/p5_security_definitions.html">What "secure" means</a></td>
-<td>Attack models, the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game played in code, semantic security, reductions, why homomorphic schemes can never be <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> secure</td>
+<td>Attack models, the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game played in code, semantic security, reductions, why homomorphic schemes can never resist adaptive chosen-ciphertext attacks (<abbr title="adaptive chosen-ciphertext attack">CCA2</abbr>)</td>
 </tr>
 <tr>
 <td>P6</td>
 <td><a href="primer/p6_computing_on_ciphertexts.html">Computing on ciphertexts</a></td>
-<td>Homomorphisms, Paillier and friends, circuits, multiplicative depth, <abbr title="somewhat homomorphic encryption">SHE</abbr> / <abbr title="leveled homomorphic encryption">LHE</abbr> / <abbr title="fully homomorphic encryption">FHE</abbr></td>
+<td>Homomorphisms, Paillier and other partially homomorphic encryption (<abbr title="partially homomorphic encryption">PHE</abbr>), circuits, multiplicative depth, somewhat, leveled and fully homomorphic encryption (<abbr title="somewhat homomorphic encryption">SHE</abbr> / <abbr title="leveled homomorphic encryption">LHE</abbr> / <abbr title="fully homomorphic encryption">FHE</abbr>)</td>
 </tr>
 <tr>
 <td>P7</td>
 <td><a href="primer/p7_lattices_and_lwe.html">Lattices and <abbr title="learning with errors">LWE</abbr></a></td>
-<td>Noisy linear equations, <abbr title="learning with errors">LWE</abbr> encryption by hand, noise and the noise budget, public-key <abbr title="learning with errors">LWE</abbr>, Ring-LWE</td>
+<td>Noisy linear equations, learning with errors (<abbr title="learning with errors">LWE</abbr>) encryption by hand, noise and the noise budget, public-key <abbr title="learning with errors">LWE</abbr>, Ring-LWE</td>
 </tr>
 <tr>
 <td>P8</td>
@@ -168,7 +168,7 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <tr>
 <td>02</td>
 <td><a href="02_math_foundations.html">Mathematical foundations</a></td>
-<td>Lattices, <abbr title="learning with errors">LWE</abbr>, Ring-LWE, polynomial rings, <abbr title="number-theoretic transform">NTT</abbr>, why it's post-quantum</td>
+<td>Lattices, <abbr title="learning with errors">LWE</abbr>, Ring-LWE, polynomial rings, the number-theoretic transform (<abbr title="number-theoretic transform">NTT</abbr>), why it's post-quantum</td>
 </tr>
 <tr>
 <td>03</td>
@@ -178,12 +178,12 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <tr>
 <td>04</td>
 <td><a href="04_schemes.html">The schemes</a></td>
-<td>The "generations": Gentry, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>, <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, and the new matrix scheme (Gentry–Lee). Comparison table</td>
+<td>The "generations": Gentry, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan), <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski/Fan–Vercauteren), <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr> (Gentry–Sahai–Waters), <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (Ducas–Micciancio, Torus <abbr title="fully homomorphic encryption">FHE</abbr>), <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song), and the new matrix scheme (Gentry–Lee). Comparison table</td>
 </tr>
 <tr>
 <td>05</td>
 <td><a href="05_core_techniques.html">Core techniques</a></td>
-<td>Batching (<abbr title="single instruction, multiple data">SIMD</abbr>), rotations, <abbr title="residue number system">RNS</abbr>, programmable bootstrapping, polynomial approximation, scheme switching, threshold / multi-key <abbr title="fully homomorphic encryption">FHE</abbr>, compilers</td>
+<td>Batching (single instruction, multiple data: <abbr title="single instruction, multiple data">SIMD</abbr>), rotations, the residue number system (<abbr title="residue number system">RNS</abbr>), programmable bootstrapping, polynomial approximation, scheme switching, threshold / multi-key <abbr title="fully homomorphic encryption">FHE</abbr>, compilers</td>
 </tr>
 <tr>
 <td>06</td>
@@ -193,12 +193,12 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <tr>
 <td>07</td>
 <td><a href="07_state_of_the_art_2026.html">State of the art (2026)</a></td>
-<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted <abbr title="large language model">LLM</abbr>s, hardware (Intel Heracles), standards (<abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033), compilers</td>
+<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted large language models (<abbr title="large language model">LLM</abbr>s), hardware (Intel Heracles), standards (<abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033), compilers</td>
 </tr>
 <tr>
 <td>08</td>
 <td><a href="08_ecosystem_and_applications.html">Ecosystem and applications</a></td>
-<td>Libraries, real deployments (Apple, Microsoft, Zama…), where <abbr title="homomorphic encryption">HE</abbr> fits vs <abbr title="secure multiparty computation">MPC</abbr> / <abbr title="trusted execution environment">TEE</abbr>s / <abbr title="zero knowledge">ZK</abbr></td>
+<td>Libraries, real deployments (Apple, Microsoft, Zama…), where <abbr title="homomorphic encryption">HE</abbr> fits vs secure multiparty computation (<abbr title="secure multiparty computation">MPC</abbr>), trusted execution environments (<abbr title="trusted execution environment">TEE</abbr>s) and zero-knowledge (<abbr title="zero knowledge">ZK</abbr>) proofs</td>
 </tr>
 <tr>
 <td>09</td>
@@ -230,11 +230,11 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 </tr>
 <tr>
 <td><a href="deep_dives/threshold_fhe.html">Threshold and multiparty <abbr title="fully homomorphic encryption">FHE</abbr> (and Zama)</a></td>
-<td>Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's <abbr title="key management service">KMS</abbr> mapped onto the toy</td>
+<td>Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's key management service (<abbr title="key management service">KMS</abbr>) mapped onto the toy</td>
 </tr>
 <tr>
 <td><a href="deep_dives/hardware.html">Hardware: <abbr title="number-theoretic transform">NTT</abbr>, key switching, <abbr title="graphics processing unit">GPU</abbr>s and <abbr title="application-specific integrated circuit">ASIC</abbr>s</a></td>
-<td>Profiles of our toys, a real <abbr title="number-theoretic transform">NTT</abbr> (63× over schoolbook at N=2048), <abbr title="residue number system">RNS</abbr> limbs, a key-switching cost model showing why <abbr title="fully homomorphic encryption">FHE</abbr> is memory-bound, then <abbr title="central processing unit">CPU</abbr>s, <abbr title="graphics processing unit">GPU</abbr>s, <abbr title="field-programmable gate array">FPGA</abbr>s, F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles</td>
+<td>Profiles of our toys, a real <abbr title="number-theoretic transform">NTT</abbr> (63× over schoolbook at N=2048), <abbr title="residue number system">RNS</abbr> limbs, a key-switching cost model showing why <abbr title="fully homomorphic encryption">FHE</abbr> is memory-bound, then central processing units (<abbr title="central processing unit">CPU</abbr>s), graphics processing units (<abbr title="graphics processing unit">GPU</abbr>s), field-programmable gate arrays (<abbr title="field-programmable gate array">FPGA</abbr>s), F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles</td>
 </tr>
 <tr>
 <td><a href="deep_dives/tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: programmable bootstrapping</a></td>
@@ -270,7 +270,7 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
    bootstrapping resets it.</li>
 <li><strong>There are four main scheme families:</strong><ul>
 <li><strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> / <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr></strong>: exact integer arithmetic mod <code>t</code>, thousands of values packed per ciphertext.</li>
-<li><strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong>: <em>approximate</em> real/complex arithmetic, the workhorse for <abbr title="machine learning">ML</abbr> and statistics.</li>
+<li><strong><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong>: <em>approximate</em> real/complex arithmetic, the workhorse for machine learning (<abbr title="machine learning">ML</abbr>) and statistics.</li>
 <li><strong><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong>: bit- or small-integer-level, very fast bootstrapping, arbitrary lookup tables.</li>
 <li><strong>Matrix <abbr title="fully homomorphic encryption">FHE</abbr> (Gentry–Lee, 2025)</strong>: a newer scheme with native encrypted matrix multiplication.</li>
 </ul>
@@ -284,7 +284,7 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
    Edge (Password Monitor) and Zama's confidential-token protocol on Ethereum all use it.
    Frontier-scale private <abbr title="large language model">LLM</abbr> inference under <abbr title="fully homomorphic encryption">FHE</abbr> is <strong>not</strong> practical yet: the best systems
    are still about 10⁴× slower than plaintext.</li>
-<li><strong>It is post-quantum.</strong> It rests on the same lattice problems as <abbr title="National Institute of Standards and Technology">NIST</abbr>'s <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>. It is being
+<li><strong>It is post-quantum.</strong> It rests on the same lattice problems as <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>, the Module-Lattice-Based Key-Encapsulation Mechanism standardized by the National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>). It is being
    standardized as <strong><abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033</strong> (parts at Draft International Standard stage in 2026).</li>
 </ol>
 <hr />
