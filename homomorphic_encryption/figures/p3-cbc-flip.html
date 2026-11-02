@@ -1,0 +1,160 @@
+<figure class="widget" id="w-p3-cbc-flip">
+  <style>
+    #w-p3-cbc-flip svg { display: block; width: 100%; max-width: 600px; height: auto; margin: 0 auto 6px; font-family: var(--font); }
+    #w-p3-cbc-flip svg text { fill: var(--ink); font-size: 17px; }
+    #w-p3-cbc-flip svg text.note { fill: var(--ink-2); font-size: 15px; }
+    #w-p3-cbc-flip .rows { display: grid; grid-template-columns: 2.5rem repeat(16, minmax(0, 1fr)); gap: 3px 2px;
+      font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 8px auto 4px; max-width: 600px; }
+    #w-p3-cbc-flip .lab { font: 600 13px/1.3 var(--font); color: var(--ink-2); align-self: center; }
+    #w-p3-cbc-flip .cell { text-align: center; padding: 3px 0; border-radius: 4px; white-space: pre; }
+    #w-p3-cbc-flip .bad { background: color-mix(in srgb, var(--series-8) 22%, transparent); }
+    #w-p3-cbc-flip .hot { background: color-mix(in srgb, var(--series-2) 30%, transparent); }
+    @media (max-width: 640px) { #w-p3-cbc-flip .rows { grid-template-columns: 1.6rem repeat(16, minmax(0, 1fr)); font-size: 12px; } }
+  </style>
+  <p class="widget-title">Flipping one bit in CBC</p>
+  <p class="widget-hint">Choose which block the attacker changes. The flipped block decrypts to garbage; the block after it gets exactly the flipped bit.</p>
+  <div class="controls"></div>
+  <svg viewBox="0 0 488 252" role="img" aria-label="CBC decryption: each ciphertext block goes through the AES decryption D_K and is then XORed with the previous ciphertext block (the IV for the first block)."></svg>
+  <div class="rows"></div>
+  <div class="readout"></div>
+  <figcaption>CBC decryption, \(P_i = D_K(C_i) \oplus C_{i-1}\), with real AES-128 on a three-block message (the padding block is left out). The attacker XORs byte 5 of one block with {08}. That block passes through \(D_K\), which turns one changed input bit into about half of the 128 output bits changed. The same block also enters the next XOR unchanged by any cipher, so the next plaintext block gets exactly the flipped bit: with \(C_1\) changed, the '1' of $100 in \(P_2\) becomes a '9'.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-cbc-flip';
+  // AES-128, as in the AES standard: encryption and decryption of one 16-byte block.
+  const SB = new Uint8Array(256), SI = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; for (let i = 0; i < 256; i++) SI[SB[i]] = i; }
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xt(a); b >>= 1; } return r; };
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  function decBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[160 + i]);
+    for (let r = 9; r >= 0; r--) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * ((c + j) % 4)] = SI[s[j + 4 * c]];
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+      if (r > 0) for (let c = 0; c < 16; c += 4) {
+        const a0 = s[c], a1 = s[c + 1], a2 = s[c + 2], a3 = s[c + 3];
+        s[c] = gmul(a0, 14) ^ gmul(a1, 11) ^ gmul(a2, 13) ^ gmul(a3, 9); s[c + 1] = gmul(a0, 9) ^ gmul(a1, 14) ^ gmul(a2, 11) ^ gmul(a3, 13);
+        s[c + 2] = gmul(a0, 13) ^ gmul(a1, 9) ^ gmul(a2, 14) ^ gmul(a3, 11); s[c + 3] = gmul(a0, 11) ^ gmul(a1, 13) ^ gmul(a2, 9) ^ gmul(a3, 14);
+      }
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  { const w = expandKey(hexb('000102030405060708090a0b0c0d0e0f')), c = encBlock(w, hexb('00112233445566778899aabbccddeeff'));
+    if (hex(c) !== '69c4e0d86a7b0430d8cdb78070b4c55a' || hex(decBlock(w, c)) !== '00112233445566778899aabbccddeeff') throw new Error('AES self-test failed'); }
+
+  // Encrypt a three-block message once; the attacker then changes the ciphertext.
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  const plain = ['date: 2026-11-02', 'pay $100 to Bob ', 'ref: rent, Nov. '].map(s => new TextEncoder().encode(s));
+  const R = DS.random(5), iv = Uint8Array.from({ length: 16 }, () => R.int(256));
+  const ct = [iv];                                             // ct[0] = IV, ct[i] = C_i
+  plain.forEach((p, i) => ct.push(encBlock(key, p.map((x, j) => x ^ ct[i][j]))));
+  const BYTE = 5, DELTA = 0x08;
+
+  // ---------------------------------------------------------------- diagram
+  const NS = 'http://www.w3.org/2000/svg', svg = document.querySelector(root + ' svg');
+  const X = [42, 174, 306, 438], SUB = ['', '₁', '₂', '₃'];
+  function add(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  const COLOR = { idle: 'var(--line-strong)', bad: 'var(--series-8)', hot: 'var(--series-2)' };
+  function wire(pts, tone, head) {
+    const c = COLOR[tone], w = tone === 'idle' ? 1.5 : 2.5;
+    add('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'round' });
+    if (head) {
+      const [x0, y0] = pts[pts.length - 2], [x1, y1] = pts[pts.length - 1], a = Math.atan2(y1 - y0, x1 - x0), L = 8;
+      const p1 = [x1 - L * Math.cos(a - 0.45), y1 - L * Math.sin(a - 0.45)], p2 = [x1 - L * Math.cos(a + 0.45), y1 - L * Math.sin(a + 0.45)];
+      add('polygon', { points: [[x1, y1], p1, p2].map(p => p.join(',')).join(' '), fill: c });
+    }
+  }
+  function box(x, y, w, h, label, tone, sub) {
+    const fill = tone === 'idle' ? 'var(--bg)' : `color-mix(in srgb, ${COLOR[tone]} 22%, var(--bg))`;
+    add('rect', { x: x - w / 2, y, width: w, height: h, rx: 6, fill, stroke: tone === 'idle' ? 'var(--line-strong)' : COLOR[tone], 'stroke-width': tone === 'idle' ? 1.5 : 2.5 });
+    const t = add('text', { x, y: y + h / 2 + 6, 'text-anchor': 'middle' }, label);
+    if (sub) { const s = document.createElementNS(NS, 'tspan'); s.setAttribute('font-size', '12'); s.setAttribute('dy', '3'); s.textContent = sub; t.appendChild(s); }
+  }
+  function draw(k, status) {                                   // k: flipped block (0 = IV), or -1
+    svg.textContent = '';
+    for (let i = 1; i <= 3; i++) {
+      const own = k === i ? 'bad' : 'idle', prevTone = k === i - 1 ? 'hot' : 'idle';
+      const out = status[i - 1] === 'garbled' ? 'bad' : status[i - 1] === 'flipped' ? 'hot' : 'idle';
+      wire([[X[i], 46], [X[i], 78]], own, true);
+      wire([[X[i], 108], [X[i], 139]], own, true);
+      wire([[X[i - 1], 46], [X[i - 1], 60], [X[i - 1] + 62, 60], [X[i - 1] + 62, 150], [X[i] - 11, 150]], prevTone, true);
+      wire([[X[i], 161], [X[i], 186]], out, true);
+      box(X[i], 78, 60, 30, 'D', 'idle', 'K');
+      add('circle', { cx: X[i], cy: 150, r: 11, fill: 'var(--bg)', stroke: out === 'idle' ? 'var(--line-strong)' : COLOR[out], 'stroke-width': out === 'idle' ? 1.5 : 2.5 });
+      add('path', { d: `M${X[i] - 6},150h12M${X[i]},144v12`, stroke: 'var(--ink)', 'stroke-width': 1.5 });
+      box(X[i], 186, 76, 30, 'P' + SUB[i], out);
+      add('text', { x: X[i], y: 240, 'text-anchor': 'middle', class: 'note' },
+        status[i - 1] === 'garbled' ? 'garbled' : status[i - 1] === 'flipped' ? 'one bit flipped' : 'intact');
+    }
+    for (let i = 0; i <= 3; i++) box(X[i], 14, 76, 32, i ? 'C' + SUB[i] : 'IV', k === i ? 'hot' : 'idle');
+  }
+
+  // ---------------------------------------------------------------- decryption and readout
+  const rows = document.querySelector(root + ' .rows');
+  const ch = v => v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : '·';
+  const ui = DS.controls(root + ' .controls', render);
+  const which = ui.choice({ label: 'Attacker flips bit 3 of byte 5 in', value: 1,
+    options: [{ value: -1, label: 'nothing' }, { value: 0, label: 'IV' }, { value: 1, label: 'C₁' }, { value: 2, label: 'C₂' }, { value: 3, label: 'C₃' }] });
+  function render() {
+    const k = which.value;
+    const sent = ct.map((b, i) => i === k ? b.map((x, j) => j === BYTE ? x ^ DELTA : x) : b);
+    const dec = [1, 2, 3].map(i => decBlock(key, sent[i]).map((x, j) => x ^ sent[i - 1][j]));
+    const status = dec.map((d, i) => {
+      const diff = d.map((x, j) => x ^ plain[i][j]), n = diff.filter(Boolean).length;
+      return n === 0 ? 'intact' : n === 1 && diff[BYTE] === DELTA ? 'flipped' : 'garbled';
+    });
+    draw(k, status);
+    rows.textContent = '';
+    dec.forEach((d, i) => {
+      const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'P' + SUB[i + 1]; rows.appendChild(lab);
+      d.forEach((x, j) => {
+        const c = document.createElement('div');
+        c.className = 'cell' + (x === plain[i][j] ? '' : status[i] === 'flipped' ? ' hot' : ' bad');
+        c.textContent = ch(x); rows.appendChild(c);
+      });
+    });
+    DS.stats(root + ' .readout', dec.map((d, i) => {
+      const n = d.filter((x, j) => x !== plain[i][j]).length;
+      let bits = 0; d.forEach((x, j) => { let v = x ^ plain[i][j]; while (v) { bits += v & 1; v >>= 1; } });
+      return { label: `P${SUB[i + 1]} after decryption`, value: status[i] === 'intact' ? 'intact' : `${bits} bit${bits > 1 ? 's' : ''} changed`,
+               note: status[i] === 'garbled' ? `${n} of 16 bytes differ` : status[i] === 'flipped' ? `byte ${BYTE} ⊕ 08: '${ch(plain[i][BYTE])}' → '${ch(d[BYTE])}'` : 'as sent',
+               tone: status[i] === 'garbled' ? 'bad' : undefined };
+    }));
+  }
+  render();
+})();
+</script>

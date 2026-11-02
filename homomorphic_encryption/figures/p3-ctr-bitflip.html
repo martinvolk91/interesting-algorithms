@@ -1,0 +1,171 @@
+<figure class="widget" id="w-p3-ctr-bitflip">
+  <style>
+    #w-p3-ctr-bitflip .p3-msg { display: grid; grid-template-columns: 8.5rem repeat(15, minmax(0, 1fr)); gap: 3px 2px;
+      font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 4px 0 14px; }
+    #w-p3-ctr-bitflip .lab { font: 600 13px/1.3 var(--font); color: var(--ink-2); align-self: center; }
+    #w-p3-ctr-bitflip .cell { text-align: center; padding: 3px 0; border-radius: 4px; cursor: pointer; white-space: pre; }
+    #w-p3-ctr-bitflip .idx { color: var(--muted); font-size: 11px; }
+    #w-p3-ctr-bitflip .sel { outline: 1.5px solid var(--ink-muted); outline-offset: -1.5px; }
+    #w-p3-ctr-bitflip .hot { background: color-mix(in srgb, var(--series-2) 24%, transparent); }
+    #w-p3-ctr-bitflip .reject { grid-column: span 15; text-align: center; padding: 3px 0; border-radius: 4px; font-family: var(--font);
+      background: color-mix(in srgb, var(--series-6) 16%, transparent); }
+    #w-p3-ctr-bitflip table.bits { border-collapse: collapse; font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0; }
+    #w-p3-ctr-bitflip table.bits td, #w-p3-ctr-bitflip table.bits th { padding: 3px 4px; text-align: center; border: 0; }
+    #w-p3-ctr-bitflip table.bits th { font: 600 13px/1.3 var(--font); color: var(--ink-2); text-align: left; padding-right: 10px; white-space: nowrap; background: none; }
+    #w-p3-ctr-bitflip table.bits th .desc { font-weight: 400; color: var(--fg-2); }
+    #w-p3-ctr-bitflip table.bits td.b { width: 1.6em; }
+    #w-p3-ctr-bitflip table.bits td.gap { padding-left: 10px; }
+    #w-p3-ctr-bitflip table.bits tr.head td { color: var(--muted); font-size: 11px; }
+    #w-p3-ctr-bitflip table.bits tr.secret td { color: var(--muted); }
+    #w-p3-ctr-bitflip table.bits button { font: inherit; width: 1.6em; padding: 1px 0; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); }
+    #w-p3-ctr-bitflip table.bits button[aria-pressed="true"] { background: var(--series-2); border-color: var(--series-2); color: #fff; font-weight: 700; }
+    #w-p3-ctr-bitflip .bitwrap { overflow-x: auto; }
+    @media (max-width: 640px) {
+      #w-p3-ctr-bitflip .p3-msg { grid-template-columns: repeat(15, minmax(0, 1fr)); font-size: 12px; }
+      #w-p3-ctr-bitflip .lab { grid-column: 1 / -1; margin-top: 4px; }
+      #w-p3-ctr-bitflip .lab.idxlab { display: none; }
+      #w-p3-ctr-bitflip table.bits { font-size: 12px; }
+      #w-p3-ctr-bitflip table.bits td, #w-p3-ctr-bitflip table.bits th { padding: 3px 2px; }
+      #w-p3-ctr-bitflip table.bits th { padding-right: 6px; }
+      #w-p3-ctr-bitflip table.bits th .desc { display: none; }
+      #w-p3-ctr-bitflip table.bits td.gap { padding-left: 6px; }
+      #w-p3-ctr-bitflip table.bits td.b, #w-p3-ctr-bitflip table.bits button { width: 1.45em; }
+    }
+  </style>
+  <p class="widget-title">The bit-flipping attack, one bit at a time</p>
+  <p class="widget-hint">Click the bits of δ: each one flips the same bit of the byte the bank decrypts. Click another byte of the message to attack it. Then turn on the tag check.</p>
+  <div class="controls"></div>
+  <div class="p3-msg"></div>
+  <div class="bitwrap"><table class="bits"></table></div>
+  <div class="readout"></div>
+  <figcaption>The ciphertext is the one of part 5 of the script <code>p3_modes.py</code>: nonce <code>2af899a3e1f16bdc</code>, then 15 bytes. The attacker never sees the keystream row; it is shown, greyed out, only to make the arithmetic visible. With the tag check on, the bank first recomputes the HMAC tag over nonce and ciphertext with its MAC key and compares it with the tag the sender attached. Any change to the ciphertext fails that check, so nothing is decrypted.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-ctr-bitflip';
+  // The 256-bit secure hash function and HMAC, checked below against a published test vector.
+  const K256 = [], H0 = [];
+  { const fr = x => ((x - Math.floor(x)) * 2 ** 32) >>> 0; let n = 2;
+    while (K256.length < 64) { let pr = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) pr = false;
+      if (pr) { if (H0.length < 8) H0.push(fr(Math.sqrt(n))); K256.push(fr(Math.cbrt(n))); } n++; } }
+  function hash256(msg) {
+    const L = msg.length, n = ((L + 9 + 63) >> 6) << 6, m = new Uint8Array(n);
+    m.set(msg); m[L] = 0x80;
+    for (let i = 0; i < 8; i++) m[n - 1 - i] = Math.floor(L * 8 / 2 ** (8 * i)) & 0xff;
+    const h = H0.slice(), w = new Array(64), ro = (x, s) => (x >>> s) | (x << (32 - s));
+    for (let o = 0; o < n; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = (m[o + 4 * i] << 24 | m[o + 4 * i + 1] << 16 | m[o + 4 * i + 2] << 8 | m[o + 4 * i + 3]) >>> 0;
+      for (let i = 16; i < 64; i++) {
+        const s0 = ro(w[i - 15], 7) ^ ro(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = ro(w[i - 2], 17) ^ ro(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (hh + (ro(e, 6) ^ ro(e, 11) ^ ro(e, 25)) + ((e & f) ^ (~e & g)) + K256[i] + w[i]) >>> 0;
+        const t2 = ((ro(a, 2) ^ ro(a, 13) ^ ro(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      [a, b, c, d, e, f, g, hh].forEach((v, i) => { h[i] = (h[i] + v) >>> 0; });
+    }
+    const out = new Uint8Array(32);
+    h.forEach((v, i) => { for (let j = 0; j < 4; j++) out[4 * i + j] = (v >>> (24 - 8 * j)) & 0xff; });
+    return out;
+  }
+  const cat = (a, b) => { const r = new Uint8Array(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
+  function hmac(key, msg) {
+    const k = new Uint8Array(64); k.set(key.length > 64 ? hash256(key) : key);
+    return hash256(cat(k.map(x => x ^ 0x5c), hash256(cat(k.map(x => x ^ 0x36), msg))));
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  const enc = s => new TextEncoder().encode(s);
+  if (hex(hmac(enc('Jefe'), enc('what do ya want for nothing?')))
+      !== '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843') throw new Error('HMAC self-test failed');
+
+  // Part 5 of p3_modes.py: "pay $100 to Bob" under AES-CTR.
+  const nonce = hexb('2af899a3e1f16bdc'), C = hexb('e8fafcc617d4be8b6de5dbb4370708');
+  const P = enc('pay $100 to Bob'), S = C.map((c, i) => c ^ P[i]);       // keystream: only the key holder knows it
+  const macKey = hexb('99aec2bd13a8e003589fe1ab3edaf8c6515d6410246fce2892601bc222871ef5');
+  const tagSent = hmac(macKey, cat(nonce, C));
+  const n = C.length;
+
+  const delta = new Uint8Array(n); delta[5] = 0x08;                       // '1' xor '9'
+  let sel = 5;
+  const h2 = v => v.toString(16).padStart(2, '0');
+  const ch = v => v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : '·';
+  const bits = v => Array.from({ length: 8 }, (_, k) => (v >> (7 - k)) & 1);
+
+  const ui = DS.controls(root + ' .controls', render);
+  const mac = ui.toggle({ label: 'Bank checks an HMAC tag before decrypting', value: false });
+  ui.button({ label: 'Reset δ', onClick: () => delta.fill(0) });
+
+  const msg = document.querySelector(root + ' .p3-msg'), tbl = document.querySelector(root + ' table.bits');
+  function el(tag, cls, parent, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; parent.appendChild(e); return e; }
+
+  function render() {
+    const sent = C.map((c, i) => c ^ delta[i]), dec = sent.map((c, i) => c ^ S[i]);
+    const changed = Array.from(delta, d => d !== 0), anyChange = changed.some(Boolean);
+    const tagNow = hmac(macKey, cat(nonce, sent)), tagOk = hex(tagNow) === hex(tagSent);
+    const rejected = mac.value && !tagOk;
+
+    msg.textContent = '';
+    const row = (label, f, cls) => {
+      el('div', 'lab' + (cls ? ' ' + cls : ''), msg, label);
+      for (let i = 0; i < n; i++) {
+        const c = el('div', 'cell' + (i === sel ? ' sel' : '') + (f.hot && changed[i] ? ' hot' : '') + (f.idx ? ' idx' : ''), msg, f.text(i));
+        c.addEventListener('click', () => { sel = i; render(); });
+      }
+    };
+    row('byte', { text: i => String(i), idx: true }, 'idxlab');
+    row("bank's order P", { text: i => ch(P[i]) });
+    row('sent C ⊕ δ', { text: i => h2(sent[i]), hot: true });
+    el('div', 'lab', msg, 'bank reads');
+    if (rejected) el('div', 'reject', msg, 'rejected: the tag does not match, nothing is decrypted');
+    else for (let i = 0; i < n; i++) {
+      const c = el('div', 'cell' + (i === sel ? ' sel' : '') + (changed[i] ? ' hot' : ''), msg, ch(dec[i]));
+      c.addEventListener('click', () => { sel = i; render(); });
+    }
+
+    tbl.textContent = '';
+    const d = delta[sel];
+    const head = el('tr', 'head', tbl);
+    el('th', null, head, `byte ${sel}`); el('td', null, head, 'hex');
+    for (let k = 7; k >= 0; k--) el('td', 'b' + (k === 3 ? ' gap' : ''), head, String(k));
+    el('td', null, head, '');
+    const line = (sym, desc, v, opts = {}) => {
+      const tr = el('tr', opts.cls || null, tbl);
+      el('span', 'desc', el('th', null, tr, sym), ' ' + desc); el('td', null, tr, h2(v));
+      bits(v).forEach((b, k) => {
+        const td = el('td', 'b' + (k === 4 ? ' gap' : '') + (opts.mark && (d >> (7 - k)) & 1 ? ' hot' : ''), tr);
+        if (opts.buttons) {
+          const btn = el('button', null, td, String(b)); btn.type = 'button';
+          btn.setAttribute('aria-pressed', String(!!b)); btn.setAttribute('aria-label', `flip bit ${7 - k} of byte ${sel}`);
+          btn.addEventListener('click', () => { delta[sel] ^= 1 << (7 - k); render(); });
+        } else td.textContent = String(b);
+      });
+      el('td', null, tr, opts.char ? `'${ch(v)}'` : '');
+    };
+    line('P', "bank's order", P[sel], { char: true, mark: true });
+    line('S', 'keystream (secret)', S[sel], { cls: 'secret' });
+    line('C = P ⊕ S', 'ciphertext', C[sel], { mark: true });
+    line('δ', "attacker's mask", d, { buttons: true });
+    line('C ⊕ δ', 'sent', sent[sel], { mark: true });
+    if (rejected) { const tr = el('tr', null, tbl); el('th', null, tr, 'decrypted'); const td = el('td', null, tr, 'nothing: the tag check failed'); td.colSpan = 10; td.style.textAlign = 'left'; td.style.fontFamily = 'var(--font)'; }
+    else line('C ⊕ δ ⊕ S', 'decrypted', dec[sel], { char: true, mark: true });
+
+    const text = Array.from(dec, ch).join('');
+    if (!mac.value) DS.stats(root + ' .readout', [
+      { label: 'Bank decrypts', value: text, note: anyChange ? 'the attacker used no key' : 'what the sender wrote', tone: anyChange ? 'bad' : undefined },
+      { label: 'Bytes changed by the attacker', value: String(changed.filter(Boolean).length),
+        note: anyChange ? Array.from(delta).map((v, i) => v ? `byte ${i} ⊕ ${h2(v)}` : '').filter(Boolean).join(', ') : 'δ is all zero' },
+    ]);
+    else DS.stats(root + ' .readout', [
+      { label: 'Tag attached by the sender', value: hex(tagSent).slice(0, 8) + '…', note: 'HMAC of nonce ‖ C' },
+      { label: 'Tag the bank computes', value: hex(tagNow).slice(0, 8) + '…', note: 'HMAC of nonce ‖ (C ⊕ δ)', tone: tagOk ? 'good' : 'bad' },
+      { label: 'Bank', value: tagOk ? 'accepts' : 'rejects', note: tagOk ? text : 'the attacker cannot make a valid tag without the MAC key', tone: 'good' },
+    ]);
+  }
+  render();
+})();
+</script>

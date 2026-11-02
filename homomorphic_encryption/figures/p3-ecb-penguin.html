@@ -1,0 +1,131 @@
+<figure class="widget" id="w-p3-ecb-penguin">
+  <style>
+    #w-p3-ecb-penguin .p3-imgs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+    #w-p3-ecb-penguin canvas { display: block; width: 100%; height: auto; image-rendering: pixelated;
+                               border: 1px solid var(--line); border-radius: 4px; }
+    @media (max-width: 640px) { #w-p3-ecb-penguin .p3-imgs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <p class="widget-title">One picture, three modes</p>
+  <p class="widget-hint">Press Encrypt again. CBC and CTR take a fresh IV or nonce and look different every time; ECB gives the same picture again.</p>
+  <div class="controls"></div>
+  <div class="p3-imgs">
+    <div><p class="panel-title">Plaintext</p><canvas class="c-plain" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">ECB</p><canvas class="c-ecb" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">CBC, random IV</p><canvas class="c-cbc" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">CTR, fresh nonce</p><canvas class="c-ctr" width="96" height="64"></canvas></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Real AES-128 (written out in this figure's script and checked against the test vector of the AES standard), one fixed key. The picture is 96 × 64 pixels of 4 bytes each (red, green, blue and an unused byte), as in a 32-bit bitmap, so one 16-byte block holds 4 neighbouring pixels. The ciphertext bytes are drawn back as colours. In ECB every block of 4 background pixels becomes the same ciphertext block, so the outline survives even though each block on its own is unreadable.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-ecb-penguin';
+  // AES-128, as in the AES standard: encryption of one 16-byte block.
+  const SB = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; }
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  if (hex(encBlock(expandKey(hexb('000102030405060708090a0b0c0d0e0f')), hexb('00112233445566778899aabbccddeeff')))
+      !== '69c4e0d86a7b0430d8cdb78070b4c55a') throw new Error('AES self-test failed');
+
+  // The padlock: 96 x 64 pixels, 4 bytes per pixel.
+  const W = 96, H = 64, N = W * H * 4, NB = N / 16;
+  const COL = { bg: [0xf6, 0xf8, 0xfa], shackle: [0x8c, 0x95, 0x9f], body: [0x2a, 0x78, 0xd6], hole: [0x1f, 0x23, 0x28] };
+  function pixel(x, y) {
+    const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 48, py - 29);
+    const inBody = px > 22 && px < 74 && py > 29 && py < 60;
+    if (inBody) {
+      if (Math.hypot(px - 48, py - 40) < 5 || (Math.abs(px - 48) < 2.2 + (py - 40) * 0.12 && py > 40 && py < 53)) return 'hole';
+      return 'body';
+    }
+    if (py <= 29 && d >= 12 && d <= 20) return 'shackle';
+    return 'bg';
+  }
+  const plain = new Uint8Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = COL[pixel(x, y)], o = 4 * (y * W + x);
+    plain[o] = c[0]; plain[o + 1] = c[1]; plain[o + 2] = c[2]; plain[o + 3] = 0xff;
+  }
+
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  const block = (a, i) => a.subarray(16 * i, 16 * i + 16);
+  function ecb() {
+    const out = new Uint8Array(N);
+    for (let i = 0; i < NB; i++) out.set(encBlock(key, block(plain, i)), 16 * i);
+    return out;
+  }
+  function cbc(iv) {
+    const out = new Uint8Array(N); let prev = iv;
+    for (let i = 0; i < NB; i++) { prev = encBlock(key, block(plain, i).map((x, j) => x ^ prev[j])); out.set(prev, 16 * i); }
+    return out;
+  }
+  function ctr(nonce) {
+    const out = new Uint8Array(N), ctrBlock = new Uint8Array(16); ctrBlock.set(nonce);
+    for (let i = 0; i < NB; i++) {
+      for (let j = 0, v = i; j < 8; j++, v = Math.floor(v / 256)) ctrBlock[15 - j] = v & 0xff;   // 8-byte nonce || 8-byte counter
+      const s = encBlock(key, ctrBlock), p = block(plain, i);
+      for (let j = 0; j < 16; j++) out[16 * i + j] = p[j] ^ s[j];
+    }
+    return out;
+  }
+  const distinct = a => { const s = new Set(); for (let i = 0; i < NB; i++) s.add(hex(block(a, i))); return s.size; };
+  const same = (a, b) => a.every((x, i) => x === b[i]);
+
+  function paint(sel, bytes) {
+    const cv = document.querySelector(root + ' ' + sel), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      img.data[4 * i] = bytes[4 * i]; img.data[4 * i + 1] = bytes[4 * i + 1]; img.data[4 * i + 2] = bytes[4 * i + 2]; img.data[4 * i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  const R = DS.random(3);
+  const fresh = n => Uint8Array.from({ length: n }, () => R.int(256));
+  let count = 0, prev = null, cur = null;
+  function encrypt() {
+    prev = cur;
+    cur = { ecb: ecb(), cbc: cbc(fresh(16)), ctr: ctr(fresh(8)) };
+    count++;
+  }
+  encrypt(); encrypt();          // an earlier encryption to compare with
+
+  function render() {
+    paint('.c-plain', plain); paint('.c-ecb', cur.ecb); paint('.c-cbc', cur.cbc); paint('.c-ctr', cur.ctr);
+    const note = m => same(cur[m], prev[m]) ? 'identical to the previous encryption' : 'differs from the previous encryption';
+    DS.stats(root + ' .readout', [
+      { label: 'Distinct blocks, plaintext', value: `${distinct(plain)} of ${NB}` },
+      { label: 'Distinct blocks, ECB', value: `${distinct(cur.ecb)} of ${NB}`, note: note('ecb'), tone: 'bad' },
+      { label: 'Distinct blocks, CBC', value: `${distinct(cur.cbc)} of ${NB}`, note: note('cbc'), tone: 'good' },
+      { label: 'Distinct blocks, CTR', value: `${distinct(cur.ctr)} of ${NB}`, note: note('ctr'), tone: 'good' },
+    ]);
+  }
+  DS.controls(root + ' .controls', render).button({ label: 'Encrypt again', onClick: encrypt });
+  render();
+})();
+</script>
