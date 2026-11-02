@@ -1,0 +1,65 @@
+<figure class="diagram" id="d-p9-gentry-idea">
+  <svg viewBox="0 0 420 372" style="max-width:520px" role="img" aria-label="The client encrypts its key bits once into the bootstrapping key. The server builds the noisy ciphertext's numbers into the decryption circuit as constants, runs that circuit on the bootstrapping key, and gets a new encryption of the same message whose noise comes from the key and the gates, not from the old ciphertext.">
+    <defs>
+      <marker id="p9g-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <text x="16" y="17" style="font-weight:650;font-size:12px;letter-spacing:.06em">CLIENT (once)</text>
+
+    <!-- client: key -> bootstrapping key -->
+    <rect x="16" y="28" width="140" height="56" rx="8" fill="none" stroke="var(--line-strong)"/>
+    <text x="86" y="52" text-anchor="middle" style="font-weight:650">secret key s</text>
+    <text x="86" y="70" text-anchor="middle">bits s₁, …, sₙ</text>
+    <line x1="158" y1="56" x2="236" y2="56" stroke="currentColor" stroke-width="1.5" marker-end="url(#p9g-arr)"/>
+    <text x="197" y="48" text-anchor="middle" style="font-size:12px">encrypt</text>
+    <rect x="240" y="28" width="164" height="70" rx="8" fill="none" stroke="var(--series-3)" stroke-width="1.5"/>
+    <text x="322" y="50" text-anchor="middle" style="font-weight:650">bootstrapping key bk</text>
+    <text x="322" y="68" text-anchor="middle">Enc(s₁), …, Enc(sₙ)</text>
+    <rect x="262" y="79" width="120" height="7" rx="2" fill="none" stroke="var(--line-strong)"/>
+    <rect x="262" y="79" width="14" height="7" rx="2" fill="var(--series-3)"/>
+
+    <line x1="10" y1="118" x2="410" y2="118" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+    <text x="16" y="141" style="font-weight:650;font-size:12px;letter-spacing:.06em">SERVER (when the noise</text>
+    <text x="16" y="157" style="font-weight:650;font-size:12px;letter-spacing:.06em">gets high)</text>
+
+    <!-- bk goes down into the circuit as its inputs -->
+    <line x1="322" y1="100" x2="322" y2="164" stroke="currentColor" stroke-width="1.5" marker-end="url(#p9g-arr)"/>
+    <text x="330" y="140" style="font-size:12px">(2) inputs x</text>
+
+    <!-- server: noisy c -> circuit D_c -> c' -->
+    <rect x="16" y="168" width="140" height="70" rx="8" fill="none" stroke="var(--line-strong)"/>
+    <text x="86" y="190" text-anchor="middle" style="font-weight:650">c = (a, b)</text>
+    <text x="86" y="208" text-anchor="middle" style="font-size:12px">Enc(m), noise 2^27.2</text>
+    <rect x="26" y="219" width="120" height="7" rx="2" fill="none" stroke="var(--line-strong)"/>
+    <rect x="26" y="219" width="117" height="7" rx="2" fill="var(--bad)"/>
+
+    <line x1="158" y1="203" x2="236" y2="203" stroke="currentColor" stroke-width="1.5" marker-end="url(#p9g-arr)"/>
+    <text x="197" y="195" text-anchor="middle" style="font-size:12px">(1) built in</text>
+    <text x="197" y="220" text-anchor="middle" style="font-size:12px">as constants</text>
+
+    <rect x="240" y="168" width="164" height="70" rx="8" fill="var(--soft)" stroke="var(--series-1)" stroke-width="1.5"/>
+    <text x="322" y="190" text-anchor="middle" style="font-weight:650">circuit D_c(x)</text>
+    <text x="322" y="208" text-anchor="middle">= Round(b − ⟨a, x⟩)</text>
+    <text x="322" y="227" text-anchor="middle" style="font-size:12px">a, b: numbers, no noise</text>
+
+    <line x1="322" y1="240" x2="322" y2="282" stroke="currentColor" stroke-width="1.5" marker-end="url(#p9g-arr)"/>
+    <text x="314" y="258" text-anchor="end" style="font-size:12px">(3) run it on bk with</text>
+    <text x="314" y="273" text-anchor="end" style="font-size:12px">homomorphic + and ×</text>
+
+    <rect x="240" y="286" width="164" height="70" rx="8" fill="none" stroke="var(--series-1)" stroke-width="1.5"/>
+    <text x="322" y="308" text-anchor="middle" style="font-weight:650">c′ = Enc(m)</text>
+    <text x="322" y="326" text-anchor="middle">same m, noise 2^17.6</text>
+    <rect x="262" y="337" width="120" height="7" rx="2" fill="none" stroke="var(--line-strong)"/>
+    <rect x="262" y="337" width="75" height="7" rx="2" fill="var(--series-1)"/>
+    <text x="230" y="310" text-anchor="end" style="font-size:12px">its noise comes from bk</text>
+    <text x="230" y="325" text-anchor="end" style="font-size:12px">and the gates of D_c,</text>
+    <text x="230" y="340" text-anchor="end" style="font-size:12px">not from the old noise</text>
+  </svg>
+  <figcaption>Gentry's idea. The old ciphertext <code>c</code> is not an input of the computation; its numbers
+    are part of the circuit. The inputs are the fresh encryptions in <code>bk</code>, so the output noise is
+    set by <code>bk</code> and the gates of \(D_c\). The old noise <code>e</code> is part of the value
+    \(\varphi = \Delta m + e\) that the circuit computes and rounds away. The bars show the noise on a log
+    scale up to the limit \(2^{28}\), with the numbers of part 2 of the companion script (the step-11
+    ciphertext).</figcaption>
+</figure>
