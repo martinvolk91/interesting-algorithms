@@ -1,0 +1,65 @@
+<figure class="widget" id="w-p2-sbox-differences">
+  <p class="widget-title">Where does an input difference go?</p>
+  <p class="widget-hint">Switch to "affine part only": all 256 inputs pile up on one output difference. Then drag the input difference \(a\) and watch the AES bars never pass 4.</p>
+  <div class="controls"></div>
+  <p class="panel-title">For how many of the 256 inputs \(x\) is \(S(x \oplus a) \oplus S(x) = d\)?</p>
+  <div class="c-bars"></div>
+  <div class="readout"></div>
+  <figcaption>An attacker who knows the input difference \(a\) wants to predict the output difference \(d\). With the real S-box the 256 inputs spread over 127 output differences, at most 4 inputs each, so the best guess is right with probability \(4/256 = 2^{-6}\). With the affine part alone, \(S(x \oplus a) \oplus S(x)\) is the same for every \(x\): the guess is always right. That is linearity seen as differences.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p2-sbox-differences';
+
+  // The S-box computed from GF(2^8), as in code/primer/p2_mini_aes.py, and its affine part alone.
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const BOXES = { aes: INV.map(affine), affine: Array.from({ length: 256 }, (_, x) => affine(x)) };
+  const hex = b => b.toString(16).padStart(2, '0');
+
+  function spectrum(box, a) {                // inputs x for every output difference d
+    const xs = Array.from({ length: 256 }, () => []);
+    for (let x = 0; x < 256; x++) xs[box[x ^ a] ^ box[x]].push(x);
+    return xs;
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const kind = ui.choice({ label: 'S-box', options: [{ value: 'aes', label: 'AES S-box' }, { value: 'affine', label: 'affine part only' }], value: 'aes' });
+  const diff = ui.slider({ label: 'Input difference a', min: 1, max: 255, step: 1, value: 0x0f, format: v => '{' + hex(v) + '}' });
+
+  const hexTicks = [0, 64, 128, 192, 255];
+  const chart = DS.chart(root + ' .c-bars', {
+    x: { domain: [-1, 256], label: 'output difference d', tickValues: hexTicks, format: v => '{' + hex(v) + '}' },
+    y: { domain: [0, 5], label: 'inputs x' },
+    height: 250,
+    draw(c) {
+      const xs = spectrum(BOXES[kind.value], diff.value);
+      const aes = kind.value === 'aes';
+      c.domain(aes ? { y: [0, 5] } : { y: [0, 280] });
+      c.hline(aes ? 4 : 256, { dash: true, label: aes ? 'never more than 4' : 'all 256 inputs' });
+      c.bars(xs.map((list, d) => ({ d, list })).filter(o => o.list.length).map(o => ({
+        x: o.d, y: o.list.length, width: aes ? 1 : 3,
+        tip: `d = {${hex(o.d)}}: ${o.list.length} of 256 inputs` + (o.list.length <= 4 ? '\nx = ' + o.list.map(hex).join(', ') : ''),
+      })), { series: aes ? 1 : 2, gap: 1 });
+    },
+  });
+
+  function readout() {
+    const xs = spectrum(BOXES[kind.value], diff.value);
+    const counts = xs.map(l => l.length);
+    const best = counts.indexOf(Math.max(...counts));
+    const n = counts[best];
+    DS.stats(root + ' .readout', [
+      { label: 'Output differences that occur', value: `${counts.filter(v => v).length} of 256` },
+      { label: 'Most likely output difference', value: '{' + hex(best) + '}', note: `for ${n} of the 256 inputs` },
+      { label: 'Best prediction is right with probability', value: n === 256 ? '256/256 = 1' : n === 4 ? '4/256 = 2⁻⁶' : `${n}/256`,
+        tone: n === 256 ? 'bad' : 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>

@@ -4,20 +4,23 @@
 
 ---
 
-P1 ended with the one-time pad: perfectly secret, and homomorphic, because its keys simply
-add. AES is built the opposite way. It scrambles 16 bytes so thoroughly that no algebraic
-relation between plaintexts survives into the ciphertexts. Seeing exactly how it does that,
+P1 ended with the one-time pad: perfectly secret, and homomorphic, since its keys add. The
+Advanced Encryption Standard (AES) is built the opposite way. It scrambles 16 bytes so
+thoroughly that no algebraic relation between plaintexts survives into the ciphertexts. Seeing exactly how it does that,
 and which single step is responsible, explains both why AES is trusted everywhere and why
 nobody can compute on AES ciphertexts.
 
 **In this chapter** you will learn to:
 
 - say what a block cipher is and what it means for one to be secure;
-- add, multiply and invert bytes in the field $\mathrm{GF}(2^8)$ by hand;
-- follow AES-128 through one full round on the official FIPS 197 test vector;
+- add, multiply and invert bytes in the finite field $\mathrm{GF}(2^8)$ (GF for Galois field) by
+  hand;
+- follow AES-128 through one full round on the official test vector of FIPS 197 (Federal
+  Information Processing Standard 197);
 - explain why SubBytes is the only non-linear step, and why a cipher without one falls to
   Gaussian elimination;
-- describe the key schedule, the 10/12/14 rounds, AES-NI and what the best attacks achieve;
+- describe the key schedule, the 10/12/14 rounds, Intel's AES New Instructions (AES-NI) and
+  what the best attacks achieve;
 - explain why AES ciphertexts carry no usable algebra, and what transciphering is.
 
 **Companion script:** [`code/primer/p2_mini_aes.py`](../code/primer/p2_mini_aes.py). Run it from
@@ -64,13 +67,14 @@ $E_K(P) = P \oplus K$ is a keyed permutation too, but it is hopeless as a PRP:
 - $E_K(P_1) \oplus E_K(P_2) = P_1 \oplus P_2$ for every key, a relation that a random
   permutation would almost never satisfy.
 
-The XOR structure passes straight through the cipher. The whole job of AES is to destroy every
-relation of that kind, while staying fast and exactly invertible.
+The XOR (exclusive or) structure passes straight through the cipher. The whole job of AES is
+to destroy every relation of that kind, while staying fast and exactly invertible.
 
 Two remarks before we open the box. First, a block cipher alone is not yet a way to encrypt
 messages: it handles exactly 16 bytes and is deterministic. [P3](p3_modes_and_integrity.md)
-fixes that with modes of operation. Second, some history. AES's predecessor DES (1977) had a
-56-bit key and 64-bit blocks, both too small today. NIST ran an open competition for a
+fixes that with modes of operation. Second, some history. AES's predecessor, the Data
+Encryption Standard (DES, 1977), had a 56-bit key and 64-bit blocks, both too small today. The
+US National Institute of Standards and Technology (NIST) ran an open competition for a
 successor from 1997: fifteen candidates, five finalists (MARS, RC6, Rijndael, Serpent,
 Twofish), and on 2 October 2000 it chose **Rijndael** by Joan Daemen and Vincent Rijmen. AES
 was published as FIPS 197 on 26 November 2001. A 2023 update made editorial changes only; the
@@ -203,6 +207,8 @@ $$\{57\} \cdot \{13\} = \{57\} \oplus \{ae\} \oplus \{07\} = \{fe\}.$$
 This shift-and-add loop is exactly the function `gmul` in the script, and
 [part 1 of the script](../code/primer/p2_mini_aes.py) prints both products.
 
+<!-- figure: p2-xtime -->
+
 ### 3.5 Inverses
 
 Every non-zero byte $a$ has an inverse $a^{-1}$ with $a \cdot a^{-1} = \{01\}$. For example
@@ -251,6 +257,8 @@ start         SubBytes      ShiftRows     MixColumns    round key 1   AddRoundKe
 ```
 
 The four subsections below follow this table from left to right.
+
+<!-- figure: p2-round-stepper -->
 
 ### 4.1 SubBytes: the S-box
 
@@ -303,6 +311,8 @@ both in the toy.
 $b = \{0f\}$, part 1 of the script prints
 
 $$S(a \oplus b) = S(\{5c\}) = \{4a\}, \qquad S(a) \oplus S(b) = \{ed\} \oplus \{76\} = \{9b\}.$$
+
+<!-- figure: p2-sbox-differences -->
 
 ### 4.2 ShiftRows
 
@@ -415,8 +425,9 @@ Decryption runs the inverse steps in reverse order, with the round keys in rever
 
 This is `decrypt_block` in the script, and
 [part 2 of the script](../code/primer/p2_mini_aes.py) uses it to decrypt the C.1 ciphertext.
-The bigger InvMixColumns constants make decryption a little slower in software. Modes like CTR
-and GCM ([P3](p3_modes_and_integrity.md)) never call it.
+The bigger InvMixColumns constants make decryption a little slower in software. Modes like
+counter mode (CTR) and Galois/counter mode (GCM) ([P3](p3_modes_and_integrity.md)) never call
+it.
 
 ## 7. The avalanche effect
 
@@ -447,6 +458,8 @@ after each round:
   $4 \times 4 = 16$ bits.
 - Round 2: ShiftRows sends those 4 bytes to 4 different columns, and MixColumns spreads each
   one: all 16 bytes differ, about 64 bits.
+
+<!-- figure: p2-avalanche -->
 
 After two rounds every output byte depends on every input byte. The remaining rounds are there
 for confusion: to make the dependence so tangled that statistical attacks find nothing.
@@ -514,17 +527,17 @@ Later analysis, notably Cid and Leurent (2005), found that XSL does not work as 
 algebraic attack on full AES is known. Quadratic systems are much harder than linear ones.
 
 Keep this section in mind for [P7](p7_lattices_and_lwe.md). Gaussian elimination is the
-attacker's best friend, and AES defeats it with a non-linear S-box. LWE defeats it in a
-different way: it keeps every equation linear but adds a little random noise to each one, and
-that alone makes elimination fail. Keeping the linearity is what lets homomorphic encryption
+attacker's best friend, and AES defeats it with a non-linear S-box. Learning with errors (LWE)
+defeats it in a different way: it keeps every equation linear but adds a little random noise to
+each one, and that alone makes elimination fail. Keeping the linearity is what lets homomorphic encryption
 compute.
 
 ## 9. Speed and security today
 
 ### 9.1 AES in hardware: AES-NI
 
-Since the Westmere processors of 2010, Intel CPUs have had the **AES New Instructions
-(AES-NI)**. `AESENC` performs one complete middle round (ShiftRows, SubBytes, MixColumns,
+Since the Westmere processors of 2010, Intel central processing units (CPUs) have had the
+**AES New Instructions (AES-NI)**. `AESENC` performs one complete middle round (ShiftRows, SubBytes, MixColumns,
 AddRoundKey) in a single instruction, and `AESENCLAST` the final round. `AESDEC` and
 `AESDECLAST` do the same for decryption, and `AESKEYGENASSIST` and `AESIMC` help with the key
 schedule. AMD has the same instructions, and ARMv8 CPUs have their own equivalents. Intel
@@ -571,7 +584,7 @@ chapter explains them:
 | 1 | $\mathrm{GF}(2^8)$ arithmetic, the inverse and the S-box; $S$ is not linear | [§3](#3-arithmetic-on-bytes-a-field-with-256-elements), [§4.1](#41-subbytes-the-s-box) |
 | 2 | FIPS 197 Appendix C.1: encrypt and decrypt one block | [§4](#4-the-aes-state-and-one-round), [§6](#6-decryption) |
 | 3 | Round 1 of that encryption, step by step | [§4](#4-the-aes-state-and-one-round), [§5](#5-the-key-schedule) |
-| 4 | More official vectors, including AES-192 and AES-256 | [§5](#5-the-key-schedule) |
+| 4 | More official vectors (FIPS 197 and NIST Special Publication (SP) 800-38A), including AES-192 and AES-256 | [§5](#5-the-key-schedule) |
 | 5 | The avalanche effect, and the changed bits after each round | [§7](#7-the-avalanche-effect) |
 | 6 | AES is not homomorphic: $\mathrm{Enc}(a \oplus b)$ vs $\mathrm{Enc}(a) \oplus \mathrm{Enc}(b)$ | [§8](#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra), [§11](#11-how-this-connects-to-homomorphic-encryption) |
 | 7 | The same cipher with a linear S-box, broken with one known pair | [§8](#8-why-non-linearity-matters-a-linear-aes-falls-to-linear-algebra) |
@@ -658,7 +671,7 @@ Things to try:
   Smart (CRYPTO 2012) were the first to do it: about 36 hours for one evaluation that
   processed 54 blocks in parallel, just under 40 minutes per block. An updated HElib
   implementation took about 4 minutes on a laptop for up to 120 blocks (about 2 seconds per
-  block, amortized). With TFHE, Belaïd et
+  block, amortized). With TFHE (Torus fully homomorphic encryption), Belaïd et
   al. (2025) report 32 seconds per block on a single core. These numbers come from different
   schemes and machines; treat them as orders of magnitude.
 - **HE-friendly ciphers** are symmetric ciphers designed to be cheap inside HE: few

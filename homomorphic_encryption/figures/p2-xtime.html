@@ -1,0 +1,64 @@
+<figure class="widget" id="w-p2-xtime">
+  <p class="widget-title">Multiplying two bytes: shift, reduce, add</p>
+  <p class="widget-hint">The default is the chapter's \(\{57\} \cdot \{13\}\). Set \(a = \{80\}\) and \(b = \{02\}\) or \(\{03\}\) to check question 2 at the end of the chapter.</p>
+  <div class="controls"></div>
+  <div class="tbl"></div>
+  <p class="result"></p>
+  <figcaption>Each row is the row above times \(x\): a left shift, and if a bit falls off the top, XOR with {1b}. The bits of \(b\) pick which rows to add (XOR). This is the loop of <code>gmul</code> in the companion script.</figcaption>
+</figure>
+<style>
+#w-p2-xtime table { border-collapse: collapse; margin: 0 auto; font-size: 13.5px; }
+#w-p2-xtime th, #w-p2-xtime td { border: 0; border-bottom: 1px solid var(--line); padding: 4px 9px; text-align: left; background: none; vertical-align: middle; }
+#w-p2-xtime th { color: var(--fg-2); font-weight: 600; font-size: 12.5px; }
+#w-p2-xtime td.m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; }
+#w-p2-xtime td.how { color: var(--fg-2); font-size: 12.5px; }
+#w-p2-xtime tr.on td { background: color-mix(in srgb, var(--series-1) 14%, transparent); }
+#w-p2-xtime tr.on td.pick { font-weight: 700; }
+#w-p2-xtime tr.off td { color: var(--muted); }
+#w-p2-xtime .result { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; text-align: center;
+  background: var(--soft); border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { #w-p2-xtime th, #w-p2-xtime td { padding: 4px 5px; } #w-p2-xtime table { font-size: 12.5px; } }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-xtime';
+  const el = document.querySelector(root);
+  const hex = v => '{' + v.toString(16).padStart(2, '0') + '}';
+  const bin = v => v.toString(2).padStart(8, '0').replace(/(....)(....)/, '$1 $2');
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const bytes = Array.from({ length: 256 }, (_, v) => ({ value: String(v), label: hex(v) }));
+  const a = ui.select({ label: 'a', options: bytes, value: String(0x57) });
+  const b = ui.select({ label: 'b', options: bytes, value: String(0x13) });
+
+  function draw() {
+    const A = +a.value, B = +b.value;
+    const rows = [];
+    let v = A, result = 0;
+    const picked = [];
+    for (let i = 0; i < 8; i++) {
+      let how;
+      if (i > 0) {
+        const shifted = v << 1;                      // multiply by x
+        const over = shifted & 0x100;
+        v = over ? (shifted ^ 0x11b) : shifted;      // x^8 appeared: XOR the modulus {11b}, i.e. {1b} on the low byte
+        how = over ? `shift gives 1 ${bin(shifted & 0xff)}: overflow, XOR {1b}` : 'shift, no overflow';
+      } else how = 'a itself';
+      const on = (B >> i) & 1;
+      if (on) { result ^= v; picked.push(v); }
+      rows.push({ i, v, how, on });
+    }
+    const term = i => i === 0 ? 'a' : i === 1 ? 'a·x' : `a·x${'⁰¹²³⁴⁵⁶⁷'[i]}`;
+    const html = ['<table><thead><tr><th>row</th><th>value</th><th>bits</th><th>how</th><th>bit of b</th></tr></thead><tbody>'];
+    for (const r of rows) {
+      html.push(`<tr class="${r.on ? 'on' : 'off'}"><td class="m">${term(r.i)}</td><td class="m">${hex(r.v)}</td>` +
+        `<td class="m">${bin(r.v)}</td><td class="how">${r.how}</td><td class="m pick">${r.on}</td></tr>`);
+    }
+    html.push('</tbody></table>');
+    el.querySelector('.tbl').innerHTML = html.join('');
+    el.querySelector('.result').textContent = `${hex(A)} · ${hex(B)} = ` +
+      (picked.length ? picked.map(hex).join(' ⊕ ') + (picked.length > 1 ? ` = ${hex(result)}` : '') : '{00}');
+  }
+  draw();
+})();
+</script>

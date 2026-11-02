@@ -1,0 +1,171 @@
+<figure class="widget" id="w-p2-round-stepper">
+  <p class="widget-title">AES-128 step by step, on the FIPS 197 test vector</p>
+  <p class="widget-hint">Drag the slider back to round 1 · SubBytes, then forward through ShiftRows and MixColumns to the ciphertext. Click any byte of the result to see how it was computed.</p>
+  <div class="controls"></div>
+  <div class="stage">
+    <div class="pane"><p class="panel-title t-before">Before</p><div class="grid g-before"></div></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="pane"><p class="panel-title t-after">After</p><div class="grid g-after"></div></div>
+  </div>
+  <div class="how"><p class="what"></p><p class="calc"></p><p class="state"></p></div>
+  <figcaption>Plaintext <code>00112233445566778899aabbccddeeff</code>, key <code>000102030405060708090a0b0c0d0e0f</code>. SubBytes and AddRoundKey work on each byte alone, ShiftRows only moves bytes between columns, and MixColumns is the step where the four bytes of a column mix. The last step gives the ciphertext <code>69c4e0d86a7b0430d8cdb78070b4c55a</code> of FIPS 197 Appendix C.1.</figcaption>
+</figure>
+<style>
+#w-p2-round-stepper .stage { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 16px; margin: 4px 0 6px; }
+#w-p2-round-stepper .pane .panel-title { text-align: center; margin-bottom: 6px; }
+#w-p2-round-stepper .arrow { font-size: 22px; color: var(--muted); padding-top: 18px; }
+#w-p2-round-stepper .grid { display: grid; grid-template-columns: repeat(4, 2.75em); gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; }
+#w-p2-round-stepper .cell { height: 2.2em; display: flex; align-items: center; justify-content: center; padding: 0;
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+#w-p2-round-stepper .g-after .cell { cursor: pointer; }
+#w-p2-round-stepper .cell.k1 { background: color-mix(in srgb, var(--series-1) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k2 { background: color-mix(in srgb, var(--series-2) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k3 { background: color-mix(in srgb, var(--series-3) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k4 { background: color-mix(in srgb, var(--series-4) 26%, var(--bg)); }
+#w-p2-round-stepper .cell.src { box-shadow: inset 0 0 0 2px var(--fg); font-weight: 700; }
+#w-p2-round-stepper .cell.sel { box-shadow: inset 0 0 0 2.5px var(--fg); font-weight: 700; }
+@media (max-width: 600px) {
+  #w-p2-round-stepper .stage { gap: 6px 6px; }
+  #w-p2-round-stepper .grid { font-size: 13px; grid-template-columns: repeat(4, 2.3em); gap: 3px; }
+  #w-p2-round-stepper .arrow { font-size: 18px; }
+  #w-p2-round-stepper .pane .panel-title { font-size: 11.5px; max-width: 10em; margin-left: auto; margin-right: auto; }
+}
+#w-p2-round-stepper .how { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; line-height: 1.5; }
+#w-p2-round-stepper .how p { margin: 2px 0; }
+#w-p2-round-stepper .how .calc, #w-p2-round-stepper .how .state {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; overflow-wrap: anywhere; }
+#w-p2-round-stepper .how .state { color: var(--muted); }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-round-stepper';
+  const el = document.querySelector(root);
+
+  // AES-128 from GF(2^8) arithmetic up, as in code/primer/p2_mini_aes.py. Bytes in FIPS 197 order:
+  // state byte i sits at row i % 4, column floor(i / 4).
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const SBOX = INV.map(affine);
+  const MIX = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
+  const shiftSrc = i => (i % 4) + 4 * ((Math.floor(i / 4) + (i % 4)) % 4);   // where byte i comes from
+  const subBytes = s => s.map(b => SBOX[b]);
+  const shiftRows = s => s.map((_, i) => s[shiftSrc(i)]);
+  const mixColumns = s => s.map((_, i) => {
+    const r = i % 4, c4 = i - r;
+    return gmul(MIX[r][0], s[c4]) ^ gmul(MIX[r][1], s[c4 + 1]) ^ gmul(MIX[r][2], s[c4 + 2]) ^ gmul(MIX[r][3], s[c4 + 3]);
+  });
+  const addRoundKey = (s, k) => s.map((b, i) => b ^ k[i]);
+  function roundKeys(key) {                 // 16 key bytes -> 11 round keys of 16 bytes
+    const w = [];
+    for (let i = 0; i < 4; i++) w.push(key.slice(4 * i, 4 * i + 4));
+    let rcon = 1;
+    for (let i = 4; i < 44; i++) {
+      let t = w[i - 1];
+      if (i % 4 === 0) { t = [t[1], t[2], t[3], t[0]].map(b => SBOX[b]); t[0] ^= rcon; rcon = xtime(rcon); }
+      w.push(w[i - 4].map((b, j) => b ^ t[j]));
+    }
+    return Array.from({ length: 11 }, (_, r) => [].concat(w[4 * r], w[4 * r + 1], w[4 * r + 2], w[4 * r + 3]));
+  }
+  const hexBytes = s => s.match(/../g).map(h => parseInt(h, 16));
+  const hex = b => b.toString(16).padStart(2, '0');
+
+  // ---------------------------------------------------------------- every step of the encryption
+  const key = hexBytes('000102030405060708090a0b0c0d0e0f');
+  const pt = hexBytes('00112233445566778899aabbccddeeff');
+  const rk = roundKeys(key);
+  const steps = [];
+  let s = pt;
+  const push = (round, op, out) => { steps.push({ round, op, before: s, after: out }); s = out; };
+  push(0, 'AddRoundKey', addRoundKey(s, rk[0]));
+  for (let r = 1; r <= 10; r++) {
+    push(r, 'SubBytes', subBytes(s));
+    push(r, 'ShiftRows', shiftRows(s));
+    if (r < 10) push(r, 'MixColumns', mixColumns(s));
+    push(r, 'AddRoundKey', addRoundKey(s, rk[r]));
+  }
+  const stepName = st => `round ${st.round} · ${st.op}`;
+  const START = steps.findIndex(st => st.round === 1 && st.op === 'MixColumns');
+
+  // ---------------------------------------------------------------- the two grids
+  function makeGrid(sel, clickable) {
+    const g = el.querySelector(sel);
+    return Array.from({ length: 16 }, (_, k) => {
+      const i = (k % 4) * 4 + Math.floor(k / 4);            // fill the grid row by row: row k/4, column k%4
+      const c = document.createElement(clickable ? 'button' : 'div');
+      c.className = 'cell';
+      if (clickable) {
+        c.type = 'button';
+        c.setAttribute('aria-label', `row ${i % 4}, column ${Math.floor(i / 4)}`);
+        c.addEventListener('click', () => { selected = i; draw(); });
+      }
+      g.appendChild(c);
+      return { i, c };
+    }).sort((a, b) => a.i - b.i).map(o => o.c);           // index the cells by FIPS byte order
+  }
+  const before = makeGrid('.g-before', false), after = makeGrid('.g-after', true);
+  let selected = 0;
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const step = ui.slider({ label: 'Step', values: steps.map((_, k) => k), value: START,
+    format: k => `${k + 1} of ${steps.length}: ${stepName(steps[k])}` });
+
+  const rc = i => `row ${i % 4}, column ${Math.floor(i / 4)}`;
+  function draw() {
+    const st = steps[step.value], i = selected, r = i % 4, c = Math.floor(i / 4);
+    const tint = Array(16).fill(''), tintAfter = Array(16).fill(''), src = [];
+    let what = '', calc = '';
+    if (st.op === 'SubBytes') {
+      src.push(i);
+      tint[i] = tintAfter[i] = 'k1';
+      const x = st.before[i];
+      what = 'SubBytes replaces every byte by S(byte), using the same table for all 16. Each byte changes on its own.';
+      calc = `${hex(st.after[i])} = S(${hex(x)}) = affine(${hex(x)}⁻¹) = affine(${hex(INV[x])})`;
+    } else if (st.op === 'ShiftRows') {
+      const from = shiftSrc(i);
+      src.push(from);
+      for (let k = 0; k < 16; k++) { tint[k] = 'k' + (Math.floor(k / 4) + 1); tintAfter[k] = 'k' + (Math.floor(shiftSrc(k) / 4) + 1); }
+      what = 'ShiftRows rotates row r left by r places. Colours mark the column each byte started in: every column now holds one byte from each old column.';
+      calc = r === 0 ? `${hex(st.after[i])} stays where it was (row 0 does not move)`
+        : `${hex(st.after[i])} moved from ${rc(from)} (row ${r} rotates left by ${r})`;
+    } else if (st.op === 'MixColumns') {
+      for (let k = 0; k < 4; k++) { src.push(4 * c + k); tint[4 * c + k] = 'k1'; }
+      tintAfter[i] = 'k1';
+      const a = [0, 1, 2, 3].map(k => st.before[4 * c + k]);
+      const terms = a.map((v, k) => `${hex(MIX[r][k])}·${hex(v)}`).join(' ⊕ ');
+      const prods = a.map((v, k) => hex(gmul(MIX[r][k], v))).join(' ⊕ ');
+      what = `MixColumns multiplies each column by a fixed matrix over GF(2⁸). Every output byte depends on all four bytes of its column (column ${c} here).`;
+      calc = `${hex(st.after[i])} = ${terms} = ${prods}`;
+    } else {
+      src.push(i);
+      tint[i] = tintAfter[i] = 'k1';
+      const k = rk[st.round][i];
+      what = st.round === 0
+        ? 'Round 0 is one AddRoundKey: plaintext XOR round key 0, which is the cipher key itself.'
+        : `AddRoundKey XORs round key ${st.round} into the state. It is the only step that uses the key.`;
+      calc = `${hex(st.after[i])} = ${hex(st.before[i])} ⊕ ${hex(k)}   (round key ${st.round}: ${rk[st.round].map(hex).join('')})`;
+    }
+    before.forEach((cell, k) => {
+      cell.textContent = hex(st.before[k]);
+      cell.className = 'cell ' + tint[k] + (src.includes(k) ? ' src' : '');
+    });
+    after.forEach((cell, k) => {
+      cell.textContent = hex(st.after[k]);
+      cell.className = 'cell ' + tintAfter[k] + (k === i ? ' sel' : '');
+      cell.setAttribute('aria-pressed', String(k === i));
+    });
+    const prev = step.value === 0 ? 'Plaintext' : 'After ' + stepName(steps[step.value - 1]);
+    el.querySelector('.t-before').textContent = prev;
+    el.querySelector('.t-after').textContent = 'After ' + stepName(st);
+    el.querySelector('.what').textContent = what;
+    el.querySelector('.calc').textContent = `Selected byte (${rc(i)}): ${calc}`;
+    const last = step.value === steps.length - 1;
+    el.querySelector('.state').textContent = (last ? 'Ciphertext: ' : 'State in byte order: ') + st.after.map(hex).join('');
+  }
+  draw();
+})();
+</script>

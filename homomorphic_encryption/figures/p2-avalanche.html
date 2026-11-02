@@ -1,0 +1,138 @@
+<figure class="widget" id="w-p2-avalanche">
+  <p class="widget-title">One flipped bit, round by round</p>
+  <p class="widget-hint">Drag the slider to flip a different bit. After round 1 the changed bits sit in one column; after round 2 they cover every byte.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Changed bits of the state after each round (of 128)</p><div class="c-line"></div></div>
+    <div><p class="panel-title">Where they are: changed bits in each byte of the state</p><div class="maps"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The FIPS 197 test vector (key <code>000102…0f</code>, plaintext <code>001122…ff</code>) encrypted twice, once with one bit flipped. One round spreads the difference to a column, the next to the whole state, and from then on about half of the 128 bits differ, as for two unrelated random blocks. The dashed line is the average over 1000 random keys and plaintexts, computed with the companion script.</figcaption>
+</figure>
+<style>
+#w-p2-avalanche .maps { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; gap: 12px 22px; padding-top: 8px; }
+#w-p2-avalanche .map p { margin: 0 0 4px; font-size: 12.5px; color: var(--fg-2); text-align: center; }
+#w-p2-avalanche .map .g { display: grid; grid-template-columns: repeat(4, 2.1em); gap: 3px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#w-p2-avalanche .map .g div { height: 1.9em; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 4px; color: var(--fg); }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-avalanche';
+  const el = document.querySelector(root);
+
+  // AES-128 from GF(2^8) arithmetic up, as in code/primer/p2_mini_aes.py. Bytes in FIPS 197 order:
+  // state byte i sits at row i % 4, column floor(i / 4).
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const SBOX = INV.map(affine);
+  const MIX = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
+  const subBytes = s => s.map(b => SBOX[b]);
+  const shiftRows = s => s.map((_, i) => s[(i % 4) + 4 * ((Math.floor(i / 4) + (i % 4)) % 4)]);
+  const mixColumns = s => s.map((_, i) => {
+    const r = i % 4, c4 = i - r;
+    return gmul(MIX[r][0], s[c4]) ^ gmul(MIX[r][1], s[c4 + 1]) ^ gmul(MIX[r][2], s[c4 + 2]) ^ gmul(MIX[r][3], s[c4 + 3]);
+  });
+  const addRoundKey = (s, k) => s.map((b, i) => b ^ k[i]);
+  function roundKeys(key) {                 // 16 key bytes -> 11 round keys of 16 bytes
+    const w = [];
+    for (let i = 0; i < 4; i++) w.push(key.slice(4 * i, 4 * i + 4));
+    let rcon = 1;
+    for (let i = 4; i < 44; i++) {
+      let t = w[i - 1];
+      if (i % 4 === 0) { t = [t[1], t[2], t[3], t[0]].map(b => SBOX[b]); t[0] ^= rcon; rcon = xtime(rcon); }
+      w.push(w[i - 4].map((b, j) => b ^ t[j]));
+    }
+    return Array.from({ length: 11 }, (_, r) => [].concat(w[4 * r], w[4 * r + 1], w[4 * r + 2], w[4 * r + 3]));
+  }
+  function encryptStates(key, block) {      // the state after round 0, 1, ..., 10
+    const rk = roundKeys(key);
+    let s = addRoundKey(block, rk[0]);
+    const out = [s];
+    for (let r = 1; r <= 10; r++) {
+      s = shiftRows(subBytes(s));
+      if (r < 10) s = mixColumns(s);
+      s = addRoundKey(s, rk[r]);
+      out.push(s);
+    }
+    return out;
+  }
+  const hexBytes = s => s.match(/../g).map(h => parseInt(h, 16));
+  const popcount = v => { let n = 0; while (v) { n += v & 1; v >>= 1; } return n; };
+  const flipBit = (a, i) => { const b = a.slice(); b[i >> 3] ^= 0x80 >> (i & 7); return b; };   // as flip_bit in the script
+
+  // ---------------------------------------------------------------- precompute all 2 x 128 flips
+  const key = hexBytes('000102030405060708090a0b0c0d0e0f');
+  const pt = hexBytes('00112233445566778899aabbccddeeff');
+  const base = encryptStates(key, pt);
+  const perByte = (which, i) => {           // [round][byte] -> changed bits
+    const other = which === 'plaintext' ? encryptStates(key, flipBit(pt, i)) : encryptStates(flipBit(key, i), pt);
+    return base.map((s, r) => s.map((b, j) => popcount(b ^ other[r][j])));
+  };
+  const TABLE = { plaintext: [], key: [] };
+  for (let i = 0; i < 128; i++) { TABLE.plaintext.push(perByte('plaintext', i)); TABLE.key.push(perByte('key', i)); }
+  // Averages over 1000 random keys and plaintexts from code/primer/p2_mini_aes.py (part 5 prints
+  // the plaintext line; the key line uses the same functions with key bits flipped, random.seed(2)).
+  const AVG = { plaintext: [1.0, 16.2, 64.0, 64.1, 64.3, 64.2, 64.0, 64.0, 63.8, 64.1, 64.1],
+                key: [1.0, 21.4, 64.0, 63.9, 63.8, 64.0, 64.3, 64.1, 64.0, 63.9, 64.2] };
+  const sum = a => a.reduce((x, y) => x + y, 0);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); maps(); readout(); });
+  const which = ui.choice({ label: 'Flip a bit of the', options: ['plaintext', 'key'], value: 'plaintext' });
+  const bit = ui.slider({ label: 'Flipped bit', min: 0, max: 127, step: 1, value: 0, format: v => `bit ${v} (byte ${v >> 3})` });
+
+  const rounds = DS.math.range(11);
+  const chart = DS.chart(root + ' .c-line', {
+    x: { domain: [0, 10], label: 'after round', tickValues: rounds, tipLabel: 'after round' },
+    y: { domain: [0, 128], label: 'changed bits', tickValues: [0, 32, 64, 96, 128] },
+    height: 260,
+    draw(c) {
+      const counts = TABLE[which.value][bit.value].map(sum);
+      c.text(0.15, 64, 'half of 128', { dy: -6, cls: 'ink2' });
+      c.line(rounds.map(r => [r, AVG[which.value][r]]), { series: 'muted', dash: true, label: 'average, 1000 random' });
+      c.line(rounds.map(r => [r, counts[r]]), { series: 1, label: 'this block' });
+      c.scatter(rounds.map(r => [r, counts[r]]), { series: 1, r: 3.5 });
+      c.legend([{ label: 'this block', series: 1 }, { label: 'average of 1000 random', series: 'muted', kind: 'dash' }]);
+    },
+  });
+
+  const SHOW = [0, 1, 2, 10];
+  const box = el.querySelector('.maps');
+  const cells = SHOW.map(r => {
+    const m = document.createElement('div');
+    m.className = 'map';
+    m.innerHTML = `<p>${r === 10 ? 'round 10 (ciphertext)' : 'round ' + r}</p><div class="g"></div>`;
+    box.appendChild(m);
+    const g = m.querySelector('.g');
+    return Array.from({ length: 16 }, (_, k) => {
+      const d = document.createElement('div');
+      g.appendChild(d);
+      return { d, j: (k % 4) * 4 + Math.floor(k / 4) };    // grid row k/4, column k%4 holds byte row + 4*column
+    });
+  });
+  function maps() {
+    const t = TABLE[which.value][bit.value];
+    SHOW.forEach((r, n) => cells[n].forEach(({ d, j }) => {
+      const v = t[r][j];
+      d.textContent = v ? v : '';
+      d.style.background = v ? `var(--seq-${Math.min(5, Math.ceil(v * 5 / 8))})` : 'transparent';
+    }));
+  }
+
+  function readout() {
+    const t = TABLE[which.value][bit.value];
+    const bytes = r => t[r].filter(v => v).length;
+    DS.stats(root + ' .readout', [1, 2, 10].map(r => ({
+      label: r === 10 ? 'Ciphertext' : `After round ${r}`,
+      value: `${sum(t[r])} bits`,
+      note: `in ${bytes(r)} of 16 bytes`,
+    })));
+  }
+  maps();
+  readout();
+})();
+</script>
