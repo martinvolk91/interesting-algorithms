@@ -1,0 +1,43 @@
+<figure class="diagram" id="d-p5-ind-cpa-game">
+  <style>
+    #d-p5-ind-cpa-game svg { max-width: 470px; }
+    #d-p5-ind-cpa-game svg text { font-size: 14px; }
+    #d-p5-ind-cpa-game svg text.h { font-size: 15px; font-weight: 650; }
+    #d-p5-ind-cpa-game svg text.lab { font-weight: 650; }
+    #d-p5-ind-cpa-game svg text.sm { font-size: 13px; fill: var(--muted); }
+  </style>
+  <svg viewBox="0 0 400 356" role="img" aria-label="The IND-CPA game. The challenger makes a key pair and flips a secret coin b, and sends the public key. The adversary encrypts whatever it likes, then sends two messages m0 and m1 of equal length. The challenger returns c* = Enc(pk, m_b). The adversary may compute more and sends a guess b'. It wins if b' = b.">
+    <text class="h" x="8" y="20">Challenger</text>
+    <text class="h" x="392" y="20" text-anchor="end">Adversary <tspan font-style="italic">A</tspan></text>
+    <line x1="4" y1="32" x2="396" y2="32" stroke="var(--line-strong)"/>
+
+    <!-- 1. setup -->
+    <text x="8" y="58">(pk, sk) ← KeyGen(1<tspan dy="-6" font-size="11">λ</tspan><tspan dy="6">)</tspan></text>
+    <text x="8" y="78">b ← {0, 1}: the secret coin</text>
+    <path d="M90,106 H300" stroke="var(--series-1)" stroke-width="2" fill="none"/>
+    <path d="M310,106 l-11,-5.5 v11 z" fill="var(--series-1)"/>
+    <text class="lab" x="200" y="98" text-anchor="middle">pk</text>
+
+    <!-- 2. chosen plaintexts, then the two messages -->
+    <text x="392" y="134" text-anchor="end">encrypts anything it likes</text>
+    <text x="392" y="153" text-anchor="end">with pk (chosen plaintexts)</text>
+    <path d="M100,188 H310" stroke="var(--series-2)" stroke-width="2" fill="none"/>
+    <path d="M90,188 l11,-5.5 v11 z" fill="var(--series-2)"/>
+    <text class="lab" x="200" y="180" text-anchor="middle">m₀, m₁</text>
+    <text class="sm" x="200" y="206" text-anchor="middle">any two messages of equal length</text>
+
+    <!-- 3. the challenge -->
+    <text x="8" y="234">c* = Enc(pk, m<tspan dy="4" font-size="11">b</tspan><tspan dy="-4">)</tspan></text>
+    <path d="M90,260 H300" stroke="var(--series-1)" stroke-width="2" fill="none"/>
+    <path d="M310,260 l-11,-5.5 v11 z" fill="var(--series-1)"/>
+    <text class="lab" x="200" y="252" text-anchor="middle">c*</text>
+    <text x="392" y="288" text-anchor="end">more encryptions, any computation</text>
+
+    <!-- 4. the guess -->
+    <path d="M100,318 H310" stroke="var(--series-2)" stroke-width="2" fill="none"/>
+    <path d="M90,318 l11,-5.5 v11 z" fill="var(--series-2)"/>
+    <text class="lab" x="200" y="310" text-anchor="middle">guess b′</text>
+    <text class="lab" x="8" y="348"><tspan font-style="italic">A</tspan> wins if b′ = b</text>
+  </svg>
+  <figcaption>The IND-CPA game. Blue arrows carry what the challenger gives away: the public key and the challenge \(c^*\). Orange arrows carry the adversary's choices. The adversary gets everything except the coin \(b\). The scheme is secure if no efficient adversary guesses \(b\) noticeably more often than half the time.</figcaption>
+</figure>
