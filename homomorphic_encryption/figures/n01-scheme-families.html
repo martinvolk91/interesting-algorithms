@@ -1,0 +1,77 @@
+<figure class="diagram" id="d-n01-scheme-families">
+  <svg viewBox="0 0 520 486" role="img" aria-label="Family tree of fully homomorphic encryption schemes, from Gentry 2009 and the LWE problems to the BGV family and the GSW family" style="max-width:620px">
+    <defs>
+      <marker id="n01sf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+      </marker>
+    </defs>
+    <style>
+      #d-n01-scheme-families .h { font-size: 12.5px; fill: var(--muted); font-weight: 600; letter-spacing: .02em; }
+      #d-n01-scheme-families .t { font-size: 15px; font-weight: 650; }
+      #d-n01-scheme-families .s { font-size: 13px; fill: var(--fg-2, currentColor); }
+      #d-n01-scheme-families .ar { stroke: var(--muted); stroke-width: 1.4; fill: none; marker-end: url(#n01sf-arrow); }
+    </style>
+
+    <!-- 1st generation -->
+    <text class="h" x="20" y="16">1ST GENERATION · FHE IS POSSIBLE</text>
+    <rect x="35" y="26" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+    <text class="t" x="140" y="46" text-anchor="middle">Gentry · 2009</text>
+    <text class="s" x="140" y="65" text-anchor="middle">ideal lattices, bootstrapping</text>
+    <rect x="275" y="26" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+    <text class="t" x="380" y="46" text-anchor="middle">DGHV · 2010</text>
+    <text class="s" x="380" y="65" text-anchor="middle">the same over the integers</text>
+
+    <!-- hard problems -->
+    <text class="h" x="20" y="108">THE HARD PROBLEMS UNDERNEATH</text>
+    <rect x="35" y="118" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)"/>
+    <text class="t" x="140" y="138" text-anchor="middle">Ring-LWE · 2010</text>
+    <text class="s" x="140" y="157" text-anchor="middle">LWE with polynomials</text>
+    <rect x="275" y="118" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)"/>
+    <text class="t" x="380" y="138" text-anchor="middle">LWE · 2005</text>
+    <text class="s" x="380" y="157" text-anchor="middle">Regev: noisy linear equations</text>
+    <path class="ar" d="M274,143 L248,143"/>
+
+    <!-- column headings -->
+    <text class="h" x="82" y="195">Arithmetic on many slots</text>
+    <text class="h" x="322" y="195">Bits and lookup tables</text>
+
+    <!-- BGV family -->
+    <path class="ar" d="M70,169 L70,210"/>
+    <g fill="color-mix(in srgb, var(--series-1) 13%, transparent)" stroke="var(--series-1)">
+      <rect x="35" y="212" width="210" height="50" rx="8"/>
+      <rect x="35" y="284" width="210" height="50" rx="8"/>
+      <rect x="35" y="356" width="210" height="50" rx="8"/>
+      <rect x="35" y="428" width="210" height="50" rx="8"/>
+    </g>
+    <text class="t" x="140" y="232" text-anchor="middle">BV · 2011</text>
+    <text class="s" x="140" y="251" text-anchor="middle">relinearization</text>
+    <text class="t" x="140" y="304" text-anchor="middle">BGV · 2012</text>
+    <text class="s" x="140" y="323" text-anchor="middle">modulus switching, levels</text>
+    <text class="t" x="140" y="376" text-anchor="middle">BFV · 2012</text>
+    <text class="s" x="140" y="395" text-anchor="middle">scale-invariant</text>
+    <text class="t" x="140" y="448" text-anchor="middle">CKKS · 2017</text>
+    <text class="s" x="140" y="467" text-anchor="middle">approximate real numbers</text>
+    <path class="ar" d="M140,263 L140,282"/>
+    <path class="ar" d="M140,335 L140,354"/>
+    <path class="ar" d="M140,407 L140,426"/>
+
+    <!-- GSW family -->
+    <path class="ar" d="M310,169 L310,210"/>
+    <g fill="color-mix(in srgb, var(--series-2) 13%, transparent)" stroke="var(--series-2)">
+      <rect x="275" y="212" width="210" height="50" rx="8"/>
+      <rect x="275" y="284" width="210" height="50" rx="8"/>
+      <rect x="275" y="356" width="210" height="50" rx="8"/>
+    </g>
+    <text class="t" x="380" y="232" text-anchor="middle">GSW · 2013</text>
+    <text class="s" x="380" y="251" text-anchor="middle">no relinearization needed</text>
+    <text class="t" x="380" y="304" text-anchor="middle">FHEW · 2015</text>
+    <text class="s" x="380" y="323" text-anchor="middle">bootstraps a gate in &lt; 1 s</text>
+    <text class="t" x="380" y="376" text-anchor="middle">TFHE · 2016</text>
+    <text class="s" x="380" y="395" text-anchor="middle">a gate in ≈ 13 ms (2017)</text>
+    <path class="ar" d="M380,263 L380,282"/>
+    <path class="ar" d="M380,335 L380,354"/>
+    <text class="s" x="380" y="440" text-anchor="middle">one small value per ciphertext,</text>
+    <text class="s" x="380" y="458" text-anchor="middle">bootstrapped after every operation</text>
+  </svg>
+  <figcaption>The schemes of the timeline as a family tree. Gentry's construction and DGHV showed that fully homomorphic encryption is possible but are no longer used; his bootstrapping idea is in every scheme below. The left family (second generation, plus CKKS) packs thousands of numbers into one ring ciphertext and computes on all of them at once. The right family (third generation) works on one bit or small integer at a time, but bootstraps so fast that it can do so after every gate.</figcaption>
+</figure>
