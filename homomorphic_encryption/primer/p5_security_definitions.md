@@ -4,11 +4,13 @@
 
 ---
 
-Every HE paper says its scheme is "IND-CPA secure under RLWE". This chapter unpacks both halves
-of that sentence. IND-CPA is a game that no efficient attacker may win noticeably more often
+Every homomorphic encryption paper says "IND-CPA secure under RLWE" (indistinguishability under
+chosen-plaintext attack, assuming ring learning with errors is hard). This chapter unpacks both
+halves of that phrase. IND-CPA is a game that no efficient attacker may win noticeably more often
 than a coin flip; "under RLWE" is a reduction that turns any winning attacker into a solver for
-a lattice problem. On the way you will see why encryption must be randomized, why HE can never
-reach the stronger CCA2 notion, and what the definition leaves out. Chapter 01 has a one-page
+a lattice problem. On the way you will see why encryption must be randomized, why homomorphic
+encryption (HE) can never reach the stronger CCA2 notion (security against adaptive
+chosen-ciphertext attack), and what the definition leaves out. Chapter 01 has a one-page
 summary ([01 §2](../01_introduction.md#what-ind-cpa-means)); this is the long, gentle version.
 
 **In this chapter** you will learn to:
@@ -18,9 +20,11 @@ summary ([01 §2](../01_introduction.md#what-ind-cpa-means)); this is the long, 
 - play the IND-CPA game, compute an adversary's advantage, and show that deterministic
   encryption always loses;
 - state semantic security and explain why it is equivalent to IND-CPA;
-- read "secure under DDH" or "secure under LWE" as a proof by reduction, and sketch the one for
+- read "secure under DDH" (decisional Diffie–Hellman) or "secure under LWE" (learning with
+  errors) as a proof by reduction, and sketch the one for
   ElGamal;
-- explain why every homomorphic scheme fails IND-CCA2, and list what IND-CPA does not cover.
+- explain why every homomorphic scheme fails IND-CCA2 (indistinguishability under adaptive
+  chosen-ciphertext attack), and list what IND-CPA does not cover.
 
 **Companion script:** [`code/primer/p5_ind_cpa_game.py`](../code/primer/p5_ind_cpa_game.py). Run it from
 the `homomorphic_encryption/` folder with `python3 code/primer/p5_ind_cpa_game.py`. Its output
@@ -60,9 +64,9 @@ From weakest to strongest attacker:
 |---|---|---|
 | **Ciphertext-only** (COA) | Ciphertexts only | Frequency analysis of substitution and Vigenère ciphers (P1) |
 | **Known-plaintext** (KPA) | Some plaintext–ciphertext pairs it did not choose | Bletchley Park's "cribs" (predictable phrases such as weather reports) against Enigma; the two-time pad (P1) |
-| **Chosen-plaintext** (CPA) | Encryptions of messages of its choice | Midway 1942; BEAST against TLS 1.0 (2011); every public-key scheme |
+| **Chosen-plaintext** (CPA) | Encryptions of messages of its choice | Midway 1942; BEAST against Transport Layer Security (TLS) 1.0 (2011); every public-key scheme |
 | **Non-adaptive chosen-ciphertext** (CCA1) | Decryptions of ciphertexts of its choice, but only before it sees the target | "Lunchtime" access to a decryption device; key recovery on lattice-based homomorphic schemes (§7) |
-| **Adaptive chosen-ciphertext** (CCA2) | Decryptions of anything except the target, before and after seeing it | Bleichenbacher's attack on RSA PKCS #1 v1.5 in SSL (1998), still found in many servers by ROBOT (2018) |
+| **Adaptive chosen-ciphertext** (CCA2) | Decryptions of anything except the target, before and after seeing it | Bleichenbacher's attack on Rivest–Shamir–Adleman (RSA) encryption with Public-Key Cryptography Standards (PKCS) #1 v1.5 padding in SSL (1998), still found in many servers by ROBOT (2018) |
 
 Some detail on the stronger three:
 
@@ -71,7 +75,7 @@ Some detail on the stronger three:
   down; a decrypted Japanese message soon reported that "AF" was short of water. The
   codebreakers had chosen part of a plaintext and watched it being encrypted. In 2011 the BEAST
   attack had JavaScript in the victim's browser choose plaintexts inside a TLS 1.0 connection,
-  whose CBC mode used predictable IVs (P3). For **public-key** encryption CPA is free: the public
+  whose cipher block chaining (CBC) mode used predictable initialization vectors (IVs; P3). For **public-key** encryption CPA is free: the public
   key is an encryption machine anyone can use. So CPA is the weakest model that even makes sense
   for public-key schemes.
 - **CCA1, the "lunchtime attack".** The attacker can use a decryption box while its owner is at
@@ -150,13 +154,15 @@ Guessing a 128-bit key on the first try ($t = 1$, $\varepsilon = 2^{-128}$) and 
 operations mean physically.
 
 In practice λ is set to the target: pick λ = 128 and choose parameters so that the best known
-attacks cost at least $2^{128}$. That means AES-128, RSA-3072 or a 256-bit elliptic curve (P4 §8),
+attacks cost at least $2^{128}$. That means the Advanced Encryption Standard with 128-bit keys (AES-128), RSA-3072 or a 256-bit elliptic curve (P4 §8),
 and for HE the ring dimension and modulus from the HomomorphicEncryption.org tables, checked
 with the Lattice Estimator ([06 §2](../06_security.md#2-parameter-selection-dont-roll-your-own)).
 
 ## 4. Security as a game: IND-CPA
 
 ### The game
+
+<!-- figure: p5-ind-cpa-game replaces the code block below -->
 
 ```text
         Challenger                                         Adversary A
@@ -219,12 +225,12 @@ $b' = 1$. Correct, and it would have been correct for $b = 0$ too.
 So **no deterministic public-key scheme is IND-CPA secure**, however hard its underlying problem.
 For secret-key schemes the same adversary uses the encryption oracle. Three consequences:
 
-1. **Encryption must be randomized**, or at least stateful: nonce-based symmetric encryption
-   (CTR, GCM in [P3 §6](p3_modes_and_integrity.md#6-why-encryption-must-be-randomized)) gets its variation from a nonce that must never repeat, and its version of
+1. **Encryption must be randomized**, or at least stateful: nonce-based symmetric encryption,
+   such as counter mode (CTR) and Galois/counter mode (GCM) ([P3 §6](p3_modes_and_integrity.md#6-why-encryption-must-be-randomized)), gets its variation from a nonce that must never repeat, and its version of
    the game forbids the adversary from repeating nonces.
 2. **Ciphertexts must expand.** Each message needs many possible ciphertexts, so ciphertexts are
    longer than messages: twice as long for ElGamal, much more for LWE (P7).
-3. **Determinism also leaks inside one message.** ECB mode (P3) encrypts equal blocks to equal
+3. **Determinism also leaks inside one message.** Electronic codebook (ECB) mode (P3) encrypts equal blocks to equal
    blocks. An adversary that submits $m_0$ = `ABAB` (two equal 2-byte blocks) and
    $m_1$ = `ABCD` only has to check whether the two halves of $c^*$ are equal. It does not even
    need the oracle.
@@ -265,6 +271,8 @@ $(-1)/(-1) = +1$: the message is a square, so $b' = 0$. Correct, and it always w
 In the subgroup of squares every element has symbol $+1$, so the same adversary sees nothing: it
 always answers 0 and wins exactly when the coin is 0 (script, part 3: 50.1 %). This is DDH failing in $\mathbb{Z}_p^*$, and it is why the proof in §6
 needs a group in which DDH is believed hard.
+
+<!-- figure: p5-win-rate -->
 
 ## 5. Semantic security
 
@@ -411,8 +419,9 @@ IND-CCA2 is the IND-CPA game plus a **decryption oracle**: the adversary may sub
 except $c^*$ itself, before and after the challenge, and gets its decryption. (In IND-CCA1 the
 oracle closes when the challenge arrives.) The one exclusion is necessary, since decrypting $c^*$
 would win trivially. As §2 showed, the oracle models servers that decrypt and react, so this is
-the standard target for ordinary encryption: RSA-OAEP, ML-KEM and AES-GCM (with unique nonces)
-all aim for it.
+the standard target for ordinary encryption: RSA with optimal asymmetric encryption padding
+(RSA-OAEP), the Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM) and AES-GCM (with
+unique nonces) all aim for it.
 
 ### Malleability breaks CCA2
 
@@ -432,6 +441,8 @@ $c' = (16 \cdot 4,\ 6 \cdot 13) = (64, 78) \equiv (18, 9)$. The oracle computes 
 $13^{-1} \equiv 16$, $9 \cdot 16 = 144 \equiv 6$ and returns 6. The adversary computes
 $6 \cdot 2^{-1} = 6 \cdot 12 = 72 \equiv 3 = m_0$ and answers $b' = 0$. It wins every time.
 
+<!-- figure: p5-cca2-maul -->
+
 The principle is general. If anyone can turn $c^*$ into a **different** ciphertext whose plaintext
 is a known, invertible function of $m$, the scheme is not IND-CCA2 secure. A homomorphic scheme
 provides exactly such operations, by definition:
@@ -440,7 +451,7 @@ provides exactly such operations, by definition:
 |---|---|---|
 | Textbook RSA | $c^* \cdot 2^e \bmod n$ | $2m$ |
 | ElGamal | $c^* \cdot \mathrm{Enc}(2)$, or just $c^* \cdot \mathrm{Enc}(1)$ | $2m$, or $m$ itself |
-| LWE, BFV, CKKS (P7–P8) | $c^* + \mathrm{Enc}(1)$, or just $c^* + \mathrm{Enc}(0)$ | $m + 1$, or $m$ itself |
+| LWE, the Brakerski/Fan–Vercauteren scheme (BFV), the Cheon–Kim–Kim–Song scheme (CKKS) (P7–P8) | $c^* + \mathrm{Enc}(1)$, or just $c^* + \mathrm{Enc}(0)$ | $m + 1$, or $m$ itself |
 
 So **homomorphic implies malleable implies not IND-CCA2**. This is not a weakness of particular
 schemes; it is built into the goal. Computing on ciphertexts means producing new valid
@@ -453,11 +464,13 @@ secret evaluation key (keyed-homomorphic encryption, Emura et al., 2013) can be 
 against everyone else.
 
 Ordinary encryption reaches CCA2 by **rejecting** everything that honest encryption did not
-produce: encrypt-then-MAC and AEAD ([P3 §9](p3_modes_and_integrity.md#9-encrypt-then-mac)),
+produce: encrypt-then-MAC, which tags the ciphertext with a message authentication code (MAC),
+and authenticated encryption with associated data (AEAD)
+([P3 §9](p3_modes_and_integrity.md#9-encrypt-then-mac)),
 OAEP for RSA and the Fujisaki–Okamoto transform for ML-KEM (P4). The last two CCA2 rows in
 [part 4 of the script](../code/primer/p5_ind_cpa_game.py) show the effect. Hybrid encryption
 (P4 §6) without a MAC loses every game to P3's bit flip: flip a bit of the body, ask for the decryption, flip it back.
-With an HMAC tag the modified ciphertext is rejected, and the adversary is back to a coin
+With a hash-based message authentication code (HMAC) tag the modified ciphertext is rejected, and the adversary is back to a coin
 flip (49.8 %).
 
 ### CCA1 and homomorphic encryption
@@ -492,8 +505,9 @@ game is outside the guarantee:
 
 The last row is the most important lesson of recent HE research. Li and Micciancio (2021)
 defined **IND-CPA-D**: the attacker may also see decryptions of honestly computed ciphertexts.
-For exact schemes (BFV, BGV, TFHE) with negligible decryption-failure probability those
-decryptions contain only the answer, which the attacker could predict, so IND-CPA implies
+For exact schemes with negligible decryption-failure probability, such as BFV, the
+Brakerski–Gentry–Vaikuntanathan scheme (BGV) and Torus fully homomorphic encryption (TFHE),
+those decryptions contain only the answer, which the attacker could predict, so IND-CPA implies
 IND-CPA-D. CKKS, however, is an approximate scheme: decryption does not round the noise away
 but returns the message **plus the noise**, $m + e$, treating the noise as a small rounding error
 ([P8 §9.3](p8_multiplication_and_relinearization.md#93-ckks-rescaling-in-one-paragraph)).
@@ -584,6 +598,8 @@ What to look for:
 - **What the table cannot show** is that *no* adversary wins against ElGamal or LWE. Only the
   reductions in §6 say that, and only under DDH and decision-LWE.
 
+<!-- figure: p5-games-needed -->
+
 ## 10. How this connects to homomorphic encryption
 
 - **The HE server is the IND-CPA adversary.** It holds the public key and the evaluation keys,
@@ -596,7 +612,7 @@ What to look for:
   noise that grows with every operation (P7–P9).
 - **Malleability is the price of computing.** It was a bug in P3 and P4; here it is the reason HE
   can never be IND-CCA2. HE deployments compensate at the protocol level: the key owner does not
-  decrypt untrusted ciphertexts, and integrity comes from elsewhere (proofs, replication, TEEs).
+  decrypt untrusted ciphertexts, and integrity comes from elsewhere (proofs, replication, trusted execution environments (TEEs)).
 - **Know the gaps.** Circular security for bootstrapping (P9), and IND-CPA-D whenever decrypted
   results are shared ([06 §3](../06_security.md#3-ind-cpa-d-when-decryption-leaks-the-key)).
 
@@ -691,7 +707,8 @@ What to look for:
   Standard PKCS #1", CRYPTO 1998. <https://doi.org/10.1007/BFb0055716>
 - H. Böck, J. Somorovsky, C. Young, "Return Of Bleichenbacher's Oracle Threat (ROBOT)", USENIX
   Security 2018. <https://www.usenix.org/conference/usenixsecurity18/presentation/bock>
-- Y. Sheffer, R. Holz, P. Saint-Andre, RFC 7457, *Summarizing Known Attacks on TLS and DTLS*,
+- Y. Sheffer, R. Holz, P. Saint-Andre, Request for Comments (RFC) 7457 of the Internet
+  Engineering Task Force (IETF), *Summarizing Known Attacks on TLS and DTLS*,
   2015 (BEAST, CRIME, padding oracles). <https://www.rfc-editor.org/rfc/rfc7457>
 - NSA Center for Cryptologic History, *The Battle of Midway* (the "AF is short of water" ruse).
   <https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF>

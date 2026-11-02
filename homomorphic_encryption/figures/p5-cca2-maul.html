@@ -1,0 +1,92 @@
+<figure class="widget" id="w-p5-cca2-maul">
+  <p class="widget-title">Mauling the challenge: the IND-CCA2 attack on ElGamal</p>
+  <p class="widget-hint">Flip the secret coin and change the adversary's \(y'\). The ciphertext \(c'\) it submits changes every time, and the oracle's answer still gives \(m_b\) away.</p>
+  <div class="controls"></div>
+  <div class="c-flow"></div>
+  <div class="readout"></div>
+  <figcaption>The P4 key: \(p = 23\), \(g = 2\), secret \(x = 3\), public \(h = 8\); all arithmetic is mod 23, and the challenger's \(y = 4\) gives the chapter's \(c^* = (16, 6)\) for \(b = 0\). The decryption oracle refuses only \(c^*\) itself. Multiplying by a fresh \(\mathrm{Enc}(2)\) makes a different ciphertext of \(2m_b\), which it must decrypt. Every homomorphic scheme offers such an operation, so none is IND-CCA2 secure.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-cca2-maul';
+  const p = 23, g = 2, x = 3, h = 8, y = 4, M = [3, 4];
+  const pw = (b, e) => { let r = 1; for (let i = 0; i < e; i++) r = r * b % p; return r; };
+  const inv = a => pw(a, p - 2);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+
+  function round(b, yp) {
+    const c1 = pw(g, y), c2 = M[b] * pw(h, y) % p;                 // the challenge c* = Enc(m_b)
+    const d1 = pw(g, yp), d2 = 2 * pw(h, yp) % p;                  // the adversary's own Enc(2)
+    const e1 = c1 * d1 % p, e2 = c2 * d2 % p;                      // c' = c* · Enc(2)
+    const s = pw(e1, x), si = inv(s), z = e2 * si % p;             // the oracle decrypts c'
+    const m = z * inv(2) % p;                                      // the adversary halves
+    return { c1, c2, d1, d2, e1, e2, s, si, z, m, guess: m === M[0] ? 0 : 1, refused: e1 === c1 && e2 === c2 };
+  }
+
+  const ui = DS.controls(root + ' .controls', render);
+  const coin = ui.choice({ label: 'Secret coin b', options: [0, 1], value: 0 });
+  const yp = ui.slider({ label: "Adversary's y′", min: 1, max: 10, step: 1, value: 2 });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const host = document.querySelector(root + ' .c-flow');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 400 464');
+  svg.setAttribute('role', 'img');
+  svg.style.cssText = 'display:block;width:100%;height:auto;max-width:430px;margin:0 auto;font-family:var(--font);';
+  host.appendChild(svg);
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  }
+  function card(top, who, color, lines) {
+    const H = 34 + 21 * lines.length;
+    el('rect', { x: 6, y: top, width: 388, height: H, rx: 8, fill: 'none', stroke: color, 'stroke-width': 1.5 });
+    el('text', { x: 18, y: top + 23, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 650 }, who);
+    lines.forEach((t, i) => el('text', { x: 18, y: top + 46 + 21 * i, fill: 'var(--ink-2)', 'font-size': 15 }, t));
+    return top + H;
+  }
+  function arrow(top, label, color) {
+    el('path', { d: `M60,${top + 4} V${top + 26}`, stroke: color, 'stroke-width': 2, fill: 'none' });
+    el('path', { d: `M60,${top + 34} l-5.5,-10 h11 z`, fill: color });
+    el('text', { x: 76, y: top + 24, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 650 }, label);
+    return top + 38;
+  }
+
+  function render() {
+    const b = coin.value, Y = yp.value, r = round(b, Y);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const blue = 'var(--series-1)', orange = 'var(--series-2)';
+    let t = 2;
+    t = card(t, 'Challenger', blue, [
+      `adversary chose m₀ = ${M[0]}, m₁ = ${M[1]}`,
+      `coin b = ${b}, randomness y = ${y}`,
+      `c* = (2${sup(y)}, ${M[b]}·8${sup(y)}) ≡ (${r.c1}, ${r.c2})`]);
+    t = arrow(t, `c* = (${r.c1}, ${r.c2})`, blue);
+    t = card(t, 'Adversary', orange, [
+      `Enc(2) with its own y′ = ${Y}:`,
+      `(2${sup(Y)}, 2·8${sup(Y)}) ≡ (${r.d1}, ${r.d2})`,
+      `c′ = c*·Enc(2) = (${r.c1}·${r.d1}, ${r.c2}·${r.d2}) ≡ (${r.e1}, ${r.e2})`]);
+    t = arrow(t, `c′ = (${r.e1}, ${r.e2})`, orange);
+    t = card(t, 'Decryption oracle', blue, [
+      r.refused ? 'c′ is c* itself: refused' : 'c′ is not c*, so it must answer:',
+      `${r.e1}³ ≡ ${r.s},  ${r.s}⁻¹ ≡ ${r.si},  ${r.e2}·${r.si} ≡ ${r.z}`]);
+    t = arrow(t, `${r.z} = Dec(c′)`, blue);
+    card(t, 'Adversary', orange, [
+      `${r.z}·2⁻¹ = ${r.z}·${inv(2)} ≡ ${r.m} = m${r.guess ? '₁' : '₀'}`,
+      `guess b′ = ${r.guess}: ${r.guess === b ? 'correct' : 'wrong'}`]);
+    svg.setAttribute('aria-label', `IND-CCA2 attack on ElGamal mod 23 with b = ${b} and y′ = ${Y}: the oracle returns ${r.z} and the adversary guesses b′ = ${r.guess}.`);
+
+    let wins = 0, total = 0;
+    for (const bb of [0, 1]) for (let k = 1; k <= 10; k++) { total++; if (round(bb, k).guess === bb) wins++; }
+    DS.stats(root + ' .readout', [
+      { label: 'Adversary, this round', value: r.guess === b ? 'won' : 'lost' },
+      { label: 'All 20 settings of b and y′', value: `${wins} of ${total} won`, note: 'advantage ½, the maximum' },
+    ]);
+  }
+  render();
+})();
+</script>

@@ -1,0 +1,181 @@
+<figure class="widget" id="w-p5-win-rate">
+  <p class="widget-title">Playing the IND-CPA game 2,000 times</p>
+  <p class="widget-hint">The blue line is randomized ElGamal, the orange one deterministic textbook RSA, both against the same "encrypt \(m_0\) and compare" adversary. Press <b>Play 2,000 new games</b> a few times, then try ElGamal in all of \(\mathbb{Z}_p^*\) or LWE with no noise.</p>
+  <div class="controls"></div>
+  <div class="c-rate"></div>
+  <div class="readout"></div>
+  <figcaption>Each line is the fraction of games won so far. The grey band is \(\tfrac12 \pm 1/\sqrt{n}\): two standard deviations of a fair coin's win rate after \(n\) games, ±0.022 at 2,000. A secure scheme's lines wander inside it; a broken one's climb to 1 within a few games. The first run of each line is the script's own (part 3, seed 5); later runs are new games played in your browser with the same schemes. A line inside the band shows only that this adversary failed.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-win-rate';
+  const GAMES = 2000;
+
+  // ---- the nine IND-CPA rows of the script's part 3; SCRIPT[i] = its 2,000 outcomes (1 bit per game, hex)
+  const SCRIPT = ["ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "4ab4322e3aafe7af88603c4b1032c19313dd3a71fcc62b80fd359593569263c74f4d7e55b846b10f660aac33553290e067678bb5c39e98e693f9680a56b4b9f0ce3919903d3045fc8e42207f40bab2649fa1bc3821a16fcaf697bd5212286eda68a7e601d0bdb22469c05680a5c89d02deeb701bcb78442b9db65097779e87ffb629050051a99f1526eee0ff08c842e4eb13d96117cae59ae3ac2facddc1ae5694d5167ee7b35e7c36d799bbd7e61706ec6f8e3ed72daabb894455c9e6d36c040c2c967cac500c708c7d0bb96d923c60e625eb73243c262d6c6ddd2ae77da558412543a2951823095eca7b6091279025b63523933c3fae8b5768",
+    "1531dcf0e59475bf10370eaf7fc4b4d2965d60a63e4908032d07f23ca8faa06dc997bd3eb71eb4f1d6a8ac3228a2ec6b322a9e3c5c9a8bc0c23ff32766d4c63de66592f375ae3508eca2bfa8c8d1c1943c667668de891f93b3cea51308f919d7e6a90cd9ef453d97ecf465cc6915e59fd35f08361c5035517870c5045b4ac46472cc027a3c19065f78f69241ad39eb30724c236ccf6145aa474afb743e14e23950add4bb29cb2aa47546901962f69cf67a4d8a4792cf46be7143334081a4d7ef80106f6a636f08c38dbdb5e544c372745dc0aa09aab6880b3fe54596ca3da7227faafc683794c3bf9e1ab944823d5d533f65c40f0df1e5467875",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "da27058f042f4a6f74b29376635177b32b31ac8af0c6238d1225249bd9509f8388f3fa96cd7ecd7f9e09a0a6d30b1b7852df83b4abc2271434131c2228b2fe25d630dbfc8249e58bee4078ae73a0e981d52e2c31e7f706461adab12264c800f77ec00d61dac788a0fa9b2e778f75491477e343ca6c5ad12a545ea18d47b6130bfa89e858b3e71058027e312336a5fadc21a52211ce52ce8efe4f275d8078506d600854962a57d1e87da553abac5aed5e0664134449feed857125f23697748f4e31ecb1d4edf7ff6e99d4fd2cadf65139db448925329d527c900eef5de4b15898e17bbab7a3109b8ef367e96bd171a26f7c0eeddf9a7ca13e236b",
+    "8587b5cfc78a47ec97960412936efbb20c25bb03772762a23ea48a52814cd7b3a2194b706047a9020551a3e77b8993e56d46d4d9830bb47b3c1ae38f6d8cff77132a41784ad23644cd91f6ee2d8b909bd83f9ae9bc800af17c9db2964b180b85652a169dcb69fc922e2c626bd78e20fb82ee3a1ab16c5192010ceaaf91bd54133db366bf99ede464cba33afe48d159efcad51e63f6f4c20964a80a0210935202332c7626149a1337310752d70a8e7ed8a25a6d085f3ed3ca4e4e9ba494615031b7aad0b79e16a2b341900e5b1d1e375d33ce5b5d58de4021b8856e8efb4fc6c96af453d248c94fa90fd3af9ba0b8473571686065ab13708bc3b6",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"];
+  const ROWS = [
+    'Textbook RSA · encrypt m₀, compare',
+    'ECB · encrypt m₀, compare',
+    'ECB · look for repeated blocks',
+    'ElGamal, squares · encrypt m₀, compare',
+    'ElGamal, squares · Legendre symbol',
+    'ElGamal, all of ℤp* · Legendre symbol',
+    'LWE, noise ±20 · encrypt m₀, compare',
+    'LWE, noise ±20 · solve linear system',
+    'LWE, no noise · solve linear system',
+  ];
+  function unhex(h) {
+    const out = [];
+    for (const ch of h) { const v = parseInt(ch, 16); for (let k = 3; k >= 0; k--) out.push((v >> k) & 1); }
+    return out.slice(0, GAMES);
+  }
+
+  // ---- the same schemes and adversaries as code/primer/p5_ind_cpa_game.py, for new games
+  const P = 18446744073709550147n, Q = (P - 1n) / 2n;
+  function modpow(b, e, m) { let r = 1n; b %= m; while (e > 0n) { if (e & 1n) r = r * b % m; b = b * b % m; e >>= 1n; } return r; }
+  let R = DS.random(1);
+  const r32 = () => BigInt(Math.floor(R.uniform() * 4294967296));
+  const randBig = (lo, hi) => lo + (((r32() << 32n) | r32()) % (hi - lo));   // lo <= v < hi
+  const same = (c1, c2) => String(c1) === String(c2);
+
+  function isPrime(n) { if (n < 2) return false; for (let d = 2; d * d <= n; d++) if (n % d === 0) return false; return true; }
+  function randomPrime(bits) {
+    for (;;) { const p = (2 ** (bits - 1) + R.int(2 ** (bits - 1))) | 1; if (isPrime(p) && (p - 1) % 65537) return p; }
+  }
+  const RSA = { public: true,
+    keygen() { const p = randomPrime(20); let q = randomPrime(20); while (q === p) q = randomPrime(20); return [BigInt(p) * BigInt(q), 65537n]; },
+    enc(pk, m) { return modpow(BigInt(m), pk[1], pk[0]); } };
+
+  // 16-bit block cipher: a 4-round Feistel network whose round functions are random tables (a fresh key per game)
+  function feistel(T, block) {
+    let L = block >> 8, Rh = block & 255;
+    for (let r = 0; r < 4; r++) [L, Rh] = [Rh, L ^ T[r * 256 + Rh]];
+    return (L << 8) | Rh;
+  }
+  const bytes = s => Array.from(s, ch => ch.charCodeAt(0));
+  const ECB = { public: false,
+    keygen() { return Array.from({ length: 1024 }, () => R.int(256)); },
+    enc(T, msg) { const out = []; for (let i = 0; i < msg.length; i += 2) out.push(feistel(T, (msg[i] << 8) | msg[i + 1])); return out; } };
+
+  const encode = m => modpow(m, Q, P) === 1n ? m : P - m;
+  function elgamal(g, order, encoder) {
+    return { public: true,
+      keygen() { return modpow(g, randBig(1n, order), P); },
+      enc(h, m) { const y = randBig(1n, order); return [modpow(g, y, P), encoder(BigInt(m)) * modpow(h, y, P) % P]; } };
+  }
+  const ELGAMAL = elgamal(4n, Q, encode), ELGAMAL_FULL = elgamal(2n, P - 1n, m => m);
+
+  const N = 16, q = 32749, T = 16, DELTA = Math.floor(q / T);
+  const mod = (v, m) => ((v % m) + m) % m;
+  function inv(a, m) { let [r0, r1, s0, s1] = [mod(a, m), m, 1, 0]; while (r1) { const k = Math.floor(r0 / r1); [r0, r1] = [r1, r0 - k * r1]; [s0, s1] = [s1, s0 - k * s1]; } return mod(s0, m); }
+  const dot = (a, s) => { let t = 0; for (let i = 0; i < N; i++) t += a[i] * s[i]; return t; };
+  function lwe(noise) {
+    return { public: false,
+      keygen() { return Array.from({ length: N }, () => R.int(q)); },
+      enc(s, m) { const a = Array.from({ length: N }, () => R.int(q)); const e = R.int(2 * noise + 1) - noise; return [a, mod(dot(a, s) + DELTA * m + e, q)]; } };
+  }
+  function solveMod(rows, rhs) {
+    const M = rows.map((r, i) => r.concat([rhs[i]]));
+    for (let col = 0; col < N; col++) {
+      let piv = -1; for (let i = col; i < N; i++) if (M[i][col]) { piv = i; break; }
+      if (piv < 0) return null;
+      [M[col], M[piv]] = [M[piv], M[col]];
+      const iv = inv(M[col][col], q); M[col] = M[col].map(v => v * iv % q);
+      for (let i = 0; i < N; i++) if (i !== col && M[i][col]) { const f = M[i][col]; M[i] = M[i].map((v, j) => mod(v - f * M[col][j], q)); }
+    }
+    return M.map(r => r[N]);
+  }
+
+  // adversaries: (pub, enc, challenge) -> guess
+  const compare = (m0, m1) => (pub, enc, challenge) => { const c = challenge(m0, m1); return same(enc(m0), c) ? 0 : 1; };
+  const repeated = (pub, enc, challenge) => { const c = challenge(bytes('ABAB'), bytes('ABCD')); return c[0] === c[1] ? 0 : 1; };
+  const legendre = z => modpow(z, Q, P) === 1n ? 1 : -1;
+  const M1 = legendre(2n) === -1 ? 2 : 5;
+  const legendreAdv = (pub, enc, challenge) => {
+    const [c1, c2] = challenge(4, M1);
+    const pad = (legendre(pub) === -1 && legendre(c1) === -1) ? -1 : 1;
+    return legendre(c2) * pad === 1 ? 0 : 1;
+  };
+  const solver = (pub, enc, challenge) => {
+    const samples = Array.from({ length: N }, () => enc(0));
+    const s = solveMod(samples.map(x => x[0]), samples.map(x => x[1]));
+    const [a, b] = challenge(3, 11);
+    if (!s) return R.int(2);
+    return mod(Math.round(mod(b - dot(a, s), q) / DELTA), T) === 3 ? 0 : 1;
+  };
+  const GAME = [
+    [RSA, compare(5, 9)], [ECB, compare(bytes('ABAB'), bytes('ABCD'))], [ECB, repeated],
+    [ELGAMAL, compare(5, 9)], [ELGAMAL, legendreAdv], [ELGAMAL_FULL, legendreAdv],
+    [lwe(20), compare(3, 11)], [lwe(20), solver], [lwe(0), solver],
+  ];
+  function playOne([scheme, adversary]) {
+    const ek = scheme.keygen(), b = R.int(2);
+    const enc = m => scheme.enc(ek, m);
+    const challenge = (m0, m1) => scheme.enc(ek, b ? m1 : m0);
+    return adversary(scheme.public ? ek : null, enc, challenge) === b ? 1 : 0;
+  }
+  function play(row, seed) {
+    R = DS.random(seed);
+    const out = [];
+    for (let i = 0; i < GAMES; i++) out.push(playOne(GAME[row]));
+    return out;
+  }
+
+  // ---- runs per row: the script's first, then new ones
+  const history = ROWS.map((_, i) => [unhex(SCRIPT[i])]);
+  const running = outs => { const pts = []; let w = 0; outs.forEach((o, i) => { w += o; pts.push([i + 1, w / (i + 1)]); }); return pts; };
+  let seed = 100;
+
+  const opts = ROWS.map((label, i) => ({ value: String(i), label }));
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const blue = ui.select({ label: 'Blue line', options: opts, value: '3' });
+  const orange = ui.select({ label: 'Orange line', options: opts, value: '0' });
+  ui.button({ label: 'Play 2,000 new games', onClick: () => {
+    for (const row of new Set([+blue.value, +orange.value])) history[row].push(play(row, ++seed));
+  } });
+
+  const band = [];
+  for (let k = 0; k <= 120; k++) { const n = Math.pow(GAMES, k / 120); band.push(n); }
+  const chart = DS.chart(root + ' .c-rate', {
+    x: { type: 'log', domain: [1, GAMES], label: 'Games played (log scale)' },
+    y: { domain: [0, 1.04], label: 'Fraction won so far', tickValues: [0, 0.25, 0.5, 0.75, 1], format: v => DS.fmt(v, 2) },
+    height: 300,
+    draw(c) {
+      c.area(band.map(n => [n, Math.min(1, 0.5 + 1 / Math.sqrt(n))]), { lower: band.map(n => [n, Math.max(0, 0.5 - 1 / Math.sqrt(n))]), series: 'muted' });
+      c.hline(0.5, { dash: true });
+      const rows = [[+orange.value, 2, 'Orange'], [+blue.value, 1, 'Blue']];
+      for (const [row, s] of rows) {
+        const runs = history[row];
+        runs.slice(Math.max(0, runs.length - 9), -1).forEach(r => { c.line(running(r), { series: s, thin: true }).style.opacity = 0.35; });
+      }
+      for (const [row, s] of rows) {
+        const runs = history[row];
+        c.line(running(runs[runs.length - 1]), { series: s, label: ROWS[row], format: v => DS.fmt(v, 3) });
+      }
+      c.legend([{ label: 'blue: ' + ROWS[+blue.value], series: 1 }, { label: 'orange: ' + ROWS[+orange.value], series: 2 },
+                { label: 'coin-flip band ½ ± 1/√n', series: 'muted', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const halfBand = 1 / Math.sqrt(GAMES);
+    const rows = [[+blue.value, 'Blue'], [+orange.value, 'Orange']].map(([row, name]) => {
+      const runs = history[row], last = runs[runs.length - 1];
+      const wins = last.reduce((a, b) => a + b, 0), rate = wins / GAMES, adv = Math.abs(rate - 0.5);
+      const which = runs.length === 1 ? 'script, seed 5' : 'new run ' + (runs.length - 1);
+      return [{ text: name, th: true, sub: which }, rate.toFixed(3), adv.toFixed(3),
+              adv > halfBand ? 'adversary wins' : 'coin flip'];
+    });
+    DS.table(root + ' .readout', { cls: 'cm', columns: ['Line', { label: 'Pr[win]', num: true }, { label: 'Advantage', num: true }, 'Verdict'], rows });
+  }
+  readout();
+})();
+</script>

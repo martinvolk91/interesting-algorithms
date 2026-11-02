@@ -1,0 +1,61 @@
+<figure class="widget" id="w-p5-games-needed">
+  <p class="widget-title">How many games it takes to see an advantage</p>
+  <p class="widget-hint">The blue line is an adversary that wins each game with probability \(\tfrac12 + \varepsilon\). Drag \(\varepsilon\) down: the line leaves the grey band later and later, about \(1/\varepsilon^2\) games in.</p>
+  <div class="controls"></div>
+  <div class="c-games"></div>
+  <div class="readout"></div>
+  <figcaption>The grey band is \(\tfrac12 \pm 1/\sqrt{n}\), the range in which a pure coin flip's win rate stays after \(n\) games (two standard deviations). An advantage \(\varepsilon\) becomes visible once the band is narrower than \(\varepsilon\), at about \(n = 1/\varepsilon^2\). The script's 2,000 games resolve only advantages above 0.022; an advantage of \(2^{-64}\) would take about \(2^{128}\) games. That is why a simulation can expose a large advantage but never rule out a small one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-games-needed';
+  const NMAX = 1000000;
+  // one fixed stream of uniforms, so the run changes smoothly as ε moves: game i is won iff U[i] < 1/2 + ε
+  const R = DS.random(7), U = new Float64Array(NMAX);
+  for (let i = 0; i < NMAX; i++) U[i] = R.uniform();
+  const checkpoints = [];
+  for (let k = 0; k <= 300; k++) { const n = Math.round(Math.pow(10, 1 + 5 * k / 300)); if (!checkpoints.length || n > checkpoints[checkpoints.length - 1]) checkpoints.push(n); }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const eps = ui.slider({ label: 'Advantage ε', values: [0.002, 0.003, 0.004, 0.005, 0.007, 0.01, 0.015, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2],
+                          value: 0.01, format: v => String(v) });
+
+  function run(e) {
+    const pts = []; let w = 0, j = 0;
+    for (let i = 0; i < NMAX; i++) {
+      if (U[i] < 0.5 + e) w++;
+      if (i + 1 === checkpoints[j]) { pts.push([i + 1, w / (i + 1)]); j++; }
+    }
+    return pts;
+  }
+  const band = checkpoints;
+  const chart = DS.chart(root + ' .c-games', {
+    x: { type: 'log', domain: [10, NMAX], label: 'Games played (log scale)' },
+    y: { domain: [0.3, 0.75], label: 'Fraction won so far', tickValues: [0.3, 0.4, 0.5, 0.6, 0.7], format: v => DS.fmt(v, 1) },
+    height: 300,
+    draw(c) {
+      const e = eps.value, nStar = 1 / (e * e);
+      c.area(band.map(n => [n, 0.5 + 1 / Math.sqrt(n)]), { lower: band.map(n => [n, 0.5 - 1 / Math.sqrt(n)]), series: 'muted' });
+      c.hline(0.5, { dash: true });
+      c.hline(0.5 + e, { series: 2, dash: true });
+      c.vline(2000);
+      c.text(2000, 0.3, 'script: 2,000', { anchor: 'end', dx: -5, dy: -6 });
+      if (nStar <= NMAX) c.vline(nStar, { series: 'ink', label: '1/ε² = ' + Math.round(nStar).toLocaleString('en-US') });
+      c.line(run(e), { series: 1, label: 'win rate so far', format: v => DS.fmt(v, 4) });
+      c.legend([{ label: 'adversary with advantage ε', series: 1 }, { label: '½ + ε', series: 2, kind: 'dash' },
+                { label: 'coin-flip band ½ ± 1/√n', series: 'muted', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const e = eps.value, nStar = 1 / (e * e), at2000 = 1 / Math.sqrt(2000);
+    DS.stats(root + ' .readout', [
+      { label: 'Games needed, 1/ε²', value: Math.round(nStar).toLocaleString('en-US') },
+      { label: 'Band at 2,000 games', value: '±' + at2000.toFixed(3), note: 'the script\'s sampling noise' },
+      { label: 'Seen in 2,000 games?', value: e > at2000 ? 'yes' : 'no',
+        note: e > at2000 ? 'ε is wider than the band' : 'ε hides inside the band' },
+    ]);
+  }
+  readout();
+})();
+</script>
