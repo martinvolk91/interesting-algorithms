@@ -1,0 +1,48 @@
+<figure class="widget" id="w-n06-max-logq">
+  <p class="widget-title">How large \(q\) may be at 128-bit security</p>
+  <p class="widget-hint">Raise log₂ q above 438 at N = 16 384: the point turns red. Then move N up one step.</p>
+  <div class="controls"></div>
+  <div class="c-bars"></div>
+  <div class="readout"></div>
+  <figcaption>Bars: the largest \(\log_2 q\) the HomomorphicEncryption.org standard allows for 128-bit
+    security with a ternary secret (the table in ch. 02 §6). The dashed line is the \(\log_2 q\) you need;
+    every bar that reaches above it is a ring dimension you may use. Each doubling of \(N\) roughly doubles
+    the allowed \(\log_2 q\), so more multiplications (a larger \(q\)) force a larger \(N\), and the
+    ciphertext, \(2N\log_2 q\) bits, grows with both.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n06-max-logq';
+  const TABLE = [[1024, 27], [2048, 54], [4096, 109], [8192, 218], [16384, 438], [32768, 881]];
+  const NS = TABLE.map(r => r[0]), MAX = new Map(TABLE);
+  const big = v => v.toLocaleString('en-US').replace(/,/g, ' ');
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const nn = ui.slider({ label: 'Ring dimension N', values: NS, value: 16384, format: big });
+  const lq = ui.slider({ label: 'log₂ q you need', min: 10, max: 950, step: 1, value: 438, format: v => String(Math.round(v)) });
+  const chart = DS.chart(root + ' .c-bars', {
+    x: { type: 'band', domain: NS, label: 'ring dimension N', format: big },
+    y: { domain: [0, 950], label: 'max log₂ q', tickValues: [0, 200, 400, 600, 800] },
+    height: 290,
+    draw(c) {
+      const N = nn.value, q = lq.value;
+      c.bars(TABLE.map(([n, m]) => ({ x: n, y: m, series: 1, opacity: n === N ? 1 : 0.35,
+        tip: `N = ${big(n)}: log₂ q ≤ ${m}` })), { maxWidth: 46 });
+      TABLE.forEach(([n, m]) => c.text(n, m, String(m), { anchor: 'middle', dy: -12, cls: 'ink2' }));
+      c.hline(q, { dash: true, series: 'ink', label: `you need ${Math.round(q)}`, at: 'left' });
+      c.point(N, q, { series: q <= MAX.get(N) ? 'good' : 'bad' });
+    },
+  });
+  function readout() {
+    const N = nn.value, q = Math.round(lq.value), m = MAX.get(N), ok = q <= m;
+    const least = TABLE.find(([, mm]) => q <= mm);
+    const mb = 2 * N * q / 8 / 1e6;
+    DS.stats(root + ' .readout', [
+      { label: `Max log₂ q at N = ${big(N)}`, value: String(m) },
+      { label: `log₂ q = ${q} at this N`, value: ok ? '128-bit' : 'too weak', note: ok ? 'within the standard' : 'below 128-bit security', tone: ok ? 'good' : 'bad' },
+      { label: 'Smallest N that allows it', value: least ? big(least[0]) : '> 32 768' },
+      { label: 'Fresh ciphertext', value: (mb < 1 ? (mb * 1000).toFixed(0) + ' KB' : mb.toFixed(1) + ' MB'), note: '2 · N · log₂ q bits' },
+    ]);
+  }
+  readout();
+})();
+</script>

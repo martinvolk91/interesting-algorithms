@@ -1,0 +1,104 @@
+<figure class="widget" id="w-n05-rotate-sum">
+  <p class="widget-title">Summing 8 slots with 3 rotations</p>
+  <p class="widget-hint">Move the slider back to 0 and step forward. Click any slot in the newest row to trace which inputs reach it.</p>
+  <div class="controls"></div>
+  <div class="ladder"></div>
+  <div class="readout"></div>
+  <figcaption>Each step adds to the vector a copy of itself rotated by \(j\): slot \(i\) gets slot \(i + j\),
+    wrapping around. With \(j = 4, 2, 1\), after step \(s\) every slot holds the sum of \(2^s\) neighbouring
+    inputs, so \(\log_2 8 = 3\) steps put the total, 31, in every slot. Blue lines bring the slot's own
+    value down, orange lines the value from the rotated copy. Each rotation costs one key switch.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n05-rotate-sum';
+  const NS = 'http://www.w3.org/2000/svg';
+  const V0 = [3, 1, 4, 1, 5, 9, 2, 6], n = V0.length, L = Math.log2(n);
+  const JS = [];                                               // rotation amount of each step: 4, 2, 1
+  for (let j = n / 2; j >= 1; j /= 2) JS.push(j);
+  const rows = [V0];                                           // rows[s] = vector after s steps
+  JS.forEach(j => { const v = rows[rows.length - 1]; rows.push(v.map((x, i) => x + v[(i + j) % n])); });
+  let follow = 0;
+  const ui = DS.controls(root + ' .controls', () => { draw(); readout(); });
+  const steps = ui.slider({ label: 'Rotate-and-add steps done', min: 0, max: L, step: 1, value: L, format: v => String(v) });
+
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // the slots of row r that feed slot i of row s (r <= s)
+  function sources(s, i) {
+    let set = new Set([i]);
+    const out = [set];
+    for (let r = s; r >= 1; r--) {
+      const j = JS[r - 1], next = new Set();
+      set.forEach(k => { next.add(k); next.add((k + j) % n); });
+      set = next; out.unshift(set);
+    }
+    return out;                                                // out[r] for r = 0..s
+  }
+  const host = document.querySelector(root + ' .ladder');
+  let lastW = -1;
+  function draw() {
+    const W = host.clientWidth || 640;
+    lastW = W;
+    host.textContent = '';
+    const s = steps.value, gap = W < 420 ? 5 : 8, bw = (W - gap * (n - 1)) / n, bh = 32, pitch = bh + 52, top = 22;
+    const H = top + L * pitch + bh + 4;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': 'Four rows of eight slots. Each row adds the previous row rotated by 4, then 2, then 1; the last row holds the total 31 in every slot.' }, host);
+    svg.style.display = 'block'; svg.style.fontFamily = 'var(--font)';
+    const tree = sources(s, follow);
+    const x = i => i * (bw + gap), cx = i => x(i) + bw / 2, y = r => top + r * pitch;
+    const labels = [];
+    for (let r = 0; r <= L; r++) {
+      const label = r === 0 ? 'input slots' : `step ${r}: add the row above, rotated by ${JS[r - 1]}`;
+      labels.push([r, label]);
+      if (r >= 1 && r <= s) {                                    // lines from the two parents of each followed slot
+        const j = JS[r - 1];
+        tree[r].forEach(i => {
+          [i, (i + j) % n].forEach((p, k) => {
+            const ln = sv('line', { x1: cx(p), y1: y(r - 1) + bh, x2: cx(i), y2: y(r) - 1 }, svg);
+            ln.setAttribute('style', `stroke:var(--series-${k ? 2 : 1});stroke-width:1.6;fill:none`);
+          });
+        });
+      }
+      for (let i = 0; i < n; i++) {
+        const done = r <= s, on = done && tree[r] && tree[r].has(i);
+        const g = sv('g', {}, svg);
+        const rect = sv('rect', { x: x(i) + 0.5, y: y(r), width: bw - 1, height: bh, rx: 6 }, g);
+        rect.setAttribute('style', on
+          ? 'fill:color-mix(in srgb, var(--series-1) 20%, var(--bg));stroke:var(--series-1);stroke-width:1.6'
+          : done ? 'fill:var(--soft);stroke:var(--line-strong);stroke-width:1'
+                 : 'fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:3 3');
+        if (done) {
+          const t = sv('text', { x: cx(i), y: y(r) + bh / 2 + 4.5, 'text-anchor': 'middle' }, g, String(rows[r][i]));
+          t.setAttribute('style', `fill:var(--ink);font-size:${bw < 34 ? 12 : 14}px;font-weight:${on ? 650 : 400}`);
+        }
+        if (r === s) {                                           // the newest row is clickable
+          g.style.cursor = 'pointer';
+          g.addEventListener('click', () => { follow = i; draw(); readout(); });
+        }
+      }
+    }
+    labels.forEach(([r, label]) => {                           // on top of the lines, with a halo
+      sv('text', { x: 0, y: y(r) - 8 }, svg, label).setAttribute('style',
+        `fill:var(--ink-2);font-size:12.5px;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round;${r <= steps.value ? '' : 'opacity:.45'}`);
+    });
+  }
+  function readout() {
+    const s = steps.value, tree = sources(s, follow);
+    const inputs = [...tree[0]].sort((a, b) => a - b).map(i => V0[i]);
+    DS.stats(root + ' .readout', [
+      { label: 'Rotations used', value: String(s), note: `of ${L} = log₂ ${n}` },
+      { label: `Slot ${follow} holds`, value: String(rows[s][follow]), note: inputs.length === n ? 'the total of all 8 inputs' : `${inputs.length} of the 8 inputs` },
+      { label: 'With 16 384 slots', value: '14 rotations', note: 'instead of 16 383' },
+    ]);
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (Math.abs((host.clientWidth || 640) - lastW) > 2) draw(); }).observe(host);
+  draw(); readout();
+})();
+</script>

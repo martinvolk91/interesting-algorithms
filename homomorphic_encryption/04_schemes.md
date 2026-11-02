@@ -4,9 +4,18 @@
 
 ---
 
-FHE schemes are usually grouped into generations. The grouping is loose, and the later
-generations did **not** replace the earlier ones. BGV/BFV, TFHE and CKKS are all actively
-used and developed, because they are good at different things.
+Fully homomorphic encryption (FHE) schemes are usually grouped into generations. Most scheme
+names are the authors' initials: DGHV (van Dijk–Gentry–Halevi–Vaikuntanathan), BV
+(Brakerski–Vaikuntanathan), BGV (Brakerski–Gentry–Vaikuntanathan), BFV
+(Brakerski/Fan–Vercauteren), GSW (Gentry–Sahai–Waters), CGGI
+(Chillotti–Gama–Georgieva–Izabachène) and CKKS (Cheon–Kim–Kim–Song). FHEW is the
+Ducas–Micciancio scheme ("Fastest Homomorphic Encryption in the West"), and TFHE (torus fully
+homomorphic encryption) is the CGGI scheme. Generation 2 is built on ring learning with errors
+(RLWE) and packs many values into one ciphertext, single instruction, multiple data (SIMD) style.
+
+The grouping is loose, and the later generations did **not** replace the earlier ones.
+BGV/BFV, TFHE and CKKS are all actively used and developed, because they are good at
+different things.
 
 ```
 Gen 1 (2009–10)  Gentry (ideal lattices), DGHV (integers)        proof of concept, impractical
@@ -46,8 +55,8 @@ $t \equiv 1 \pmod{2N}$, **batching** turns this into **N independent slots of in
 | Noise control | **modulus switching** after each mult (required) | scale-invariant: multiply by `t/q` and round; modulus switching optional |
 | Typical sweet spot | larger `t`, deep circuits | small `t`, simpler parameter management |
 
-Kim–Polyakov–Zucca (2021) showed that with modern RNS optimizations the two have similar
-performance. BGV tends to win for larger plaintext moduli, BFV for small ones.
+Kim–Polyakov–Zucca (2021) showed that with modern residue number system (RNS) optimizations
+the two have similar performance. BGV tends to win for larger plaintext moduli, BFV for small ones.
 
 > **Deep dive:** [deep_dives/bfv_pir.md](deep_dives/bfv_pir.md) builds BFV step by step
 > ([code/toy_bfv.py](code/toy_bfv.py)) and uses it for a caller-ID PIR demo ([code/pir_caller_id.py](code/pir_caller_id.py)).
@@ -73,11 +82,13 @@ arithmetic with no evaluation key and no relinearization**. With the gadget deco
 factor's noise is scaled by a fixed `poly(n)`; the other's only by the small message. Chaining many multiplications in the right order (e.g. a branching program) therefore grows
 noise only *linearly*. This asymmetry is what makes the fast bootstrapping of FHEW and TFHE
 possible. GSW ciphertexts are big, so GSW is rarely used directly. Its idea lives on as the
-**GGSW** ciphertexts in TFHE bootstrapping keys.
+**GGSW** (general GSW, over rings) ciphertexts in TFHE bootstrapping keys.
+
+<!-- figure: n04-gsw-order -->
 
 ### FHEW (Ducas–Micciancio 2015)
 
-Encrypt **single bits** with plain LWE. Bootstrap after **every** NAND gate, with an RLWE/GSW
+Encrypt **single bits** with plain LWE. Bootstrap after **every** NAND (not-and) logic gate, with an RLWE/GSW
 accumulator that performs the decryption's rounding step "in the exponent" of `X`. It was the
 first bootstrapping under one second.
 
@@ -89,7 +100,7 @@ Formalized over the **real torus** $\mathbb{T} = \mathbb{R}/\mathbb{Z}$, impleme
 | Type | What it is | Role |
 |---|---|---|
 | **LWE** | `(a, b)` with `b = ⟨a,s⟩ + e + m` | carries the data |
-| **GLWE** (RLWE) | polynomial version | accumulator during bootstrapping |
+| **GLWE** (general learning with errors; here RLWE) | polynomial version | accumulator during bootstrapping |
 | **GGSW** (GSW over rings) | a matrix of GLWEs | bootstrapping key: encryptions of the secret-key bits |
 
 The **external product** `GGSW × GLWE → GLWE` is cheap, and it gives the **CMux** gate
@@ -120,27 +131,34 @@ original library.
 > bootstrapping step by step, with a runnable toy implementation ([code/toy_ckks.py](code/toy_ckks.py)).
 
 **Encoding.** A vector $z \in \mathbb{C}^{N/2}$ is mapped to a polynomial by the inverse
-**canonical embedding** (evaluating at the complex roots of $X^N+1$; an inverse FFT),
-multiplied by a scale `Δ` (e.g. 2⁴⁰), and rounded to integer coefficients. One ciphertext
+**canonical embedding** (evaluating at the complex roots of $X^N+1$; an inverse fast Fourier
+transform, FFT), multiplied by a scale `Δ` (e.g. 2⁴⁰), and rounded to integer coefficients. One ciphertext
 holds **N/2 complex slots**, e.g. 32 768 values at `N = 2¹⁶`.
 
 **Arithmetic.** Slot-wise add and multiply, **rescale** after each multiplication (drop a
 prime, ch. 03 §7), and rotate slots with Galois keys. Noise *is* rounding error, and precision
 is managed like floating point.
 
+The difference from BFV is the missing rounding step. Both put the message above the noise,
+but BFV rounds the noise away when it decrypts, while CKKS keeps it as the low digits of the
+answer:
+
+<!-- figure: n04-exact-vs-approx -->
+
 **Bootstrapping.** Cheon–Han–Kim–Kim–Song (2018). ModRaise → CoeffToSlot → EvalMod (sine
-approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On CPUs it takes
-seconds per (fully packed) ciphertext. GPU implementations bring it to the tens to hundreds
-of milliseconds; FIDESlib reports ≥ 70× over AVX-optimized OpenFHE. Because it refreshes
+approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On central
+processing units (CPUs) it takes seconds per (fully packed) ciphertext. Graphics processing
+unit (GPU) implementations bring it to the tens to hundreds of milliseconds; FIDESlib reports
+≥ 70× over OpenFHE optimized with Advanced Vector Extensions (AVX). Because it refreshes
 **tens of thousands of values at once**, the amortized cost per value is tiny.
 
 **Good for:** machine learning inference and training, statistics, linear algebra, signal
 processing. Anything that tolerates ~20–40 bits of precision. It dominates encrypted
-neural-network research, including the encrypted-LLM work in ch. 07.
+neural-network research, including the work on encrypted large language models (LLMs) in ch. 07.
 
 **Weak at:** exact results, and non-polynomial functions, which need polynomial approximations
 (ch. 05). Its decryption leaks noise, so it needs **noise flooding** before results are shared
-(IND-CPA-D, ch. 06).
+(IND-CPA-D: security when the attacker also sees decryptions, ch. 06).
 
 **Recent twist (2024–2026):** "**discrete CKKS**". Bae–Cheon–Kim–Stehlé (Eurocrypt 2024)
 showed how to bootstrap **bits**. Bae–Kim–Stehlé–Suvanto (Asiacrypt 2024) bootstrapped **small
