@@ -1,0 +1,62 @@
+<figure class="widget" id="w-dd-pir-cost">
+  <p class="widget-title">Bytes per lookup: PIR against downloading everything</p>
+  <p class="widget-hint">Drag the database size down to the toy's 60 entries, where downloading everything is cheapest. Then drag it up and find where the 2-D layout starts to win.</p>
+  <div class="controls"></div>
+  <div class="c-cost"></div>
+  <div class="readout"></div>
+  <figcaption>A model built from the toy's sizes: 2 bytes per entry, a 1920-byte ciphertext, and 60 entries per group of 64 slots. The toy's one-hot query needs one ciphertext per group, so it grows as fast as the database and never wins. Arranging the groups in a square grid (§8.1) needs about \(2\sqrt{\text{groups}} + 1\) selector ciphertexts, and the response stays one ciphertext. Real systems shrink the query further with oblivious expansion. In every layout the server still touches every entry for every query.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-pir-cost';
+  const CT = 1920, PER_GROUP = 60, ENTRY = 2;        // bytes per ciphertext, entries per group, bytes per entry (§7.6)
+  const groups = d => Math.ceil(d / PER_GROUP);
+  const download = d => ENTRY * d;
+  const oneHot = d => (groups(d) + 1) * CT;                         // k selectors + 1 response
+  const grid = d => (2 * Math.ceil(Math.sqrt(groups(d))) + 1 + 1) * CT;   // 2·√k + 1 selectors + 1 response
+  const bytes = v => {
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+    while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+    return (v >= 100 || i === 0 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '')) + ' ' + u[i];
+  };
+  const count = d => d >= 1e9 ? DS.fmt(d / 1e9, 1).replace(/\.0$/, '') + ' billion' : d >= 1e6 ? DS.fmt(d / 1e6, 1).replace(/\.0$/, '') + ' million' : Math.round(d).toLocaleString('en-US');
+  // the smallest database where the grid layout beats downloading
+  let cross = 60;
+  while (grid(cross) >= download(cross)) cross++;
+
+  const xs = []; for (let e = Math.log10(60); e <= 9.0001; e += 0.02) xs.push(Math.pow(10, e));
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const SIZES = [60];
+  for (let e = 2; e <= 9; e++) for (const m of [1, 2, 5]) if (m * 10 ** e <= 1e9) SIZES.push(m * 10 ** e);
+  const size = ui.slider({ label: 'Entries in the database', values: SIZES, value: 1e6, format: count });
+
+  const chart = DS.chart(root + ' .c-cost', {
+    x: { type: 'log', domain: [60, 1e9], label: 'Entries in the database', tipFormat: count },
+    y: { type: 'log', domain: [100, 1e11], format: v => bytes(v) },
+    height: 300,
+    draw(c) {
+      c.legend([{ label: 'Download everything', series: 2 }, { label: 'One-hot query (the toy, §7)', series: 3 }, { label: '2-D grid (§8.1)', series: 1 }]);
+      c.vline(cross, { dash: true });
+      c.text(cross, 3e10, 'grid wins →', { dx: 6, cls: 'ink2' });
+      c.line(xs.map(d => [d, download(d)]), { series: 2, label: 'Download', format: bytes });
+      c.line(xs.map(d => [d, oneHot(d)]), { series: 3, label: 'One-hot', format: bytes });
+      c.line(xs.map(d => [d, grid(d)]), { series: 1, label: '2-D grid', format: bytes });
+      const d = size.value;
+      c.vline(d, { series: 'ink' });
+      c.point(d, download(d), { series: 2 });
+      c.point(d, oneHot(d), { series: 3 });
+      c.point(d, grid(d), { series: 1 });
+    },
+  });
+  function readout() {
+    const d = size.value, best = Math.min(download(d), oneHot(d), grid(d));
+    DS.stats(root + ' .readout', [
+      { label: 'Download everything', value: bytes(download(d)), tone: download(d) === best ? 'good' : undefined },
+      { label: 'One-hot query + response', value: bytes(oneHot(d)), note: groups(d).toLocaleString('en-US') + ' query ciphertexts', tone: oneHot(d) === best ? 'good' : undefined },
+      { label: '2-D grid query + response', value: bytes(grid(d)), note: (2 * Math.ceil(Math.sqrt(groups(d))) + 1).toLocaleString('en-US') + ' query ciphertexts', tone: grid(d) === best ? 'good' : undefined },
+      { label: 'Server work per query', value: count(d), note: 'entries touched, in every layout' },
+    ]);
+  }
+  readout();
+})();
+</script>

@@ -1,11 +1,11 @@
 # Deep dive: BFV and private information retrieval (caller ID)
 
-[index](../README.md) · background: [03 How it works](../03_how_it_works.md), [04 Schemes](../04_schemes.md#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t), [08 Applications](../08_ecosystem_and_applications.md#3-application-areas) · siblings: [CKKS](ckks.md), [TFHE](tfhe.md), [IND-CPA-D](ckks_ind_cpa_d.md)
+[index](../README.md) · background: [03 How it works](../03_how_it_works.md), [04 Schemes](../04_schemes.md#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t) (the Brakerski/Fan–Vercauteren scheme), [08 Applications](../08_ecosystem_and_applications.md#3-application-areas) · siblings: [CKKS](ckks.md) (the Cheon–Kim–Kim–Song scheme), [TFHE](tfhe.md) (Torus fully homomorphic encryption), [IND-CPA-D](ckks_ind_cpa_d.md) (indistinguishability under chosen-plaintext attack with decryptions: what an attacker learns from seeing decryptions)
 
 ---
 
 BFV (Brakerski 2012, Fan–Vercauteren 2012) does **exact arithmetic on vectors of integers
-mod `t`**. It is the scheme behind the two best-known FHE deployments: Apple's **Live Caller
+mod `t`**. It is the scheme behind the two best-known fully homomorphic encryption (FHE) deployments: Apple's **Live Caller
 ID Lookup** and Microsoft Edge's **Password Monitor**. Both are *private lookups*: the client
 learns something from a server's database, and the server doesn't learn what was looked up.
 
@@ -42,7 +42,7 @@ numbers in the demo are in the 555-01xx range reserved for fiction, and the labe
 |---|---|---|---|
 | `N` | ring degree, $R = \mathbb{Z}[X]/(X^N+1)$ | 64 | 4096–32768 |
 | `t` | plaintext modulus (prime, $t \equiv 1 \bmod 2N$) | 257 | e.g. 65537, or a ~20–60-bit prime |
-| `q` | ciphertext modulus | 2¹²⁰ | ~100–800 bits, as an RNS product of primes |
+| `q` | ciphertext modulus | 2¹²⁰ | ~100–800 bits, as a product of primes (residue number system, RNS) |
 | `Δ` | ⌊q/t⌋ | ≈ 2¹¹² | |
 | `w` | key-switching digit base | 2³⁰ (4 digits) | replaced by a special modulus (hybrid) |
 | slots | `N` values in 2 rows of `N/2` | 2 × 32 | 2 × N/2 |
@@ -57,7 +57,7 @@ numbers in the demo are in the 555-01xx range reserved for fiction, and the labe
 
 Plaintexts are polynomials in $R_t = \mathbb{Z}_t[X]/(X^N+1)$. If `t` is a prime with
 $t \equiv 1 \pmod{2N}$, then $\mathbb{Z}_t$ contains a primitive `2N`-th root of unity `ψ`,
-and $X^N + 1$ splits into `N` linear factors $(X - \psi^{2i+1})$. By the CRT:
+and $X^N + 1$ splits into `N` linear factors $(X - \psi^{2i+1})$. By the Chinese remainder theorem (CRT):
 
 $$\mathbb{Z}_t[X]/(X^N+1) \;\cong\; \underbrace{\mathbb{Z}_t \times \cdots \times \mathbb{Z}_t}_{N \text{ slots}}, \qquad m \mapsto \big(m(\psi), m(\psi^3), \dots\big)$$
 
@@ -88,7 +88,7 @@ coefficients[:8]   [231, 247, 103, 13, 242, 251, 229, 53]  (scrambled by the CRT
 decode(encode(x)) == x: True
 ```
 
-Real libraries compute both directions with an NTT in $O(N \log N)$.
+Real libraries compute both directions with a number-theoretic transform (NTT) in $O(N \log N)$.
 
 ### 1.2 Rows and rotations
 
@@ -121,7 +121,7 @@ simplest one.)
 
 ### 2.1 Encrypt and decrypt
 
-Keys and encryption are the standard RLWE ones ([03 §2](../03_how_it_works.md#2-moving-to-rings-and-public-keys)):
+Keys and encryption are the standard ring learning with errors (RLWE) ones ([03 §2](../03_how_it_works.md#2-moving-to-rings-and-public-keys)):
 
 - secret `s` ternary; public key `pk = (−a·s + e, a)`;
 - `Enc(m) = (pk₀·u + e₁ + Δ·m,  pk₁·u + e₂)`;
@@ -224,7 +224,7 @@ step with **base extensions**: **BEHZ** (Bajard–Eynard–Hasan–Zucca 2016) a
 
 ### 3.3 BFV vs BGV
 
-BGV puts the message in the **low** bits (`c₀ + c₁s = m + t·e`) and controls noise with
+BGV (the Brakerski–Gentry–Vaikuntanathan scheme) puts the message in the **low** bits (`c₀ + c₁s = m + t·e`) and controls noise with
 **modulus switching** after each multiplication. BFV is "scale-invariant": it needs no modulus
 switching, at the price of the scaling step. With modern RNS implementations their performance
 is similar. Kim–Polyakov–Zucca (2021) found BFV better for small `t` and BGV for large `t`.
@@ -301,7 +301,7 @@ from a provider's database **without telling the provider who is calling** the u
 |---|---|---|
 | Send the number to the server | none: the server learns the user's call log | tiny |
 | **Trivial PIR**: download the whole database | perfect | the whole database, re-synced as it changes (spam lists change constantly) |
-| **Single-server PIR with HE** | the server learns nothing about the number (IND-CPA) | one query plus one response, and server work proportional to the database |
+| **Single-server PIR with homomorphic encryption (HE)** | the server learns nothing about the number (IND-CPA) | one query plus one response, and server work proportional to the database |
 
 Single-server computational PIR goes back to Kushilevitz–Ostrovsky (1997). Two facts hold for
 *every* PIR scheme, and the toy makes both visible:
@@ -388,6 +388,8 @@ def answer(query, plaintexts, evk):
 - **The server's work is identical for every query:** 8 plaintext multiplications and 7
   rotations, touching every bucket.
 
+<!-- figure: dd-pir-lookup -->
+
 ### 7.4 Client: decrypt and match
 
 ```
@@ -411,7 +413,7 @@ The client receives the **whole bucket**: three other numbers' tags and labels. 
 are 8-bit hashes, and phone numbers come from a small space, so a client could brute-force
 which numbers they belong to. This is PIR's asymmetry, and Apple's library documentation
 states it plainly: the client may learn keyword–value pairs it didn't request. Fixes include
-deriving keywords with a server-keyed function (an OPRF) so that other tags can't be inverted,
+deriving keywords with a server-keyed function (an oblivious pseudorandom function, OPRF) so that other tags can't be inverted,
 or full symmetric PIR.
 
 ### 7.6 Costs, and why PIR only wins at scale
@@ -425,6 +427,8 @@ The toy's query and response are each **bigger than its whole database** (60 ent
 bytes). That is expected: PIR pays off only when the database is large, because query and
 response sizes grow much more slowly than the database does (§8.1). The server's cost per
 query, though, always grows linearly with the database.
+
+<!-- figure: dd-pir-cost -->
 
 The response still has **~74 bits of noise budget** after the whole computation. PIR barely
 uses the budget, so real deployments pick small parameters and **modulus-switch the response
@@ -500,7 +504,7 @@ search. Same shape: shallow, exact, batched lookups against a big server-side da
 - `N = 64` with `q = 2¹²⁰` is nowhere near secure. The HE standard allows only ~27 bits of `q`
   at `N = 1024` ([02 §6](../02_math_foundations.md#6-parameters-security-and-sizes)). Real
   PIR uses `N` in the thousands with a `q` matched to it.
-- The hashes are SHA-256-based but un-keyed, so the client can invert other tags (§7.5).
+- The hashes are based on SHA-256 (Secure Hash Algorithm) but un-keyed, so the client can invert other tags (§7.5).
 - No rate limiting or authentication: that's §8.3's job.
 
 ## 10. Exercises
@@ -523,10 +527,10 @@ search. Same shape: shallow, exact, batched lookups against a big server-side da
 
 ## References
 
-- Brakerski. *Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP*. CRYPTO 2012. [ePrint 2012/078](https://eprint.iacr.org/2012/078)
+- Brakerski. *Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP* (gap shortest vector problem). CRYPTO 2012. [ePrint 2012/078](https://eprint.iacr.org/2012/078)
 - Fan, Vercauteren. *Somewhat Practical Fully Homomorphic Encryption*. [ePrint 2012/144](https://eprint.iacr.org/2012/144)
-- Smart, Vercauteren. *Fully Homomorphic SIMD Operations*. Designs, Codes and Cryptography 2014. [ePrint 2011/133](https://eprint.iacr.org/2011/133)
-- Gentry, Halevi, Smart. *Homomorphic Evaluation of the AES Circuit*. CRYPTO 2012. [ePrint 2012/099](https://eprint.iacr.org/2012/099) (slots, automorphisms, the hypercube)
+- Smart, Vercauteren. *Fully Homomorphic SIMD Operations* (single instruction, multiple data). Designs, Codes and Cryptography 2014. [ePrint 2011/133](https://eprint.iacr.org/2011/133)
+- Gentry, Halevi, Smart. *Homomorphic Evaluation of the AES Circuit* (Advanced Encryption Standard). CRYPTO 2012. [ePrint 2012/099](https://eprint.iacr.org/2012/099) (slots, automorphisms, the hypercube)
 - Bajard, Eynard, Hasan, Zucca. *A Full RNS Variant of FV-like Somewhat Homomorphic Encryption Schemes*. SAC 2016. [ePrint 2016/510](https://eprint.iacr.org/2016/510)
 - Halevi, Polyakov, Shoup. *An Improved RNS Variant of the BFV Homomorphic Encryption Scheme*. CT-RSA 2019. [ePrint 2018/117](https://eprint.iacr.org/2018/117)
 - Kim, Polyakov, Zucca. *Revisiting Homomorphic Encryption Schemes for Finite Fields*. Asiacrypt 2021. [ePrint 2021/204](https://eprint.iacr.org/2021/204)

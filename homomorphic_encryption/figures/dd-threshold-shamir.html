@@ -1,0 +1,78 @@
+<figure class="widget" id="w-dd-threshold-shamir">
+  <p class="widget-title">2-of-3 Shamir sharing of one key coefficient</p>
+  <p class="widget-hint">Pick any two parties: the line through their shares hits the secret at \(x = 0\). Pick party 2 alone: a line through one point can hit any secret.</p>
+  <div class="controls"></div>
+  <div class="c-shamir"></div>
+  <div class="readout"></div>
+  <div class="lagrange"></div>
+  <figcaption>The line is \(f(x) = s + r\,x\), the sum of the three parties' dealing polynomials, so \(f(0) = s = \sum_i s_i\) is one coefficient of the joint key (−3 to 3). Here the random slope \(r\) is a small integer so the picture fits. In the toy it is uniform mod \(Q\), so one share is a uniformly random number and every secret stays equally likely. Multiplying each share by its Lagrange coefficient \(\lambda_j\) turns the shares into additive shares that sum to \(s\): this is the step each party takes before a partial decryption (§4.1). With parties 1 and 3, \(\lambda_1 = 3/2\) needs the inverse of 2, which exists modulo a prime but not modulo \(2^{120}\) (§2.2).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-threshold-shamir';
+  const SETS = [[1, 2], [1, 3], [2, 3], [2], [1, 2, 3]];
+  let s = 2, r = 3, seed = 0;
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const active = ui.choice({ label: 'Parties that cooperate', options: SETS.map((a, i) => ({ value: i, label: a.length === 1 ? a[0] + ' alone' : a.length === 3 ? 'all 3' : a.join(', ') })), value: 0 });
+  ui.button({ label: 'Deal again', onClick: () => {
+    const R = DS.random(++seed * 7919);
+    s = R.int(7) - 3;
+    r = (1 + R.int(3)) * (R.uniform() < 0.5 ? -1 : 1);
+  } });
+  const f = x => s + r * x;
+
+  // exact fractions for the Lagrange coefficients
+  const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+  const frac = (n, d) => { if (d < 0) { n = -n; d = -d; } const g = gcd(n, d); return [n / g, d / g]; };
+  const fstr = ([n, d]) => (d === 1 ? String(n) : n + '/' + d).replace('-', '−');
+  const lagrange = (j, A) => { let n = 1, d = 1; for (const k of A) if (k !== j) { n *= k; d *= k - j; } return frac(n, d); };
+
+  const chart = DS.chart(root + ' .c-shamir', {
+    x: { domain: [-0.35, 3.5], label: 'party id = evaluation point x', tickValues: [0, 1, 2, 3] },
+    y: { domain: [-13, 13], label: 'share value' },
+    height: 300,
+    draw(c) {
+      const A = SETS[active.value];
+      c.vline(0, { series: 'muted' });
+      c.text(0, 12, 'f(0) = secret', { dx: 6, cls: 'ink2' });
+      if (A.length >= 2) {
+        c.fn(f, { series: 1, n: 2 });
+        c.point(0, s, { series: 'good', r: 6 });
+        c.text(0, s, 's = ' + DS.fmt(s), { dx: 8, dy: r > 0 ? 20 : -12, cls: 'ink strong' });
+      } else {
+        const j = A[0], y = f(j);
+        for (let cand = -3; cand <= 3; cand++) {
+          c.fn(x => cand + (y - cand) * x / j, { series: 'muted', dash: true, thin: true, n: 2 });
+          c.point(0, cand, { series: 'muted', r: 3.5 });
+        }
+        c.text(0, -3, 'every secret from −3 to 3 fits', { dx: 8, dy: 18, cls: 'ink2' });
+      }
+      for (const j of [1, 2, 3]) {
+        const on = A.includes(j);
+        c.point(j, f(j), { series: on ? 1 : 'muted', r: on ? 6 : 4.5 });
+        c.text(j, f(j), 'S' + '₀₁₂₃'[j] + ' = ' + DS.fmt(f(j)), { anchor: 'middle', dy: r > 0 ? 20 : -12, cls: on ? 'ink strong' : 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    const A = SETS[active.value];
+    const lam = A.map(j => lagrange(j, A));
+    const parts = A.map((j, i) => frac(lam[i][0] * f(j), lam[i][1]));
+    let num = 0, den = 1;
+    for (const [n, d] of parts) { num = num * d + n * den; den *= d; [num, den] = frac(num, den); }
+    const got = num / den;
+    DS.stats(root + ' .readout', A.length >= 2
+      ? [{ label: 'Secret recovered', value: fstr([num, den]), note: 'Σ λⱼ·Sⱼ = f(0)', tone: got === s ? 'good' : 'bad' },
+         { label: 'Shares used', value: A.length + ' of 3', note: 'any 2 points fix the line' }]
+      : [{ label: 'Party ' + A[0] + ' alone computes', value: fstr([num, den]), note: 'its own share, not the secret (' + DS.fmt(s) + ')', tone: 'bad' },
+         { label: 'Shares used', value: '1 of 3', note: 'a line through 1 point can have any intercept' }]);
+    DS.table(root + ' .lagrange', {
+      columns: ['Party j', 'share Sⱼ = f(j)', 'λⱼ', 'additive share λⱼ·Sⱼ'],
+      rows: A.map((j, i) => [{ text: String(j), th: true }, DS.fmt(f(j)), fstr(lam[i]), fstr(parts[i])])
+        .concat([[{ text: 'sum', th: true }, '', '', fstr([num, den])]]),
+    });
+  }
+  readout();
+})();
+</script>

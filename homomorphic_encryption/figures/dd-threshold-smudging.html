@@ -1,0 +1,97 @@
+<figure class="widget" id="w-dd-threshold-smudging">
+  <p class="widget-title">How much smudging noise fits</p>
+  <p class="widget-hint">Slide the smudging noise down to "none", then up past \(2^{109}\). Switch to the summed counts: they have less noise to hide, so less smudging is enough.</p>
+  <div class="controls"></div>
+  <p class="panel-title">Where the 120 bits of one decrypted coefficient go</p>
+  <div class="c-bar"></div>
+  <p class="panel-title">Hiding against budget, for every smudging level</p>
+  <div class="c-sweep"></div>
+  <div class="readout"></div>
+  <figcaption>Parties 1 and 2 decrypt a ciphertext from <code>code/threshold_bfv.py</code>, each adding smudging noise with standard deviation \(\sigma_{sm}\) (one fixed draw, scaled). The hiding margin is \(\lambda \approx \log_2 \sigma_{sm} - \log_2 |e|\), where \(|e|\) is the noise already in the ciphertext: \(2^{8.7}\) for the summed counts and \(2^{40.9}\) after one multiplication. The modulus has to hold the message, the computation noise and about \(\lambda\) extra bits. Decryption fails once the noise reaches \(\Delta/2 \approx 2^{111}\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-threshold-smudging';
+  // Budget left (bits) after combining the two partial decryptions, computed with the toy
+  // (seed 21, as in code/threshold_bfv.py) for no smudging, then sigma = 2^0 … 2^112.
+  // Decryption fails from 2^110 on.
+  const RUNS = {
+    sum: { none: 102.27, name: 'summed counts', budget: [102.28,102.28,102.27,102.24,102.19,102.08,101.9,101.6,101.13,100.43,99.35,98.26,97.22,96.2,95.19,94.19,93.18,92.18,91.18,90.18,89.18,88.18,87.18,86.18,85.18,84.18,83.18,82.18,81.18,80.18,79.18,78.18,77.18,76.18,75.18,74.18,73.18,72.18,71.18,70.18,69.18,68.18,67.18,66.18,65.18,64.18,63.18,62.18,61.18,60.18,59.18,58.18,57.18,56.18,55.18,54.18,53.18,52.18,51.18,50.18,49.18,48.18,47.18,46.18,45.18,44.18,43.18,42.18,41.18,40.18,39.18,38.18,37.18,36.18,35.18,34.18,33.18,32.18,31.18,30.18,29.18,28.18,27.18,26.18,25.18,24.18,23.18,22.18,21.18,20.18,19.18,18.18,17.18,16.18,15.18,14.18,13.18,12.18,11.18,10.18,9.18,8.18,7.18,6.18,5.18,4.18,3.18,2.18,1.18,0.18,0,0,0] },
+    sq: { none: 70.09, name: 'squared totals', budget: [70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.1,70.1,70.1,70.1,70.1,70.11,70.12,70.14,70.09,69.89,69.55,69.05,68.35,67.37,66.27,65.23,64.2,63.19,62.19,61.18,60.18,59.18,58.18,57.18,56.18,55.18,54.18,53.18,52.18,51.18,50.18,49.18,48.18,47.18,46.18,45.18,44.18,43.18,42.18,41.18,40.18,39.18,38.18,37.18,36.18,35.18,34.18,33.18,32.18,31.18,30.18,29.18,28.18,27.18,26.18,25.18,24.18,23.18,22.18,21.18,20.18,19.18,18.18,17.18,16.18,15.18,14.18,13.18,12.18,11.18,10.18,9.18,8.18,7.18,6.18,5.18,4.18,3.18,2.18,1.18,0.18,0,0,0] },
+  };
+  const FAIL = 110, LOG_T = Math.log2(257), TOP = 120 - 1 - LOG_T;   // noise must stay below Δ/2 ≈ 2^111
+  const LAMBDA = 40;
+  // |e| from the unsmudged budget: budget = log2(Q / (2·T·|e|))
+  for (const k in RUNS) RUNS[k].logE = TOP - RUNS[k].none;
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow2 = k => '2' + String(k).split('').map(c => SUP[+c]).join('');
+
+  const ui = DS.controls(root + ' .controls', () => { bar.update(); sweep.update(); readout(); });
+  const sigma = ui.slider({ label: 'Smudging noise σ_sm', values: [-1].concat(DS.math.range(113)), value: 86, format: v => v < 0 ? 'none' : pow2(v) });
+  const which = ui.choice({ label: 'Decrypting', options: [{ value: 'sq', label: 'squared totals' }, { value: 'sum', label: 'summed counts' }], value: 'sq' });
+
+  const state = () => {
+    const run = RUNS[which.value], k = sigma.value;
+    const ok = k < FAIL;
+    const budget = k < 0 ? run.none : run.budget[k];
+    const margin = k < 0 ? null : k - run.logE;
+    return { run, k, ok, budget, margin, noiseTop: ok ? TOP - budget : TOP };
+  };
+
+  const bar = DS.chart(root + ' .c-bar', {
+    x: { domain: [0, 120], label: 'bits', tickValues: [0, 20, 40, 60, 80, 100, 120] },
+    y: { domain: [0, 1], hidden: true },
+    height: 96, margin: { l: 12, r: 12 },
+    draw(c) {
+      const { run, k, ok, noiseTop } = state();
+      const box = (x0, x1, series) => { if (x1 > x0) c.polygon([[x0, 0.2], [x1, 0.2], [x1, 0.9], [x0, 0.9]], { series, strong: true }); };
+      c.legend([{ label: 'noise e from the computation', series: 'muted', kind: 'rect' }, { label: 'smudging noise', series: 2, kind: 'rect' },
+                { label: 'budget left', series: 1, kind: 'rect' }, { label: 'message Δ·m', series: 'ink', kind: 'rect' }]);
+      box(0, run.logE, 'muted');
+      if (k >= 0 && noiseTop > run.logE) box(run.logE, Math.min(noiseTop, 120), ok ? 2 : 'bad');
+      if (ok) box(noiseTop, TOP, 1);
+      box(TOP + 1, 120, 'ink');
+      const tag = (x0, x1, txt) => { if (c.x(x1) - c.x(x0) > 7.2 * txt.length) c.text((x0 + x1) / 2, 0.55, txt, { anchor: 'middle', baseline: 'middle', cls: 'ink' }); };
+      if (ok) {
+        if (k >= 0 && noiseTop > run.logE) tag(run.logE, noiseTop, 'λ ≈ ' + DS.fmt(k - run.logE, 0) + ' bits');
+        tag(noiseTop, TOP, DS.fmt(state().budget, 0) + ' bits left');
+      }
+      if (!ok) c.text(60, 0.55, 'noise reaches the message: decryption fails', { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+    },
+  });
+
+  const sweep = DS.chart(root + ' .c-sweep', {
+    x: { domain: [0, 112], label: 'log₂ σ_sm', tickValues: [0, 20, 40, 60, 80, 100] },
+    y: { domain: [0, 110], label: 'bits' },
+    height: 260,
+    draw(c) {
+      const { run, k } = state();
+      const lo = run.logE + LAMBDA, hi = FAIL - 1;
+      c.polygon([[lo, 0], [hi, 0], [hi, 110], [lo, 110]], { series: 'good', stroke: false });
+      c.text(hi, 104, 'λ ≥ 40 and decrypts', { anchor: 'end', dx: -4, cls: 'ink2' });
+      c.polygon([[FAIL - 0.5, 0], [112, 0], [112, 110], [FAIL - 0.5, 110]], { series: 'bad', stroke: false });
+      c.hline(LAMBDA, { dash: true, label: 'λ = 40', at: 'left' });
+      c.line(run.budget.map((b, i) => [i, i < FAIL ? b : 0]), { series: 1, label: 'budget left', format: v => DS.fmt(v, 1) + ' bits' });
+      c.line(run.budget.map((b, i) => [i, Math.max(0, i - run.logE)]), { series: 2, label: 'hiding margin λ', format: v => DS.fmt(v, 1) + ' bits' });
+      c.legend([{ label: 'budget left', series: 1 }, { label: 'hiding margin λ = log₂σ_sm − log₂|e|', series: 2 }]);
+      if (k >= 0) {
+        c.vline(k, { series: 'ink' });
+        c.point(k, k < FAIL ? run.budget[k] : 0, { series: 1 });
+        c.point(k, Math.max(0, k - run.logE), { series: 2 });
+      }
+    },
+  });
+
+  function readout() {
+    const { run, k, ok, budget, margin } = state();
+    DS.stats(root + ' .readout', [
+      { label: 'Hiding margin λ', value: margin === null ? 'none' : DS.fmt(Math.max(0, margin), 1) + ' bits',
+        note: margin === null ? 'one decryption reveals the key shares (§5.1)' : margin < 0 ? 'smaller than the noise it should hide' : margin < LAMBDA ? 'blocks the linear solve, not averaging attacks' : 'hides e statistically',
+        tone: margin !== null && margin >= LAMBDA ? 'good' : 'bad' },
+      { label: 'Budget left', value: ok ? DS.fmt(budget, 1) + ' bits' : '0 bits', note: 'computation noise: log₂|e| ≈ ' + DS.fmt(run.logE, 1), tone: ok ? undefined : 'bad' },
+      { label: 'Decrypts the ' + run.name, value: ok ? 'yes' : 'no', tone: ok ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
