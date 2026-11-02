@@ -1,0 +1,73 @@
+<figure class="widget" id="w-dd-tfhe-gadget">
+  <p class="widget-title">The gadget trade-off: base \(\beta\) against levels \(\ell\)</p>
+  <p class="widget-hint">Slide the base left and right: the noise is lowest where the two dashed terms cross. Then switch to ℓ = 3 for a lower minimum at a higher cost.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>The two terms of the blind-rotation noise formula above, for the toy (\(n = 16\), \(N = 128\), \(Q = 2^{32}\), \(\sigma_{\text{bsk}} = 2^4\)). A bigger base makes every digit, and so the key noise it multiplies, bigger. A smaller \(\beta^\ell\) keeps fewer bits of each coefficient, and the dropped bits come back as rounding noise. More levels push the rounding term down faster, but every level adds polynomial products to each CMux and rows to the key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-tfhe-gadget';
+  const n = 16, N = 128, LOG_Q = 32, LOG_SIGMA = 4;
+  const TIME = { 1: '0.09 s', 2: '0.17 s', 3: '0.26 s' };          // measured in the toy (table above)
+  const SUP = { '.': '·', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+
+  // log2 of the standard deviation of each term (variances in units of (1/Q)^2)
+  const keyTerm = (B, l) => 0.5 * (Math.log2(n * 2 * l * N / 12) + 2 * B + 2 * LOG_SIGMA);
+  const roundTerm = (B, l) => 0.5 * (Math.log2(n * (N / 2) / 12) + 2 * (LOG_Q - B * l));
+  const total = (B, l) => {
+    const a = keyTerm(B, l), b = roundTerm(B, l), m = Math.max(a, b);
+    return m + 0.5 * Math.log2(Math.pow(2, 2 * (a - m)) + Math.pow(2, 2 * (b - m)));
+  };
+  const maxB = l => Math.floor(LOG_Q / l);                            // beta^l cannot exceed Q
+
+  const ui = DS.controls(root + ' .controls', () => {
+    if (base.value > maxB(levels.value)) base.set(maxB(levels.value));
+    chart.update(); readout();
+  });
+  const base = ui.slider({ label: 'Base β', min: 1, max: 16, step: 1, value: 10, format: v => pow2(v) });
+  const levels = ui.choice({ label: 'Levels ℓ', options: [1, 2, 3], value: 2 });
+
+  function best(l) {
+    let b = 1;
+    for (let B = 1; B <= Math.min(16, maxB(l)); B++) if (total(B, l) < total(b, l)) b = B;
+    return b;
+  }
+
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [1, 16], label: 'log₂ β (bits per digit)', tipLabel: 'log₂ β =' },
+    y: { domain: [10, 34], label: 'Noise sd, log₂ (units of 1/Q)' },
+    height: 300,
+    draw(c) {
+      const l = levels.value, top = Math.min(16, maxB(l));
+      const xs = DS.math.linspace(1, top, 121);
+      c.hline(28, { dash: true, label: 'Δ/2 for p = 2', at: 'left' });
+      c.line(xs.map(B => [B, keyTerm(B, l)]), { series: 2, dash: true, label: 'key noise × digits', format: v => '2^' + v.toFixed(1) });
+      c.line(xs.map(B => [B, roundTerm(B, l)]), { series: 3, dash: true, label: 'rounding × S', format: v => '2^' + v.toFixed(1) });
+      c.line(xs.map(B => [B, total(B, l)]), { series: 1, thick: true, label: 'total', format: v => '2^' + v.toFixed(1) });
+      if (top < 16) c.vline(top, { dash: true, label: `β^${l} = Q`, labelPos: 'bottom' });
+      const b = best(l);
+      c.point(b, total(b, l), { series: 'muted', r: 4.5 });
+      c.text(b, total(b, l), 'lowest', { anchor: 'middle', dy: 18, cls: 'ink2' });
+      const B = base.value;
+      c.point(B, total(B, l), { series: 1, label: `β = ${pow2(B)}` });
+      c.legend([{ label: 'total', series: 1 }, { label: 'key noise × digits', series: 2, kind: 'dash' },
+        { label: 'rounding × S', series: 3, kind: 'dash' }]);
+    },
+  });
+
+  function readout() {
+    const l = levels.value, B = base.value, t = total(B, l), b = best(l);
+    const keyBig = keyTerm(B, l) > roundTerm(B, l);
+    DS.stats(root + ' .readout', [
+      { label: 'Blind-rotation noise', value: '2^' + t.toFixed(1), note: t > 26 ? 'close to Δ/2: decryption fails often' : `margin to Δ/2: ${(28 - t).toFixed(1)} bits`, tone: t > 26 ? 'bad' : undefined },
+      { label: 'Larger term', value: keyBig ? 'key × digits' : 'rounding', note: keyBig ? 'base too big' : 'β^ℓ too small' },
+      { label: `Lowest for ℓ = ${l}`, value: '2^' + total(b, l).toFixed(1), note: `at β = ${pow2(b)}` },
+      { label: 'Toy PBS time, key size', value: `${TIME[l]} · ${32 * l} KB`, note: 'both grow with ℓ' },
+    ]);
+  }
+  readout();
+})();
+</script>

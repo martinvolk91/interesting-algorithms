@@ -1,0 +1,90 @@
+<figure class="widget" id="w-dd-tfhe-modswitch">
+  <p class="widget-title">Mod-switch rounding error against the width of a sector</p>
+  <p class="widget-hint">At p = 5 the error already spills over the sector edge. Double N: the sector doubles, the error does not. Then raise p again.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>The x-axis always spans two sector widths, so the shaded sector keeps its size on screen and the error distribution shrinks or grows against it. In steps of \(1/2N\) the rounding error never changes; only the sector width \(w = N/2^p\) does. Bars: the exact error for the toy key (\(n = 16\), Hamming weight \(h = 7\)), which can never exceed 4 steps. Curve: a realistic key (\(n = 800\), \(h \approx 400\), standard deviation 5.8 steps).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-tfhe-modswitch';
+  const H_TOY = 7, H_REAL = 400, TARGET = Math.pow(2, -64);
+  const SD_REAL = Math.sqrt(H_REAL / 12);                 // sum of h rounding errors, each uniform in ±1/2
+  const SD_REAL_INT = Math.sqrt((H_REAL + 1) / 12);       // after the final rounding to an integer: 5.8 steps
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+
+  // CDF of the sum of h independent Uniform(-1/2, 1/2) (Irwin–Hall, shifted), exact for small h
+  const fact = n => (n <= 1 ? 1 : n * fact(n - 1));
+  const binom = (n, k) => fact(n) / (fact(k) * fact(n - k));
+  function ihCdf(x, h) {
+    const y = x + h / 2;
+    if (y <= 0) return 0;
+    if (y >= h) return 1;
+    let s = 0;
+    for (let k = 0; k <= Math.floor(y); k++) s += (k % 2 ? -1 : 1) * binom(h, k) * Math.pow(y - k, h);
+    return s / fact(h);
+  }
+  // The mod-switched phase is off by round(sum of h rounding errors): an integer k with this probability
+  const toyPmf = [];
+  for (let k = -4; k <= 4; k++) toyPmf.push([k, ihCdf(k + 0.5, H_TOY) - ihCdf(k - 0.5, H_TOY)]);
+  // Gaussian upper tail with good relative accuracy far out (Numerical Recipes erfcc)
+  function erfc(x) {
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  const upperTail = (x, sd) => 0.5 * erfc(x / (sd * Math.SQRT2));
+
+  // the sector holds offsets -w/2 .. w/2 - 1 (integers), so the edges sit at -w/2 - 1/2 and w/2 - 1/2
+  const failToy = w => ihCdf(-w / 2 - 0.5, H_TOY) + (1 - ihCdf(w / 2 - 0.5, H_TOY));
+  const failReal = w => upperTail(w / 2 - 0.5, SD_REAL) + upperTail(w / 2 + 0.5, SD_REAL);
+
+  function prob(p) {
+    if (p === 0) return '0';
+    if (p >= 0.001) return DS.pct(p, p >= 0.1 ? 0 : 1);
+    if (p < 1e-300) return '< 10⁻³⁰⁰';
+    const e = Math.floor(Math.log10(p)), m = p / Math.pow(10, e);
+    return m.toFixed(1).replace(/\.0$/, '') + '·10' + String(e).split('').map(ch => SUP[ch]).join('');
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Message bits p', min: 1, max: 6, step: 1, value: 5 });
+  const nPoly = ui.slider({ label: 'Polynomial size N', values: [128, 256, 512, 1024, 2048, 4096], value: 128 });
+
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [-8, 8], label: 'φ̃ minus the sector centre (steps of 1/2N)' },
+    y: { domain: [0, 0.55], label: 'Probability', format: v => v.toFixed(1) },
+    height: 280,
+    draw(c) {
+      const w = nPoly.value >> bits.value;
+      const lo = -w / 2 - 0.5, hi = w / 2 - 0.5;
+      c.domain({ x: [-w, w] });
+      c.polygon([[lo, 0], [hi, 0], [hi, 0.55], [lo, 0.55]], { series: 1, stroke: false });
+      c.vline(lo, { series: 'muted', dash: true });
+      c.vline(hi, { series: 'muted', dash: true, label: 'sector edge' });
+      c.text((lo + hi) / 2, 0.5, `sector of m (w = ${w})`, { anchor: 'middle', cls: 'ink2' });
+      c.bars(toyPmf.filter(([k, q]) => q > 0 && k >= -w && k <= w).map(([k, q]) => ({
+        x: k, y: q, width: 1, series: k >= -w / 2 && k < w / 2 ? 1 : 'bad',
+        tip: `offset ${DS.fmt(k)}: ${prob(q)}${k >= -w / 2 && k < w / 2 ? '' : ' (wrong sector)'}`,
+      })), { gap: w > 16 ? 0 : 2 });
+      const span = Math.min(w, 6 * SD_REAL_INT);
+      c.fn(x => DS.math.normalPdf(x, 0, SD_REAL_INT), { series: 2, from: -span, to: span, n: 240 });
+      c.legend([{ label: 'toy key, n = 16 (exact)', series: 1, kind: 'rect' }, { label: 'realistic key, n = 800', series: 2 },
+        { label: 'lands in the wrong sector', series: 'bad', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const N = nPoly.value, p = bits.value, w = N >> p;
+    const ft = failToy(w), fr = failReal(w);
+    DS.stats(root + ' .readout', [
+      { label: 'Sector width w = N/2^p', value: `${w} steps`, note: `half-width ${w / 2}` },
+      { label: 'Wrong sector, toy key', value: prob(ft), note: ft === 0 ? 'error never exceeds 4 steps' : 'n = 16, h = 7', tone: ft > TARGET ? 'bad' : 'good' },
+      { label: 'Wrong sector, n = 800', value: prob(fr), note: 'h ≈ 400; target: below 2⁻⁶⁴', tone: fr > TARGET ? 'bad' : 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>

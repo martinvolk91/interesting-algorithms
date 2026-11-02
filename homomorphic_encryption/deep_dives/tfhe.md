@@ -1,15 +1,16 @@
 # Deep dive: TFHE and programmable bootstrapping
 
-[index](../README.md) · background: [03 How it works §8](../03_how_it_works.md#8-bootstrapping-gentrys-big-idea), [04 Schemes](../04_schemes.md#generation-3-gsw-fhew-tfhe-cggi) · sibling: [CKKS deep dive](ckks.md)
+[index](../README.md) · background: [03 How it works §8](../03_how_it_works.md#8-bootstrapping-gentrys-big-idea), [04 Schemes](../04_schemes.md#generation-3-gsw-fhew-tfhe-cggi) · sibling: [CKKS deep dive](ckks.md) (the Cheon–Kim–Kim–Song scheme)
 
 ---
 
-TFHE (Chillotti–Gama–Georgieva–Izabachène, 2016; also called **CGGI**) is the FHE scheme built
-around **fast bootstrapping**. It sits at the opposite end of the design space from CKKS:
+TFHE (torus fully homomorphic encryption; Chillotti–Gama–Georgieva–Izabachène, 2016; also
+called **CGGI**) is the FHE scheme built around **fast bootstrapping**. It sits at the opposite
+end of the design space from CKKS:
 
 | | CKKS | TFHE |
 |---|---|---|
-| Values per ciphertext | thousands (SIMD slots) | **one** small integer (1–8 bits) |
+| Values per ciphertext | thousands (SIMD slots: single instruction, multiple data) | **one** small integer (1–8 bits) |
 | Bootstrapping | rare, expensive, amortized | **after (almost) every operation**, milliseconds |
 | Non-linear functions | polynomial approximations | **any lookup table, exactly**, during bootstrapping |
 | Noise management | plan depth, manage levels | none: every bootstrap resets the noise |
@@ -30,10 +31,11 @@ utterly insecure. They are sized so that each step is visible and Python stays f
 
 ## 0. The one idea
 
-> Put the message in the **phase** of an LWE ciphertext. Bootstrapping turns that phase into
-> an **exponent of `X`**, rotates a polynomial that holds a **lookup table** by that much, and
-> reads off the entry that lands in position 0. The output is computed from the
-> (low-noise) **bootstrapping key**, not from the input, so its noise is fresh.
+> Put the message in the **phase** of an LWE (learning with errors) ciphertext. Bootstrapping
+> turns that phase into an **exponent of `X`**, rotates a polynomial that holds a **lookup
+> table** by that much, and reads off the entry that lands in position 0. The output is
+> computed from the (low-noise) **bootstrapping key**, not from the input, so its noise is
+> fresh.
 
 The rest of the document is that sentence, one step at a time.
 
@@ -44,7 +46,7 @@ The rest of the document is that sentence, one step at a time.
 | `Q` | torus discretization: integers mod `Q` stand for multiples of `1/Q` | 2³² | 2⁶⁴ (TFHE-rs), 2³² (original) |
 | `n` | LWE dimension (data ciphertexts) | 16 | ~700–1000 |
 | `s` | LWE secret key, binary vector | 16 bits | |
-| `N` | GLWE polynomial size, ring $\mathbb{Z}_Q[X]/(X^N+1)$ | 128 | 1024–4096 (often 2048) |
+| `N` | GLWE (general learning with errors) polynomial size, ring $\mathbb{Z}_Q[X]/(X^N+1)$ | 128 | 1024–4096 (often 2048) |
 | `k` | GLWE dimension (number of mask polynomials) | 1 | 1 (sometimes 2–4) |
 | `S` | GLWE secret key, binary polynomial | | |
 | `β = 2^B`, `ℓ` | gadget base and levels for the external product | 2¹⁰, 2 | ~2¹⁵–2²³, 1–3 |
@@ -106,8 +108,8 @@ is no ciphertext × ciphertext product. **Everything non-linear happens inside a
 | Type | Shape | Phase (what decryption computes) | Role |
 |---|---|---|---|
 | **LWE** | $(a \in \mathbb{Z}_Q^n,\ b)$ | $\varphi = b - \langle a, s\rangle = \Delta m + e$ | carries the data |
-| **GLWE** | $(A, B)$ polynomials, $B = A\cdot S + M + E$ | $B - A\cdot S = M + E$ | the **accumulator** in blind rotation. With `k = 1` it is just RLWE |
-| **GGSW** | $2\ell$ GLWE rows (for `k = 1`) | "μ times the gadget" | the **bootstrapping key**: one GGSW per bit of `s` |
+| **GLWE** | $(A, B)$ polynomials, $B = A\cdot S + M + E$ | $B - A\cdot S = M + E$ | the **accumulator** in blind rotation. With `k = 1` it is just RLWE (ring learning with errors) |
+| **GGSW** (general GSW, after Gentry–Sahai–Waters) | $2\ell$ GLWE rows (for `k = 1`) | "μ times the gadget" | the **bootstrapping key**: one GGSW per bit of `s` |
 
 A **trivial GLWE** `(0, M)` "encrypts" `M` with no mask and no noise. It is not secret, but
 it is a valid starting value.
@@ -189,8 +191,9 @@ phase**, plus noise. The noise has three parts:
 - μ × (input noise): the input noise is multiplied only by μ ∈ {0, 1}, **never amplified**.
 
 That last point is GSW's **asymmetric noise growth** ([04](../04_schemes.md#gsw-gentrysahaiwaters-2013-the-approximate-eigenvector-scheme)).
-A chain of external products grows noise **additively**: variances add. Compare BGV/CKKS,
-where products of two noisy ciphertexts multiply their noise.
+A chain of external products grows noise **additively**: variances add. Compare BGV
+(Brakerski–Gentry–Vaikuntanathan) or CKKS, where products of two noisy ciphertexts multiply
+their noise.
 
 ```python
 def external_product(ggsw, ct):
@@ -207,7 +210,8 @@ def external_product(ggsw, ct):
 ```
 
 Cost: $2\ell$ decompositions and $4\ell$ polynomial multiplications (for `k = 1`). Real
-libraries do the multiplications with an FFT or NTT. TFHE-rs uses a 64-bit-float FFT.
+libraries do the multiplications with a fast Fourier transform (FFT) or a number-theoretic
+transform (NTT). TFHE-rs uses a 64-bit-float FFT.
 
 ### 3.2 CMux: an encrypted if-then-else
 
@@ -219,6 +223,7 @@ The server selects between two ciphertexts **without learning which one it picke
 
 ## 4. Programmable bootstrapping, step by step
 
+<!-- figure: dd-tfhe-pipeline replaces the code block below -->
 ```
  LWE_s(Δm + e)           dimension n, noise e (anything below Δ/2)
    │ ① modulus switch Q → 2N          phase becomes an integer exponent φ̃ ∈ [0, 2N)
@@ -241,7 +246,7 @@ def pbs(ct, lut, bsk, ksk, bits):
     return key_switch(sample_extract(blind_rotate(ct, lut, bsk, bits)), ksk)
 ```
 
-Toy output for one PBS (`p = 2`, `m = 3`, LUT `f(m) = m² mod 4`):
+Toy output for one PBS (`p = 2`, `m = 3`, lookup table (LUT) `f(m) = m² mod 4`):
 
 ```
 == one PBS, step by step (2-bit messages, LUT f(m) = m^2 mod 4)
@@ -300,6 +305,8 @@ has to double to keep the same failure rate. That is why real TFHE handles **2�
 ciphertext** with `N = 2048`, and builds bigger integers out of several ciphertexts (§5.3).
 With a realistic `n ≈ 800`, the mod-switch error alone has std $\sqrt{401/12} \approx 5.8$
 units, and the input ciphertext's own noise adds to it.
+
+<!-- figure: dd-tfhe-modswitch -->
 
 ### 4.2 Step ②: the test polynomial (the lookup table)
 
@@ -423,7 +430,7 @@ identity PBS brings it back to 2^16.5.
 **Where the output noise comes from.** Blind rotation adds, per CMux, two independent terms.
 Over `n` CMuxes the variances add:
 
-$$\sigma^2_{\text{BR}} \;\approx\; n\Big[\underbrace{2\ell N \tfrac{\beta^2}{12}\,\sigma^2_{\text{bsk}}}_{\text{key noise × digits}} \;+\; \underbrace{\tfrac{N}{2}\cdot\tfrac{1}{12}\big(\tfrac{Q}{\beta^\ell}\big)^2}_{\text{decomposition rounding × } S}\Big]$$
+$$\sigma^2_{\text{BR}} \;\approx\; n\Big[\underbrace{2\ell N \tfrac{\beta^2}{12}\,\sigma^2_{\text{bsk}}}_{\text{key noise} \times \text{digits}} \;+\; \underbrace{\tfrac{N}{2}\cdot\tfrac{1}{12}\big(\tfrac{Q}{\beta^\ell}\big)^2}_{\text{decomposition rounding} \times S}\Big]$$
 
 Measured in the toy (rms over 4 runs, `n = 16`, `N = 128`):
 
@@ -444,6 +451,8 @@ This is the TFHE parameter trade-off:
 - **More levels `ℓ`:** less noise, but proportionally slower and bigger keys.
 - **`σ_bsk`:** fixed by *security* (the lattice estimator), not by choice. Real parameter
   selection minimises `ℓ` (often to 1) subject to the target failure probability.
+
+<!-- figure: dd-tfhe-gadget -->
 
 **The noise budget between two PBS** is the real design constraint. For the next PBS to
 decode correctly with failure probability `p_fail`:
@@ -473,7 +482,8 @@ regardless of how non-linear they are.
 
 ### 5.2 Gate bootstrapping: TFHE's original use
 
-Encode bits as 0/1, add two ciphertexts (giving 0, 1 or 2), and look up the gate:
+Encode bits as 0/1, add two ciphertexts (giving 0, 1 or 2), and look up the logic gate, here
+NAND (not-and):
 
 ```
 NAND(0, 0) = 1
@@ -483,8 +493,9 @@ NAND(1, 1) = 0
 ```
 
 One addition plus one PBS makes a bootstrapped NAND. NAND is universal, so this already gives
-FHE for any Boolean circuit. AND, OR, XOR and the other gates are the same with a different
-table. The 2016 paper used an equivalent encoding (bits as ±1/8 with a "sign" test polynomial).
+FHE for any Boolean circuit. AND, OR, XOR (exclusive or) and the other gates are the same with
+a different table. The 2016 paper used an equivalent encoding (bits as ±1/8 with a "sign" test
+polynomial).
 
 ### 5.3 Multi-input functions and bigger integers
 
@@ -507,8 +518,9 @@ An encrypted 2-bit × 2-bit **multiplication in a single bootstrap**. The price 
   few **carry** bits. Additions run on the blocks directly until the carry space fills up,
   then PBSs propagate the carries. A 64-bit addition is dozens of PBS; a 64-bit multiplication
   is hundreds to thousands.
-- **CRT**: residues modulo small coprime moduli. Additions and multiplications never carry
-  between blocks, which makes them very parallel, but comparisons are awkward.
+- **CRT** (Chinese remainder theorem): residues modulo small coprime moduli. Additions and
+  multiplications never carry between blocks, which makes them very parallel, but comparisons
+  are awkward.
 
 ### 5.4 More tricks
 
@@ -519,8 +531,8 @@ An encrypted 2-bit × 2-bit **multiplication in a single bootstrap**. The price 
   higher cost.
 - **Circuit bootstrapping** (CGGI 2017): turn an LWE ciphertext into a GGSW, which enables
   *leveled* CMux trees and look-ups into large encrypted tables.
-- **Encrypted ML**: Concrete ML quantizes a neural network to a few bits per activation and
-  runs every activation as a PBS.
+- **Encrypted ML** (machine learning): Concrete ML quantizes a neural network to a few bits per
+  activation and runs every activation as a PBS.
 
 ---
 
@@ -537,17 +549,18 @@ subject to 128-bit security and a target failure probability. Orders of magnitud
 | `β`, `ℓ` | 2¹⁰, 2 | ~2¹⁵–2²³, 1–2 |
 | bootstrapping key | n·(k+1)ℓ·(k+1)·N words = 64 KB | 800·2·2·2048·8 B ≈ **52 MB** per level |
 | key-switching key | kN·ℓ_ks·(n+1) words = 43 KB | 2048·5·801·8 B ≈ **66 MB** (much less with seeded compression) |
-| PBS time | 0.17 s (pure Python) | **milliseconds** per CPU core, **< 1 ms** on a GPU |
+| PBS time | 0.17 s (pure Python) | **milliseconds** per CPU (central processing unit) core, **< 1 ms** on a GPU (graphics processing unit) |
 
-**Seeded compression:** the random masks `a` of key material can be regenerated from a PRNG
-seed, so only the `b` parts need storing or sending. This shrinks the key-switching key
-dramatically, and the bootstrapping key by about `(k+1)×`.
+**Seeded compression:** the random masks `a` of key material can be regenerated from a
+pseudorandom number generator (PRNG) seed, so only the `b` parts need storing or sending. This
+shrinks the key-switching key dramatically, and the bootstrapping key by about `(k+1)×`.
 
-**Speed history** (order of magnitude): FHEW 2015 under 1 s → TFHE 2016 under 0.1 s →
-~13 ms (2017) → a few ms on CPU today → < 1 ms per PBS on an H100. Zama reports about
-**189 000 PBS/s across 8 H100s** (vendor figure, [07](../07_state_of_the_art_2026.md#1-bootstrapping-research)).
-GPUs win on *throughput* by running thousands of independent PBS at once. A *single* PBS
-stays latency-bound by the `n`-step sequential chain.
+**Speed history** (order of magnitude): FHEW (the Ducas–Micciancio scheme) 2015 under 1 s →
+TFHE 2016 under 0.1 s → ~13 ms (2017) → a few ms on CPU today → < 1 ms per PBS on an H100. Zama
+reports about **189 000 PBS/s across 8 H100s** (vendor figure,
+[07](../07_state_of_the_art_2026.md#1-bootstrapping-research)). GPUs win on *throughput* by
+running thousands of independent PBS at once. A *single* PBS stays latency-bound by the
+`n`-step sequential chain.
 
 ---
 
@@ -570,11 +583,15 @@ stays latency-bound by the `n`-step sequential chain.
   thousands of small integers per bootstrap (≈ 3.75 ms amortized per 8-bit LUT), competing
   with TFHE on throughput ([CKKS deep dive §5.8](ckks.md#58-variants-and-the-research-frontier)).
 - **Scheme switching** between CKKS and FHEW/TFHE, with the IND-CPA-D caveats of
-  [06](../06_security.md#3-ind-cpa-d-when-decryption-leaks-the-key).
-- **Threshold TFHE**: the secret key is shared among several parties, and decryption is an
-  MPC protocol. This is the basis of the Zama Protocol on Ethereum.
-- **Hardware**: TFHE-rs CUDA backend, FPGA and ASIC efforts. PBS is regular and
-  embarrassingly parallel *across* ciphertexts, which suits all of them.
+  [06](../06_security.md#3-ind-cpa-d-when-decryption-leaks-the-key) (security when the attacker
+  also sees decryptions of honestly computed ciphertexts).
+- **Threshold TFHE**: the secret key is shared among several parties, and decryption is a
+  secure multiparty computation (MPC) protocol. This is the basis of the Zama Protocol on
+  Ethereum.
+- **Hardware**: the TFHE-rs CUDA (Compute Unified Device Architecture) backend for NVIDIA GPUs,
+  and field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC)
+  efforts. PBS is regular and embarrassingly parallel *across* ciphertexts, which suits all of
+  them.
 
 ---
 
