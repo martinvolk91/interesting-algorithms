@@ -1,0 +1,98 @@
+<figure class="widget" id="w-p9-blind-rotation">
+  <p class="widget-title">Blind rotation reads the table</p>
+  <p class="widget-hint">Drag the phase from 0 to 7. Up to 3, position 0 shows a table entry as written; from 4 on, it shows one from the negated half of the wheel.</p>
+  <div class="controls"></div>
+  <div class="wheel"></div>
+  <div class="readout"></div>
+  <figcaption>The test polynomial \(v = 10 + 11X + 12X^2 + 13X^3\) (\(N = 4\)) on a wheel of \(2N = 8\)
+    positions: the first half holds \(v_0, \dots, v_3\), the second half the same values negated, because
+    \(X^4 = -1\). Multiplying by \(X^{-k}\) turns the wheel by \(k\) positions; the four positions from the
+    top, clockwise, are the coefficients of the result. The padding bit keeps the phase below \(N\), in
+    the half that reads as written.</figcaption>
+</figure>
+<style>
+  #w-p9-blind-rotation .wheel svg { display: block; width: 100%; max-width: 440px; height: auto; margin: 0 auto;
+    font-family: var(--font); color: var(--ink); overflow: visible; }
+  #w-p9-blind-rotation .wheel text { fill: currentColor; font-size: 13px; }
+  #w-p9-blind-rotation .wheel .slot { transition: transform .35s ease; }
+  #w-p9-blind-rotation .wheel .note { fill: var(--muted); font-size: 12px; }
+  @media (prefers-reduced-motion: reduce) { #w-p9-blind-rotation .wheel .slot { transition: none; } }
+</style>
+<script>
+(() => {
+  const root = '#w-p9-blind-rotation';
+  const N = 4, V = [10, 11, 12, 13];
+  const ext = j => { j = ((j % (2 * N)) + 2 * N) % (2 * N); return j < N ? V[j] : -V[j - N]; };   // coefficient j of the 2N wheel
+  const SUB = ['₀', '₁', '₂', '₃'], SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷' };
+  const sup = n => String(n).split('').map(ch => SUP[ch]).join('');
+  const num = v => (v < 0 ? '−' : '') + Math.abs(v);
+  const name = j => (j < N ? '' : '−') + 'v' + SUB[j % N];
+  function polyText(c) {                      // [c0..c3] → "12 + 13X − 10X² − 11X³"
+    return c.map((v, i) => {
+      const mono = i === 0 ? '' : i === 1 ? 'X' : 'X' + sup(i);
+      const body = Math.abs(v) + mono;
+      return i === 0 ? num(v) : (v < 0 ? ' − ' : ' + ') + body;
+    }).join('');
+  }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const CX = 180, CY = 160, R = 96, SR = 24;
+  const svg = el('svg', { viewBox: '0 0 360 330', role: 'img',
+    'aria-label': 'A wheel of 8 positions holding 10, 11, 12, 13 and their negatives, turned by the phase k' },
+    document.querySelector(root + ' .wheel'));
+  const pt = (deg, r) => [CX + r * Math.cos(deg * Math.PI / 180), CY + r * Math.sin(deg * Math.PI / 180)];
+  // the read-out window: positions 0..3, clockwise from the top
+  const a0 = -90 - 22.5, a1 = -90 + 3 * 45 + 22.5, [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
+  el('path', { d: `M${x0},${y0} A${R},${R} 0 0 1 ${x1},${y1}`, fill: 'none', stroke: 'var(--series-1)',
+    'stroke-opacity': 0.12, 'stroke-width': 2 * SR + 14 }, svg);
+  for (let p = 1; p < N; p++) {
+    const [lx, ly] = pt(-90 + p * 45, R + SR + 12);
+    el('text', { x: lx, y: ly + 4, 'text-anchor': 'start', class: 'note' }, svg, 'c' + SUB[p]);
+  }
+  el('text', { x: CX + 12, y: CY - R - SR - 6, class: 'note' }, svg, 'c₀');
+  el('text', { x: CX, y: 12, 'text-anchor': 'middle', style: 'font-weight:650' }, svg, 'position 0: sample extraction reads this');
+  el('path', { d: `M${CX - 6},${CY - R - SR - 12} L${CX + 6},${CY - R - SR - 12} L${CX},${CY - R - SR - 3} z`, fill: 'currentColor' }, svg);
+  el('text', { x: CX, y: CY - 4, 'text-anchor': 'middle', class: 'note' }, svg, 'coefficients');
+  el('text', { x: CX, y: CY + 12, 'text-anchor': 'middle', class: 'note' }, svg, 'of X⁻ᵏ·v');
+  const slots = [];
+  for (let j = 0; j < 2 * N; j++) {
+    const g = el('g', { class: 'slot' }, svg);
+    const s = j < N ? 'var(--series-1)' : 'var(--series-2)';
+    el('circle', { cx: 0, cy: 0, r: SR, fill: s, 'fill-opacity': 0.16, stroke: s, 'stroke-width': 1.5 }, g);
+    el('text', { x: 0, y: 0, 'text-anchor': 'middle', style: 'font-weight:650;font-size:14px' }, g, num(ext(j)));
+    el('text', { x: 0, y: 14, 'text-anchor': 'middle', style: 'font-size:11px' }, g, name(j));
+    slots.push(g);
+  }
+  const eq = el('text', { x: CX, y: 322, 'text-anchor': 'middle', style: 'font-size:14px' }, svg);
+
+  let turn = null;                             // continuous rotation, so 7 → 0 turns one step, not seven
+  const ui = DS.controls(root + ' .controls', draw);
+  const phase = ui.slider({ label: 'Rounded phase k (mod 2N = 8)', min: 0, max: 7, step: 1, value: 2 });
+
+  function draw() {
+    const k = phase.value;
+    if (turn === null) turn = k;
+    else { let d = ((k - turn) % 8 + 8) % 8; if (d > 4) d -= 8; turn += d; }
+    slots.forEach((g, j) => {
+      const deg = -90 + (j - turn) * 45;
+      g.style.transform = `translate(${CX}px, ${CY}px) rotate(${deg}deg) translate(${R}px, 0) rotate(${-deg}deg)`;
+    });
+    const c = [0, 1, 2, 3].map(i => ext(k + i));
+    eq.textContent = `X${sup(-k)}·v = ${polyText(c)}`;
+    const j0 = k % (2 * N);
+    DS.stats(root + ' .readout', [
+      { label: 'Constant coefficient', value: num(c[0]), note: j0 < N ? `= v${SUB[j0]}, the table entry for phase ${k}` : `= −v${SUB[j0 - N]}: entry ${j0 - N} with its sign flipped` ,
+        tone: j0 < N ? 'good' : 'bad' },
+      { label: 'Phase lands in', value: j0 < N ? 'first half' : 'second half', note: j0 < N ? 'reads as written' : 'reads negated' },
+    ]);
+  }
+  draw();
+})();
+</script>

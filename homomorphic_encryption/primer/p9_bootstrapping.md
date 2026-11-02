@@ -7,7 +7,7 @@
 Every scheme in P7 and P8 carries noise, and every operation makes it bigger. Modulus
 switching slows the growth, but the budget is fixed when the keys are made, and once it is
 spent the ciphertext cannot be computed on any more. **Bootstrapping** resets the noise and
-so removes the limit. It is the "F" in FHE: Craig Gentry's 2009 breakthrough, and still where
+so removes the limit. It is the "F" in FHE (fully homomorphic encryption): Craig Gentry's 2009 breakthrough, and still where
 most FHE running time and most FHE research go.
 
 **In this chapter**
@@ -17,9 +17,12 @@ most FHE running time and most FHE research go.
 - Follow Gentry's idea step by step, and explain why the old noise does not survive it.
 - State its two conditions, bootstrappability and circular security, and map Gentry's
   jewelry-store analogy onto them.
-- Run a TFHE blind rotation by hand on a 4-coefficient polynomial, and say what GSW, GGSW and
-  a CMux contribute.
-- Describe how TFHE, CKKS and BGV/BFV bootstrap, and roughly what it costs.
+- Run a blind rotation of Torus fully homomorphic encryption (TFHE) by hand on a 4-coefficient
+  polynomial, and say what Gentry–Sahai–Waters (GSW) ciphertexts, their ring version general GSW
+  (GGSW) and a CMux contribute.
+- Describe how TFHE, CKKS (the Cheon–Kim–Kim–Song scheme) and BGV/BFV (the
+  Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes) bootstrap, and roughly
+  what it costs.
 - Use programmable bootstrapping to compute a non-linear function while cleaning the noise.
 - Read chapters 01–03 of the main notes with every term already familiar (§16).
 
@@ -29,7 +32,7 @@ is split into numbered parts, and the text says which part shows what.
 
 ## 1. The noise wall
 
-Recall from P7: an LWE ciphertext `(a, b)` has **phase** $\varphi = b - \langle a, s\rangle = \Delta m + e$,
+Recall from P7: an LWE (learning with errors) ciphertext `(a, b)` has **phase** $\varphi = b - \langle a, s\rangle = \Delta m + e$,
 and decryption rounds $\varphi / \Delta$. That is correct while $\lvert e\rvert < \Delta/2$.
 Additions add noises, a public constant `k` multiplies the noise by `k` (P7), and a
 ciphertext product multiplies noises (P8). Modulus switching (P8) slows the growth, but each
@@ -70,8 +73,8 @@ Gentry explained the idea with a story in his 2010 *Communications of the ACM* a
 "Computing arbitrary functions of encrypted data". Paraphrased:
 
 **The glovebox.** Alice owns a jewelry store but does not trust her workers with the gold
-and diamonds. She locks the materials in a transparent, impenetrable box with built-in
-gloves; only she has the key. A worker assembles a ring through the gloves, and Alice unlocks
+and diamonds. The materials go into a transparent, impenetrable box with built-in gloves,
+and only Alice has the key. A worker assembles a ring through the gloves, and Alice unlocks
 the box and takes it out. This is the "glovebox" of [01 §1](../01_introduction.md#1-the-problem-it-solves).
 
 **The defect.** Her boxes are defective: after about a minute the gloves stiffen and become
@@ -136,7 +139,7 @@ $$D_c(x_1, x_2, x_3) = \mathrm{Round}\big(13 - 5x_1 - 11x_2 - 14x_3 \bmod 16\big
 
 Three things to notice:
 
-1. $D_c$ is an ordinary Boolean function of `n` bits, so by P6 it is a **circuit** of XOR
+1. $D_c$ is an ordinary Boolean function of `n` bits, so by P6 it is a **circuit** of XOR (exclusive or)
    and AND gates. Another ciphertext gives a circuit of the same shape with other constants.
 2. The ciphertext is not an *input* of this circuit. It is part of its *description*.
 3. The noise `e = 2` hides inside the constant 13. At the real key it gives $\varphi = 10$,
@@ -164,6 +167,7 @@ That is just the correctness rule of HE
 [01 §2](../01_introduction.md#2-formal-definition)) for the function $f = D_c$ on the inputs
 $s_1, \dots, s_n$.
 
+<!-- figure: p9-gentry-idea replaces the code block below -->
 ```text
  CLIENT (once)                        SERVER
  bk = Enc(s1), ..., Enc(sn)  ------>  stored with the other evaluation keys
@@ -178,7 +182,7 @@ $s_1, \dots, s_n$.
                                            noise from bk and the gates of D_c, not from e
 ```
 
-The server never sees `s`, only encryptions of its bits, which look random (IND-CPA, P5),
+The server never sees `s`, only encryptions of its bits, which look random (P5: indistinguishability under chosen-plaintext attack, IND-CPA),
 provided that publishing them is safe (§7). Gentry describes the message as briefly *doubly*
 encrypted: `m` sits inside `c` under the old key, and the computation that peels off that
 inner layer runs inside a new encryption, like Alice unlocking box `i` from inside box `i+1`.
@@ -212,6 +216,8 @@ surprise people:
   the rounding inside $D_c$ picks the wrong message, and the bootstrap returns a clean
   encryption of that wrong message (part 2, step 12). The server must bootstrap *before* the
   wall. It cannot see the noise, so it tracks a public upper bound (part 3).
+
+<!-- figure: p9-noise-sawtooth -->
 
 (In the CACM article the bits of `c` are first encrypted afresh rather than used as
 constants. Fresh encryptions have small noise, so the argument is the same.)
@@ -289,7 +295,7 @@ noise $m_1 e_2 + e_1 G^{-1}(C_2)$ is **asymmetric**: $e_2$ is multiplied by the 
 (0 or 1 for a bit) and $e_1$ only by small digits. If the left factor is always a fresh
 ciphertext, each product adds a fixed amount of noise instead of multiplying it.
 
-TFHE uses the ring version. **GLWE** is RLWE, possibly with several mask polynomials instead of
+TFHE uses the ring version. **GLWE** (general learning with errors) is RLWE (ring learning with errors), possibly with several mask polynomials instead of
 one (the toy uses one, which is plain RLWE); its secret key `S` is a polynomial with `N`
 binary coefficients. **GGSW** is GSW over GLWE ("a GLWE times the gadget"). The product of a
 GGSW encryption of a bit with an ordinary GLWE ciphertext, the **external product**, is a GLWE
@@ -333,6 +339,8 @@ $v_2$, the table entry for phase 2. For $k = 5 \ge N$ it is $-v_1$: phases in th
 of the circle read the table **negated**. TFHE's padding bit (§1) keeps the phase in the
 first half, where the table reads as written.
 
+<!-- figure: p9-blind-rotation -->
+
 **Sample extraction.** After the rotation, the constant coefficient of the accumulator
 encrypts $v_{\tilde\varphi}$. Coefficient 0 of a GLWE ciphertext $(A, B)$ is already an LWE
 ciphertext: its phase is $B_0 - (A \cdot S)_0$, and $(A \cdot S)_0$ is the inner product of
@@ -355,7 +363,7 @@ $$D^{\wedge}_{c_1, c_2}(x) = D_{c_1}(x) \cdot D_{c_2}(x)$$
 
 on `bk`, which yields $\mathrm{Enc}(m_1 m_2)$ with reset noise. Do this for every gate of a
 circuit and noise never accumulates from gate to gate, so any depth works. TFHE's **gate
-bootstrapping** is exactly this: a NAND is one addition plus one bootstrap. In depth terms,
+bootstrapping** is exactly this: a NAND (the not-and logic gate) is one addition plus one bootstrap. In depth terms,
 with `L` the multiplicative depth a scheme can evaluate before overflowing:
 
 $$\mathrm{depth}(\mathrm{Dec}) + 1 \le L.$$
@@ -416,7 +424,8 @@ relinearization used a different key per level to avoid circularity; libraries u
 Each family follows §5: the linear part under encryption, then the rounding under encryption.
 The compact version is [03 §8](../03_how_it_works.md#8-bootstrapping-gentrys-big-idea).
 
-- **TFHE / FHEW: a bootstrap after every gate.** The phase becomes an exponent of `X` in
+- **TFHE / FHEW: a bootstrap after every gate.** FHEW, the Ducas–Micciancio scheme, is TFHE's
+  predecessor and bootstraps the same way. The phase becomes an exponent of `X` in
   $\mathbb{Z}_Q[X]/(X^N + 1)$; **blind rotation** turns the test polynomial by it without
   learning it, and the rounding is a free table look-up. Each ciphertext holds one small value
   (about 1–8 bits). Every step runs in Python in the [TFHE deep dive](../deep_dives/tfhe.md).
@@ -425,7 +434,7 @@ The compact version is [03 §8](../03_how_it_works.md#8-bootstrapping-gentrys-bi
   encrypts $\Delta m + e + q_0 \cdot I(X)$ for a small integer polynomial `I`. Removing
   $q_0 \cdot I$ is the "rounding". Homomorphic multiplication acts slot by slot
   ([P7, Packing N values](p7_lattices_and_lwe.md#packing-n-values)), but
-  $q_0 \cdot I$ sits in the *coefficients*, so first a homomorphic DFT built from rotations
+  $q_0 \cdot I$ sits in the *coefficients*, so first a homomorphic DFT (discrete Fourier transform) built from rotations
   (**CoeffToSlot**) moves the coefficients into slots. There **EvalMod** computes
   "$x \bmod q_0$". As a function of `x` that is a sawtooth, and near multiples of $q_0$, where
   the inputs are, it is close to $\tfrac{q_0}{2\pi} \sin(2\pi x / q_0)$. A polynomial can
@@ -453,6 +462,8 @@ the phase sector that `j` falls in. Plain rounding is the identity table. Store
 $\Delta \cdot f(\text{sector of } j)$ instead, and the same bootstrap outputs
 $\mathrm{Enc}(f(m))$: same keys, same cost, and `f` is a public table. This is
 **programmable bootstrapping** (PBS), a name due to Chillotti, Joye and Paillier (2021).
+
+<!-- figure: p9-pbs-table -->
 
 Why it is a superpower:
 
@@ -484,8 +495,8 @@ vendor figures.
 | | Refreshes | Rough cost |
 |---|---|---|
 | Gentry–Halevi 2011 (first implementation) | one bit | 30 s to 30 min per bootstrap; public keys of 70 MB to 2.3 GB |
-| TFHE / FHEW today | one small integer, after almost every operation | a few ms per CPU core; under 1 ms on an NVIDIA H100 (vendor figure); keys of tens of MB |
-| CKKS today | up to $2^{15}$ values, when the levels run out | seconds on a multi-core CPU, tens to hundreds of ms on a GPU; uses roughly 10–18 levels; 20–30 bits of precision afterwards |
+| TFHE / FHEW today | one small integer, after almost every operation | a few ms per CPU (central processing unit) core; under 1 ms on an NVIDIA H100 (vendor figure); keys of tens of MB |
+| CKKS today | up to $2^{15}$ values, when the levels run out | seconds on a multi-core CPU, tens to hundreds of ms on a GPU (graphics processing unit); uses roughly 10–18 levels; 20–30 bits of precision afterwards |
 | BGV / BFV | packed integers, rarely | minutes in HElib (Halevi–Shoup: under 3 min for 1024 packed values, one core, about 80-bit security) |
 
 The toy's bootstrap took about 170 ms on the machine used for this chapter, the time of
@@ -494,7 +505,7 @@ timings vary between runs and machines).
 That ratio belongs to a pure-Python toy, but the lesson holds everywhere: a bootstrap costs
 orders of magnitude more than an addition or a multiplication. Hence compilers that place
 bootstraps carefully, deployments that stay leveled when the circuit is known and shallow,
-and research aimed squarely at bootstrapping: CRYPTO 2026 work cuts the sequential NTT depth
+and research aimed squarely at bootstrapping: CRYPTO 2026 work cuts the sequential NTT (number-theoretic transform) depth
 of FHEW/TFHE bootstrapping from 500+ to 3 under a new assumption, and accelerators such as
 Intel's Heracles target these pipelines ([07](../07_state_of_the_art_2026.md#1-bootstrapping-research)).
 
@@ -610,8 +621,8 @@ bootstrap step by step.
 
 ## 12. How this connects to homomorphic encryption
 
-This chapter closes the primer's story. One-time-pad keys add (P1); AES scrambles all algebra
-away (P2, P3); RSA, ElGamal and Paillier keep one operation (P4, P6); security means IND-CPA,
+This chapter closes the primer's story. One-time-pad keys add (P1); AES (Advanced Encryption Standard)
+scrambles all algebra away (P2, P3); RSA (Rivest–Shamir–Adleman), ElGamal and Paillier keep one operation (P4, P6); security means IND-CPA,
 and HE accepts malleability on purpose (P3, P5); LWE's noise brings security and limits
 computation (P7); multiplication works but costs size and noise, which relinearization and
 modulus switching manage for a fixed number of levels (P8). **Bootstrapping removes the last
@@ -733,7 +744,7 @@ Every important term in chapters 01–03, and the primer section that explains i
 |---|---|---|
 | Plaintext, ciphertext, key, KeyGen, Enc, Dec, correctness | 01 §1–2 | [P1 §2](p1_encryption_basics.md#2-the-vocabulary-messages-keys-enc-and-dec) |
 | Symmetric vs public-key encryption | 01 §1–2 | [P1 §9](p1_encryption_basics.md#9-symmetric-and-public-key-encryption), [P4 §1](p4_public_key.md#1-the-key-distribution-problem) |
-| Data in use, data in transit, TLS | 01 §1 | [P1 §1](p1_encryption_basics.md#1-what-cryptography-is-for), [P4 §6](p4_public_key.md#6-hybrid-encryption-and-tls-13) |
+| Data in use, data in transit, Transport Layer Security (TLS) | 01 §1 | [P1 §1](p1_encryption_basics.md#1-what-cryptography-is-for), [P4 §6](p4_public_key.md#6-hybrid-encryption-and-tls-13) |
 | AES (in the compactness "cheat") | 01 §2 | [P2](p2_aes.md) |
 | Evaluation keys | 01 §1–2, 03 §9 | [P8 §10](p8_multiplication_and_relinearization.md#10-evaluation-keys-versus-the-secret-key), [P9 §4](#4-gentrys-idea-step-by-step) |
 | The glovebox analogy | 01 §1 | [P9 §2](#2-gentrys-jewelry-store) |
@@ -743,18 +754,18 @@ Every important term in chapters 01–03, and the primer section that explains i
 | IND-CPA, semantic security | 01 §2 | [P5 §4](p5_security_definitions.md#4-security-as-a-game-ind-cpa), [P5 §5](p5_security_definitions.md#5-semantic-security) |
 | Randomized vs deterministic encryption | 01 §2 | [P3 §6](p3_modes_and_integrity.md#6-why-encryption-must-be-randomized), [P5 §4](p5_security_definitions.md#deterministic-encryption-always-loses) |
 | Textbook RSA as a homomorphism | 01 §2–3 | [P4 §4](p4_public_key.md#4-rsa-revisited-what-matters-for-he), [P6 §2](p6_computing_on_ciphertexts.md#textbook-rsa-multiplication) |
-| Malleability; integrity and MACs | 01 §2, §5 | [P3 §7](p3_modes_and_integrity.md#7-malleability-changing-a-message-without-reading-it), [P3 §8](p3_modes_and_integrity.md#8-macs-and-hmac), [P5 §7](p5_security_definitions.md#7-chosen-ciphertext-security-and-malleability) |
-| IND-CCA1, IND-CCA2, why HE cannot be CCA2 | 01 §2, §5 | [P5 §7](p5_security_definitions.md#7-chosen-ciphertext-security-and-malleability) |
+| Malleability; integrity and message authentication codes (MACs) | 01 §2, §5 | [P3 §7](p3_modes_and_integrity.md#7-malleability-changing-a-message-without-reading-it), [P3 §8](p3_modes_and_integrity.md#8-macs-and-hmac), [P5 §7](p5_security_definitions.md#7-chosen-ciphertext-security-and-malleability) |
+| IND-CCA1, IND-CCA2 (indistinguishability under non-adaptive and adaptive chosen-ciphertext attack), why HE cannot be CCA2 | 01 §2, §5 | [P5 §7](p5_security_definitions.md#7-chosen-ciphertext-security-and-malleability) |
 | IND-CPA-D, noise flooding | 01 §2, §5, 03 §7 | [P5 §8](p5_security_definitions.md#8-what-ind-cpa-does-not-cover), [P8 §9.3](p8_multiplication_and_relinearization.md#93-ckks-rescaling-in-one-paragraph) |
 | Circular security | 01 §2, 02 §7, 03 §8 | [P8 §5.4](p8_multiplication_and_relinearization.md#54-why-the-key-can-be-public) (mild form), [P9 §7](#7-circular-security) |
 | XOR = + mod 2, AND = × mod 2, circuits | 01 §2 | [P6 §6](p6_computing_on_ciphertexts.md#xor-and-and-are-enough) |
 | Select instead of `if`, public loop bounds | 01 §5 | [P6 §6](p6_computing_on_ciphertexts.md#an-if-becomes-a-select), [loops](p6_computing_on_ciphertexts.md#loops-need-public-bounds) |
-| PHE, SHE, LHE, FHE | 01 §3 | [P6 §8](p6_computing_on_ciphertexts.md#8-phe-she-lhe-and-fhe); LHE in [P8 §9.1](p8_multiplication_and_relinearization.md#91-levels-and-leveled-he), FHE in [P9 §12](#12-how-this-connects-to-homomorphic-encryption) |
+| PHE, SHE, LHE, FHE (partially, somewhat, leveled and fully homomorphic encryption) | 01 §3 | [P6 §8](p6_computing_on_ciphertexts.md#8-phe-she-lhe-and-fhe); LHE in [P8 §9.1](p8_multiplication_and_relinearization.md#91-levels-and-leveled-he), FHE in [P9 §12](#12-how-this-connects-to-homomorphic-encryption) |
 | ElGamal, Paillier, Goldwasser–Micali | 01 §3 | [P4 §5](p4_public_key.md#5-elgamal-randomized-and-still-homomorphic), [P6 §3](p6_computing_on_ciphertexts.md#3-paillier-addition-with-a-public-key), [P6 §4](p6_computing_on_ciphertexts.md#4-goldwassermicali-xor-on-encrypted-bits) |
-| BGN and pairings (one multiplication) | 01 §3 | [P6 §9](p6_computing_on_ciphertexts.md#9-why-it-took-from-1978-to-2009) |
+| BGN (the Boneh–Goh–Nissim scheme) and pairings (one multiplication) | 01 §3 | [P6 §9](p6_computing_on_ciphertexts.md#9-why-it-took-from-1978-to-2009) |
 | Shor, post-quantum, ML-KEM, Module-LWE | 01 §4, 02 §3, §7 | [P4 §9](p4_public_key.md#9-quantum-computers-and-post-quantum-cryptography), [P7 §4](p7_lattices_and_lwe.md#why-quantum-computers-do-not-help-as-far-as-anyone-knows), [P7 §8](p7_lattices_and_lwe.md#8-ring-lwe-polynomials-instead-of-vectors) |
-| Lattice, basis, SVP, CVP / BDD, GapSVP, SIVP | 01 §3, 02 §1 | [P7 §4](p7_lattices_and_lwe.md#4-lattices-in-pictures) |
-| Babai rounding, LLL, BKZ, sieving | 02 §1 | [P7 §4](p7_lattices_and_lwe.md#4-lattices-in-pictures) |
+| Lattice, basis, shortest vector problem (SVP), closest vector problem (CVP) / bounded distance decoding (BDD), GapSVP, shortest independent vectors problem (SIVP) | 01 §3, 02 §1 | [P7 §4](p7_lattices_and_lwe.md#4-lattices-in-pictures) |
+| Babai rounding, LLL and BKZ lattice reduction (Lenstra–Lenstra–Lovász, block Korkine–Zolotarev), sieving | 02 §1 | [P7 §4](p7_lattices_and_lwe.md#4-lattices-in-pictures) |
 | LWE (search and decision), error distribution | 01 §4, 02 §2 | [P7 §2](p7_lattices_and_lwe.md#2-add-a-little-noise-the-lwe-problem), [P7 §3](p7_lattices_and_lwe.md#3-why-the-noise-defeats-elimination) |
 | Worst-case hardness, reductions | 02 §2 | [P5 §6](p5_security_definitions.md#6-proofs-by-reduction) (reductions), [P7 §4](p7_lattices_and_lwe.md#worst-case-hardness-in-one-paragraph) (Regev) |
 | Noise, Δ, phase, message in the high bits | 02 §2, 03 §1 | [P7 §5](p7_lattices_and_lwe.md#5-building-encryption-the-noisy-one-time-pad) |
@@ -763,7 +774,7 @@ Every important term in chapters 01–03, and the primer section that explains i
 | Public-key LWE / RLWE encryption | 03 §2 | [P7 §7](p7_lattices_and_lwe.md#7-public-key-encryption-regevs-trick) |
 | Ring-LWE, $R_q = \mathbb{Z}_q[X]/(X^N+1)$, cyclotomic, negacyclic | 01 §4, 02 §3 | [P7 §8](p7_lattices_and_lwe.md#8-ring-lwe-polynomials-instead-of-vectors) |
 | NTT, ciphertext expansion | 01 §5, 02 §4 | [P7 §8](p7_lattices_and_lwe.md#one-rlwe-sample-is-n-lwe-samples) |
-| Batching / SIMD slots | 01 §5, 02 §3–4 | [P7 §8](p7_lattices_and_lwe.md#packing-n-values) |
+| Batching / SIMD (single instruction, multiple data) slots | 01 §5, 02 §3–4 | [P7 §8](p7_lattices_and_lwe.md#packing-n-values) |
 | RNS (residue number system) | 02 §5, 03 §6–7 | [P8 §9.1](p8_multiplication_and_relinearization.md#91-levels-and-leveled-he) |
 | `ct = (c0, c1)` with `c0 + c1·s = Δ·m + e` | 03 §2 | [P8 §1](p8_multiplication_and_relinearization.md#1-the-starting-point-ciphertexts-as-c0-c1) |
 | Tensor product, the `s²` term, ciphertext growth | 01 §2, 03 §4 | [P8 §2](p8_multiplication_and_relinearization.md#2-multiplying-two-ciphertexts-the-tensor-product), [P8 §4](p8_multiplication_and_relinearization.md#4-the-size-problem-ciphertexts-grow) |
@@ -787,7 +798,9 @@ Every important term in chapters 01–03, and the primer section that explains i
 Not covered by the primer, but explained where they appear and not needed for the rest:
 sparse secrets and the Lattice Estimator (02 §6; ternary secrets appear in P7 §8 and P8 §8.1);
 the canonical embedding (02 §4, see the [CKKS deep dive](../deep_dives/ckks.md)); verifiable
-computation, ZK proofs and TEEs (01 §5); threshold and multi-key FHE, MPC and PIR (01 §4–5, see
+computation, zero-knowledge (ZK) proofs and trusted execution environments (TEEs, 01 §5); threshold
+and multi-key FHE, secure multiparty computation (MPC) and private information retrieval (PIR)
+(01 §4–5, see
 the [threshold](../deep_dives/threshold_fhe.md) and [PIR](../deep_dives/bfv_pir.md) deep
 dives); and the hardware, standards and compilers of the 01 §4 timeline (see
 [07](../07_state_of_the_art_2026.md)).

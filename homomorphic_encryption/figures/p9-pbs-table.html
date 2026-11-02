@@ -1,0 +1,66 @@
+<figure class="widget" id="w-p9-pbs-table">
+  <p class="widget-title">Programmable bootstrapping: the table is the test polynomial</p>
+  <p class="widget-hint">Switch the table: only the step pattern changes, and the same phase now reads a different value. Then pick another input.</p>
+  <div class="controls"></div>
+  <div class="c-lut"></div>
+  <div class="readout"></div>
+  <figcaption>The toy's test polynomial has \(N = 128\) coefficients, 32 per message value. After the
+    switch to modulus \(2N = 256\), the phase of an encryption of \(m\) lies near the middle of sector
+    \(m\); the noise moves it inside the sector, and the padding bit keeps it below 128, where the table
+    reads as written. Inputs, phases and output noise are from part 4 of the companion script. Every
+    table costs the same: one blind rotation of \(n = 16\) CMux steps, then sample extraction and key
+    switching.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p9-pbs-table';
+  // From code/toy_tfhe.py with random.seed(9), the inputs of part 4 of code/primer/p9_bootstrapping.py:
+  // log2|noise| of the inputs m = 0..3, their phase after the switch to modulus 2N = 256, and per table
+  // the decrypted output and log2|noise| of the output.
+  const IN = [22.83, 25.06, 22.93, 24.06], PHASE = [16, 47, 81, 114];
+  const TABLES = {
+    identity: { label: 'm', f: m => m, out: [[0, 19.04], [1, 18.79], [2, 16.78], [3, 18.36]] },
+    square: { label: 'm² mod 4', f: m => m * m % 4, out: [[0, 19.46], [1, 12.36], [0, 19.22], [1, 17.29]] },
+    ge2: { label: '[m ≥ 2]', f: m => +(m >= 2), out: [[0, 18.41], [0, 14.9], [1, 14.85], [1, 16.87]] },
+    neg: { label: '3 − m', f: m => 3 - m, out: [[3, 18.18], [2, 18.45], [1, 19.94], [0, 19.0]] },
+  };
+  const W = 32;                                    // coefficients per sector: N / 2^bits = 128 / 4
+  const p2 = v => '2^' + v.toFixed(1);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const table = ui.choice({ label: 'Table f(m)', value: 'square',
+    options: Object.keys(TABLES).map(k => ({ value: k, label: TABLES[k].label })) });
+  const input = ui.choice({ label: 'Input m', value: 3, options: [0, 1, 2, 3] });
+
+  const chart = DS.chart(root + ' .c-lut', {
+    x: { domain: [0, 128], label: 'coefficient j of the test polynomial', tickValues: [0, 32, 64, 96, 128] },
+    y: { domain: [-0.5, 4.2], label: 'coefficient vⱼ', tickValues: [0, 1, 2, 3], format: v => v === 0 ? '0' : v === 1 ? 'Δ' : v + 'Δ' },
+    height: 260,
+    draw(c) {
+      const T = TABLES[table.value], m = input.value, ph = PHASE[m];
+      c.area([[W * m, 4.2], [W * m + W, 4.2]], { lower: [[W * m, -0.5], [W * m + W, -0.5]], series: 2 });
+      for (let s = 0; s < 4; s++) {
+        c.text(W * s + W / 2, 3.85, 'sector ' + s, { anchor: 'middle', cls: s === m ? 'ink strong' : 'ink2' });
+        if (s) c.segment(W * s, -0.5, W * s, 4.2, { series: 'muted', thin: true, dash: true });
+      }
+      const pts = [];
+      for (let s = 0; s < 4; s++) pts.push([W * s, T.f(s)], [W * s + W, T.f(s)]);
+      c.line(pts, { series: 1, thick: true });
+      c.segment(ph, -0.5, ph, T.f(m), { series: 2 });
+      c.point(ph, T.f(m), { series: 2, label: `f(${m}) = ${T.f(m)}`, labelOpts: { anchor: 'middle', dx: 0, dy: -12 } });
+      c.legend([{ label: 'test polynomial for f(m) = ' + T.label, series: 1 }, { label: 'phase of the input', series: 2 }]);
+    },
+  });
+
+  function readout() {
+    const T = TABLES[table.value], m = input.value, [dec, noise] = T.out[m];
+    DS.stats(root + ' .readout', [
+      { label: 'Input', value: `m = ${m}`, note: `|noise| ${p2(IN[m])}` },
+      { label: 'Phase after the switch', value: String(PHASE[m]), note: `sector ${Math.floor(PHASE[m] / W)}: ${W * m} to ${W * m + W - 1}` },
+      { label: 'Output decrypts to', value: String(dec), note: `f(${m}) = ${T.f(m)}`, tone: dec === T.f(m) ? 'good' : 'bad' },
+      { label: 'Output |noise|', value: p2(noise), note: 'reset, whatever the table' },
+    ]);
+  }
+  readout();
+})();
+</script>
