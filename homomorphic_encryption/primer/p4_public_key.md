@@ -4,25 +4,30 @@
 
 ---
 
-P1–P3 assumed that Alice and Bob already share a secret key. Public-key cryptography drops that
-assumption, and it does so with algebra: exponentiation in a group, not the scrambling of AES.
-The algebra survives encryption. Textbook RSA and ElGamal let anyone multiply encrypted
-numbers, which makes them the first homomorphic schemes, and it is also why RSA has to be padded
-before it is safe. The chapter ends with the threat that will retire all of these schemes,
-quantum computers, and with their replacement: lattices, the same mathematics FHE is built on.
+P1–P3 assumed that Alice and Bob already share a secret key. Public-key cryptography, such as RSA
+(Rivest–Shamir–Adleman), drops that assumption, and it does so with algebra: exponentiation in a
+group, not the scrambling of the Advanced Encryption Standard (AES). The algebra survives
+encryption. Textbook RSA and ElGamal let anyone multiply encrypted numbers, which makes them the
+first homomorphic schemes, and it is also why RSA has to be padded before it is safe. The chapter
+ends with the threat that will retire all of these schemes, quantum computers, and with their
+replacement: lattices, the same mathematics fully homomorphic encryption (FHE) is built on.
 
 **In this chapter** you will learn to:
 
 - explain the key distribution problem and how a public key solves it;
 - say what one-way and trapdoor functions are, and which ones RSA and Diffie–Hellman use;
 - run a Diffie–Hellman exchange by hand, list what an eavesdropper sees, and name the problems
-  (discrete log, CDH, DDH) that protect it;
-- explain the two properties of textbook RSA that matter for HE, determinism and the
-  multiplicative homomorphism, and how OAEP padding removes both;
+  that protect it: discrete log, computational Diffie–Hellman (CDH) and decisional
+  Diffie–Hellman (DDH);
+- explain the two properties of textbook RSA that matter for homomorphic encryption (HE),
+  determinism and the multiplicative homomorphism, and how optimal asymmetric encryption padding
+  (OAEP) removes both;
 - encrypt with ElGamal, multiply ElGamal ciphertexts, and add with exponential ElGamal;
-- describe how TLS 1.3 combines a key exchange with AES-GCM (hybrid encryption);
+- describe how Transport Layer Security (TLS) 1.3 combines a key exchange with AES-GCM (AES in
+  Galois/counter mode) into hybrid encryption;
 - say what quantum computers break (Shor) and what they barely dent (Grover), and why the
-  post-quantum standard ML-KEM and FHE rest on the same lattice problems.
+  post-quantum standard ML-KEM (Module-Lattice-Based Key-Encapsulation Mechanism) and FHE rest on
+  the same lattice problems.
 
 **Companion script:** [`code/primer/p4_public_key.py`](../code/primer/p4_public_key.py). Run it from
 the `homomorphic_encryption/` folder with `python3 code/primer/p4_public_key.py`. Its output
@@ -126,6 +131,8 @@ Take $p = 23$ and $g = 2$, which cycles through the 11 values of the table in §
 Check: $6^6 = 46656 = 2028 \cdot 23 + 12$. Also $g^{ab} = 2^{54}$, and since $2^{11} \equiv 1$,
 $2^{54} = 2^{54 \bmod 11} = 2^{10} \equiv 12$.
 
+<!-- figure: p4-dh-clock -->
+
 ### What the eavesdropper sees: three hard problems
 
 Eve holds $(p, g, A, B)$. Three problems describe her position:
@@ -162,8 +169,9 @@ Brute force tries up to $q$ exponents. [Part 1 of the script](../code/primer/p4_
 does it on a 20-bit prime and finds Alice's secret after 123,759 tries (§10).
 Generic algorithms (baby-step giant-step, Pollard's rho) need
 about $\sqrt{q}$ steps in any group. In $\mathbb{Z}_p^*$ there is also the **number field sieve**,
-which is sub-exponential, and that is why $p$ must have thousands of bits. NIST rates a 2048-bit
-$p$ at 112-bit security and a 3072-bit $p$ at 128 bits (table in §8).
+which is sub-exponential, and that is why $p$ must have thousands of bits. The National Institute
+of Standards and Technology (NIST) rates a 2048-bit $p$ at 112-bit security and a 3072-bit $p$ at
+128 bits (table in §8).
 
 ### The man in the middle
 
@@ -210,8 +218,8 @@ part 2 of the script, "pay 100" encrypts to 1773; Eve multiplies by $\mathrm{Enc
 decrypts 900. It is
 P3's "pay \$100 → pay \$900" forgery again
 ([P3 §7](p3_modes_and_integrity.md#7-malleability-changing-a-message-without-reading-it)),
-through multiplication instead of XOR. For ordinary encryption this is a bug: it rules out
-chosen-ciphertext security ([P5 §7](p5_security_definitions.md#malleability-breaks-cca2)). For
+through multiplication instead of XOR (exclusive or). For ordinary encryption this is a bug: it
+rules out chosen-ciphertext security ([P5 §7](p5_security_definitions.md#malleability-breaks-cca2)). For
 HE it is the whole point: Rivest, Adleman and Dertouzos noticed it in 1978 and asked for
 "privacy homomorphisms" that would allow more ([P6](p6_computing_on_ciphertexts.md)).
 
@@ -219,7 +227,9 @@ HE it is the whole point: Rivest, Adleman and Dertouzos noticed it in 1978 and a
 
 Real RSA encryption never exponentiates the raw message. It first encodes it with **OAEP**
 (Optimal Asymmetric Encryption Padding, Bellare and Rogaway, 1994), standardized as RSAES-OAEP in
-PKCS #1 ([RFC 8017](https://www.rfc-editor.org/rfc/rfc8017)):
+PKCS #1, the first of the Public-Key Cryptography Standards, published as
+[RFC 8017](https://www.rfc-editor.org/rfc/rfc8017), a Request for Comments of the Internet
+Engineering Task Force (IETF):
 
 ```text
 DB         = lHash || 00 00 ... 00 || 01 || M     hash of a label, zero padding, separator, message
@@ -238,8 +248,9 @@ the `01` separator are where they should be. That does three things:
    $EM_a \cdot EM_b \bmod n$, which is not the encoding of anything. Unmasking produces garbage, the
    checks fail, and decryption rejects the ciphertext. Malleability becomes useless instead of
    merely inconvenient.
-3. **It is provably strong.** RSA-OAEP is IND-CCA2 secure (the strongest notion in P5) under the
-   RSA assumption in the random-oracle model (analysing hash functions as if they were truly
+3. **It is provably strong.** RSA-OAEP is IND-CCA2 secure (indistinguishability under adaptive
+   chosen-ciphertext attack, the strongest notion in P5) under the RSA assumption in the
+   random-oracle model (analysing hash functions as if they were truly
    random functions). Shoup found a gap in the original 1994 proof;
    Fujisaki, Okamoto, Pointcheval and Stern closed it for RSA in 2001.
 
@@ -293,6 +304,8 @@ The same message gives two unrelated-looking ciphertexts. To decrypt (16, 6), Bo
 $c_1^x = 16^3 = 4096 \equiv 2$ (the pad), its inverse $2^{-1} \equiv 12$ (as $2 \cdot 12 = 24 \equiv 1$),
 and $m = 6 \cdot 12 = 72 \equiv 3$.
 
+<!-- figure: p4-elgamal-grid -->
+
 The price is size. A ciphertext is two group elements for one element of message, an
 **expansion** factor of 2. Some expansion is unavoidable for randomized encryption: there must be
 many ciphertexts for each message.
@@ -337,13 +350,16 @@ encrypts 0 or 1, and threshold decryption so no single person holds $x$.
 [P6 §3](p6_computing_on_ciphertexts.md#3-paillier-addition-with-a-public-key) adds Paillier, which
 adds without the small-result limit.
 
+<!-- figure: p4-elgamal-tally -->
+
 ## 6. Hybrid encryption and TLS 1.3
 
 Public-key operations are slow, ciphertexts are large, and a message must be smaller than the
 modulus. On the machine these notes were written on (OpenSSL 3.0, one core), one RSA-2048
 private-key operation took about 0.19 ms; in that time AES-128-GCM encrypts about 3 MB. So real
 systems use public-key cryptography only to agree on a fresh symmetric key, and encrypt the data
-with an AEAD cipher from P3. That is **hybrid encryption**.
+with an AEAD cipher (authenticated encryption with associated data) from P3. That is **hybrid
+encryption**.
 
 The modern formulation is **KEM/DEM**. A **key encapsulation mechanism** (KEM) takes the public
 key and outputs a random shared key plus an "encapsulation" that lets the secret-key holder
@@ -353,10 +369,13 @@ combination, and ML-KEM (§9) is a KEM.
 
 The script's version, in [part 4](../code/primer/p4_public_key.py): Bob's ElGamal public key
 $h$ doubles as a Diffie–Hellman public value. Alice picks $y$, sends $c_1 = g^y$, hashes the shared
-secret $h^y$ with SHA-256 into a key, and XORs
+secret $h^y$ with SHA-256 (the 256-bit Secure Hash Algorithm) into a key, and XORs
 a SHA-256 keystream onto her message. That is ElGamal with the pad moved into a hash function;
-the real-world versions are called DHIES and ECIES. They use a proper key-derivation function
-(HKDF) and an AEAD instead of the toy keystream.
+the real-world versions are called DHIES and ECIES. They use a proper key-derivation function,
+HKDF (built on HMAC, a hash-based message authentication code), and an AEAD instead of the toy
+keystream.
+
+<!-- figure: p4-hybrid -->
 
 *Optional on a first read: the rest of this section, and §§7–8. They show how the pieces are
 used in practice; nothing later in the primer depends on them.*
@@ -393,13 +412,14 @@ ClientHello: random, cipher suites, key_share = g^a   -------->
 
 *Optional on a first read.*
 
-A **signature scheme** is the public-key version of a MAC (P3): $\mathrm{Sign}(sk, m) \to \sigma$ and
-$\mathrm{Verify}(pk, m, \sigma) \to$ yes/no. Only the holder of `sk` can sign; anyone can verify. That
+A **signature scheme** is the public-key version of a message authentication code (MAC, P3):
+$\mathrm{Sign}(sk, m) \to \sigma$ and $\mathrm{Verify}(pk, m, \sigma) \to$ yes/no. Only the holder of `sk` can sign; anyone can verify. That
 gives integrity and authenticity that third parties can check, which is what certificates are:
 a certificate authority's signature on someone's public key. The main families are RSA
 signatures (RSA-PSS; "sign by decrypting the raw message" is malleable for the same reason
-textbook RSA encryption is), DSA and ECDSA, EdDSA (Ed25519), and the post-quantum ML-DSA and
-SLH-DSA (§9). HE schemes do not sign anything, but HE provides no integrity at all
+textbook RSA encryption is), the Digital Signature Algorithm (DSA) and its elliptic-curve version
+ECDSA, EdDSA (Ed25519), and the post-quantum ML-DSA (module-lattice-based) and SLH-DSA (stateless
+hash-based) signatures (§9). HE schemes do not sign anything, but HE provides no integrity at all
 ([06 §1](../06_security.md#1-the-baseline-guarantee-ind-cpa)), and signatures and proofs are part of
 the fixes.
 
@@ -410,12 +430,13 @@ the fixes.
 The points on a curve $y^2 = x^3 + ax + b$ over a finite field form a group under a geometric
 "addition" rule, proposed for cryptography independently by Miller (1985) and Koblitz (1987).
 Exponentiation $g^a$ becomes scalar multiplication $a \cdot G$, and the discrete-log problem becomes
-"given $G$ and $aG$, find $a$". Diffie–Hellman and ElGamal carry over unchanged (ECDH, EC-ElGamal).
+"given $G$ and $aG$, find $a$". Diffie–Hellman and ElGamal carry over unchanged (elliptic-curve
+Diffie–Hellman, ECDH, and EC-ElGamal).
 The difference is the attacks. For well-chosen curves no sub-exponential algorithm like the
 number field sieve is known, so the best attack is generic, about $\sqrt{q}$ steps, and a 256-bit
 curve gives about 128-bit security. X25519 (Bernstein's Curve25519) and P-256 are the workhorses
 of TLS. NIST's comparable strengths
-([SP 800-57 Part 1 Rev. 5](https://doi.org/10.6028/NIST.SP.800-57pt1r5), Table 2):
+(Special Publication [SP 800-57 Part 1 Rev. 5](https://doi.org/10.6028/NIST.SP.800-57pt1r5), Table 2):
 
 | Security strength | Symmetric | Diffie–Hellman, DSA (bits of $p$) | RSA (bits of $n$) | Elliptic curve (bits of group order) |
 |---|---|---|---|---|
@@ -464,12 +485,12 @@ larger parameters. Public-key cryptography needs new mathematics.
 *Optional on a first read:* the standards and deployment details below. What matters for HE is
 the next subsection.
 
-- **13 August 2024:** NIST published FIPS 203 **ML-KEM** (from CRYSTALS-Kyber, a KEM whose
-  security rests on the Module Learning With Errors problem), FIPS 204 **ML-DSA** (from
-  CRYSTALS-Dilithium, a lattice signature) and FIPS 205 **SLH-DSA** (from SPHINCS+, a hash-based
-  signature).
-- **In progress:** FN-DSA (from Falcon, lattices) as FIPS 206, and HQC, a code-based KEM selected
-  in March 2025 as a backup to ML-KEM built on different mathematics.
+- **13 August 2024:** NIST published Federal Information Processing Standard (FIPS) 203
+  **ML-KEM** (from CRYSTALS-Kyber, a KEM whose security rests on the Module Learning With Errors
+  problem), FIPS 204 **ML-DSA** (from CRYSTALS-Dilithium, a lattice signature) and FIPS 205
+  **SLH-DSA** (from SPHINCS+, a hash-based signature).
+- **In progress:** FN-DSA (from Falcon, lattices) as FIPS 206, and HQC (Hamming Quasi-Cyclic), a
+  code-based KEM selected in March 2025 as a backup to ML-KEM built on different mathematics.
 - **Sizes:** ML-KEM-768 has a 1,184-byte public key and a 1,088-byte ciphertext, against 32 bytes
   for X25519. Bigger, but fast.
 - **Deployment:** TLS already uses the hybrid group **X25519MLKEM768**, which runs X25519 and
@@ -486,8 +507,10 @@ the next subsection.
 
 ML-KEM is built in two steps. First comes **K-PKE**, a public-key encryption scheme whose
 ciphertexts hide the message under a pad of the form "inner product with a secret, plus small
-noise". That is the LWE idea of [P7](p7_lattices_and_lwe.md), over polynomial rings, the same family (Ring-/Module-LWE)
-that BFV, BGV and CKKS use ([02](../02_math_foundations.md)). Then the **Fujisaki–Okamoto
+noise". That is the learning with errors (LWE) idea of [P7](p7_lattices_and_lwe.md), over
+polynomial rings, the same family (Ring-/Module-LWE) that the BFV (Brakerski/Fan–Vercauteren),
+BGV (Brakerski–Gentry–Vaikuntanathan) and CKKS (Cheon–Kim–Kim–Song) schemes use
+([02](../02_math_foundations.md)). Then the **Fujisaki–Okamoto
 transform** turns K-PKE into a KEM: decapsulation decrypts, re-encrypts, and rejects anything
 that does not match exactly (implicitly: it returns an unrelated pseudorandom key rather than an
 error). FIPS 203 itself says K-PKE is not IND-CCA2 secure and must not be used on its own. The transform is the lattice counterpart of OAEP: it trades malleability for
@@ -519,7 +542,7 @@ prime, the 12-bit RSA modulus 3233, a 96-bit modulus for the OAEP toy).
 | 2b | Toy OAEP: randomized, and the product of two ciphertexts is rejected | [§4, OAEP](#oaep-randomize-then-destroy-the-algebra) |
 | 3 | ElGamal: randomized, and ciphertexts multiply | [§5](#5-elgamal-randomized-and-still-homomorphic) |
 | 3b | Exponential ElGamal: an encrypted vote tally | [§5, exponential ElGamal](#exponential-elgamal-trading-multiplication-for-addition) |
-| 4 | Hybrid encryption: DH key agreement, SHA-256, stream cipher | [§6](#6-hybrid-encryption-and-tls-13) |
+| 4 | Hybrid encryption: Diffie–Hellman (DH) key agreement, SHA-256, stream cipher | [§6](#6-hybrid-encryption-and-tls-13) |
 
 Real output:
 
@@ -590,7 +613,8 @@ decrypts to $6 \cdot 7 = 42$. In part 3b only the tally is decrypted, never a si
   recompute (P7). Both are one-time pads with a pad generated from a short key, as in P1.
 - **Malleability is the fault line.** Ordinary encryption removes it (OAEP, the
   Fujisaki–Okamoto transform, AEAD); HE keeps it, so HE can at best be IND-CPA secure
-  ([P5 §7](p5_security_definitions.md#malleability-breaks-cca2)).
+  (indistinguishability under chosen-plaintext attack;
+  [P5 §7](p5_security_definitions.md#malleability-breaks-cca2)).
 - **Hybrid encryption has an HE twin.** HE ciphertexts are large, so clients may send data under
   a small symmetric cipher and let the server convert it into HE ciphertexts. That is
   transciphering (P2).
