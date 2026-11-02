@@ -1,0 +1,100 @@
+<figure class="widget" id="w-p7-noisy-elimination">
+  <p class="widget-title">The same elimination, mod 97 and over the real numbers</p>
+  <p class="widget-hint">Step through the four pivots. Mod 97 the noise leaves the ±3 band at the
+    first pivot; over the reals it ends up smaller than it started.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Mod 97</p><div class="c-mod"></div></div>
+    <div><p class="panel-title">Over the real numbers</p><div class="c-real"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Bars are the noise column: what each equation's error has become after the
+    pivots so far (mod 97 as a signed number between −48 and 48). The grey band is the original
+    noise bound, \(|e_i| \le 3\). Both panels run Gauss–Jordan on the same matrix \(A\) of part 1,
+    pivoting on the same columns in the same order. Mod 97 the result \(s' = s + A^{-1}e\) is garbage; over the reals
+    \(A^{-1}e\) is small, and rounding gives back \(s\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-noisy-elimination';
+  const Q = 97, N = 4;
+  const A = [[66, 38, 69, 53], [90, 29, 12, 47], [79, 8, 43, 82], [32, 73, 26, 2]];
+  const S = [71, 1, 60, 83];
+  const mod = x => ((x % Q) + Q) % Q;
+  const centre = x => mod(x + 48) - 48;
+  const inv = a => { for (let x = 1; x < Q; x++) if ((a * x) % Q === 1) return x; throw new Error('no inverse'); };
+
+  /* Gauss–Jordan on [A | e], recording the noise column after each pivot. */
+  function traceMod(e) {
+    const rows = A.map((r, i) => [...r, mod(e[i])]), steps = [e.slice()], pivots = [];
+    for (let col = 0; col < N; col++) {
+      let p = col; while (rows[p][col] === 0) p++;
+      [rows[col], rows[p]] = [rows[p], rows[col]];
+      const pv = rows[col][col], iv = inv(pv);
+      pivots.push([pv, iv]);
+      rows[col] = rows[col].map(x => (x * iv) % Q);
+      for (let i = 0; i < N; i++) if (i !== col && rows[i][col]) {
+        const f = rows[i][col];
+        rows[i] = rows[i].map((x, j) => mod(x - f * rows[col][j]));
+      }
+      steps.push(rows.map(r => centre(r[N])));
+    }
+    return { steps, pivots, sol: S.map((s, i) => mod(s + steps[N][i])) };
+  }
+  function traceReal(e) {
+    const rows = A.map((r, i) => [...r, e[i]]), steps = [e.slice()];
+    for (let col = 0; col < N; col++) {
+      const pv = rows[col][col];
+      rows[col] = rows[col].map(x => x / pv);
+      for (let i = 0; i < N; i++) if (i !== col) {
+        const f = rows[i][col];
+        rows[i] = rows[i].map((x, j) => x - f * rows[col][j]);
+      }
+      steps.push(rows.map(r => r[N]));
+    }
+    return { steps, sol: S.map((s, i) => s + steps[N][i]) };
+  }
+
+  let e = [3, 1, -2, -3], seed = 7, M = traceMod(e), R = traceReal(e);
+  const ui = DS.controls(root + ' .controls', () => { modChart.update(); realChart.update(); readout(); });
+  const step = ui.slider({ label: 'Pivots done', min: 0, max: 4, step: 1, value: 4 });
+  ui.button({ label: 'New noise', onClick: () => {
+    const rnd = DS.random(seed++);
+    do e = [0, 0, 0, 0].map(() => rnd.int(7) - 3); while (e.every(v => v === 0));
+    M = traceMod(e); R = traceReal(e);
+  } });
+
+  const fmtv = v => (Math.abs(v) < 10 && !Number.isInteger(v) ? v.toFixed(2) : String(Math.round(v))).replace('-', '−');
+  function panel(sel, get) {
+    return DS.chart(sel, {
+      x: { domain: [0.5, 4.5], tickValues: [1, 2, 3, 4], format: v => 'eq. ' + v, grid: false },
+      y: { domain: [-48, 48], tickValues: [-48, -24, 0, 24, 48], format: v => String(v).replace('-', '−'), label: 'Noise' },
+      height: 250,
+      draw(c) {
+        c.area([[0.5, 3], [4.5, 3]], { lower: [[0.5, -3], [4.5, -3]], series: 'muted', strong: true });
+        const vals = get().steps[step.value];
+        c.bars(vals.map((v, i) => ({ x: i + 1, y: v, tip: `equation ${i + 1}: noise ${fmtv(v)}` })), { width: 0.55, series: 1 });
+        vals.forEach((v, i) => c.text(i + 1, v, fmtv(v), { anchor: 'middle', dy: v >= 0 ? -6 : 15, cls: 'ink strong' }));
+      },
+    });
+  }
+  const modChart = panel(root + ' .c-mod', () => M);
+  const realChart = panel(root + ' .c-real', () => R);
+
+  const tup = v => '(' + v.join(', ') + ')';
+  function readout() {
+    const k = step.value, big = a => Math.max(...a.map(Math.abs));
+    const mBig = big(M.steps[k]), rBig = big(R.steps[k]);
+    const done = k === N;
+    const items = [
+      { label: 'Noise e', value: tup(e.map(v => String(v).replace('-', '−'))), note: k === 0 ? 'before elimination' : `pivot ${k}: × ${M.pivots[k - 1][0]}⁻¹ = ${M.pivots[k - 1][1]} (mod 97)` },
+      { label: 'Largest noise, mod 97', value: fmtv(mBig), tone: mBig > 3 ? 'bad' : undefined,
+        note: done ? 's′ = ' + tup(M.sol) : 'started at most 3' },
+      { label: 'Largest noise, reals', value: fmtv(rBig), tone: done ? 'good' : undefined,
+        note: done ? 'rounds to ' + tup(R.sol.map(Math.round)) : 'started at most 3' },
+    ];
+    DS.stats(root + ' .readout', items);
+  }
+  readout();
+})();
+</script>

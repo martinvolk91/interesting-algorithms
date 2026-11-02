@@ -1,0 +1,92 @@
+<figure class="widget" id="w-p7-noise-walk">
+  <p class="widget-title">Noise under repeated additions: worst case against typical</p>
+  <p class="widget-hint">Switch the fresh noise to [−6, 6], the script's "things to try" setting,
+    and watch the guarantee drop to a single addition while random runs still last a while.</p>
+  <div class="controls"></div>
+  <div class="c-walk"></div>
+  <div class="readout"></div>
+  <figcaption>Start from \(\mathrm{Enc}(1)\) with noise \(+2\) and keep adding fresh encryptions of
+    0. The blue line is the run of part 4 of the script; the thin lines are other random runs,
+    each ending (red dot) where decryption first fails. The dashed lines are the worst case
+    \(2 \pm Bk\), the shaded band the typical size \(2 \pm \sigma\sqrt{k}\), with \(\sigma = 2\) for
+    noise in \([-3, 3]\). Decryption fails
+    once the noise reaches \(\Delta/2 = 12\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-noise-walk';
+  const Q = 97, T = 4, D = 24, KMAX = 80, SHOWN = 16;
+  // Part 4 of code/primer/p7_lwe_by_hand.py (seed 56), with NOISE = 3 and with NOISE = 6.
+  const SCRIPT = {
+    3: [2, 3, 3, 1, 3, 2, 0, 0, 3, 0, 1, 2, 1, 3, 5, 6, 3, 2, 1, 4, 7, 10, 12],
+    6: [2, 4, 4, 1, 5, 4, 1, 2, 0, -6, 0, 2, 0, 5, 9, 11, 5, 3, 1, 7, 4, 3, 5, 5, 3, 0, 2, 5, 5, 6, 5, 6, 7, 1,
+        -5, -8, -8, -2, -5, -4, -1, -5, -3, -3, 1, -2, -5, -10, -13],
+  };
+  const mod = x => ((x % Q) + Q) % Q;
+  const ok = e => Math.floor((2 * mod(D + e) + D) / (2 * D)) % T === 1;   // Enc(1) with noise e still decrypts to 1
+  function walk(rnd, B) {
+    const pts = [[0, 2]];
+    let e = 2;
+    for (let k = 1; k <= KMAX; k++) {
+      e += rnd.int(2 * B + 1) - B;
+      pts.push([k, e]);
+      if (!ok(e)) return { pts, fail: k };
+    }
+    return { pts, fail: null };
+  }
+  const STATS = {};
+  for (const B of [3, 6]) {                    // 4000 runs per setting, computed once
+    const rnd = DS.random(2024 + B), fails = [];
+    for (let i = 0; i < 4000; i++) {
+      let e = 2, k = 0;
+      while (ok(e)) { e += rnd.int(2 * B + 1) - B; k++; }
+      fails.push(k);
+    }
+    STATS[B] = { median: DS.math.quantile(fails, 0.5), p10: DS.math.quantile(fails, 0.1) };
+  }
+
+  let seed = 1;
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bound = ui.choice({ label: 'Fresh noise e in', options: [{ value: 3, label: '[−3, 3]' }, { value: 6, label: '[−6, 6]' }], value: 3 });
+  ui.button({ label: 'Other random runs', onClick: () => { seed++; } });
+
+  const chart = DS.chart(root + ' .c-walk', {
+    x: { domain: [0, KMAX], label: 'Fresh encryptions of 0 added (k)', tipLabel: 'k =' },
+    y: { domain: [-18, 18], label: 'Noise e', tickValues: [-12, -6, 0, 6, 12], format: v => String(v).replace('-', '−') },
+    height: 320,
+    draw(c) {
+      const B = bound.value, sigma = Math.sqrt(((2 * B + 1) ** 2 - 1) / 12), ks = DS.math.range(KMAX + 1);
+      c.area(ks.map(k => [k, 2 + sigma * Math.sqrt(k)]), { lower: ks.map(k => [k, 2 - sigma * Math.sqrt(k)]), series: 'muted' });
+      c.line([[0, 2], [KMAX, 2 + B * KMAX]], { series: 'ink', dash: true, thin: true });
+      c.line([[0, 2], [KMAX, 2 - B * KMAX]], { series: 'ink', dash: true, thin: true });
+      c.hline(12, { series: 'bad', label: '+Δ/2' });
+      c.hline(-12, { series: 'bad', label: '−Δ/2' });
+      const rnd = DS.random(100 * B + seed), ends = [];
+      for (let i = 0; i < SHOWN; i++) {
+        const w = walk(rnd, B);
+        c.line(w.pts, { series: 'muted', thin: true }).style.opacity = 0.55;
+        if (w.fail !== null) ends.push(w.pts[w.pts.length - 1]);
+      }
+      c.scatter(ends, { series: 'bad', r: 3 });
+      const run = SCRIPT[B].map((e, k) => [k, e]), last = run[run.length - 1];
+      c.line(run, { series: 1, thick: true, label: 'script run, noise' });
+      c.point(last[0], last[1], { series: 'bad', r: 5.5, label: `fails at k = ${last[0]}`,
+        labelOpts: { dy: last[1] > 0 ? -10 : 20 } });
+      c.legend([{ label: 'script run', series: 1 }, { label: 'other random runs', series: 'muted' },
+        { label: 'worst case 2 ± Bk', series: 'ink', kind: 'dash' }, { label: 'typical 2 ± σ√k', series: 'muted', kind: 'rect' },
+        { label: '±Δ/2 = ±12: decryption fails', series: 'bad' }]);
+    },
+  });
+
+  function readout() {
+    const B = bound.value, safe = Math.floor((11 - 2) / B), s = STATS[B];
+    DS.stats(root + ' .readout', [
+      { label: 'Guaranteed safe (worst case)', value: safe + (safe === 1 ? ' addition' : ' additions'),
+        note: `2 + ${B}·${safe} = ${2 + B * safe} < 12; one more could reach ${2 + B * (safe + 1)}` },
+      { label: 'Script run failed at', value: 'k = ' + (SCRIPT[B].length - 1), note: 'part 4, seed 56' },
+      { label: 'Median of 4000 random runs', value: 'k = ' + s.median, note: `10% fail by k = ${s.p10}` },
+    ]);
+  }
+  readout();
+})();
+</script>

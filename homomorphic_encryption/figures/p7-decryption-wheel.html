@@ -1,0 +1,84 @@
+<figure class="widget" id="w-p7-decryption-wheel">
+  <p class="widget-title">The decryption wheel: \(\mathbb{Z}_{97}\) cut into four sectors</p>
+  <p class="widget-hint">Drag the noise up or down until the dot leaves the blue sector: the
+    ciphertext then decrypts to a different message.</p>
+  <div class="controls"></div>
+  <div class="c-wheel"></div>
+  <div class="readout"></div>
+  <figcaption>The phase \(\varphi = \Delta m + e \bmod 97\) is the dot. Each sector is centred on
+    \(\Delta m = 0, 24, 48, 72\), and decryption reports the sector the dot is in. The orange arc
+    is the noise. While \(|e| < \Delta/2 = 12\) the dot stays in its own sector. The small rings
+    mark the two example phases of the text, 26 and 95.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-decryption-wheel';
+  const Q = 97, T = 4, D = 24;
+  const BOUNDS = [[-13.5, 11.5], [11.5, 35.5], [35.5, 59.5], [59.5, 83.5]];   // sector m spans these phases
+  const mod = x => ((x % Q) + Q) % Q;
+  const decrypt = phi => Math.floor((2 * phi + D) / (2 * D)) % T;            // round(φ/Δ) mod t, halves up
+  const P = (v, r) => { const a = 2 * Math.PI * v / Q; return [r * Math.sin(a), r * Math.cos(a)]; };
+  const arc = (v0, v1, r, n = 60) => DS.math.linspace(v0, v1, n).map(v => P(v, r));
+  const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
+  const NS = 'http://www.w3.org/2000/svg';
+  function ring(c, x, y, r, cls) {
+    const e = document.createElementNS(NS, 'circle');
+    e.setAttribute('cx', c.x(x)); e.setAttribute('cy', c.y(y)); e.setAttribute('r', r);
+    e.setAttribute('class', cls); c.gData.appendChild(e);
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { wheel.update(); readout(); });
+  const msg = ui.choice({ label: 'Message m', options: [0, 1, 2, 3], value: 1 });
+  const noise = ui.slider({ label: 'Noise e', min: -24, max: 24, step: 1, value: 2, format: sgn });
+
+  const wheel = DS.chart(root + ' .c-wheel', {
+    x: { domain: [-1.32, 1.32], hidden: true }, y: { domain: [-1.3, 1.3], hidden: true },
+    equal: true, maxHeight: 400, minHeight: 300, margin: { t: 6, r: 6, b: 6, l: 6 },
+    ariaLabel: 'The numbers 0 to 96 on a circle, cut into four sectors; a dot marks the phase.',
+    draw(c) {
+      const m = msg.value, e = noise.value, phi = mod(D * m + e), ok = decrypt(phi) === m;
+      BOUNDS.forEach(([lo, hi], k) => {
+        c.polygon([[0, 0], ...arc(lo, hi, 1)], { series: k === m ? 1 : 'muted', strong: k === m, stroke: false });
+      });
+      c.line(arc(0, Q, 1, 200), { series: 'muted', thin: true, clip: false });
+      for (let v = 0; v < Q; v++) {
+        const major = v % 12 === 0;
+        c.segment(...P(v, 1), ...P(v, major ? 1.07 : 1.035), { series: 'muted', thin: true });
+      }
+      BOUNDS.forEach(([lo]) => c.segment(0, 0, ...P(lo, 1.1), { series: 'ink', thin: true }));
+      for (let v = 0; v <= 84; v += 12) {
+        const [x, y] = P(v, 1.18);
+        c.text(x, y, String(v), { anchor: 'middle', baseline: 'middle', cls: v % 24 === 0 ? 'ink strong' : 'ink2' });
+      }
+      for (let k = 0; k < T; k++) {
+        const [x, y] = P(D * k, 0.55);
+        c.text(x, y, 'm = ' + k, { anchor: 'middle', baseline: 'middle', cls: k === m ? 'ink strong' : 'ink2' });
+      }
+      [26, 95].forEach(v => {
+        const [x, y] = P(v, 1), [tx, ty] = P(v, 0.82);
+        ring(c, x, y, 7.5, 'ln thin sink');
+        c.text(tx, ty, String(v), { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+      });
+      if (e !== 0) {
+        const pts = arc(D * m, D * m + e, 0.93, 2 + 3 * Math.abs(e));
+        c.line(pts, { series: 2, thick: true, clip: false });
+      }
+      c.segment(...P(D * m, 0.88), ...P(D * m, 1), { series: 2, thin: true });
+      const [px, py] = P(phi, 1);
+      c.point(px, py, { series: ok ? 'good' : 'bad', r: 7 });
+    },
+  });
+
+  function readout() {
+    const m = msg.value, e = noise.value, phi = mod(D * m + e), d = decrypt(phi), ok = d === m;
+    const r = Math.floor((2 * phi + D) / (2 * D));
+    DS.stats(root + ' .readout', [
+      { label: 'Phase φ', value: String(phi), note: `Δm + e = ${D}·${m} ${e < 0 ? '−' : '+'} ${Math.abs(e)}` + (D * m + e !== phi ? ' mod 97' : '') },
+      { label: 'φ / Δ, rounded', value: (phi / D).toFixed(2).replace('-', '−') + ' → ' + r, note: `${r} mod 4 = ${d}` },
+      { label: 'Decrypts to', value: String(d), note: ok ? 'correct' : `wrong: m was ${m}`, tone: ok ? 'good' : 'bad' },
+      { label: 'Margin Δ/2 − |e|', value: DS.fmt(12 - Math.abs(e)), note: 'noise budget left', tone: ok ? undefined : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
