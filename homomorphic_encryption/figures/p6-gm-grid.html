@@ -1,0 +1,121 @@
+<figure class="widget" id="w-p6-gm-grid">
+  <p class="widget-title">Goldwasser–Micali mod 77: the numbers sorted by their remainders mod 7 and mod 11</p>
+  <p class="widget-hint">Set both bits to 1: two orange cells multiply to a blue one. Press New randomness
+    to pick other ciphertexts of the same bits.</p>
+  <div class="controls"></div>
+  <div class="ds-legend legend"></div>
+  <div class="grid"></div>
+  <div class="readout"></div>
+  <figcaption>Each cell is the one number mod 77 with that remainder mod 7 (row) and mod 11
+    (column). The 15 squares, the encryptions of 0, fill the blue block; the 15 encryptions of 1
+    fill the orange block. Multiplying ciphertexts multiplies both remainders, and a non-square
+    times a non-square is a square: \(1 \oplus 1 = 0\). Anyone can compute the Jacobi symbol and
+    rule out the grey cells, but only someone who knows \(p = 7\) and \(q = 11\) can draw this
+    grid and tell blue from orange.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p6-gm-grid';
+  const p = 7, q = 11, n = 77, x = n - 1;
+  const ROWS = [1, 2, 4, 3, 5, 6, 0];                  // squares mod 7, non-squares, 0
+  const COLS = [1, 3, 4, 5, 9, 2, 6, 7, 8, 10, 0];     // squares mod 11, non-squares, 0
+  const sq7 = new Set([1, 2, 4]), sq11 = new Set([1, 3, 4, 5, 9]);
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const units = [];
+  for (let y = 1; y < n; y++) if (gcd(y, n) === 1) units.push(y);
+  const crt = (a, b) => { for (let c = 0; c < n; c++) if (c % p === a && c % q === b) return c; };
+  const kind = c => {
+    const a = c % p, b = c % q;
+    if (a === 0 || b === 0) return 'none';
+    if (sq7.has(a) && sq11.has(b)) return 'zero';
+    if (!sq7.has(a) && !sq11.has(b)) return 'one';
+    return 'minus';
+  };
+  // the chapter's run: Enc(1) = 62 and Enc(1) = 40, i.e. y² = 15 and y² = 37
+  const rootOf = s => units.find(y => y * y % n === s);
+  let y1 = rootOf(15), y2 = rootOf(37), seed = 0;
+  const enc = (b, y) => y * y % n * (b ? x : 1) % n;
+
+  const ui = DS.controls(root + ' .controls', () => { draw(); readout(); });
+  const b1 = ui.choice({ label: 'Bit b₁', options: [0, 1], value: 1 });
+  const b2 = ui.choice({ label: 'Bit b₂', options: [0, 1], value: 1 });
+  ui.button({ label: 'New randomness', onClick: () => {
+    const R = DS.random(++seed);
+    y1 = units[R.int(units.length)]; y2 = units[R.int(units.length)];
+  } });
+
+  const leg = document.querySelector(root + ' .legend');
+  [['var(--series-1)', 'square mod 7 and mod 11: Enc(0)'], ['var(--series-2)', 'non-square mod both: Enc(1)'],
+   ['var(--line-strong)', 'Jacobi symbol −1: never a ciphertext']].forEach(([col, label]) => {
+    const s = document.createElement('span'), i = document.createElement('i');
+    i.className = 'rect'; i.style.color = col; s.append(i, label); leg.append(s);
+  });
+  { const s = document.createElement('span'), i = document.createElement('i');
+    i.className = 'rect'; i.style.cssText = 'background:none;border:1px solid var(--line-strong)';
+    s.append(i, 'row or column 0: shares a factor with 77'); leg.append(s); }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    parent.appendChild(e); return e;
+  };
+  const CS = 30, GAP = 6, L = 42, T = 38;
+  const colX = j => L + j * CS + (j >= 5 ? GAP : 0) + (j >= 10 ? GAP : 0);
+  const rowY = i => T + i * CS + (i >= 3 ? GAP : 0) + (i >= 6 ? GAP : 0);
+  const W = colX(11) + 4, H = rowY(7) + 4;
+  const host = document.querySelector(root + ' .grid');
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': 'The 77 numbers mod 77 in a 7 by 11 grid by remainder mod 7 and mod 11' }, host);
+  svg.style.cssText = 'display:block;width:100%;max-width:520px;margin:0 auto;font-family:var(--font);color:var(--ink)';
+  const FILL = { zero: 'var(--series-1)', one: 'var(--series-2)', minus: 'var(--line-strong)', none: 'none' };
+  const OPAC = { zero: 0.28, one: 0.28, minus: 0.22, none: 0 };
+
+  function draw() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const txt = (x0, y0, s, o = {}) => el('text', Object.assign({ x: x0, y: y0, 'text-anchor': 'middle',
+      'dominant-baseline': 'central', fill: o.muted ? 'var(--ink-muted)' : 'currentColor',
+      'font-size': o.size || 12, 'font-weight': o.bold ? 650 : 400 }, o.attrs || {}), svg, s);
+    // column and row group labels
+    txt((colX(0) + colX(5) - GAP) / 2, 9, 'square mod 11', { size: 11.5, muted: true });
+    txt((colX(5) + colX(10) - GAP) / 2, 9, 'non-square mod 11', { size: 11.5, muted: true });
+    COLS.forEach((r, j) => txt(colX(j) + CS / 2, T - 10, r, { muted: true, size: 11.5 }));
+    const vlabel = (i0, i1, s) => {
+      const cy = (rowY(i0) + rowY(i1) - GAP) / 2;
+      txt(9, cy, s, { size: 10.5, muted: true, attrs: { transform: `rotate(-90 9 ${cy})` } });
+    };
+    vlabel(0, 3, 'square mod 7'); vlabel(3, 6, 'non-square mod 7');
+    ROWS.forEach((r, i) => txt(L - 11, rowY(i) + CS / 2, r, { muted: true, size: 11.5 }));
+    // cells
+    const c1 = enc(b1.value, y1), c2 = enc(b2.value, y2), c = c1 * c2 % n;
+    ROWS.forEach((a, i) => COLS.forEach((b, j) => {
+      const v = crt(a, b), k = kind(v);
+      el('rect', { x: colX(j) + 1, y: rowY(i) + 1, width: CS - 2, height: CS - 2, rx: 4,
+        fill: FILL[k], 'fill-opacity': OPAC[k], stroke: k === 'none' ? 'var(--line)' : 'none' }, svg);
+      txt(colX(j) + CS / 2, rowY(i) + CS / 2 + 0.5, v, { size: 13, muted: k === 'none' || k === 'minus', bold: v === c1 || v === c2 || v === c });
+    }));
+    // outlines: dashed for the two ciphertexts, solid for their product
+    const mark = (v, dash) => {
+      const i = ROWS.indexOf(v % p), j = COLS.indexOf(v % q);
+      el('rect', { x: colX(j) + 1, y: rowY(i) + 1, width: CS - 2, height: CS - 2, rx: 4, fill: 'none',
+        stroke: 'var(--ink)', 'stroke-width': 2.2, 'stroke-dasharray': dash ? '4 3' : 'none' }, svg);
+    };
+    mark(c1, true); mark(c2, true); mark(c, false);
+  }
+
+  function readout() {
+    const c1 = enc(b1.value, y1), c2 = enc(b2.value, y2), c = c1 * c2 % n;
+    const bit = c % p === 0 ? '?' : (sq7.has(c % p) ? 0 : 1);
+    const rem = v => `${v} mod 7 = ${v % p}, mod 11 = ${v % q}`;
+    DS.stats(root + ' .readout', [
+      { label: `c₁ = Enc(${b1.value}), dashed`, value: `${c1}`, note: rem(c1) },
+      { label: `c₂ = Enc(${b2.value}), dashed`, value: `${c2}`, note: rem(c2) },
+      { label: 'c₁ · c₂ mod 77, solid', value: `${c}`, note: rem(c) },
+      { label: 'Decrypts to', value: `${bit}`, note: `${b1.value} XOR ${b2.value} = ${b1.value ^ b2.value}`,
+        tone: bit === (b1.value ^ b2.value) ? 'good' : 'bad' },
+    ]);
+  }
+  draw(); readout();
+})();
+</script>

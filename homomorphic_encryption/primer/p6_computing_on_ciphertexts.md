@@ -1,6 +1,6 @@
 # P6 · Computing on ciphertexts: homomorphisms and circuits
 
-[← P5 Security definitions](p5_security_definitions.md) · [index](../README.md) · next: [P7 Lattices and LWE →](p7_lattices_and_lwe.md)
+[← P5 Security definitions](p5_security_definitions.md) · [index](../README.md) · next: [P7 Lattices and learning with errors (LWE) →](p7_lattices_and_lwe.md)
 
 ---
 
@@ -15,9 +15,10 @@ took thirty years, and it needed the new mathematics of [P7](p7_lattices_and_lwe
 
 - Say precisely what "homomorphic" means, and why the precise statement is about decryption.
 - Run Paillier and Goldwasser–Micali by hand and know which operation each one supports.
-- Turn a program (additions, comparisons, `if`, loops) into a circuit of XOR and AND gates,
-  and count its gates and its multiplicative depth.
-- Define PHE, SHE, LHE and FHE, and say where compactness comes in.
+- Turn a program (additions, comparisons, `if`, loops) into a circuit of exclusive-or (XOR)
+  and AND gates, and count its gates and its multiplicative depth.
+- Define partially, somewhat, leveled and fully homomorphic encryption (PHE, SHE, LHE, FHE),
+  and say where compactness comes in.
 - Explain why the group-based schemes of [P4](p4_public_key.md) stop at one operation, and
   why getting both took until 2009.
 
@@ -49,8 +50,9 @@ $$\mathrm{Dec}(c_1 \circledast c_2) = \mathrm{Dec}(c_1) \circ \mathrm{Dec}(c_2)$
 
 Why not write $\mathrm{Enc}(m_1) \circledast \mathrm{Enc}(m_2) = \mathrm{Enc}(m_1 \circ m_2)$?
 Because a secure scheme encrypts with fresh randomness
-([P5](p5_security_definitions.md#deterministic-encryption-always-loses) shows that IND-CPA
-forces this). Every message has many ciphertexts, so `Enc` is not a function.
+([P5](p5_security_definitions.md#deterministic-encryption-always-loses) shows that
+indistinguishability under chosen-plaintext attack, IND-CPA, forces this). Every message has
+many ciphertexts, so `Enc` is not a function.
 $c_1 \circledast c_2$ is *one of* the ciphertexts that decrypt to $m_1 \circ m_2$: in ElGamal
 or Paillier one that `Enc` could have produced with other randomness, in the lattice schemes
 of P7–P9 one with more noise than `Enc` would ever produce. The map that really is a
@@ -66,11 +68,12 @@ Two consequences are worth keeping:
   `Dec`.** For the randomized public-key schemes of this chapter, security comes down to this: nobody without the key
   can tell whether a ciphertext lies in the kernel. Each scheme's hardness assumption is a
   statement of that kind. For ElGamal, telling an encryption of 1, $(g^y, h^y)$, from a random
-  pair is exactly DDH; for Paillier and Goldwasser–Micali (§3, §4) it is telling encryptions
-  of 0 from random ciphertexts.
+  pair is exactly the decisional Diffie–Hellman (DDH) problem; for Paillier and
+  Goldwasser–Micali (§3, §4) it is telling encryptions of 0 from random ciphertexts.
 - **Homomorphic means malleable.** Anyone, including an attacker, can turn a ciphertext into
-  a related one, which rules out IND-CCA2
-  ([P5 §7](p5_security_definitions.md#malleability-breaks-cca2)). For HE it is the whole point.
+  a related one, which rules out indistinguishability under adaptive chosen-ciphertext
+  attack, IND-CCA2 ([P5 §7](p5_security_definitions.md#malleability-breaks-cca2)). For HE it
+  is the whole point.
 
 ## 2. Partially homomorphic schemes you have already met
 
@@ -93,12 +96,13 @@ ciphertexts are multiplied, and handling them is most of the work.
 
 ### Textbook RSA: multiplication
 
+In textbook Rivest–Shamir–Adleman (RSA) encryption,
 $(m_1^e)(m_2^e) = (m_1 m_2)^e$, so multiplying ciphertexts multiplies plaintexts;
 [P4 §4](p4_public_key.md#textbook-rsa-is-multiplicatively-homomorphic) checks
 $\mathrm{Enc}(2) \cdot \mathrm{Enc}(3) \equiv \mathrm{Enc}(6) \pmod{3233}$ by hand. But textbook
-RSA is deterministic, so it is not IND-CPA secure, and the padding that fixes this
-([OAEP, P4 §4](p4_public_key.md#oaep-randomize-then-destroy-the-algebra)) destroys the
-homomorphism too.
+RSA is deterministic, so it is not IND-CPA secure, and the padding that fixes this, optimal
+asymmetric encryption padding ([OAEP, P4 §4](p4_public_key.md#oaep-randomize-then-destroy-the-algebra)),
+destroys the homomorphism too.
 
 ### ElGamal: multiplication, and exponential ElGamal: addition
 
@@ -158,6 +162,8 @@ $\mu = 12^{-1} \bmod 35 = 3$ (since $12 \cdot 3 = 36$).
 | Decrypt: read the digit, times $\mu$ | $14 \cdot 3 \bmod 35$ | **7** |
 
 Note $36^3 \bmod 1225 = 106 = 1 + 3 \cdot 35$: fact 1 at work.
+
+<!-- figure: p6-paillier-by-hand -->
 
 ### What a Paillier server can do without the key
 
@@ -220,6 +226,8 @@ With $p = 7$, $q = 11$, $n = 77$, $x = 76 = -1$,
 
 Check by hand: $16 \bmod 7 = 2$ and $2^3 = 8 \equiv 1 \pmod 7$, so 16 is a square: bit 0.
 
+<!-- figure: p6-gm-grid -->
+
 The price is size: every bit becomes a number mod $n$, about 3072 bits at real key sizes.
 GM is historically central, but its homomorphism, XOR, is only the "addition" half of what
 circuits need (§6).
@@ -238,7 +246,9 @@ circuits need (§6).
   to the shared ones (for example, purchases that followed an ad), without revealing the other
   records. It combines private set intersection with Paillier-style additive encryption
   (see [08](../08_ecosystem_and_applications.md)).
-- **Standards.** ISO/IEC 18033-6:2019 standardizes exponential ElGamal and Paillier
+- **Standards.** ISO/IEC 18033-6:2019, from the International Organization for
+  Standardization (ISO) and the International Electrotechnical Commission (IEC), standardizes
+  exponential ElGamal and Paillier
   ([07 §5](../07_state_of_the_art_2026.md#5-standardization)).
 
 PHE is cheap: one modular multiplication or exponentiation per operation, with mature
@@ -264,15 +274,15 @@ does not depend on the data.
 ### XOR and AND are enough
 
 On bits, XOR is addition mod 2 and AND is multiplication mod 2. With the constant 1 they give
-everything else:
+every other logic gate:
 
 $$\lnot x = x \oplus 1, \qquad x \lor y = x \oplus y \oplus xy, \qquad \mathrm{NAND}(x, y) = 1 \oplus xy$$
 
-NAND alone is universal, so $\{\oplus, \wedge\}$ is too. Algebraically: every Boolean function
-of $k$ bits is a polynomial over $\mathbb{Z}_2$ (its algebraic normal form). Any program
-that runs for a bounded number of steps compiles to such a circuit. So a scheme that can add
-**and** multiply encrypted bits, as often as needed, can compute anything. Goldwasser–Micali
-has the XOR and lacks the AND; Paillier adds and cannot multiply.
+NAND (not-and) alone is universal, so $\{\oplus, \wedge\}$ is too. Algebraically: every
+Boolean function of $k$ bits is a polynomial over $\mathbb{Z}_2$ (its algebraic normal form).
+Any program that runs for a bounded number of steps compiles to such a circuit. So a scheme
+that can add **and** multiply encrypted bits, as often as needed, can compute anything.
+Goldwasser–Micali has the XOR and lacks the AND; Paillier adds and cannot multiply.
 
 **Example: a 4-bit adder.** A full adder computes the sum bit and the carry:
 
@@ -282,6 +292,8 @@ $$s = a \oplus b \oplus c_{\text{in}}, \qquad c_{\text{out}} = ab \oplus c_{\tex
 bit 0 and three full adders (3 XOR, 2 AND each) for bits 1–3 take 10 XOR and 7 AND gates.
 [Part 4 of the script](../code/primer/p6_partially_homomorphic.py) checks it on all 256 input
 pairs.
+
+<!-- figure: p6-adder-circuit replaces the code block below -->
 
 ```text
   a0 b0        a1 b1           a2 b2           a3 b3
@@ -296,9 +308,10 @@ pairs.
 
 Bits are not the only option. With gates "$+$ mod $t$" and "$\times$ mod $t$", one
 ciphertext can hold a whole number mod $t$, and integer arithmetic becomes native. This is how
-BFV and BGV work (and CKKS, approximately, for real numbers). Over a prime $t$, every
-function $\mathbb{Z}_t \to \mathbb{Z}_t$ is a polynomial (Lagrange interpolation), but often
-one of degree close to $t$, which is expensive (below).
+the Brakerski/Fan–Vercauteren (BFV) and Brakerski–Gentry–Vaikuntanathan (BGV) schemes work
+(and the Cheon–Kim–Kim–Song scheme, CKKS, approximately, for real numbers). Over a prime
+$t$, every function $\mathbb{Z}_t \to \mathbb{Z}_t$ is a polynomial (Lagrange interpolation),
+but often one of degree close to $t$, which is expensive (below).
 
 ### An if becomes a select
 
@@ -347,8 +360,9 @@ $$[x = y] = 1 - (x - y)^{t-1} \pmod t$$
 
 For $t = 17$ that is four squarings, depth 4. For $t = 65537 = 2^{16} + 1$ it is depth 16, and
 "less than" is worse still. This is why ReLU, max-pooling and sorting dominate the cost of
-encrypted machine learning, and why TFHE's programmable bootstrapping, which evaluates a lookup
-table as a side effect, is attractive ([05 §5](../05_core_techniques.md#5-programmable-bootstrapping-and-luts-tfhe)).
+encrypted machine learning, and why the programmable bootstrapping of torus fully homomorphic
+encryption (TFHE), which evaluates a lookup table as a side effect, is attractive
+([05 §5](../05_core_techniques.md#5-programmable-bootstrapping-and-luts-tfhe)).
 
 ## 7. Multiplicative depth
 
@@ -363,6 +377,8 @@ Parallel multiplications do not compound; sequential ones do. So the parameters 
 sized for the depth, and the number of gates matters much less.
 
 The product of eight values, two ways:
+
+<!-- figure: p6-chain-vs-tree replaces the code block below -->
 
 ```text
  chain: depth 7                       balanced tree: depth 3
@@ -399,9 +415,10 @@ shows what depth costs in noise, on real ciphertexts.
 The definitions of LHE and FHE come with a requirement that rules out cheating:
 **compactness** (the PHE schemes above have it automatically, since their ciphertexts have a
 fixed size). The output ciphertext must not grow with the circuit, or else the "AES cheat" of
-chapter 01, which staples a description of $f$ to the ciphertext and lets the client do the
-work, would qualify as FHE. [01 §2, Why compactness matters](../01_introduction.md#why-compactness-matters)
-explains it. Leveled schemes satisfy a slightly relaxed form, since their sizes depend on $L$.
+chapter 01, which encrypts with the Advanced Encryption Standard (AES), staples a description
+of $f$ to the ciphertext and lets the client do the work, would qualify as FHE.
+[01 §2, Why compactness matters](../01_introduction.md#why-compactness-matters) explains it.
+Leveled schemes satisfy a slightly relaxed form, since their sizes depend on $L$.
 
 In practice "FHE" is used loosely for the whole lattice family, even for deployments that
 never bootstrap ([01 §3](../01_introduction.md#3-the-taxonomy-phe--she--lhe--fhe)).

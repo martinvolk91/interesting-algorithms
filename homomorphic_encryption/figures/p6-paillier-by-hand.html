@@ -1,0 +1,122 @@
+<figure class="widget" id="w-p6-paillier-by-hand">
+  <p class="widget-title">Paillier with \(n = 35\): the ciphertexts scatter, \(c^\lambda\) lines them up</p>
+  <p class="widget-hint">Press New randomness, or move \(m_1\) and \(m_2\). The ciphertexts on the left jump
+    around; on the right, every encryption of a message lands on the same point.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Ciphertexts mod \(n^2 = 1225\), written as two base-35 digits</p><div class="c-left"></div></div>
+    <div><p class="panel-title">The same ciphertexts raised to \(\lambda = 12\): the low digit is always 1</p><div class="c-right"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each message has 24 ciphertexts, one per \(r\) coprime to 35, spread over the grid with
+    no visible pattern. Raising to \(\lambda\) removes the mask \(r^n\) and leaves
+    \(1 + (m\lambda \bmod n)\cdot n\): low digit 1, and a high digit that gives \(m\) when
+    multiplied by \(\mu = 3\). The product
+    \(c_1 c_2\) lands on the point of \(m_1 + m_2\), whatever \(r_1\) and \(r_2\) were.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p6-paillier-by-hand';
+  const n = 35, N = n * n, lam = 12, mu = 3;
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const sup = k => String(k).split('').map(d => SUP[+d]).join('');
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const units = [];
+  for (let r = 1; r < n; r++) if (gcd(r, n) === 1) units.push(r);
+  const enc = (m, r) => powmod(n + 1, m, N) * powmod(r, n, N) % N;
+  const dec = c => (powmod(c, lam, N) - 1) / n * mu % n;
+  const digits = c => [c % n, Math.floor(c / n)];          // [low, high]
+
+  let seed = 0, r1 = 2, r2 = 3;                              // the chapter's example
+  const ui = DS.controls(root + ' .controls', () => { left.update(); right.update(); readout(); });
+  const m1 = ui.slider({ label: 'm₁', min: 0, max: 34, step: 1, value: 3 });
+  const m2 = ui.slider({ label: 'm₂', min: 0, max: 34, step: 1, value: 4 });
+  ui.button({ label: 'New randomness', onClick: () => {
+    const R = DS.random(++seed);
+    r1 = units[R.int(units.length)]; r2 = units[R.int(units.length)];
+  } });
+
+  const axis = { domain: [-1, 35], tickValues: [0, 5, 10, 15, 20, 25, 30, 34] };
+  const sets = () => {
+    const ms = [m1.value, m2.value, (m1.value + m2.value) % n];
+    return ms.map(m => units.map(r => ({ m, r, c: enc(m, r) })));
+  };
+  const chosen = () => {
+    const c1 = enc(m1.value, r1), c2 = enc(m2.value, r2);
+    return [c1, c2, c1 * c2 % N];
+  };
+  const names = ['c₁', 'c₂', 'c₁c₂'];
+  const legend = c => c.legend([
+    { label: 'Enc(m₁)', series: 1, kind: 'dot' }, { label: 'Enc(m₂)', series: 2, kind: 'dot' },
+    { label: 'Enc(m₁ + m₂)', series: 3, kind: 'dot' }]);
+  const tipC = (c, what) => `${what} = ${c} = ${Math.floor(c / n)}·35 + ${c % n}`;
+
+  const left = DS.chart(root + ' .c-left', {
+    x: Object.assign({ label: 'low digit: c mod 35' }, axis),
+    y: Object.assign({ label: 'high digit: ⌊c / 35⌋' }, axis),
+    height: 300,
+    draw(c) {
+      legend(c);
+      sets().forEach((set, i) => c.scatter(set.map(e => {
+        const [lo, hi] = digits(e.c);
+        return { x: lo, y: hi, tip: tipC(e.c, `Enc(${e.m}; r = ${e.r})`) };
+      }), { series: i + 1, r: 3, opacity: 0.45 }));
+      chosen().forEach((v, i) => {
+        const [lo, hi] = digits(v);
+        c.point(lo, hi, { series: i + 1, r: 6.5, tip: () => tipC(v, names[i]) });
+      });
+    },
+  });
+
+  const right = DS.chart(root + ' .c-right', {
+    x: Object.assign({ label: 'low digit' }, axis),
+    y: Object.assign({ label: 'high digit = mλ mod 35' }, axis),
+    height: 300,
+    draw(c) {
+      legend(c);
+      c.vline(1, { series: 'muted', dash: true });
+      const ms = [m1.value, m2.value, (m1.value + m2.value) % n];
+      const pts = chosen().map((v, i) => {
+        const u = powmod(v, lam, N);
+        return { i, v, u, hi: Math.floor(u / n), m: ms[i] };
+      });
+      // labels to the right, pushed apart where the points are close
+      const gap = 16 / Math.abs(c.y(0) - c.y(1));
+      const order = pts.slice().sort((a, b) => a.hi - b.hi);
+      let prev = -Infinity;
+      order.forEach(p => { p.ly = Math.max(p.hi, prev + gap); prev = p.ly; });
+      if (prev > 34) order.forEach(p => { p.ly -= prev - 34; });
+      pts.forEach(p => {
+        c.segment(1.6, p.hi, 3.4, p.ly, { series: 'muted', thin: true });
+        c.text(3.8, p.ly, `${names[p.i]} → 1 + ${p.hi}·35 → ${p.m}`, { anchor: 'start', baseline: 'middle', cls: 'ink' });
+      });
+      pts.slice().reverse().forEach(p => {
+        c.point(1, p.hi, { series: p.i + 1, r: 5.5,
+          tip: () => `${names[p.i]}${sup(lam)} mod 1225 = ${p.u} = 1 + ${p.hi}·35` });
+      });
+    },
+  });
+
+  function readout() {
+    const a = m1.value, b = m2.value;
+    const [c1, c2, c] = chosen(), u = powmod(c, lam, N), d = (u - 1) / n;
+    DS.table(root + ' .readout', {
+      columns: ['Step', 'Computation', 'Result'],
+      rows: [
+        [`Encrypt m₁ = ${a} with r₁ = ${r1}`, `36${sup(a)} · ${r1}³⁵ = ${powmod(36, a, N)} · ${powmod(r1, n, N)} mod 1225`, `${c1}`],
+        [`Encrypt m₂ = ${b} with r₂ = ${r2}`, `36${sup(b)} · ${r2}³⁵ = ${powmod(36, b, N)} · ${powmod(r2, n, N)} mod 1225`, `${c2}`],
+        ['Add', `${c1} · ${c2} mod 1225`, `${c}`],
+        ['Decrypt: raise to λ', `${c}¹² mod 1225`, `${u} = 1 + ${d} · 35`],
+        ['Decrypt: digit times μ', `${d} · 3 mod 35`, { text: `${dec(c)}`, cls: 'strong' }],
+      ],
+    });
+    const sum = a + b, wraps = sum >= n;
+    DS.stats(root + ' .readout', [
+      { label: 'm₁ + m₂ mod 35', value: `${sum % n}`, note: wraps ? `${a} + ${b} = ${sum} wraps around 35` : `${a} + ${b}` },
+      { label: 'c₁ · c₂ decrypts to', value: `${dec(c)}`, tone: dec(c) === sum % n ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
