@@ -1,0 +1,124 @@
+<figure class="widget" id="w-p1-perfect-secrecy">
+  <p class="widget-title">What one ciphertext byte tells Eve</p>
+  <p class="widget-hint">Switch to the 4-bit key: only one row of plaintexts is left. Then move the ciphertext to 0x5F.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Plaintexts that some key turns into c</p><div class="c-grid"></div></div>
+    <div><p class="panel-title">Eve's belief before and after seeing c</p><div class="c-bars"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each square is one plaintext byte: row = first hex digit, column = second, so
+    <code>Y</code> = 0x59 sits in row 5, column 9. A square is filled when a key in the key space
+    turns it into c. With the 8-bit key every square is filled, each by exactly one key of
+    probability 1/256, so Eve's 9&nbsp;:&nbsp;1 odds do not move. With 16 keys only the row that shares
+    c's first hex digit survives, and a prior that put weight elsewhere changes.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-perfect-secrecy';
+  const Y = 0x59, N = 0x4E, PRIOR = { Y: 0.9, N: 0.1 };
+  const hex = v => '0x' + v.toString(16).toUpperCase().padStart(2, '0');
+
+  const ui = DS.controls(root + ' .controls', () => { drawGrid(); bars.update(); readout(); });
+  const keyBits = ui.choice({ label: 'Key space', value: 8, options: [
+    { value: 8, label: '8-bit key (256 keys)' }, { value: 4, label: '4-bit key (16 keys)' }] });
+  const cSl = ui.slider({ label: 'Ciphertext c', min: 0, max: 255, step: 1, value: 0x3C, format: hex });
+
+  // The key that turns m into c is m XOR c; it is allowed if it lies in the key space.
+  function state() {
+    const c = cSl.value, nKeys = 2 ** keyBits.value;
+    const kY = Y ^ c, kN = N ^ c;
+    const okY = kY < nKeys, okN = kN < nKeys;
+    const jY = okY ? PRIOR.Y / nKeys : 0, jN = okN ? PRIOR.N / nKeys : 0;   // Pr[M = m, C = c]
+    const tot = jY + jN;
+    return { c, nKeys, kY, kN, okY, okN, postY: tot ? jY / tot : null, postN: tot ? jN / tot : null };
+  }
+
+  // ---- left: 16 x 16 grid of plaintext bytes
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const CELL = 16, OX = 26, OY = 20;
+  const svg = el('svg', { viewBox: `0 0 ${OX + 16 * CELL + 4} ${OY + 16 * CELL + 4}`, role: 'img',
+    'aria-label': 'Grid of the 256 plaintext bytes; filled squares are possible given c' });
+  svg.style.cssText = 'display:block;width:100%;max-width:330px;height:auto;margin:6px auto 0;font-family:var(--font)';
+  document.querySelector(root + ' .c-grid').appendChild(svg);
+  for (let i = 0; i < 16; i++) {
+    const t1 = el('text', { x: OX + i * CELL + CELL / 2, y: OY - 6, 'text-anchor': 'middle' }, svg);
+    t1.textContent = i.toString(16).toUpperCase();
+    const t2 = el('text', { x: OX - 6, y: OY + i * CELL + CELL / 2 + 4, 'text-anchor': 'end' }, svg);
+    t2.textContent = i.toString(16).toUpperCase() + '_';
+  }
+  svg.querySelectorAll('text').forEach(t => { t.style.fill = 'var(--ink-muted)'; t.style.fontSize = '10.5px'; });
+  const cells = [];
+  for (let m = 0; m < 256; m++) {
+    const r = el('rect', { x: OX + (m & 15) * CELL + 1, y: OY + (m >> 4) * CELL + 1, width: CELL - 2, height: CELL - 2, rx: 2 }, svg);
+    r.appendChild(document.createElementNS(NS, 'title'));
+    cells.push(r);
+  }
+  for (const [m, ch] of [[Y, 'Y'], [N, 'N']]) {
+    el('rect', { x: OX + (m & 15) * CELL, y: OY + (m >> 4) * CELL, width: CELL, height: CELL, rx: 3,
+      style: 'fill:none;stroke:var(--ink);stroke-width:2' }, svg);
+    const t = el('text', { x: OX + (m & 15) * CELL + CELL / 2, y: OY + (m >> 4) * CELL + CELL / 2 + 4, 'text-anchor': 'middle',
+      style: 'fill:var(--ink);font-size:11px;font-weight:700;pointer-events:none' }, svg);
+    t.textContent = ch;
+  }
+  function drawGrid() {
+    const s = state();
+    for (let m = 0; m < 256; m++) {
+      const k = m ^ s.c, ok = k < s.nKeys;
+      cells[m].style.cssText = ok ? 'fill:var(--series-1);fill-opacity:.45;stroke:none'
+                                  : 'fill:none;stroke:var(--line);stroke-width:1';
+      cells[m].firstChild.textContent = `${hex(m)}: ` + (ok ? `key ${hex(k)} turns it into ${hex(s.c)}` : `needs key ${hex(k)}, not in the key space`);
+    }
+  }
+
+  // ---- right: prior vs posterior
+  const bars = DS.chart(root + ' .c-bars', {
+    x: { domain: [-0.6, 1.6], tickValues: [0, 1], format: v => (v === 0 ? 'Y (0x59)' : 'N (0x4E)') },
+    y: { domain: [0, 1.12], label: 'Probability', tickValues: [0, 0.2, 0.4, 0.6, 0.8, 1], format: v => v.toFixed(1) },
+    height: 270,
+    draw(c) {
+      const s = state();
+      c.legend([{ label: 'before (prior)', series: 'muted', kind: 'rect' }, { label: 'after seeing c', series: 1, kind: 'rect' }]);
+      c.bars([{ x: -0.17, y: PRIOR.Y, tip: 'prior Pr[Y] = 0.90' }, { x: 0.83, y: PRIOR.N, tip: 'prior Pr[N] = 0.10' }],
+        { series: 'muted', width: 0.3 });
+      c.text(-0.17, PRIOR.Y, '0.90', { anchor: 'middle', dy: -6, cls: 'ink2' });
+      c.text(0.83, PRIOR.N, '0.10', { anchor: 'middle', dy: -6, cls: 'ink2' });
+      if (s.postY === null) {
+        ['No allowed key turns', 'Y or N into c: Eve', 'never sees this c.'].forEach((line, i) =>
+          c.text(1, 0.62, line, { anchor: 'middle', dy: 17 * i, cls: 'ink strong' }));
+        return;
+      }
+      c.bars([{ x: 0.17, y: s.postY, tip: `Pr[Y | c] = ${s.postY.toFixed(2)}` }, { x: 1.17, y: s.postN, tip: `Pr[N | c] = ${s.postN.toFixed(2)}` }],
+        { series: 1, width: 0.3 });
+      c.text(0.17, s.postY, s.postY.toFixed(2), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+      c.text(1.17, s.postN, s.postN.toFixed(2), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+    },
+  });
+
+  function keyTile(name, m, k, ok, s) {
+    return ok
+      ? { label: `Key that turns ${name} into c`, value: hex(k), note: `probability 1/${s.nKeys}` }
+      : { label: `Key that turns ${name} into c`, value: 'none', note: `${hex(k)} is not a 4-bit key`, tone: 'bad' };
+  }
+  function readout() {
+    const s = state();
+    const same = s.postY !== null && Math.abs(s.postY - PRIOR.Y) < 1e-12;
+    DS.stats(root + ' .readout', [
+      { label: 'Plaintexts possible given c', value: `${s.nKeys} of 256` },
+      keyTile('Y', Y, s.kY, s.okY, s),
+      keyTile('N', N, s.kN, s.okN, s),
+      s.postY === null
+        ? { label: 'Pr[Y | c]', value: '–', note: 'c never occurs under this prior' }
+        : { label: 'Pr[Y | c]', value: s.postY.toFixed(2), note: same ? 'equals the prior: nothing learned' : 'prior was 0.90', tone: same ? 'good' : 'bad' },
+    ]);
+  }
+  drawGrid();
+  readout();
+})();
+</script>

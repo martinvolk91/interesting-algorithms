@@ -1,10 +1,10 @@
 # P1 · What encryption is: keys, secrecy and the one-time pad
 
-[← index](../README.md) · next: [P2 Block ciphers and AES →](p2_aes.md)
+[← index](../README.md) · next: [P2 Block ciphers and the Advanced Encryption Standard →](p2_aes.md)
 
 ---
 
-Homomorphic encryption is still encryption: before it can compute on hidden data, it has to
+Homomorphic encryption (HE) is still encryption: before it can compute on hidden data, it has to
 hide the data. This chapter sets up the vocabulary and the yardsticks the whole primer uses:
 what "secret" means, what a key is, and how to count the cost of an attack. Its central object,
 the one-time pad, is the simplest unbreakable cipher, and it is already homomorphic. The lattice
@@ -16,7 +16,8 @@ noise.
 - name the goals of cryptography, use its vocabulary (plaintext, ciphertext, key, `Enc`, `Dec`)
   and state Kerckhoffs's principle;
 - explain why classical ciphers fall to frequency analysis;
-- encrypt with the one-time pad (XOR and mod n) and prove that it is perfectly secret;
+- encrypt with the one-time pad, using exclusive or (XOR) or addition mod n, and prove that it
+  is perfectly secret;
 - explain its price, and break a pad that was used twice;
 - explain computational security, "128-bit security", and symmetric vs public-key encryption;
 - see why the pad mod n can already add encrypted numbers, but not multiply them.
@@ -59,10 +60,10 @@ non-negotiable property is **correctness**: decryption undoes encryption.
 
 $$\mathrm{Dec}(k, \mathrm{Enc}(k, m)) = m \quad \text{for every key } k \text{ and every message } m$$
 
-Two remarks for later. Real `Enc` algorithms usually also take a fresh random value (an IV or
-nonce); P3 and P5 explain why encryption *must* be randomized. And chapter 01's
-`(KeyGen, Enc, Dec, Eval)` is this same template with a public key and one extra algorithm,
-`Eval`, that computes on ciphertexts (P6).
+Two remarks for later. Real `Enc` algorithms usually also take a fresh random value (an
+initialization vector (IV) or a nonce); P3 and P5 explain why encryption *must* be randomized.
+And chapter 01's `(KeyGen, Enc, Dec, Eval)` is this same template with a public key and one
+extra algorithm, `Eval`, that computes on ciphertexts (P6).
 
 *Notation.* In this chapter the key is `k`. From P7 on, the secret key is called `s`, and the
 pad will be `⟨a, s⟩`.
@@ -82,8 +83,8 @@ reasons for it:
 
 - **The algorithm will leak.** It sits in every device, binary and specification. A key is
   small and easy to replace; an algorithm is not.
-- **Public algorithms get public scrutiny.** AES was chosen in an open competition (P2). A
-  secret design has only been attacked by its authors.
+- **Public algorithms get public scrutiny.** The Advanced Encryption Standard (AES) was chosen
+  in an open competition (P2). A secret design has only been attacked by its authors.
 - **It makes security measurable.** If only the key is secret, security becomes a statement
   about the key space and the best known attack, which we can count (§8).
 
@@ -148,8 +149,9 @@ XOR is the case $n = 2$, applied bit by bit (addition mod 2 is XOR). Both versio
 a random pad, then subtract it again.** By hand with $n = 1000$: $m = 120$, $k = 905$ gives
 $c = 1025 \bmod 1000 = 25$, and $25 - 905 = -880 \equiv 120 \pmod{1000}$.
 
-This version is the one to remember for HE. An LWE ciphertext (P7) has exactly the shape
-$b = \langle a, s \rangle + \Delta \cdot m + e \pmod q$: a message, plus a pad, plus noise.
+This version is the one to remember for HE. A learning with errors (LWE) ciphertext (P7) has
+exactly the shape $b = \langle a, s \rangle + \Delta \cdot m + e \pmod q$: a message, plus a
+pad, plus noise.
 Here `a` is a public random vector, `s` the secret key, $\langle a, s \rangle$ their inner
 product (the pad), `Δ` a large scaling constant that lifts the message `m`, and `e` a small
 random error; `q` is the modulus. All of this is explained in P7.
@@ -235,6 +237,8 @@ Eve's prior gave $m'$ any weight, her posterior for it drops to 0, and the defin
 8-bit messages. `Y` = 0x59 can only encrypt to `0x50`–`0x5F`, and `N` = 0x4E only to
 `0x40`–`0x4F`. A ciphertext `0x5F` tells Eve the answer is `Y` with certainty.
 
+<!-- figure: p1-perfect-secrecy -->
+
 So a gigabyte of data needs a gigabyte of truly random key, delivered in advance over a secure
 channel and kept secret on both sides. If Alice can deliver that much key securely, she could
 almost deliver the message the same way: the pad does not remove the need for a secure channel,
@@ -250,6 +254,8 @@ $$c_1 \oplus c_2 = (m_1 \oplus k) \oplus (m_2 \oplus k) = m_1 \oplus m_2$$
 
 The XOR of two English texts is far from random, and Eve can now attack it without knowing
 anything about the key. Cryptanalysts say the two messages are **in depth**.
+
+<!-- figure: p1-two-time-pad -->
 
 - **Known plaintext.** If Eve knows part of $m_1$ (a standard header, a greeting), she gets the
   same part of $m_2 = (c_1 \oplus c_2) \oplus m_1$, and of the key, $k = c_1 \oplus m_1$.
@@ -274,12 +280,13 @@ encryption both reused pads, and both were broken this way.
 > duplicate key. American analysts found the depths, stripped off the key, and then still had
 > to reconstruct the codebook. About 3,000 messages were at least partially read. They exposed
 > Soviet espionage in the US, including the atomic spies. The project ran until 1 October 1980,
-> and NSA released the translations from 1995 on.
+> and the National Security Agency (NSA) released the translations from 1995 on.
 >
-> *WEP.* The original Wi-Fi encryption generated an RC4 keystream from the secret key and a
-> public 24-bit IV. Borisov, Goldberg and Wagner (2001) showed that a busy access point exhausts
-> all $2^{24}$ IVs in less than half a day, and that with random IVs a repeat is expected after
-> about 5,000 packets (the birthday paradox). Every repeat is a two-time pad.
+> *WEP.* The original Wi-Fi encryption, Wired Equivalent Privacy, generated an RC4 keystream
+> from the secret key and a public 24-bit IV. Borisov, Goldberg and Wagner (2001) showed that a
+> busy access point exhausts all $2^{24}$ IVs in less than half a day, and that with random IVs
+> a repeat is expected after about 5,000 packets (the birthday paradox). Every repeat is a
+> two-time pad.
 
 The lesson carries through the whole primer: **every pad must be fresh.** Stream ciphers ensure
 it with a nonce (§7, P3). LWE ensures it with a fresh random vector `a` in every ciphertext
@@ -300,12 +307,13 @@ $$c = m \oplus G(k, \text{nonce})$$
  message m ─────────────────────────XOR──────> ciphertext c
 ```
 
-The toy generator in [part 5 of the script](../code/primer/p1_one_time_pad.py) is SHA-256 in
-counter mode: block `i` of the pad is `SHA-256(k ‖ nonce ‖ i)`. Real systems use **AES in
-counter mode** (block `i` is `AES_k(nonce ‖ i)`; P2 and P3) or **ChaCha20** (standardised for
-IETF protocols in RFC 8439). The nonce is public, but it must never repeat under the same key:
-the same `(k, nonce)` gives the same pad, and we are back to the two-time pad. Part 5 checks
-this as well.
+The toy generator in [part 5 of the script](../code/primer/p1_one_time_pad.py) is SHA-256 (a
+hash function from the Secure Hash Algorithm family) in counter mode: block `i` of the pad is
+`SHA-256(k ‖ nonce ‖ i)`. Real systems use **AES in counter mode** (block `i` is
+`AES_k(nonce ‖ i)`; P2 and P3) or **ChaCha20** (standardised for Internet Engineering Task Force
+(IETF) protocols in Request for Comments (RFC) 8439). The nonce is public, but it must never
+repeat under the same key: the same `(k, nonce)` gives the same pad, and we are back to the
+two-time pad. Part 5 checks this as well.
 
 ### The catch: no longer perfectly secret
 
@@ -315,6 +323,8 @@ $2^{128}$ keys. Once the message is longer than a few dozen characters, only the
 sensible text. (Shannon called the length where this happens the *unicity distance*.) Part 6 of
 the script shrinks the key to 20 bits and does exactly that: it tries all $2^{20}$ keys in about
 two seconds on a laptop, and exactly one of them decrypts to readable text.
+
+<!-- figure: p1-unicity -->
 
 So the security of a stream cipher rests on something new: **the attacker cannot do $2^{128}$
 operations.**
@@ -340,27 +350,29 @@ problem: linear equations made hard by a little noise.
 ### Bits of security
 
 A scheme has **κ-bit security** (κ is the Greek letter kappa) if the best known attack costs
-about $2^\kappa$ operations; "128-bit security" means κ = 128. NIST calls this the **security
-strength**: a number associated with the amount of work needed to break the system. For an
-ideal cipher with a `k`-bit key, the best attack is brute force: $2^k$ trials in the worst
-case, $2^{k-1}$ on average. So $\kappa = k$. (P5 uses the same letter, and refines the count.)
+about $2^\kappa$ operations; "128-bit security" means κ = 128. The National Institute of
+Standards and Technology (NIST) calls this the **security strength**: a number associated with
+the amount of work needed to break the system. For an ideal cipher with a `k`-bit key, the best
+attack is brute force: $2^k$ trials in the worst case, $2^{k-1}$ on average. So $\kappa = k$.
+(P5 uses the same letter, and refines the count.)
 
-Key length and security strength differ in general. NIST SP 800-57 rates AES-128, RSA with a
-3072-bit modulus and elliptic curves of 256–383 bits all at **128 bits**, because factoring has
-attacks far better than trying every key. HE is rated the same way: when chapter 02 says that
-`N = 16384`, `log q = 438` is "128-bit secure", it means the best known lattice attacks are
-estimated to cost about $2^{128}$ operations ([02 §6](../02_math_foundations.md#6-parameters-security-and-sizes)).
+Key length and security strength differ in general. NIST Special Publication (SP) 800-57 rates
+AES-128, RSA (Rivest–Shamir–Adleman) with a 3072-bit modulus and elliptic curves of 256–383
+bits all at **128 bits**, because factoring has attacks far better than trying every key. HE is
+rated the same way: when chapter 02 says that `N = 16384`, `log q = 438` is "128-bit secure",
+it means the best known lattice attacks are estimated to cost about $2^{128}$ operations
+([02 §6](../02_math_foundations.md#6-parameters-security-and-sizes)).
 
 Each extra bit doubles the work. Doubling the attacker's hardware buys one bit, a thousandfold
 increase buys ten.
 
 ### Brute force in numbers
 
-DES, the US standard block cipher from 1977, had a 56-bit key. In 1998 the Electronic Frontier
-Foundation built a dedicated key-search machine for under \$250,000 that found a DES key in 56
-hours. In January 1999, together with the volunteers of distributed.net, it found one in
-22 hours and 15 minutes, testing about 245 billion keys per second. That ended 56-bit keys, and
-AES (P2) starts at 128 bits.
+The Data Encryption Standard (DES), the US standard block cipher from 1977, had a 56-bit key.
+In 1998 the Electronic Frontier Foundation (EFF) built a dedicated key-search machine for under
+\$250,000 that found a DES key in 56 hours. In January 1999, together with the volunteers of
+distributed.net, it found one in 22 hours and 15 minutes, testing about 245 billion keys per
+second. That ended 56-bit keys, and AES (P2) starts at 128 bits.
 
 [Part 6 of the script](../code/primer/p1_one_time_pad.py) measures how fast plain Python tries
 keys of its toy cipher and extrapolates. Times are for the whole key space; on average the key
@@ -373,6 +385,8 @@ turns up halfway.
 | 64 | 1 million years | 2.4 years | 18 ms |
 | 80 | 6.7 × 10¹⁰ years | 156,000 years | 20 minutes |
 | 128 | 1.9 × 10²⁵ years | 4.4 × 10¹⁹ years | 1.1 × 10¹⁰ years |
+
+<!-- figure: p1-brute-force -->
 
 ### What 128-bit security means physically
 
@@ -410,13 +424,14 @@ must share it beforehand. **Public-key** (asymmetric) encryption splits the key 
 | Keys | One shared secret `k` | A key pair: public `pk`, secret `sk` |
 | Who can encrypt | Whoever holds `k` | Anyone (`pk` is public) |
 | Who can decrypt | Whoever holds `k` | Only the holder of `sk` |
-| Examples | One-time pad, AES, ChaCha20 | RSA, ElGamal, ML-KEM (P4) |
+| Examples | One-time pad, AES, ChaCha20 | RSA, ElGamal, ML-KEM (Module-Lattice-Based Key-Encapsulation Mechanism; P4) |
 | Speed | Very fast | Orders of magnitude slower |
 | Main problem | Distributing the key | Speed, larger keys and ciphertexts |
 
 You already know RSA: $(n, e)$ is the public key and $d$ the secret one. In practice the two
 are combined: public-key cryptography agrees on a fresh symmetric key, and AES or ChaCha20
-encrypts the data. That is **hybrid encryption**, and P4 shows how TLS does it.
+encrypts the data. That is **hybrid encryption**, and P4 shows how Transport Layer Security
+(TLS) does it.
 
 One structural fact: **public-key encryption can never be perfectly secret.** An attacker with
 unlimited time and the public key can encrypt every candidate message with every possible
@@ -545,10 +560,10 @@ Why this is not yet HE:
     becomes quadratic in the keys. LWE ciphertexts hit exactly this problem (two components
     become three, with an $s^2$ term), and **relinearization** shrinks them back (P8).
 
-A stream cipher like AES-CTR is also "message XOR pad", so XOR of ciphertexts carries over in
-the same way. But its pad comes out of AES, which scrambles the key so thoroughly that no
-algebra survives (P2). HE needs pads with structure, and $\langle a, s \rangle + e$ is that
-structure.
+A stream cipher like AES in counter mode (AES-CTR) is also "message XOR pad", so XOR of
+ciphertexts carries over in the same way. But its pad comes out of AES, which scrambles the key
+so thoroughly that no algebra survives (P2). HE needs pads with structure, and
+$\langle a, s \rangle + e$ is that structure.
 
 ## 12. Check yourself
 
