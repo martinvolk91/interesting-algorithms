@@ -1,0 +1,139 @@
+<figure class="widget" id="w-p6-adder-circuit">
+  <p class="widget-title">A 4-bit adder from XOR and AND gates</p>
+  <p class="widget-hint">Change \(a\) and \(b\): wires that carry a 1 turn blue. The orange badge on each AND
+    gate is its depth. The carry passes through one more AND gate per bit.</p>
+  <div class="controls"></div>
+  <div class="circuit"></div>
+  <div class="readout"></div>
+  <figcaption>Bit 0 is a half adder (1 XOR, 1 AND); bits 1–3 are full adders (3 XOR, 2 AND each):
+    10 XOR and 7 AND gates in all, as in part 4 of the script. The \(a_i b_i\) gates all have depth 1,
+    but the carry passes through one more AND per bit, so output bit \(s_i\) has depth \(i\) and the
+    carry out \(s_4\) has depth 4.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p6-adder-circuit';
+  const SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const bin = (v, k) => v.toString(2).padStart(k, '0');
+  const ui = DS.controls(root + ' .controls', () => { draw(); readout(); });
+  const A = ui.slider({ label: 'a', min: 0, max: 15, step: 1, value: 11, format: v => `${v} = ${bin(v, 4)}₂` });
+  const B = ui.slider({ label: 'b', min: 0, max: 15, step: 1, value: 6, format: v => `${v} = ${bin(v, 4)}₂` });
+
+  // Evaluate the circuit. A wire is {v: bit, d: AND-depth}; gates are recorded for drawing.
+  function evaluate(a, b) {
+    const bit = (x, i) => ({ v: (x >> i) & 1, d: 0 });
+    const XOR = (p, q) => ({ v: p.v ^ q.v, d: Math.max(p.d, q.d) });
+    const AND = (p, q) => ({ v: p.v & q.v, d: Math.max(p.d, q.d) + 1 });
+    const rows = [], counts = { XOR: 0, AND: 0 };
+    let carry = null;
+    for (let i = 0; i < 4; i++) {
+      const ai = bit(a, i), bi = bit(b, i);
+      const t = XOR(ai, bi), ab = AND(ai, bi);
+      if (i === 0) {
+        rows.push({ ai, bi, t, ab, s: t });
+        counts.XOR += 1; counts.AND += 1;
+        carry = ab;
+      } else {
+        const cin = carry, s = XOR(t, cin), tc = AND(t, cin), cout = XOR(ab, tc);
+        rows.push({ ai, bi, t, ab, cin, s, tc, cout });
+        counts.XOR += 3; counts.AND += 2;
+        carry = cout;
+      }
+    }
+    return { rows, carry, counts };
+  }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    parent.appendChild(e); return e;
+  };
+  const RH = 100, X_IN = 36, C1 = 92, BUS = 130, C2 = 166, C3 = 228, X_OUT = 280, GW = 36, GH = 22;
+  const W = 356, H = 16 + 4 * RH - 6;
+  const Y = i => 16 + i * RH;
+  const ya = i => Y(i) + 10, yb = i => Y(i) + 42, yx = i => Y(i) + 58, yc = i => Y(i) + 74;
+  const host = document.querySelector(root + ' .circuit');
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': 'Gate-level 4-bit ripple-carry adder: one half adder and three full adders' }, host);
+  svg.style.cssText = 'display:block;width:100%;max-width:440px;margin:0 auto;font-family:var(--font);color:var(--ink)';
+
+  function draw() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const gWires = el('g', { fill: 'none', 'stroke-linejoin': 'round' }, svg), gNodes = el('g', {}, svg);
+    const wire = (pts, on) => el('polyline', { points: pts.map(p => p.join(',')).join(' '),
+      stroke: on ? 'var(--series-1)' : 'var(--line-strong)', 'stroke-width': on ? 2.2 : 1.3 }, gWires);
+    const dot = (x, y, on) => el('circle', { cx: x, cy: y, r: 2.6, fill: on ? 'var(--series-1)' : 'var(--line-strong)' }, gNodes);
+    const txt = (x, y, s, o = {}) => el('text', Object.assign({ x, y, 'text-anchor': o.anchor || 'middle',
+      'dominant-baseline': 'central', fill: o.fill || (o.muted ? 'var(--ink-muted)' : 'currentColor'),
+      'font-size': o.size || 12, 'font-weight': o.bold ? 650 : 400 }, o.attrs || {}), gNodes, s);
+    const gate = (x, y, kind, w) => {
+      el('rect', { x: x - GW / 2, y: y - GH / 2, width: GW, height: GH, rx: 5,
+        fill: w.v ? 'var(--series-1)' : 'var(--bg)', 'fill-opacity': w.v ? 0.2 : 1,
+        stroke: kind === 'AND' ? 'var(--series-2)' : 'var(--line-strong)', 'stroke-width': kind === 'AND' ? 1.6 : 1.2 }, gNodes);
+      txt(x, y + 0.5, kind, { size: 10.5, bold: true });
+      if (kind === 'AND') {
+        el('circle', { cx: x + GW / 2, cy: y - GH / 2, r: 7.5, fill: 'var(--series-2)' }, gNodes);
+        txt(x + GW / 2, y - GH / 2 + 0.5, w.d, { size: 10, bold: true, fill: 'var(--bg)' });
+      }
+    };
+    const node = (x, y, w) => {
+      el('rect', { x: x - 9, y: y - 9, width: 18, height: 18, rx: 4,
+        fill: w.v ? 'var(--series-1)' : 'var(--bg)', 'fill-opacity': w.v ? 0.2 : 1,
+        stroke: w.v ? 'var(--series-1)' : 'var(--line-strong)' }, gNodes);
+      txt(x, y + 0.5, w.v, { size: 11.5, bold: true });
+    };
+    const L = C1 - GW / 2, R = C1 + GW / 2, L2 = C2 - GW / 2, R2 = C2 + GW / 2, L3 = C3 - GW / 2, R3 = C3 + GW / 2;
+    const { rows, carry } = evaluate(A.value, B.value);
+    rows.forEach((r, i) => {
+      // inputs to the first column of gates
+      wire([[X_IN + 9, ya(i)], [L, ya(i) - 6]], r.ai.v); wire([[X_IN + 9, ya(i)], [L, yc(i) - 6]], r.ai.v);
+      wire([[X_IN + 9, yc(i)], [L, ya(i) + 6]], r.bi.v); wire([[X_IN + 9, yc(i)], [L, yc(i) + 6]], r.bi.v);
+      node(X_IN, ya(i), r.ai); node(X_IN, yc(i), r.bi);
+      txt(X_IN - 14, ya(i), 'a' + SUB[i], { anchor: 'end' }); txt(X_IN - 14, yc(i), 'b' + SUB[i], { anchor: 'end' });
+      let sOut;
+      if (i === 0) {
+        sOut = R;
+        wire([[R, ya(i)], [X_OUT - 9, ya(i)]], r.s.v);
+        wire([[R, yc(i)], [BUS, yc(i)], [BUS, yb(1) + 6], [L2, yb(1) + 6]], r.ab.v);   // carry c1
+        wire([[BUS, ya(1) + 6], [L2, ya(1) + 6]], r.ab.v);
+        dot(BUS, ya(1) + 6, r.ab.v);
+      } else {
+        wire([[R, ya(i)], [L2, ya(i) - 6]], r.t.v);                 // t to the sum XOR
+        wire([[R, ya(i)], [L2, yb(i) - 6]], r.t.v);                 // t to the carry AND
+        wire([[R2, ya(i)], [X_OUT - 9, ya(i)]], r.s.v);             // sum bit
+        wire([[R2, yb(i)], [L3, yx(i) - 6]], r.tc.v);
+        wire([[R, yc(i)], [L3, yx(i) + 6]], r.ab.v);
+        if (i < 3) {                                                 // carry to the next row
+          const xr = R3 + 12, yg = Y(i) + 92;
+          wire([[R3, yx(i)], [xr, yx(i)], [xr, yg], [BUS, yg], [BUS, yb(i + 1) + 6], [L2, yb(i + 1) + 6]], r.cout.v);
+          wire([[BUS, ya(i + 1) + 6], [L2, ya(i + 1) + 6]], r.cout.v);
+          dot(BUS, ya(i + 1) + 6, r.cout.v);
+        } else {
+          wire([[R3, yx(i)], [X_OUT - 9, yx(i)]], r.cout.v);
+        }
+        gate(C2, ya(i), 'XOR', r.s); gate(C2, yb(i), 'AND', r.tc); gate(C3, yx(i), 'XOR', r.cout);
+      }
+      gate(C1, ya(i), 'XOR', r.t); gate(C1, yc(i), 'AND', r.ab);
+      node(X_OUT, ya(i), r.s);
+      txt(X_OUT + 15, ya(i), 's' + SUB[i], { anchor: 'start' });
+      txt(X_OUT + 34, ya(i), `depth ${r.s.d}`, { anchor: 'start', muted: true, size: 11 });
+    });
+    node(X_OUT, yx(3), carry);
+    txt(X_OUT + 15, yx(3), 's₄', { anchor: 'start' });
+    txt(X_OUT + 34, yx(3), `depth ${carry.d}`, { anchor: 'start', muted: true, size: 11 });
+  }
+
+  function readout() {
+    const a = A.value, b = B.value, { counts, rows, carry } = evaluate(a, b);
+    const sum = rows.reduce((acc, r, i) => acc + (r.s.v << i), 0) + (carry.v << 4);
+    DS.stats(root + ' .readout', [
+      { label: 'a + b', value: `${a} + ${b} = ${sum}`, note: `s₄…s₀ = ${bin(sum, 5)}`, tone: sum === a + b ? 'good' : 'bad' },
+      { label: 'Gates', value: `${counts.XOR} XOR, ${counts.AND} AND` },
+      { label: 'Multiplicative depth', value: `${carry.d}`, note: 'longest chain of AND gates, at s₄' },
+    ]);
+  }
+  draw(); readout();
+})();
+</script>

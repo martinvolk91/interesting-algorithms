@@ -1,0 +1,119 @@
+<figure class="widget" id="w-p6-chain-vs-tree">
+  <p class="widget-title">The product of \(n\) values: a chain or a balanced tree</p>
+  <p class="widget-hint">Drag \(n\). The chain gets one level deeper for every new value; the tree only
+    when \(n\) passes a power of 2.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Chain</p><div class="c-chain"></div></div>
+    <div><p class="panel-title">Balanced tree</p><div class="c-tree"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both circuits use \(n - 1\) multiplications; only the depth differs, \(n - 1\) against
+    \(\lceil \log_2 n \rceil\). At \(n = 8\) that is depth 7 against depth 3, as in part 4 of the
+    script. Noise grows with every multiplication on a path, so the tree needs far smaller
+    parameters.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p6-chain-vs-tree';
+  const SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const sub = k => String(k).split('').map(d => SUB[+d]).join('');
+  const ui = DS.controls(root + ' .controls', () => { render(); readout(); });
+  const N = ui.slider({ label: 'Values to multiply, n', min: 2, max: 16, step: 1, value: 8 });
+
+  // Circuits as node lists: {x: column, row, kids: [i, j]}; leaves have row 0 and no kids.
+  function chain(n) {
+    const nodes = [{ x: 0, row: 0, leaf: 1 }, { x: 1, row: 0, leaf: 2 }];
+    let acc = 0;
+    for (let k = 1; k < n; k++) {
+      if (k >= 2) nodes.push({ x: k, row: k - 1, leaf: k + 1 });
+      nodes.push({ x: k - 0.5, row: k, kids: [acc, nodes.length - 1] });
+      acc = nodes.length - 1;
+    }
+    return nodes;
+  }
+  function tree(n) {                       // pairs neighbours, an odd one out moves up a level
+    const nodes = [];
+    let level = [];
+    for (let i = 0; i < n; i++) { nodes.push({ x: i, row: 0, leaf: i + 1 }); level.push(i); }
+    while (level.length > 1) {
+      const next = [];
+      for (let i = 0; i + 1 < level.length; i += 2) {
+        const a = nodes[level[i]], b = nodes[level[i + 1]];
+        nodes.push({ x: (a.x + b.x) / 2, row: Math.max(a.row, b.row) + 1, kids: [level[i], level[i + 1]] });
+        next.push(nodes.length - 1);
+      }
+      if (level.length % 2) next.push(level[level.length - 1]);
+      level = next;
+    }
+    return nodes;
+  }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    parent.appendChild(e); return e;
+  };
+  const PW = 340, PL = 50, PR = 14, TOP = 16, RH = 26;
+  const svgs = ['.c-chain', '.c-tree'].map(sel => {
+    const s = el('svg', { role: 'img' }, document.querySelector(root + ' ' + sel));
+    s.style.cssText = 'display:block;width:100%;font-family:var(--font);color:var(--ink)';
+    return s;
+  });
+
+  function drawCircuit(svg, nodes, n, label) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const depth = Math.max(...nodes.map(v => v.row));
+    const H = TOP + depth * RH + 16;
+    svg.setAttribute('viewBox', `0 0 ${PW} ${H}`);
+    svg.setAttribute('aria-label', `${label}: ${n - 1} multiplications, depth ${depth}`);
+    const dx = (PW - PL - PR) / Math.max(n - 1, 1);
+    const X = v => PL + v.x * dx, Yr = r => TOP + r * RH;
+    const txt = (x, y, s, o = {}) => el('text', Object.assign({ x, y, 'text-anchor': o.anchor || 'middle',
+      'dominant-baseline': 'central', fill: o.muted ? 'var(--ink-muted)' : 'currentColor',
+      'font-size': o.size || 12, 'font-weight': o.bold ? 650 : 400 }), svg, s);
+    // depth guide lines and labels
+    txt(2, Yr(0), 'depth', { anchor: 'start', muted: true, size: 10.5 });
+    for (let r = 1; r <= depth; r++) {
+      el('line', { x1: PL - 14, x2: PW - 4, y1: Yr(r), y2: Yr(r), stroke: 'var(--grid)' }, svg);
+      txt(14, Yr(r), r, { muted: true, size: 11, bold: r === depth });
+    }
+    const out = nodes.length - 1;
+    nodes.forEach(v => {
+      if (!v.kids) return;
+      v.kids.forEach(k => {
+        const c = nodes[k];
+        el('line', { x1: X(c), y1: Yr(c.row) + (c.kids ? 0 : 7), x2: X(v), y2: Yr(v.row),
+          stroke: 'var(--line-strong)', 'stroke-width': 1.3 }, svg);
+      });
+    });
+    const small = n > 10;
+    nodes.forEach((v, i) => {
+      if (v.kids) {
+        el('circle', { cx: X(v), cy: Yr(v.row), r: small ? 7 : 8.5, fill: 'var(--bg)', stroke: 'var(--series-2)',
+          'stroke-width': i === out ? 2.6 : 1.5 }, svg);
+        txt(X(v), Yr(v.row) + 0.5, '×', { size: small ? 11 : 12.5, bold: true });
+      } else {
+        txt(X(v), Yr(v.row) - 1, 'x' + sub(v.leaf), { size: small ? 10.5 : 12 });
+      }
+    });
+  }
+
+  function render() {
+    const n = N.value;
+    drawCircuit(svgs[0], chain(n), n, 'Chain');
+    drawCircuit(svgs[1], tree(n), n, 'Balanced tree');
+  }
+  function readout() {
+    const n = N.value, dc = n - 1, dt = Math.ceil(Math.log2(n));
+    DS.stats(root + ' .readout', [
+      { label: 'Multiplications', value: `${n - 1}`, note: 'the same in both' },
+      { label: 'Chain depth', value: `${dc}`, note: 'n − 1', tone: dc > dt ? 'bad' : null },
+      { label: 'Tree depth', value: `${dt}`, note: '⌈log₂ n⌉', tone: dc > dt ? 'good' : null },
+    ]);
+  }
+  render(); readout();
+})();
+</script>
