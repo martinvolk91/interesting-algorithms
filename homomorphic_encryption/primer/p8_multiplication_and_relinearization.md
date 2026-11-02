@@ -4,8 +4,8 @@
 
 ---
 
-P7 ended with an encryption scheme that can add: pads add, messages add, noises add. This
-chapter makes it multiply. Multiplication works, but it has two side effects that shape all of
+P7 ended with an encryption scheme based on learning with errors (LWE) that can add: pads add,
+messages add, noises add. This chapter makes it multiply. Multiplication works, but it has two side effects that shape all of
 practical homomorphic encryption: the ciphertext gets **bigger**, and the noise gets **much
 bigger**. The fixes for those two side effects are the words that make chapter 01 hard to
 read: relinearization, key switching, modulus switching, levels and multiplicative depth.
@@ -17,7 +17,7 @@ read: relinearization, key switching, modulus switching, levels and multiplicati
 - Say what "relinearization" literally means, build a relinearization key, and see why the
   naive version destroys the message while **digit (gadget) decomposition** saves it.
 - Recognise **key switching** as the general tool behind relinearization and slot rotations,
-  and know why it dominates the cost of FHE.
+  and know why it dominates the cost of fully homomorphic encryption (FHE).
 - Use **modulus switching** to shrink the noise, and explain why that helps even though the
   noise-to-modulus ratio stays the same.
 - Count **levels** and **multiplicative depth**, and see why FHE programmers prefer trees to
@@ -88,8 +88,9 @@ We need a number for "how noisy is this ciphertext". We use this one throughout:
 - Decryption is guaranteed correct while noise < Δ/2.
 - **noise budget** = $\log_2\big((\Delta/2)/\text{noise}\big)$ bits: how many more bits the noise
   can grow before decryption breaks. It is essentially the "invariant noise budget" that
-  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy BFV
-  (`q = 2^60`, `Δ = 2^56`) has noise about 5 and a budget of about 52.7 bits
+  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy BFV, the
+  Brakerski/Fan–Vercauteren scheme (`q = 2^60`, `Δ = 2^56`), has noise about 5 and a budget of
+  about 52.7 bits
   ([part 2 of the script](../code/primer/p8_relinearization.py)).
 
 ## 2. Multiplying two ciphertexts: the tensor product
@@ -181,8 +182,8 @@ coefficient, so the wrap count `j` becomes a polynomial with coefficients of ord
 from 5 to 540 (script, part 2), a factor of 108. That costs about 7 bits of budget, where an
 addition costs at most 1 bit.
 
-BGV, the other exact scheme, puts the message in the *low* bits: $c_0 + c_1 s = m + t e$.
-With `t = 10`, `m = 7` and `e = 3` the phase is 7 + 10·3 = 37. Decryption takes the phase in
+BGV, the other exact scheme (Brakerski–Gentry–Vaikuntanathan), puts the message in the *low*
+bits: $c_0 + c_1 s = m + t e$. With `t = 10`, `m = 7` and `e = 3` the phase is 7 + 10·3 = 37. Decryption takes the phase in
 the centred range and reduces it mod `t`: 37 mod 10 = 7 (with `e = −3` the phase is −23, and
 −23 mod 10 = 7 too). This works while $\lvert m + t e \rvert < q/2$. BGV has no scale problem,
 but the product of two phases is $m_1 m_2 + t\,(m_1 e_2 + m_2 e_1 + t\, e_1 e_2)$: the noise
@@ -261,8 +262,8 @@ the result is the same, at scale: the noise reaches $2^{59}$ against a limit of 
 
 The relinearization key goes to the server, so it must be safe to publish.
 
-- **It looks random.** `(−a s + ε, a)` is an RLWE sample, and under the RLWE assumption (P7) it
-  is indistinguishable from random. Adding $s^2$ to its first part is like adding a message to
+- **It looks random.** `(−a s + ε, a)` is a ring learning with errors (RLWE) sample, and under
+  the RLWE assumption (P7) it is indistinguishable from random. Adding $s^2$ to its first part is like adding a message to
   a one-time pad: the pad hides it.
 - **It does not let anyone decrypt.** Decryption needs $c_0 + c_1 s$, so it needs `s`. The key
   only converts "something times $s^2$" into "something linear in `s`", and the result is
@@ -323,6 +324,8 @@ decrypt: −1129 + 3·(−4289) = −13996 ≡ 6004  →  round(6.004) = 6
 The relinearization added 14 to the noise (from −10 to 4), where the naive key added 3488.
 The bound is 4 · 9 · 3 = 108.
 
+<!-- figure: p8-multiply-pipeline -->
+
 ### 6.3 The trade-off: key size against noise
 
 A smaller base `w` means more digits. That gives a bigger key and more ring multiplications
@@ -344,6 +347,8 @@ The last row, `w = q`, is the naive key: one digit, which is $d_2$ itself. The a
 grows roughly in proportion to `w` (here between about 15·w and 40·w), while the key size
 grows with the number of digits $\ell = \lceil \log_w q \rceil$.
 
+<!-- figure: p8-gadget-tradeoff -->
+
 **Names.** Brakerski–Vaikuntanathan decompose into bits (base 2), and BGV call the two halves
 `BitDecomp` (split into bits) and `Powersof2` (multiply the key by 1, 2, 4, …). Today the
 vector $g = (1, w, w^2, \dots)$ is called the **gadget**, and splitting into digits is
@@ -363,8 +368,8 @@ noise still −10. The price: the key lives modulo `Pq`, and a bigger modulus co
 ([P7 §4](p7_lattices_and_lwe.md#4-lattices-in-pictures)), so $\log_2(Pq)$ must fit the table
 of [02 §6](../02_math_foundations.md#6-parameters-security-and-sizes). Modern libraries combine
 both ideas in **hybrid key switching**: split $d_2$ into a few large digits, aligned with the
-RNS primes of §9.1, and pick `P` about the size of one digit. Then (digit × ε) / `P` stays
-small with a much smaller `P` ([03 §5](../03_how_it_works.md#5-relinearization-and-key-switching)).
+primes of the residue number system (RNS) of §9.1, and pick `P` about the size of one digit.
+Then (digit × ε) / `P` stays small with a much smaller `P` ([03 §5](../03_how_it_works.md#5-relinearization-and-key-switching)).
 
 ## 7. Key switching: the general tool
 
@@ -389,12 +394,12 @@ BGV (2012) introduced this general view and the name. Its uses:
   with a **Galois key** (encryptions of $w^i s(X^k)$ under `s`) brings it back. Each rotation amount needs its own key, or is composed from
   power-of-two rotations ([05 §2](../05_core_techniques.md#2-rotations-galois-automorphisms)).
 - **Moving to a different key** in general: to a smaller key or dimension, for example at the
-  end of TFHE bootstrapping ([03 §8](../03_how_it_works.md#8-bootstrapping-gentrys-big-idea)),
-  or between schemes ([03 §5](../03_how_it_works.md#5-relinearization-and-key-switching)).
+  end of bootstrapping in Torus fully homomorphic encryption, TFHE
+  ([03 §8](../03_how_it_works.md#8-bootstrapping-gentrys-big-idea)), or between schemes ([03 §5](../03_how_it_works.md#5-relinearization-and-key-switching)).
 
-**Cost.** One key switch needs about `2ℓ` ring multiplications (each an NTT-based product,
-P7) plus the decomposition. A key-switching key is `ℓ` ciphertexts. With chapter 02's numbers
-(`N = 2^14`, `log q = 438`), one ciphertext is about 1.8 MB
+**Cost.** One key switch needs about `2ℓ` ring multiplications (each computed with the
+number-theoretic transform, NTT, as in P7) plus the decomposition. A key-switching key is `ℓ`
+ciphertexts. With chapter 02's numbers (`N = 2^14`, `log q = 438`), one ciphertext is about 1.8 MB
 ([02 §6](../02_math_foundations.md#6-parameters-security-and-sizes)). A key with `ℓ = 3`
 digits is then about 5.4 MB, and a set of 30 rotation keys about 160 MB. Key switching is the
 most expensive routine in RLWE-based FHE and the main target of hardware acceleration.
@@ -486,6 +491,8 @@ Three multiplications without switching, eight with it. In general, with fresh n
 exponentially more.
 The noise stays near its fresh size; the modulus is what gets used up.
 
+<!-- figure: p8-modulus-ladder -->
+
 ### 8.4 BGV and BFV
 
 In **BGV** the message sits in the low bits, so plain rounding would disturb it; BGV rounds to
@@ -501,8 +508,8 @@ mainly to shrink a result ciphertext before sending it back.
 
 ### 9.1 Levels and leveled HE
 
-In BGV and CKKS, the parameters fix a **modulus chain** $q_L > q_{L-1} > \dots > q_0$. A fresh
-ciphertext starts at the top, **level** `L`. Each multiplication is followed by one switch down,
+In BGV and CKKS (the Cheon–Kim–Kim–Song scheme, §9.3), the parameters fix a **modulus chain**
+$q_L > q_{L-1} > \dots > q_0$. A fresh ciphertext starts at the top, **level** `L`. Each multiplication is followed by one switch down,
 which uses up one level. In real libraries the modulus is a product of primes of 30–60 bits,
 $q_\ell = p_0 p_1 \cdots p_\ell$, and each number mod $q_\ell$ is stored as its residues mod
 each prime. This **residue number system** (RNS) is the Chinese Remainder Theorem put to work:
@@ -559,6 +566,8 @@ How to read it:
   tree finishes with 20.8 bits to spare. FHE compilers rebalance expression trees for exactly
   this reason. Computing $x^{16}$ by repeated squaring costs depth 4, not 15.
 
+<!-- figure: p8-depth-budget -->
+
 ### 9.3 CKKS rescaling, in one paragraph
 
 CKKS (Cheon–Kim–Kim–Song, 2017) encrypts real or complex numbers scaled by a large Δ such as
@@ -567,8 +576,8 @@ values, not $N$: the slots are the values of the message polynomial at the compl
 $X^N + 1$, and since the polynomial has real coefficients those values come in conjugate
 pairs, so only half of them are free. Decryption and decoding return $z + e/\Delta$ for the
 encoded values $z$: the noise is never rounded away, it becomes part of the result. That is
-why sharing a CKKS decryption can leak `e`, and with it the key (IND-CPA-D,
-[P5 §8](p5_security_definitions.md#8-what-ind-cpa-does-not-cover) and the
+why sharing a CKKS decryption can leak `e`, and with it the key (IND-CPA-D, where the
+attacker also sees decryptions: [P5 §8](p5_security_definitions.md#8-what-ind-cpa-does-not-cover) and the
 [IND-CPA-D deep dive](../deep_dives/ckks_ind_cpa_d.md)).
 
 After a multiplication the scale is Δ², exactly the problem of §3.1. Instead of BFV's `t/q`
@@ -748,7 +757,8 @@ version of this chapter, read [03 §4](../03_how_it_works.md#4-homomorphic-multi
   and notes why BV's relinearization used different keys per level.
   <https://eprint.iacr.org/2011/277>
 - Z. Brakerski, *Fully Homomorphic Encryption without Modulus Switching from Classical GapSVP*,
-  CRYPTO 2012. The scale-invariant scheme: the same modulus throughout.
+  CRYPTO 2012. The scale-invariant scheme: the same modulus throughout. GapSVP is the gap
+  shortest vector problem.
   <https://eprint.iacr.org/2012/078>
 - J. Fan, F. Vercauteren, *Somewhat Practical Fully Homomorphic Encryption*, 2012. Brakerski's
   scheme over rings (BFV), with two optimised relinearization variants.
