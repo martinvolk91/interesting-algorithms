@@ -1,0 +1,73 @@
+<figure class="diagram" id="d-n06-ind-cpa-d">
+  <style>
+    #d-n06-ind-cpa-d .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 14px 18px; }
+    #d-n06-ind-cpa-d .m { fill: color-mix(in srgb, var(--series-1) 24%, var(--bg)); stroke: var(--series-1); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .e { fill: color-mix(in srgb, var(--series-2) 30%, transparent); stroke: var(--series-2); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .E { fill: color-mix(in srgb, var(--series-2) 55%, transparent); stroke: var(--series-2); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .box { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+    #d-n06-ind-cpa-d .arr { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+    #d-n06-ind-cpa-d .head { fill: var(--ink-2); }
+    #d-n06-ind-cpa-d .ok { fill: var(--good); } #d-n06-ind-cpa-d .no { fill: var(--bad); }
+    #d-n06-ind-cpa-d svg text.t { font-size: 14px; font-weight: 650; }
+    #d-n06-ind-cpa-d svg text.s { font-size: 12px; fill: var(--ink-2); }
+    #d-n06-ind-cpa-d svg text.w { font-size: 12.5px; }
+    #d-n06-ind-cpa-d svg text.mark { fill: var(--bg); font-size: 12px; font-weight: 700; }
+  </style>
+  <div class="panels">
+    <svg viewBox="0 0 270 240" role="img" aria-label="Exact scheme: the decrypted coefficient holds Delta times m in the high bits and noise e in the low bits; decryption rounds e away and releases only m, so an attacker learns nothing new.">
+      <text class="t" x="6" y="18">Exact schemes</text>
+      <text class="s" x="6" y="36">decryption rounds the noise away</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="74" height="26" rx="4"/><text x="43" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="216" y="66" width="48" height="26" rx="4"/><text x="240" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">round, then share</text>
+      <rect class="m" x="6" y="126" width="74" height="26" rx="4"/><text x="43" y="144" text-anchor="middle">m</text>
+      <text class="s" x="90" y="144">e is gone</text>
+      <text class="w" x="6" y="180">Attacker learns m, which it</text>
+      <text class="w" x="6" y="197">already expected.</text>
+      <circle class="ok" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✓</text>
+      <text class="w" x="28" y="226">safe, unless decryption fails</text>
+    </svg>
+    <svg viewBox="0 0 270 240" role="img" aria-label="CKKS: the decrypted coefficient is Delta m plus e with the noise inside the low bits; it is shared as is, so c1 times s equals m prime minus c0, a linear equation that gives the secret key.">
+      <text class="t" x="6" y="18">CKKS</text>
+      <text class="s" x="6" y="36">the noise is part of the result</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="234" height="26" rx="4"/><text x="110" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="200" y="66" width="64" height="26" rx="4"/><text x="232" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">share as is</text>
+      <rect class="box" x="6" y="126" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="126" width="234" height="26" rx="4"/><text x="110" y="144" text-anchor="middle">m′ = Δm + e</text>
+      <rect class="e" x="200" y="126" width="64" height="26" rx="4"/><text x="232" y="144" text-anchor="middle">e</text>
+      <text class="w" x="6" y="180">c₁·s = m′ − c₀ (mod q)</text>
+      <text class="w" x="6" y="197">c₀, c₁, m′ known: linear in s.</text>
+      <circle class="no" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✗</text>
+      <text class="w" x="28" y="226">one result gives the secret key</text>
+    </svg>
+    <svg viewBox="0 0 270 240" role="img" aria-label="CKKS with noise flooding: before sharing, fresh noise E much larger than e is added; the attacker gets c1 times s plus an unknown E, which is a learning-with-errors problem again.">
+      <text class="t" x="6" y="18">CKKS + noise flooding</text>
+      <text class="s" x="6" y="36">fresh noise E ≫ e added before release</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="234" height="26" rx="4"/><text x="110" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="200" y="66" width="64" height="26" rx="4"/><text x="232" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">add E, then share</text>
+      <rect class="box" x="6" y="126" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="126" width="234" height="26" rx="4"/><text x="66" y="144" text-anchor="middle">m″</text>
+      <rect class="E" x="126" y="126" width="138" height="26" rx="4"/><text x="195" y="144" text-anchor="middle">E hides e</text>
+      <text class="w" x="6" y="180">c₁·s + E = m″ − c₀ (mod q)</text>
+      <text class="w" x="6" y="197">E unknown: learning with errors.</text>
+      <circle class="ok" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✓</text>
+      <text class="w" x="28" y="226">safe; costs 30–60 extra bits</text>
+    </svg>
+  </div>
+  <figcaption>IND-CPA lets the attacker see ciphertexts only; IND-CPA-D also shows it the decrypted
+    results of honest computations. An exact scheme releases only the message. CKKS releases
+    \(m' = \Delta m + e\), and with the public \((c_0, c_1)\) that is one linear equation in the secret key.
+    Noise flooding adds fresh noise \(E\) much larger than \(e\) before release, which turns the equation
+    back into a learning-with-errors problem.</figcaption>
+</figure>

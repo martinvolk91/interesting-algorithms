@@ -1,0 +1,100 @@
+<figure class="widget" id="w-n05-bsgs">
+  <p class="widget-title">Baby-step giant-step: about \(2\sqrt{d}\) rotations instead of \(d\)</p>
+  <p class="widget-hint">Raise the number of diagonals d and compare the two counts. Click a cell to see how its rotation splits into a baby step and a giant step.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Diagonal \(i = n_1 g + b\): column \(b\) is its baby step, row \(g\) its giant step</p><div class="grid-host"></div></div>
+    <div><p class="panel-title">Ciphertext rotations needed</p><div class="c-cost"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The diagonal method needs the vector rotated by every \(i\) from 1 to \(d - 1\). Write
+    \(i = n_1 g + b\) with \(n_1 = \lceil\sqrt{d}\,\rceil\). The server rotates the vector once by each baby step
+    \(b < n_1\), multiplies by diagonals that were rotated back by \(n_1 g\) in advance (plaintexts, so
+    those rotations are free), sums each row, and rotates each row sum once by its giant step \(n_1 g\).
+    That is \((n_1 - 1) + (n_2 - 1)\) rotations, where \(n_2 = \lceil d/n_1 \rceil\) is the number of rows.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n05-bsgs';
+  const NS = 'http://www.w3.org/2000/svg';
+  const split = d => { const n1 = Math.ceil(Math.sqrt(d)), n2 = Math.ceil(d / n1); return { n1, n2, rot: n1 - 1 + n2 - 1 }; };
+  let pick = null;
+  const ui = DS.controls(root + ' .controls', () => { pick = null; drawGrid(); cost.update(); readout(); });
+  const dd = ui.slider({ label: 'Diagonals d', values: [4, 8, 16, 32, 64, 128, 256], value: 64, format: v => String(v) });
+
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const host = document.querySelector(root + ' .grid-host');
+  let lastW = -1;
+  function drawGrid() {
+    const W = Math.min(host.clientWidth || 360, 420);
+    lastW = host.clientWidth;
+    host.textContent = '';
+    const d = dd.value, { n1, n2 } = split(d), sel = pick === null ? d - 1 : pick;
+    const head = 38, cell = Math.min(44, (W - head) / n1), H = head + n2 * cell + 2;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': `A grid of ${n2} rows and ${n1} columns holding the ${d} diagonals.` }, host);
+    svg.style.display = 'block'; svg.style.fontFamily = 'var(--font)'; svg.style.maxWidth = W + 'px';
+    const fs = Math.max(9, Math.min(13, cell * 0.36));
+    const sg = Math.floor(sel / n1), sb = sel % n1;
+    const cellStyle = (fill, stroke) => `fill:${fill};stroke:${stroke};stroke-width:1`;
+    for (let b = 0; b < n1; b++) {                             // column headers: baby steps
+      const r = sv('rect', { x: head + b * cell + 1, y: 1, width: cell - 2, height: head - 6, rx: 4 }, svg);
+      r.setAttribute('style', b === 0 ? cellStyle('none', 'var(--line-strong)')
+        : cellStyle(`color-mix(in srgb, var(--series-1) ${b === sb ? 45 : 18}%, var(--bg))`, 'var(--series-1)'));
+      if (cell >= 15) sv('text', { x: head + (b + 0.5) * cell, y: head / 2 + 2, 'text-anchor': 'middle' }, svg, String(b))
+        .setAttribute('style', `fill:var(--ink);font-size:${fs}px`);
+    }
+    for (let g = 0; g < n2; g++) {                             // row headers: giant steps
+      const r = sv('rect', { x: 1, y: head + g * cell + 1, width: head - 6, height: cell - 2, rx: 4 }, svg);
+      r.setAttribute('style', g === 0 ? cellStyle('none', 'var(--line-strong)')
+        : cellStyle(`color-mix(in srgb, var(--series-2) ${g === sg ? 45 : 18}%, var(--bg))`, 'var(--series-2)'));
+      if (cell >= 11) sv('text', { x: (head - 6) / 2 + 1, y: head + (g + 0.5) * cell + fs * 0.35, 'text-anchor': 'middle' }, svg, String(n1 * g))
+        .setAttribute('style', `fill:var(--ink);font-size:${Math.min(fs, 12)}px`);
+      for (let b = 0; b < n1; b++) {
+        const i = n1 * g + b;
+        if (i >= d) continue;
+        const on = i === sel;
+        const c = sv('rect', { x: head + b * cell + 1, y: head + g * cell + 1, width: cell - 2, height: cell - 2, rx: 3 }, svg);
+        c.setAttribute('style', on ? cellStyle('var(--ink)', 'var(--ink)') : cellStyle('var(--soft)', 'var(--line-strong)'));
+        c.style.cursor = 'pointer';
+        c.addEventListener('click', () => { pick = i; drawGrid(); readout(); });
+        if (cell >= 22) {
+          const t = sv('text', { x: head + (b + 0.5) * cell, y: head + (g + 0.5) * cell + fs * 0.35, 'text-anchor': 'middle' }, svg, String(i));
+          t.setAttribute('style', `fill:${on ? 'var(--bg)' : 'var(--ink-2)'};font-size:${fs}px;pointer-events:none`);
+        }
+      }
+    }
+  }
+  const DS_ = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
+  const cost = DS.chart(root + ' .c-cost', {
+    x: { type: 'log', domain: [4, 4096], label: 'diagonals d (log scale)' },
+    y: { type: 'log', domain: [1, 10000], label: 'rotations (log scale)' },
+    height: 260,
+    draw(c) {
+      c.line(DS_.map(d => [d, d - 1]), { series: 'muted', label: 'one rotation per diagonal', format: v => String(Math.round(v)) });
+      c.line(DS_.map(d => [d, split(d).rot]), { series: 1, label: 'baby-step giant-step', format: v => String(Math.round(v)) });
+      const d = dd.value;
+      c.point(d, d - 1, { series: 'muted' });
+      c.point(d, split(d).rot, { series: 1 });
+      c.legend([{ label: 'one per diagonal: d − 1', series: 'muted' }, { label: 'baby-step giant-step', series: 1 }]);
+    },
+  });
+  function readout() {
+    const d = dd.value, { n1, n2, rot } = split(d), sel = pick === null ? d - 1 : pick;
+    const g = Math.floor(sel / n1), b = sel % n1;
+    DS.stats(root + ' .readout', [
+      { label: 'One per diagonal', value: String(d - 1), note: 'rotations' },
+      { label: 'Baby-step giant-step', value: String(rot), note: `${n1 - 1} baby + ${n2 - 1} giant`, tone: 'good' },
+      { label: `Diagonal ${sel}`, value: `${n1 * g} + ${b}`, note: `giant step ${n1 * g}, baby step ${b}` },
+    ]);
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (Math.abs((host.clientWidth || 360) - lastW) > 2) drawGrid(); }).observe(host);
+  drawGrid(); readout();
+})();
+</script>

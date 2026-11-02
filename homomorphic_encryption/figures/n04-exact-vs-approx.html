@@ -1,0 +1,60 @@
+<figure class="widget" id="w-n04-exact-vs-approx">
+  <p class="widget-title">Same noise, two readings: exact and approximate</p>
+  <p class="widget-hint">Step the noise up. BFV keeps answering 11 until the noise reaches Δ/2 = 2048 (try 2047, then 2048). CKKS drifts away from 3.14159 at every step.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">BFV reads \(\lfloor x/\Delta \rceil \bmod 16\)</p><div class="c-bfv"></div></div>
+    <div><p class="panel-title">CKKS reads \(x/\Delta\)</p><div class="c-ckks"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both toy coefficients use \(q = 2^{16}\) and \(\Delta = 4096\), and get the same noise \(e\).
+    BFV (\(t = 16\)) stores the integer 11 as \(x = 11\Delta + e\) and rounds \(e\) away, so the answer
+    is exact while \(|e| < \Delta/2\) and wrong by a whole step after that. CKKS stores 3.14159 as
+    \(x = \lfloor 3.14159\,\Delta \rceil + e\) and has no rounding step: \(e/\Delta\) becomes part of the
+    answer, so every extra bit of noise costs a bit of precision.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n04-exact-vs-approx';
+  const D = 4096, T = 16, M_BFV = 11, M_CKKS = 3.14159;
+  const X_CKKS = Math.round(M_CKKS * D);                       // 12868
+  const bfv = e => ((Math.round((M_BFV * D + e) / D) % T) + T) % T;
+  const ckks = e => (X_CKKS + e) / D;
+  const ui = DS.controls(root + ' .controls', () => { left.update(); right.update(); readout(); });
+  const noise = ui.slider({ label: 'Noise e', values: [0, 1, 4, 16, 64, 256, 1024, 2047, 2048, 3000, 4000], value: 64, format: v => String(v) });
+
+  const left = DS.chart(root + ' .c-bfv', {
+    x: { domain: [0, 4096], label: 'noise e', tickValues: [0, 1024, 2048, 3072, 4096] },
+    y: { domain: [9.5, 13.5], label: 'decrypts to', tickValues: [10, 11, 12, 13], format: v => String(v) },
+    height: 240,
+    draw(c) {
+      c.polygon([[0, 9.5], [2048, 9.5], [2048, 13.5], [0, 13.5]], { series: 'good', stroke: false });
+      c.vline(2048, { dash: true, label: 'Δ/2' });
+      c.hline(11, { dash: true, series: 'muted', label: 'true value 11' });
+      c.line([[0, 11], [2048, 11], [2048, 12], [4096, 12]], { series: 1 });
+      const e = noise.value, v = bfv(e);
+      c.point(e, v, { series: v === M_BFV ? 'good' : 'bad' });
+    },
+  });
+  const right = DS.chart(root + ' .c-ckks', {
+    x: { domain: [0, 4096], label: 'noise e', tickValues: [0, 1024, 2048, 3072, 4096] },
+    y: { domain: [3, 4.25], label: 'decrypts to', tickValues: [3, 3.25, 3.5, 3.75, 4], format: v => v.toFixed(2) },
+    height: 240,
+    draw(c) {
+      c.hline(M_CKKS, { dash: true, series: 'muted', label: 'true value 3.14159' });
+      c.line([[0, ckks(0)], [4096, ckks(4096)]], { series: 1 });
+      c.point(noise.value, ckks(noise.value), { series: 2 });
+    },
+  });
+  function readout() {
+    const e = noise.value, b = bfv(e), v = ckks(e), err = Math.abs(v - M_CKKS);
+    const bits = Math.max(0, Math.floor(-Math.log2(err)));
+    DS.stats(root + ' .readout', [
+      { label: 'BFV decrypts to', value: String(b), note: b === M_BFV ? 'exact' : 'wrong by one step', tone: b === M_BFV ? 'good' : 'bad' },
+      { label: 'CKKS decrypts to', value: v.toFixed(5), note: 'error ' + err.toPrecision(3) },
+      { label: 'CKKS correct bits', value: String(bits), note: 'after the binary point' },
+    ]);
+  }
+  readout();
+})();
+</script>

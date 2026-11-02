@@ -1,0 +1,47 @@
+<figure class="widget" id="w-n04-gsw-order">
+  <p class="widget-title">GSW: the order of the factors decides how fast noise grows</p>
+  <p class="widget-hint">Lengthen the chain. In the right order each multiplication adds a fixed amount of noise; in the wrong order the noise is multiplied by poly(n) each time and passes the limit after 6 steps.</p>
+  <div class="controls"></div>
+  <div class="c-chain"></div>
+  <div class="readout"></div>
+  <figcaption>A chain of \(k\) multiplications of one-bit messages, using the product noise
+    \(\mathrm{poly}(n)\cdot e_2 + m_2\cdot e_1\). Right order: the running product is the first factor,
+    so its noise is multiplied only by a bit, and each step adds \(\mathrm{poly}(n)\cdot e\): after \(k\) steps
+    the noise is \(e\,(1 + k\cdot\mathrm{poly}(n))\). Wrong order: the running product's noise is multiplied by
+    \(\mathrm{poly}(n)\) every step. Illustrative numbers: fresh noise \(e = 2^3\), \(\mathrm{poly}(n) = 2^{10}\),
+    \(q = 2^{64}\), and a one-bit message needs the noise below about \(q/4\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n04-gsw-order';
+  const LE = 3, LB = 10, B = 2 ** LB, LIMIT = 62;            // log2 of fresh noise, of poly(n); log2(q/4)
+  const right = k => LE + Math.log2(1 + k * B);                // e·(1 + k·B)
+  const wrong = k => LE + Math.log2((B ** (k + 1) - 1) / (B - 1));   // e·(B^(k+1) − 1)/(B − 1)
+  const wrongSafe = k => (k < 90 ? wrong(k) : LE + (k + 1) * LB - Math.log2(B - 1));
+  const KS = DS.math.range(1024).map(i => i + 1);
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const len = ui.slider({ label: 'Multiplications in the chain', values: [1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64, 128, 256, 512, 1024], value: 6, format: v => String(v) });
+  const chart = DS.chart(root + ' .c-chain', {
+    x: { type: 'log', domain: [1, 1024], label: 'multiplications k (log scale)' },
+    y: { domain: [0, 80], label: 'noise, log₂', tickValues: [0, 16, 32, 48, 64, 80] },
+    height: 280,
+    draw(c) {
+      c.hline(LIMIT, { dash: true, label: 'q/4 = 2⁶²: decryption fails above' });
+      c.line(KS.map(k => [k, right(k)]), { series: 1, label: 'right order', format: v => v.toFixed(1) + ' bits' });
+      c.line(KS.slice(0, 12).map(k => [k, wrongSafe(k)]), { series: 2, label: 'wrong order', format: v => v.toFixed(1) + ' bits' });
+      const k = len.value, r = right(k), w = wrongSafe(k);
+      c.point(k, r, { series: r < LIMIT ? 'good' : 'bad' });
+      if (w <= 80) c.point(k, w, { series: w < LIMIT ? 'good' : 'bad' });
+      c.legend([{ label: 'right order: running product × fresh', series: 1 }, { label: 'wrong order: fresh × running product', series: 2 }]);
+    },
+  });
+  function readout() {
+    const k = len.value, r = right(k), w = wrongSafe(k);
+    DS.stats(root + ' .readout', [
+      { label: 'Right order: log₂ noise', value: r.toFixed(1) + ' bits', note: r < LIMIT ? 'decrypts' : 'fails', tone: r < LIMIT ? 'good' : 'bad' },
+      { label: 'Wrong order: log₂ noise', value: w.toFixed(1) + ' bits', note: w < LIMIT ? 'decrypts' : 'fails', tone: w < LIMIT ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>

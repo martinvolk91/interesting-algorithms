@@ -6,8 +6,10 @@
 
 ## 1. The baseline guarantee: IND-CPA
 
-All the lattice schemes are **IND-CPA secure** under (R)LWE: an attacker who sees ciphertexts,
-public keys and evaluation keys learns nothing about the plaintexts. For FHE (with
+All the lattice-based homomorphic encryption schemes are **IND-CPA secure**
+(indistinguishability under chosen-plaintext attack), assuming (ring) learning with errors,
+(R)LWE, is hard: an attacker who sees ciphertexts, public keys and evaluation keys learns
+nothing about the plaintexts. For fully homomorphic encryption (FHE, with
 bootstrapping) this additionally assumes **circular security** (ch. 02 §7). The game behind
 the definition is spelled out in [01 §2](01_introduction.md#what-ind-cpa-means).
 
@@ -15,8 +17,8 @@ What IND-CPA does **not** cover:
 
 | Not covered | Why it matters |
 |---|---|
-| **Chosen-ciphertext attacks (CCA)** | FHE is malleable *by design*, so CCA2 is impossible. Even CCA1 (decryption queries before the challenge) breaks the standard lattice schemes: each decryption query leaks a little about the key, and key-recovery attacks need only a modest (polynomial) number of queries (Chenal–Tang 2014). **The key owner must never act as a decryption oracle** for ciphertexts it didn't produce or check. |
-| **Leakage through decrypted results** | The IND-CPA-D problem (§3) |
+| **Chosen-ciphertext attacks (CCA)** | FHE is malleable *by design*, so security against adaptive chosen-ciphertext attacks (CCA2) is impossible. Even non-adaptive CCA1 (decryption queries only before the challenge) breaks the standard lattice schemes: each decryption query leaks a little about the key, and key-recovery attacks need only a modest (polynomial) number of queries (Chenal–Tang 2014). **The key owner must never act as a decryption oracle** for ciphertexts it didn't produce or check. |
+| **Leakage through decrypted results** | The IND-CPA-D problem (§3): security when the attacker also sees decryptions |
 | **Function privacy** | Ciphertext noise can reveal *which* circuit was evaluated (§4) |
 | **Integrity** | The server can compute something else. Nothing in HE detects it (ch. 05 §11) |
 | **Side channels** | Timing or power leakage in key generation, encryption or sampling (§5) |
@@ -30,12 +32,18 @@ Gaussian with σ ≈ 3.2) and the secret distribution (ternary, or sparse).
   per `N` for 128-, 192- and 256-bit security (ch. 02 §6). SEAL, OpenFHE and Lattigo enforce
   these by default.
 - Security is estimated with the **Lattice Estimator** (Albrecht et al.), which models the
-  best known attacks: primal (uSVP via BKZ), dual, and hybrid / meet-in-the-middle (relevant
+  best known attacks: primal (uSVP via block Korkine–Zolotarev reduction, BKZ), dual, and hybrid / meet-in-the-middle (relevant
   for sparse secrets).
 - **Sparse secrets** make bootstrapping cheaper but lower security for a given `(N, q)`. They
   need their own parameter analysis.
 - Libraries let you switch security checks off ("HEStd_NotSet"). Benchmarks sometimes do this,
   which makes the reported numbers meaningless.
+
+For 128-bit security with a ternary secret, the standard allows $\log_2 q$ up to 27 at
+`N = 1024`, and the bound roughly doubles with each doubling of `N`: 54, 109, 218, 438, and
+881 at `N = 32768` (ch. 02 §6).
+
+<!-- figure: n06-max-logq -->
 
 ## 3. IND-CPA-D: when decryption leaks the key
 
@@ -46,7 +54,7 @@ results are often shared**: the client sends a result back to the server, publis
 acts on it. The new notion **IND-CPA-D** gives the attacker access to decryptions of
 *honestly evaluated* ciphertexts.
 
-CKKS fails it badly. Decryption outputs `m' = c₀ + c₁·s mod q`, **including the noise**,
+CKKS (the Cheon–Kim–Kim–Song scheme) fails it badly. Decryption outputs `m' = c₀ + c₁·s mod q`, **including the noise**,
 because in CKKS the noise is part of the approximate result. Anyone who learns `m'` and saw
 the ciphertext `(c₀, c₁)` knows
 
@@ -54,6 +62,8 @@ $$c_1 \cdot s = m' - c_0 \pmod q$$
 
 This is a linear equation over the ring, and solving it gives the **secret key** from a
 single decryption: a passive key recovery against a scheme that is provably IND-CPA secure.
+
+<!-- figure: n06-ind-cpa-d -->
 
 > **Deep dive:** [deep_dives/ckks_ind_cpa_d.md](deep_dives/ckks_ind_cpa_d.md) reproduces the
 > attack on the toy CKKS, then shows noise flooding fixing it and an averaging attack
@@ -77,11 +87,12 @@ precision that flooding needs.
   running a different circuit than the one the parameters were estimated for. They proposed
   an **application-aware** security model. OpenFHE now offers a two-phase noise-flooding mode
   for provable IND-CPA-D security.
-- **Cheon–Choe–Passelègue–Stehlé–Suvanto (CCS 2024):** IND-CPA-D attacks on **exact** schemes
-  (BFV, BGV, TFHE). The trigger is **decryption failures**: if the failure probability is not
+- **Cheon–Choe–Passelègue–Stehlé–Suvanto (CCS 2024):** IND-CPA-D attacks on **exact** schemes:
+  BFV (Brakerski/Fan–Vercauteren), BGV (Brakerski–Gentry–Vaikuntanathan) and TFHE (torus fully
+  homomorphic encryption). The trigger is **decryption failures**: if the failure probability is not
   negligible (e.g. 2⁻³² rather than 2⁻¹²⁸), observed failures leak information about the key.
 - **Bergamaschi et al. (PKC 2025):** revisited the security of noise-flooding countermeasures.
-- **Santato–Zanotto (ePrint 2026/285):** **scheme switching** (PEGASUS-style CKKS ↔ FHEW) is
+- **Santato–Zanotto (ePrint 2026/285):** **scheme switching** (PEGASUS-style CKKS ↔ FHEW, the Ducas–Micciancio scheme) is
   not IND-CPA-D secure, with a proof-of-concept key recovery against OpenFHE's CKKS→FHEW path.
 - **ePrint 2026/2546:** new attacks on BFV, one of which fully recovers the secret key in
   OpenFHE in minutes to hours depending on parameters.
@@ -104,23 +115,25 @@ The noise in an output ciphertext depends on the computation. A curious *client*
 something about the server's **function**, for example a proprietary model's weights. To
 hide the function, the server **sanitizes** the result: it bootstraps and then floods with
 noise, or re-randomizes (Ducas–Stehlé 2016, "Sanitization of FHE ciphertexts"). This matters
-whenever the server's model or algorithm is itself secret, as in ML-as-a-service.
+whenever the server's model or algorithm is itself secret, as in machine learning (ML) as a service.
 
 ## 5. Implementation attacks
 
 - **Side channels on encryption:** RevEAL (2022) recovered messages from a **single power
   trace** of Microsoft SEAL's Gaussian sampler. Client-side sampling must be constant time.
-- **Floating-point pitfalls** in CKKS encoding/decoding (FFT precision) and non-constant-time
+- **Floating-point pitfalls** in CKKS encoding/decoding (precision of the fast Fourier transform, FFT) and non-constant-time
   modular reduction.
-- **Bad randomness** destroys LWE security immediately: reused `a` or `e`, or a weak PRNG for
+- **Bad randomness** destroys LWE security immediately: reused `a` or `e`, or a weak pseudorandom number generator (PRNG) for
   seeded ciphertexts.
 - **Reaction attacks:** if the client visibly *behaves* differently depending on a decrypted
   value (retries, errors), that is a decryption oracle.
 
 ## 6. Quantum security
 
-LWE/RLWE are believed quantum-hard. They are the same family as NIST's ML-KEM (FIPS 203).
-Partially homomorphic schemes based on factoring or discrete log (RSA, Paillier, ElGamal) are
+LWE/RLWE are believed quantum-hard. They are the same family as ML-KEM (Module-Lattice-Based
+Key-Encapsulation Mechanism), which the National Institute of Standards and Technology (NIST)
+standardized as Federal Information Processing Standard (FIPS) 203.
+Partially homomorphic schemes based on factoring or discrete log (Rivest–Shamir–Adleman (RSA), Paillier, ElGamal) are
 **broken by Shor's algorithm**. Lattice FHE is therefore the only HE family with a credible
 post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 02 §7).
 
@@ -132,10 +145,10 @@ post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 0
 | Server learns the result | ✅ yes (unless you share it) | |
 | Network eavesdropper | ✅ yes | |
 | Decrypted results leak the key | ❌ (IND-CPA-D) | noise flooding, worst-case params |
-| Server computes the wrong thing | ❌ | verifiable FHE, replication, TEE |
+| Server computes the wrong thing | ❌ | verifiable FHE, replication, trusted execution environment (TEE) |
 | Client learns the server's function | ❌ | sanitization, circuit privacy |
-| Key owner decrypts arbitrary ciphertexts | ❌ (CCA1 key recovery) | never be a decryption oracle; ZK proofs of well-formedness |
-| Access patterns / sizes / timing of queries | ❌ partly | fixed-size, oblivious protocols (e.g. PIR scans the whole DB) |
+| Key owner decrypts arbitrary ciphertexts | ❌ (CCA1 key recovery) | never be a decryption oracle; zero-knowledge (ZK) proofs of well-formedness |
+| Access patterns / sizes / timing of queries | ❌ partly | fixed-size, oblivious protocols (e.g. private information retrieval, PIR, scans the whole DB) |
 | Quantum adversary | ✅ (lattice schemes) | |
 
 ---

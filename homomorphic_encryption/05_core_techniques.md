@@ -5,16 +5,18 @@
 ---
 
 The schemes in [04](04_schemes.md) are the engines. This chapter covers the techniques that
-took FHE from "a billion times slower" to "deployed in iOS". Most performance wins come from
+took fully homomorphic encryption (FHE) from "a billion times slower" to "deployed in iOS". Most performance wins come from
 **data layout** and **algorithm choice**, not from faster primitives.
 
 ## 1. Batching / SIMD packing
 
-By the CRT (ch. 02 §4), one plaintext polynomial holds many independent values ("**slots**"):
+By the Chinese remainder theorem (CRT, ch. 02 §4), one plaintext polynomial holds many
+independent values ("**slots**"), processed together in single instruction, multiple data
+(SIMD) style:
 
-- BGV/BFV with prime $t \equiv 1 \pmod{2N}$: **N slots** of integers mod `t`
+- BGV/BFV (the Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes) with prime $t \equiv 1 \pmod{2N}$: **N slots** of integers mod `t`
   (Smart–Vercauteren 2010/2014).
-- CKKS: **N/2 complex slots**.
+- CKKS (the Cheon–Kim–Kim–Song scheme): **N/2 complex slots**.
 
 Homomorphic `+` and `×` then act **slot-wise**, like SIMD vector instructions. One
 ciphertext multiplication performs 16 384 or 32 768 multiplications at once, which amortizes
@@ -33,6 +35,7 @@ power-of-two rotations.
 
 **Example: sum of all slots** in $\log_2(\#\text{slots})$ rotate-and-add steps:
 
+<!-- figure: n05-rotate-sum replaces the code block below -->
 ```
 [a b c d e f g h]
 + rot 4 → [a+e b+f c+g d+h  e+a ...]
@@ -58,6 +61,8 @@ How you lay data out in slots determines how many rotations you need:
 - **Column vs row vs "replicated" layouts**, and layout *conversion* between layers, which is
   a major job of FHE compilers (§9).
 
+<!-- figure: n05-bsgs -->
+
 ## 4. Polynomial approximation of non-linear functions (CKKS / BFV)
 
 BGV/BFV/CKKS natively compute only **polynomials**. Everything else is approximated on a
@@ -75,13 +80,13 @@ non-scalar multiplications at depth $\lceil \log_2 d \rceil$. The cost is set by
 higher degree means better accuracy but more levels, and therefore more bootstrapping.
 
 The alternative is to **change the model**: train with FHE-friendly activations such as
-$x^2$ or low-degree polynomials, or quantize. The 2026 SoK on encrypted LLMs calls frameworks
+$x^2$ or low-degree polynomials, or quantize. The 2026 SoK on encrypted large language models (LLMs) calls frameworks
 that do *not* change the model "**model-preserving**". Only 5 of 21 surveyed frameworks are
 (ch. 07).
 
 ## 5. Programmable bootstrapping and LUTs (TFHE)
 
-In TFHE every bootstrap evaluates a lookup table on an encrypted small integer (ch. 03 §8):
+In TFHE (torus fully homomorphic encryption) every bootstrap evaluates a lookup table on an encrypted small integer (ch. 03 §8):
 
 - Any function on 1–8 bit inputs costs **one PBS**, regardless of how non-linear it is.
 - Bigger integers: **radix decomposition** (blocks plus carry propagation) or **CRT
@@ -91,7 +96,7 @@ In TFHE every bootstrap evaluates a lookup table on an encrypted small integer (
   the negacyclic ring.
 
 Zama's **Concrete** compiler turns Python/NumPy into TFHE circuits by choosing bit widths and
-placing PBS automatically. **Concrete ML** applies this to quantized ML models (trees, linear
+placing PBS automatically. **Concrete ML** applies this to quantized machine learning (ML) models (trees, linear
 models, small NNs).
 
 ## 6. Functional bootstrapping in CKKS
@@ -104,9 +109,10 @@ for noise flooding (2025). See ch. 07 for details.
 
 ## 7. Scheme switching
 
-Convert between CKKS/BFV (batched linear algebra) and FHEW/TFHE (cheap non-linear LUTs) as
-needed (ch. 04). It is powerful, but the switching itself is expensive, and its IND-CPA-D
-security has recently been shown to be subtle (ch. 06).
+Convert between CKKS/BFV (batched linear algebra) and FHEW (the Ducas–Micciancio scheme) or
+TFHE (cheap non-linear LUTs) as needed (ch. 04). It is powerful, but the switching itself is
+expensive, and its IND-CPA-D security (security when the attacker also sees decryptions) has
+recently been shown to be subtle (ch. 06).
 
 ## 8. Multi-party variants
 
@@ -114,8 +120,8 @@ Plain FHE has **one** key owner. For data from several parties:
 
 | Variant | Idea | Used by |
 |---|---|---|
-| **Threshold FHE** | The secret key is secret-shared among `n` parties. Decryption needs `t` of them (a small MPC protocol) | Zama Protocol (threshold decryption network), Lattigo multiparty, OpenFHE |
-| **Multiparty HE (MHE)** | Parties jointly generate one collective public key. Each keeps a share of the secret key (Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021) | federated analytics, medical consortia (Tune Insight) |
+| **Threshold FHE** | The secret key is secret-shared among `n` parties. Decryption needs `t` of them (a small protocol of secure multiparty computation, MPC) | Zama Protocol (threshold decryption network), Lattigo multiparty, OpenFHE |
+| **Multiparty homomorphic encryption (MHE)** | Parties jointly generate one collective public key. Each keeps a share of the secret key (Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021) | federated analytics, medical consortia (Tune Insight) |
 | **Multi-key FHE** | Each party has its own key. Ciphertexts under different keys combine on the fly (López-Alt–Tromer–Vaikuntanathan 2012) | research. The cost grows with the number of parties |
 
 Threshold decryption needs **noise flooding** of the partial decryptions, or the key shares
@@ -132,7 +138,7 @@ bootstraps, designing slot layouts and approximating functions. Compilers automa
 
 | Tool | Target | Notes |
 |---|---|---|
-| **HEIR** (Google) | multi-scheme, MLIR-based | General-purpose HE compiler. Packing, parameter selection, arithmetization. Backends include OpenFHE and Lattigo. Paper: arXiv [2508.11095](https://arxiv.org/abs/2508.11095). Promoted by Google for encrypted AI inference in 2026 |
+| **HEIR** (Google) | multi-scheme, built on MLIR (Multi-Level Intermediate Representation) | General-purpose HE compiler. Packing, parameter selection, arithmetization. Backends include OpenFHE and Lattigo. Paper: arXiv [2508.11095](https://arxiv.org/abs/2508.11095). Promoted by Google for encrypted AI inference in 2026 |
 | **Concrete / Concrete ML** (Zama) | TFHE | Python → TFHE circuits. Quantized ML models |
 | **Orion** | CKKS | PyTorch → CKKS for deep CNNs, automated bootstrapping placement (ASPLOS 2025) |
 | **Fhelipe** | CKKS | Tensor-compiler approach (PLDI 2024) |
@@ -146,20 +152,21 @@ front ends (PyTorch, Python) and both software libraries and hardware accelerato
 ## 10. Bandwidth tricks
 
 - **Seeded ciphertexts:** for symmetric encryption, the uniform part `a` can be regenerated
-  from a PRNG seed, which halves upload size.
-- **Transciphering / hybrid HE:** the client encrypts with a cheap **symmetric cipher** (AES,
-  or HE-friendly ciphers such as Rasta, Pasta, Kreyvium, Elisabeth). The server holds an FHE
+  from a pseudorandom number generator (PRNG) seed, which halves upload size.
+- **Transciphering / hybrid HE:** the client encrypts with a cheap **symmetric cipher** (the
+  Advanced Encryption Standard, AES, or HE-friendly ciphers such as Rasta, Pasta, Kreyvium, Elisabeth). The server holds an FHE
   encryption of the symmetric key and *homomorphically decrypts* to obtain FHE ciphertexts. It
   gives a tiny upload at the cost of server work.
-- **Ciphertext compression / packing LWE → RLWE** for responses (common in PIR).
+- **Ciphertext compression / packing LWE → RLWE** (learning with errors → ring learning with
+  errors) for responses (common in private information retrieval, PIR).
 
 ## 11. Integrity and verifiability
 
 FHE gives confidentiality, **not** correctness. Approaches to verifiable FHE include
 SNARK/STARK proofs of correct homomorphic evaluation (an active 2023–2026 research area; the
 proofs are heavy because FHE arithmetic is large), redundancy or replication across servers,
-and running the FHE evaluator inside a TEE for "belt and braces". Zama's protocol, for
-example, combines ZK proofs that inputs were encrypted correctly with several independent
+and running the FHE evaluator inside a trusted execution environment (TEE) for "belt and braces". Zama's protocol, for
+example, combines zero-knowledge (ZK) proofs that inputs were encrypted correctly with several independent
 coprocessors that recompute results and must agree.
 
 ---
