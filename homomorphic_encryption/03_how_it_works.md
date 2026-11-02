@@ -5,13 +5,14 @@
 ---
 
 > **Gentle version:** the primer walks through the same material step by step:
-> [P7](primer/p7_lattices_and_lwe.md) (LWE encryption and noise),
+> [P7](primer/p7_lattices_and_lwe.md) (learning with errors: encryption and noise),
 > [P8](primer/p8_multiplication_and_relinearization.md) (multiplication, relinearization,
 > modulus switching) and [P9](primer/p9_bootstrapping.md) (bootstrapping).
 
 This chapter follows one ciphertext through its whole life: encryption, addition,
 multiplication, the noise problem, the tricks that manage noise, and finally bootstrapping.
-The notation is close to BFV and CKKS. The specific schemes are covered in [04](04_schemes.md).
+The notation is close to BFV (the Brakerski/Fan–Vercauteren scheme) and CKKS (the
+Cheon–Kim–Kim–Song scheme). The specific schemes are covered in [04](04_schemes.md).
 
 ## 1. A toy scheme you can run
 
@@ -47,7 +48,7 @@ after  1000 additions: noise =   646   (limit 1024)
 after  4813 additions: noise =  1027   -> decryption FAILED
 ```
 
-That output contains the two central facts of all of FHE:
+That output contains the two central facts of all of fully homomorphic encryption (FHE):
 
 1. **Operations on ciphertexts act on the plaintexts.**
 2. **Every operation grows the noise, and once noise exceeds `Δ/2` the message is destroyed.**
@@ -72,7 +73,7 @@ noise under control**.
 
 ## 2. Moving to rings and public keys
 
-Real schemes use RLWE (ch. 02): everything below is a polynomial in
+Real schemes use RLWE, ring learning with errors (ch. 02): everything below is a polynomial in
 $R_q = \mathbb{Z}_q[X]/(X^N+1)$, and "small" means "small coefficients".
 
 **Key generation**
@@ -111,7 +112,7 @@ So the **tensor product** `(d₀, d₁, d₂)` is a valid ciphertext of the prod
 with `(1, s, s²)`. Two problems remain:
 
 1. **Scale.** The plaintext part is now `Δ²·m₁m₂`. BFV multiplies by `t/q` and rounds to get
-   back to `Δ·m₁m₂`. CKKS *rescales* (§7). BGV avoids the issue by putting the message in the
+   back to `Δ·m₁m₂`. CKKS *rescales* (§7). BGV (the Brakerski–Gentry–Vaikuntanathan scheme) avoids the issue by putting the message in the
    low bits instead of the high bits.
 2. **Size.** The ciphertext grew from 2 to 3 polynomials. Keep multiplying and it keeps growing.
 
@@ -148,11 +149,11 @@ This is an instance of the general **key switching** primitive: turn a ciphertex
 - **relinearization** (`s' = s²`)
 - **rotations** of packed slots (`s' = σ(s)`, a Galois automorphism; ch. 05)
 - **scheme switching** and changing ring dimension
-- the final step of **TFHE bootstrapping**
+- the final step of **TFHE bootstrapping** (Torus FHE)
 
-Key switching is the single most expensive routine in RLWE-based FHE (many NTTs plus large
-keys) and the main target of hardware acceleration. Modern libraries use **hybrid key
-switching**: RNS digit decomposition combined with a temporary larger "special" modulus `P`.
+Key switching is the single most expensive routine in RLWE-based FHE (many number-theoretic transforms, NTTs, plus
+large keys) and the main target of hardware acceleration. Modern libraries use **hybrid key
+switching**: residue number system (RNS) digit decomposition combined with a temporary larger "special" modulus `P`.
 
 ## 6. Modulus switching (BGV): trading modulus for noise
 
@@ -190,9 +191,10 @@ decryption returns `Δ·m + e` and treats `e` as **ordinary floating-point error
   That brings the scale back to about `Δ` and divides the noise too.
 
 So CKKS's modulus chain is literally a budget of *precision-preserving multiplications*. It is
-the natural fit for ML, statistics and signal processing, where you already accept rounding
+the natural fit for machine learning (ML), statistics and signal processing, where you already accept rounding
 error. Its weakness is that it isn't exact, and the approximate decryption leaks information
-about `e`. See the IND-CPA-D attacks in [06](06_security.md).
+about `e`. See the IND-CPA-D attacks in [06](06_security.md), which only need the attacker to
+see decryptions of honestly computed results.
 
 ## 8. Bootstrapping: Gentry's big idea
 
@@ -230,16 +232,19 @@ expensive and used less in practice; most BGV/BFV deployments are leveled.
 ### CKKS bootstrapping
 The ciphertext at level 0 satisfies `c₀ + c₁s = Δm + e (mod q₀)`.
 1. **ModRaise**: reinterpret it modulo a big `Q`. Now `c₀ + c₁s = Δm + e + q₀·I(X)` for some small-integer polynomial `I`.
-2. **CoeffToSlot**: a homomorphic DFT moves polynomial coefficients into slots.
+2. **CoeffToSlot**: a homomorphic discrete Fourier transform (DFT) moves polynomial coefficients into slots.
 3. **EvalMod**: remove `q₀·I` by computing `x mod q₀` approximately, as a polynomial approximation of `(q₀/2π)·sin(2πx/q₀)` (Chebyshev series and double-angle formulas).
 4. **SlotToCoeff**: inverse DFT.
+
+<!-- figure: n03-evalmod-sine -->
 
 It consumes roughly 10–18 levels by itself (depending on the parameters and the precision wanted), so you need big parameters (`N = 2¹⁶`). The linear
 transforms (2 and 4) are 55–72% of the time in recent CKKS implementations (ch. 07). Results
 are *approximate*, with precision typically 20–30+ bits.
 
 ### FHEW / TFHE bootstrapping (blind rotation)
-These schemes bootstrap **after every gate or lookup**, and each bootstrap is fast:
+These schemes, the Ducas–Micciancio scheme FHEW and its successor TFHE, bootstrap
+**after every gate or lookup**, and each bootstrap is fast:
 1. Mod-switch the LWE ciphertext `(a, b)` from `q` to `2N`, giving `(ã, b̃)`.
 2. **Blind rotation**: start with an accumulator `ACC = X^(−b̃) · v(X)`, where `v` is a
    **test polynomial**. For each secret-key coordinate `sᵢ`, multiply by `X^(ãᵢ·sᵢ)` using a

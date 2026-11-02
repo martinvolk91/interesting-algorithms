@@ -5,9 +5,9 @@
 ---
 
 > **Gentle version:** primer [P7 Lattices and LWE](primer/p7_lattices_and_lwe.md) builds up
-> LWE and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.
+> learning with errors (LWE) and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.
 
-Every practical FHE scheme today rests on one hard problem, **Learning With Errors**, usually
+Every practical fully homomorphic encryption (FHE) scheme today rests on one hard problem, **Learning With Errors**, usually
 in its ring form. This chapter builds up the minimum mathematics needed to read the scheme
 descriptions.
 
@@ -33,7 +33,7 @@ The hard problems:
 
 With a good basis, CVP is easy: round off coordinates (Babai's algorithm). With a bad basis in
 high dimensions it is believed to be infeasible, **even for quantum computers**. The best
-known algorithms (lattice sieving, enumeration, BKZ reduction) run in time exponential in the
+known algorithms (lattice sieving, enumeration, BKZ (block Korkine–Zolotarev) reduction) run in time exponential in the
 dimension.
 
 ## 2. Learning With Errors (LWE)
@@ -56,7 +56,7 @@ little noise to each equation turns an easy linear-algebra problem into a lattic
 **Worst-case hardness.** Regev proved that solving LWE *on average* (random instances) is at
 least as hard as solving approximate SVP / SIVP *in the worst case* on any lattice, via a
 quantum reduction. Peikert (2009) and Brakerski et al. (2013) later gave classical reductions.
-This is a much stronger guarantee than RSA has: there, average-case hardness of factoring is
+This is a much stronger guarantee than RSA (Rivest–Shamir–Adleman) has: there, average-case hardness of factoring is
 simply assumed.
 
 **Tiny example** (`n = 3`, `q = 17`, secret `s = (2, 5, 11)`):
@@ -108,19 +108,22 @@ An **RLWE sample** is $(a,\ b = a \cdot s + e) \in R_q^2$, where `s` and `e` are
 with small coefficients. One RLWE sample "contains" `N` correlated LWE samples, so:
 
 - keys and ciphertexts shrink from $O(N^2)$ to $O(N)$ numbers;
-- multiplication costs $O(N \log N)$ with the NTT (below);
-- the ring structure enables **packing many values into one ciphertext** (SIMD batching, ch. 05).
+- multiplication costs $O(N \log N)$ with the number-theoretic transform (NTT, below);
+- the ring structure enables **packing many values into one ciphertext**, so one operation acts
+  on all of them (single instruction, multiple data: SIMD batching, ch. 05).
 
 The cost is extra algebraic structure that an attacker might exploit. No such attack is known
 for the power-of-two cyclotomics used in FHE: the best attacks on RLWE are the same as on LWE.
 
-**Module-LWE** sits in between (small matrices of ring elements). It is the basis of NIST's
-post-quantum standards ML-KEM (Kyber) and ML-DSA (Dilithium), but FHE schemes mostly use
+**Module-LWE** sits in between (small matrices of ring elements). It is the basis of the post-quantum
+standards of NIST (the National Institute of Standards and Technology): ML-KEM (Kyber, a
+module-lattice-based key-encapsulation mechanism) and ML-DSA (Dilithium, a module-lattice-based
+digital signature algorithm), but FHE schemes mostly use
 RLWE or plain LWE. FHE and post-quantum cryptography share the same hardness foundation.
 
 ## 4. The Number Theoretic Transform (NTT)
 
-The NTT is the **FFT over a finite field**, and it is *the* computational kernel of FHE.
+The NTT is the **fast Fourier transform (FFT) over a finite field**, and it is *the* computational kernel of FHE.
 
 If `q` is prime with $q \equiv 1 \pmod{2N}$, then $\mathbb{Z}_q$ contains a primitive
 $2N$-th root of unity `ψ`. The `N` roots of $X^N + 1$ are then $\psi, \psi^3, \psi^5, \dots,
@@ -132,17 +135,20 @@ In this "evaluation form", polynomial multiplication becomes **pointwise** multi
 NTT and its inverse take $O(N \log N)$, so a ring multiplication costs $O(N \log N)$ instead
 of $O(N^2)$.
 
+<!-- figure: n02-ntt-butterfly -->
+
 Profiles of FHE libraries are dominated by NTTs and by **key switching**, which is built on
 NTTs. This is why FHE hardware accelerators (ch. 07) are mostly NTT engines plus a lot of
 memory bandwidth. A runnable NTT, measured against schoolbook multiplication, is in the
 [hardware deep dive §2](deep_dives/hardware.md).
 
-The same CRT idea over $\mathbb{Z}_t$ (the *plaintext* modulus) gives BFV/BGV **batching**.
-Over $\mathbb{C}$ it gives CKKS's **canonical embedding**. One isomorphism appears three times.
+The same CRT idea over $\mathbb{Z}_t$ (the *plaintext* modulus) gives **batching** in BFV and BGV
+(the Brakerski/Fan–Vercauteren and Brakerski–Gentry–Vaikuntanathan schemes). Over $\mathbb{C}$
+it gives the **canonical embedding** of CKKS (the Cheon–Kim–Kim–Song scheme). One isomorphism appears three times.
 
 ## 5. RNS: making 1000-bit moduli fast
 
-Practical ciphertext moduli are huge. With $N = 2^{16}$, $\log_2 q$ can be over 1500 bits,
+Ciphertext moduli are huge. With $N = 2^{16}$, $\log_2 q$ can be over 1500 bits,
 and arithmetic on 1500-bit integers is slow. The fix is the **Residue Number System**:
 
 $$q = q_1 \cdot q_2 \cdots q_L, \qquad q_i \text{ distinct NTT-friendly primes of } 30\text{–}60 \text{ bits}$$
@@ -184,7 +190,8 @@ them through memory is a major bottleneck.
 **Secret distributions.** Libraries use ternary secrets ($\{-1, 0, 1\}$ coefficients), and
 sometimes **sparse** secrets (few non-zeros) because they make bootstrapping cheaper. Sparse
 secrets enable hybrid attacks, so parameters must account for them. The CRYPTO 2026 paper by
-Jain–Lin–Liu–Saha exploits sparse secrets to speed up FHEW/TFHE bootstrapping (ch. 07).
+Jain–Lin–Liu–Saha exploits sparse secrets to speed up FHEW/TFHE bootstrapping (the Ducas–Micciancio scheme and Torus FHE;
+ch. 07).
 
 ## 7. Why this is post-quantum
 

@@ -5,14 +5,15 @@
 ---
 
 > **New to cryptography?** This chapter moves fast. The [primer](primer/p1_encryption_basics.md)
-> builds up everything it relies on, from keys and the one-time pad through AES, public-key
-> crypto, IND-CPA, lattices and LWE to relinearization and bootstrapping. It has hand-worked
+> builds up everything it relies on, from keys and the one-time pad through the Advanced Encryption Standard (AES), public-key
+> crypto, indistinguishability under chosen-plaintext attack (IND-CPA), lattices and learning with
+> errors (LWE) to relinearization and bootstrapping. It has hand-worked
 > examples and a runnable script per chapter. Its last chapter maps every term used here to
 > the place where it is explained.
 
 ## 1. The problem it solves
 
-Classical encryption protects data **at rest** (disk encryption) and **in transit** (TLS).
+Classical encryption protects data **at rest** (disk encryption) and **in transit** (Transport Layer Security, TLS).
 As soon as you want someone to *do something* with your data, though, they have to decrypt it,
 so the data is exposed **in use**.
 
@@ -56,7 +57,7 @@ Two further requirements make it non-trivial:
 
 Both are unpacked in the two subsections below.
 
-Why addition and multiplication? Over bits, **XOR = addition mod 2** and **AND =
+Why addition and multiplication? Over bits, **XOR (exclusive or) = addition mod 2** and **AND =
 multiplication mod 2**, and {XOR, AND} is functionally complete. Any computable function
 (with a bounded running time) can be written as a circuit of these gates. A scheme that
 supports unlimited additions **and** multiplications can therefore evaluate anything.
@@ -89,6 +90,8 @@ compactness, one addition and a whole neural network give results of the same si
 by the same cheap procedure. There is nowhere to hide the work, so the server must actually do
 it.
 
+<!-- figure: n01-compactness -->
+
 This is why 2009 was the breakthrough. *Non-compact* computation on encrypted data already
 existed: Sander, Young and Yung (1999) could evaluate shallow circuits, but their ciphertexts
 grew exponentially with depth. The hard part was unlimited operations **and** compact
@@ -96,12 +99,12 @@ outputs.
 
 Where you meet compactness in the real schemes:
 
-- **Relinearization keeps the size fixed.** An RLWE ciphertext is two polynomials
+- **Relinearization keeps the size fixed.** A ring learning with errors (RLWE) ciphertext is two polynomials
   $(c_0, c_1)$, decrypted as $c_0 + c_1 s$. Multiplying two of them gives three,
   decrypted as $d_0 + d_1 s + d_2 s^2$, and every further multiplication without cleanup adds
   more. The ciphertext size would follow `f`. Relinearization ([03](03_how_it_works.md))
-  folds the result back to two polynomials. (GSW-style schemes avoid the growth by
-  construction.)
+  folds the result back to two polynomials. (GSW-style schemes, after Gentry–Sahai–Waters, avoid the
+  growth by construction.)
 - **Bootstrapping removes the last dependence on `f`.** Leveled schemes size the modulus for a
   depth `L`, so their parameters depend on how *deep* `f` is, though not on how *big* it is:
   a slightly relaxed form of compactness. Bootstrapping removes even that: the same
@@ -135,7 +138,7 @@ The notion is equivalent to *semantic security*.
 What follows from the definition:
 
 - **Encryption must be randomized.** With deterministic encryption the attacker encrypts $m_0$
-  itself and compares the result with $c^*$. Textbook RSA is deterministic, so it is **not**
+  itself and compares the result with $c^*$. Textbook RSA (Rivest–Shamir–Adleman) is deterministic, so it is **not**
   IND-CPA secure (§3). LWE schemes get their randomness from the random mask and the noise:
   encrypting 0 twice gives two completely different-looking ciphertexts.
 - **It matches the HE threat model.** The untrusted server is exactly the attacker in the game:
@@ -143,25 +146,28 @@ What follows from the definition:
   IND-CPA says it learns nothing about the plaintexts. The evaluation keys (relinearization,
   rotation, bootstrapping) are encryptions of the secret key, or functions of it, under
   itself, so this also assumes **circular security** ([02 §7](02_math_foundations.md)).
-- **Stronger notions are impossible.** IND-CCA2 also lets the attacker ask for the decryption
+- **Stronger notions are impossible.** IND-CCA2 (indistinguishability under adaptive chosen-ciphertext attack) also lets the attacker ask for the decryption
   of any ciphertext except $c^*$. A homomorphic scheme fails by design: the attacker computes
   $c^* + \mathrm{Enc}(0)$, a different ciphertext with the same plaintext, asks for its
   decryption and wins. Malleability is the whole point of HE (§5), so IND-CPA is the
-  realistic target. [06 §1](06_security.md) covers the weaker CCA1 notion, which most
+  realistic target. [06 §1](06_security.md) covers the weaker non-adaptive chosen-ciphertext (CCA1) notion, which most
   lattice schemes also fail.
 - **It says nothing about shared decryptions.** IND-CPA assumes the attacker never sees a
-  decrypted result. For exact schemes seeing one adds little, but CKKS decryption also returns
-  the noise, and one shared decryption is enough to recover the key. That gap is the
+  decrypted result. For exact schemes seeing one adds little, but decryption in CKKS (the Cheon–Kim–Kim–Song scheme for
+  approximate arithmetic) also returns the noise, and one shared decryption is enough to recover the key. That gap is the
   IND-CPA-D notion; the attack is reproduced on the toy in the
   [IND-CPA-D deep dive](deep_dives/ckks_ind_cpa_d.md).
 
 ## 3. The taxonomy: PHE → SHE → LHE → FHE
 
+Schemes fall into four classes, from partially through somewhat and leveled to fully homomorphic
+encryption:
+
 | Class | Supports | Examples | Notes |
 |---|---|---|---|
 | **Partially HE (PHE)** | One operation, unlimited times | RSA (×), ElGamal (×), Paillier (+), Goldwasser–Micali (⊕) | Cheap, mature, used in e-voting and ad measurement |
-| **Somewhat HE (SHE)** | Both + and ×, but only a few multiplications | BGN (2005, 1 mult via pairings), early lattice schemes | Noise blows up after a few levels |
-| **Leveled HE (LHE)** | Any circuit up to a depth `L` chosen at key generation | BGV / BFV / CKKS without bootstrapping | **What most real deployments use**: parameters sized for the exact circuit |
+| **Somewhat HE (SHE)** | Both + and ×, but only a few multiplications | Boneh–Goh–Nissim (BGN, 2005, 1 mult via pairings), early lattice schemes | Noise blows up after a few levels |
+| **Leveled HE (LHE)** | Any circuit up to a depth `L` chosen at key generation | BGV (Brakerski–Gentry–Vaikuntanathan) / BFV (Brakerski/Fan–Vercauteren) / CKKS without bootstrapping | **What most real deployments use**: parameters sized for the exact circuit |
 | **Fully HE (FHE)** | Any circuit, unbounded depth | Any of the above **plus bootstrapping** | Bootstrapping is the expensive part |
 
 "FHE" is often used loosely for the whole lattice-based family, even when a deployment never
@@ -204,25 +210,28 @@ That mathematics is lattices.
 | 2011 | Brakerski–Vaikuntanathan (BV): FHE from (R)LWE with **relinearization**. Gentry–Halevi: first implementation, ~30 min per bootstrap |
 | 2012 | **BGV** (leveled FHE, modulus switching); Brakerski / Fan–Vercauteren → **BFV** (scale-invariant) |
 | 2013 | **GSW** (Gentry–Sahai–Waters): "approximate eigenvector", no relinearization, asymmetric noise growth |
-| 2015 | **FHEW** (Ducas–Micciancio): bootstrapping a NAND gate in under a second |
-| 2016 | **TFHE** (Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017) |
+| 2015 | **FHEW** (Ducas–Micciancio): bootstrapping a NAND (not-and logic) gate in under a second |
+| 2016 | **TFHE** (Torus FHE, by Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017) |
 | 2017 | **CKKS** (Cheon–Kim–Kim–Song): approximate arithmetic on real/complex numbers |
 | 2018 | CKKS bootstrapping; HomomorphicEncryption.org publishes a community **security standard** |
-| 2019 | ISO/IEC 18033-6 standardizes *partially* HE (ElGamal, Paillier) |
-| 2021 | Li–Micciancio: **IND-CPA-D** passive key-recovery attack on CKKS. DARPA **DPRIVE** hardware program kicks off. Programmable bootstrapping (Chillotti–Joye–Paillier) |
+| 2019 | ISO/IEC 18033-6 (International Organization for Standardization) standardizes *partially* HE (ElGamal, Paillier) |
+| 2021 | Li–Micciancio: **IND-CPA-D** passive key-recovery attack on CKKS. The Defense Advanced Research Projects Agency (DARPA) starts its **DPRIVE** (Data Protection in Virtual Environments) hardware program. Programmable bootstrapping (Chillotti–Joye–Paillier) |
 | 2022 | **Gödel Prize** to Brakerski, Gentry, Vaikuntanathan for FHE. OpenFHE released (successor of PALISADE) |
-| 2024 | Apple ships **Live Caller ID Lookup** (BFV-based PIR) in iOS 18 and open-sources swift-homomorphic-encryption. CKKS learns to bootstrap bits and small integers. A claimed quantum attack on LWE (Chen) is withdrawn after a bug is found |
-| 2025 | Gentry–Lee: **FHE for matrix arithmetic** (ePrint 2025/1935). Zama Protocol (TFHE + threshold MPC) launches on Ethereum mainnet (Dec 2025) |
-| 2026 | **Intel Heracles** FHE accelerator chip shown at ISSCC. ISO/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut FHEW/TFHE bootstrapping depth to 3 NTT layers (vs 500+). Google promotes the **HEIR** compiler for encrypted AI |
+| 2024 | Apple ships **Live Caller ID Lookup** (BFV-based private information retrieval, PIR) in iOS 18 and open-sources swift-homomorphic-encryption. CKKS learns to bootstrap bits and small integers. A claimed quantum attack on LWE (Chen) is withdrawn after a bug is found |
+| 2025 | Gentry–Lee: **FHE for matrix arithmetic** (ePrint 2025/1935). Zama Protocol (TFHE + threshold secure multiparty computation, MPC) launches on Ethereum mainnet (Dec 2025) |
+| 2026 | **Intel Heracles** FHE accelerator chip shown at ISSCC. ISO/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut FHEW/TFHE bootstrapping depth to 3 NTT (number-theoretic transform) layers (vs 500+). Google promotes the **HEIR** compiler for encrypted AI |
 
 Details and sources for 2024–2026 are in [07 State of the art](07_state_of_the_art_2026.md).
+
+<!-- figure: n01-scheme-families -->
 
 ## 5. What HE does *not* give you
 
 These limits matter as much as the capabilities:
 
 - **No integrity.** The server can compute the *wrong* function, or garbage, and you can't
-  tell. Fixing this needs verifiable computation (ZK proofs over FHE), redundancy, or a TEE.
+  tell. Fixing this needs verifiable computation (zero-knowledge, ZK, proofs over FHE), redundancy, or a
+  trusted execution environment (TEE).
 - **No hiding of the function by default.** Ciphertext noise can leak *what* was computed.
   Circuit privacy needs extra work (noise flooding, sanitization).
 - **No data-dependent control flow.** The server can't branch on an encrypted value, because it

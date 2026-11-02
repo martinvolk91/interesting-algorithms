@@ -1,0 +1,64 @@
+<figure class="widget" id="w-n01-compactness">
+  <p class="widget-title">Output size as f grows: the cheat against a compact scheme</p>
+  <p class="widget-hint">Drag the size of f from one gate to a billion. Only the compact line stays flat.</p>
+  <div class="controls"></div>
+  <div class="c-size"></div>
+  <div class="readout"></div>
+  <figcaption>Here f multiplies \(g + 1\) encrypted numbers, using \(g\) multiplication gates. The cheat returns its \(g + 1\) AES ciphertexts (16 bytes each) plus the circuit (9 bytes per gate: an operation and two input wires). The lattice sizes use the parameters of <a href="02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>, \(N = 2^{14}\) and \(\log_2 q = 438\), so one polynomial is 0.9 MB. Without relinearization each multiplication adds a polynomial; with it the result stays at two. For a small f the cheat's output is the smaller one: compactness asks for a flat line, not a small one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n01-compactness';
+  const POLY = 16384 * 438 / 8;                       // bytes per polynomial: N · log2 q bits
+  const cheat = g => 16 * (g + 1) + 9 * g;            // input AES blocks + the circuit, 9 bytes per gate
+  const noRelin = g => (g + 2) * POLY;                // a product of g + 1 ciphertexts has g + 2 polynomials
+  const compact = () => 2 * POLY;
+  const SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow10 = e => '10' + String(e).split('').map(d => SUPS[+d]).join('');
+  function bytes(v) {
+    const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
+    let u = 0;
+    while (v >= 1000 && u < units.length - 1) { v /= 1000; u++; }
+    return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + ' ' + units[u];
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const STEPS = [];
+  for (let e = 0; e <= 9; e++) { STEPS.push(Math.pow(10, e)); if (e < 9) STEPS.push(3 * Math.pow(10, e)); }
+  const gates = ui.slider({ label: 'Gates in f', values: STEPS, value: 1e6,
+    format: v => Math.round(v).toLocaleString('en-US') });
+  const g = () => Math.max(1, Math.round(gates.value));
+
+  const chart = DS.chart(root + ' .c-size', {
+    x: { type: 'log', domain: [1, 1e9], label: 'gates in f (log scale)',
+      format: v => { const e = Math.round(Math.log10(v)); return e % 3 === 0 ? (e === 0 ? '1' : pow10(e)) : ''; } },
+    y: { type: 'log', domain: [10, 1e15], label: 'size of the output (log scale)',
+      format: v => { const e = Math.round(Math.log10(v)); return e % 3 === 0 ? bytes(v).replace('.00', '') : ''; } },
+    height: 320,
+    draw(c) {
+      const xs = [];
+      for (let e = 0; e <= 9.001; e += 0.05) xs.push(Math.pow(10, e));
+      c.line(xs.map(x => [x, noRelin(x)]), { series: 7, label: 'no relinearization', format: bytes });
+      c.line(xs.map(x => [x, cheat(x)]), { series: 2, label: 'cheat: (c, f)', format: bytes });
+      c.line(xs.map(x => [x, compact()]), { series: 1, label: 'compact', format: bytes });
+      const x = g();
+      c.vline(x, { series: 'muted' });
+      c.point(x, noRelin(x), { series: 7 });
+      c.point(x, cheat(x), { series: 2 });
+      c.point(x, compact(), { series: 1 });
+      c.legend([{ label: 'cheat: ciphertexts + description of f', series: 2 }, { label: 'lattice scheme, no relinearization', series: 7 },
+        { label: 'compact: relinearize after each ×', series: 1 }]);
+    },
+  });
+
+  function readout() {
+    const x = g();
+    DS.stats(root + ' .readout', [
+      { label: 'Cheat', value: bytes(cheat(x)), note: 'the client then runs all ' + x.toLocaleString('en-US') + ' gates', tone: 'bad' },
+      { label: 'No relinearization', value: bytes(noRelin(x)), note: (x + 2).toLocaleString('en-US') + ' polynomials; decrypting needs s, s², …' },
+      { label: 'Compact', value: bytes(compact()), note: 'always 2 polynomials, one cheap decryption', tone: 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>
