@@ -1,0 +1,109 @@
+<figure class="widget" id="w-dd-hw-ntt-butterfly">
+  <p class="widget-title">An 8-point negacyclic NTT, butterfly by butterfly</p>
+  <p class="widget-hint">Step through the stages. Each stage pairs every element with a partner at a different distance: 4, then 2, then 1.</p>
+  <div class="controls"></div>
+  <div class="c-net"></div>
+  <div class="readout"></div>
+  <figcaption>The forward NTT of <code>hw_profile.py</code> run on \(a(X) = 1 + 2X + \dots + 8X^7\) with \(N = 8\), \(p = 17\) and \(\psi = 3\) (\(3^8 \equiv -1 \bmod 17\)). Every crossing is one butterfly: \((u, v) \mapsto (u + wv,\ u - wv) \bmod p\). Three stages of four butterflies make 12 modular multiplications, against 64 for schoolbook. The outputs come out in bit-reversed order: each one is \(a\) evaluated at an odd power of \(\psi\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-ntt-butterfly';
+  const N = 8, P = 17, PSI = 3, LG = 3;
+  const mod = v => ((v % P) + P) % P;
+  const pw = (b, e) => { let r = 1; for (let i = 0; i < e; i++) r = r * b % P; return r; };
+  const bitrev = k => parseInt(k.toString(2).padStart(LG, '0').split('').reverse().join(''), 2);
+  const psiRev = Array.from({ length: N }, (_, k) => pw(PSI, bitrev(k)));
+  const a = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  // NTT.forward from hw_profile.py, keeping every stage and every butterfly
+  const cols = [a.slice()], flies = [];
+  let A = a.slice(), t = N, m = 1;
+  while (m < N) {
+    t /= 2;
+    const st = [];
+    for (let i = 0; i < m; i++) {
+      const w = psiRev[m + i];
+      for (let j = 2 * i * t; j < 2 * i * t + t; j++) {
+        const u = A[j], v = A[j + t], wv = v * w % P;
+        A[j] = mod(u + wv); A[j + t] = mod(u - wv);
+        st.push({ j, k: j + t, w, u, v, wv, top: A[j], bot: A[j + t] });
+      }
+    }
+    flies.push({ stride: t, list: st });
+    cols.push(A.slice());
+    m *= 2;
+  }
+  // output k is a(ψ^(2·bitrev(k)+1)); check it against direct evaluation
+  const expo = Array.from({ length: N }, (_, k) => 2 * bitrev(k) + 1);
+  expo.forEach((e, k) => {
+    const direct = a.reduce((s, c, i) => mod(s + c * pw(PSI, e * i)), 0);
+    if (direct !== A[k]) throw new Error('NTT output ' + k + ' differs from a(ψ^' + e + ')');
+  });
+
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(d => SUP[d]).join('');
+  const SUB = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇'];
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const stage = ui.choice({ label: 'Stage', options: [{ value: 0, label: '1 (stride 4)' }, { value: 1, label: '2 (stride 2)' }, { value: 2, label: '3 (stride 1)' }], value: 0 });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 468, H = 336, X = [64, 172, 280, 388], Y = j => 52 + j * 37, R = 14;
+  const host = document.querySelector(root + ' .c-net');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Butterfly network of an 8-point NTT modulo 17');
+  svg.style.cssText = 'display:block;width:100%;max-width:540px;height:auto;margin:0 auto;font-family:var(--font)';
+  host.appendChild(svg);
+  const el = (tag, attrs, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  };
+
+  function draw() {
+    const s = +stage.value;
+    svg.textContent = '';
+    const heads = ['input', 'stage 1', 'stage 2', 'stage 3'];
+    heads.forEach((h, c) => el('text', { x: X[c], y: 22, 'text-anchor': 'middle', 'font-size': 14,
+      'font-weight': c === s + 1 ? 650 : 400, fill: c === s + 1 ? 'var(--ink)' : 'var(--ink-muted)' }, h));
+    // wires: the active stage in colour, the others faint
+    flies.forEach((f, si) => {
+      const on = si === s, x0 = X[si] + R, x1 = X[si + 1] - R;
+      for (const b of f.list) {
+        const stroke = on ? 'var(--series-1)' : 'var(--line-strong)', sw = on ? 2 : 1, op = on ? 1 : 0.6;
+        for (const [r0, r1] of [[b.j, b.j], [b.k, b.k], [b.j, b.k], [b.k, b.j]])
+          el('line', { x1: x0, y1: Y(r0), x2: x1, y2: Y(r1), stroke, 'stroke-width': sw, opacity: op });
+      }
+    });
+    // nodes
+    cols.forEach((col, c) => col.forEach((v, j) => {
+      const hot = c === s || c === s + 1;
+      el('circle', { cx: X[c], cy: Y(j), r: R, fill: 'var(--bg)', stroke: hot ? 'var(--series-1)' : 'var(--line-strong)', 'stroke-width': hot ? 1.75 : 1 });
+      el('text', { x: X[c], y: Y(j) + 4.5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': hot ? 650 : 400,
+        fill: hot ? 'var(--ink)' : 'var(--ink-muted)' }, String(v));
+    }));
+    // labels: coefficients on the left, evaluation points on the right
+    a.forEach((v, j) => el('text', { x: X[0] - R - 8, y: Y(j) + 4.5, 'text-anchor': 'end', 'font-size': 14, fill: 'var(--ink-2)' }, 'a' + SUB[j]));
+    expo.forEach((e, k) => el('text', { x: X[3] + R + 8, y: Y(k) + 4.5, 'font-size': 14, fill: 'var(--ink-2)' }, 'a(ψ' + sup(e) + ')'));
+    readout(s);
+  }
+
+  function readout(s) {
+    const f = flies[s], b = f.list[0];
+    const ws = [...new Set(f.list.map(x => x.w))], per = f.list.length / ws.length;
+    DS.stats(root + ' .readout', [
+      { label: 'Partner distance (stride)', value: String(f.stride), note: 'stage ' + (s + 1) + ' of log₂8 = 3' },
+      { label: 'Twiddle factors w', value: ws.join(', '), note: ws.length === 1 ? `one w for all ${per} butterflies` : `one w per group of ${per} butterfl${per === 1 ? 'y' : 'ies'}, top to bottom` },
+      { label: 'First butterfly', value: `(${b.u}, ${b.v}) → (${b.top}, ${b.bot})`,
+        note: `w·v = ${b.w}·${b.v} ≡ ${b.wv}; ${b.u} + ${b.wv} ≡ ${b.top}, ${b.u} − ${b.wv} ≡ ${b.bot} (mod 17)` },
+      { label: 'Modular multiplications', value: String(N / 2 * LG), note: `(N/2)·log₂N, against N² = ${N * N}` },
+    ]);
+  }
+  draw();
+})();
+</script>

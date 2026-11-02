@@ -1,0 +1,86 @@
+<figure class="widget" id="w-dd-hw-roofline">
+  <p class="widget-title">Why key switching waits for memory</p>
+  <p class="widget-hint">Drag the key reuse up until the dnum = 3 dot reaches the corner. Then turn on seeded keys: half the reuse gets there.</p>
+  <div class="controls"></div>
+  <div class="c-roof"></div>
+  <div class="readout"></div>
+  <figcaption>A roofline: a chip can run no faster than its compute ceiling (41 T modular multiplications per second) and no faster than memory can feed it (3 TB/s × multiplications per byte). The corner sits at 13.7 multiplications per byte. Each dot is one key switch from the cost model in <code>hw_profile.py</code> (\(N = 2^{16}\), 24 limbs, the SoK's example chip), one per dnum. All of them start on the memory slope, at 0.7–3.9 multiplications per byte. The two tricks from the table move them right: a seeded key halves the bytes, and each extra use of a loaded key divides them again.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-roofline';
+  // the cost model of hw_profile.keyswitch_model(), same formulas and parameters
+  const N = 2 ** 16, L = 24, WORD = 8, LG = 16, PEAK = 40960e9, BW = 3e12;
+  const nttMults = (N / 2) * LG;
+  const model = [1, 2, 3, 4, 6, 12, 24].map(dnum => {
+    const alpha = Math.ceil(L / dnum), k = alpha;
+    const ntts = dnum * alpha + dnum * (L - alpha + k) + 2 * k + 2 * L;
+    const bconv = dnum * alpha * (L - alpha + k) * N + 2 * k * L * N;
+    const inner = 2 * dnum * (L + k) * N;
+    const mults = ntts * nttMults + bconv + inner + 2 * L * N;
+    const keyBytes = 2 * dnum * (L + k) * N * WORD;
+    return { dnum, mults, keyBytes };
+  });
+  const RIDGE = PEAK / BW;                                   // 13.65 multiplications per byte
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const reuse = ui.slider({ label: 'Uses of each key per load', min: 1, max: 16, step: 1, value: 1, format: v => v + '×' });
+  const seeded = ui.toggle({ label: 'Generate the random half of each key on chip', value: false });
+
+  const us = s => (s * 1e6).toFixed(1) + ' µs';
+  function state(m) {
+    const bytes = m.keyBytes * (seeded.value ? 0.5 : 1) / reuse.value;   // key bytes loaded per key switch
+    const tc = m.mults / PEAK, tm = bytes / BW;
+    return { I0: m.mults / m.keyBytes, I: m.mults / bytes, tc, tm, rate: Math.min(PEAK, BW * m.mults / bytes) };
+  }
+  function bound(s) {
+    const r = Math.max(s.tm, s.tc) / Math.min(s.tm, s.tc);
+    if (r < 1.1) return { text: 'balanced', tone: 'good' };
+    return s.tm > s.tc ? { text: 'memory ×' + r.toFixed(1), tone: 'bad' } : { text: 'compute ×' + r.toFixed(1), tone: 'good' };
+  }
+
+  const chart = DS.chart(root + ' .c-roof', {
+    x: { type: 'log', domain: [0.2, 400], label: 'Multiplications per byte of key loaded', format: v => DS.fmt(v) },
+    y: { type: 'log', domain: [0.5, 100], label: 'T modmul/s achieved', format: v => DS.fmt(v) },
+    height: 320,
+    draw(c) {
+      // the roof: bandwidth slope up to the ridge, then the compute ceiling
+      const slope = [[0.2, BW * 0.2 / 1e12], [RIDGE, PEAK / 1e12]];
+      c.area([[0.2, BW * 0.2 / 1e12], [RIDGE, PEAK / 1e12], [400, PEAK / 1e12]], { series: 'muted', y0: 0.5 });
+      c.line(slope, { series: 'ink' });
+      c.line([[RIDGE, PEAK / 1e12], [400, PEAK / 1e12]], { series: 'ink' });
+      c.vline(RIDGE, { dash: true, label: '13.7 per byte', labelPos: 'bottom' });
+      c.text(390, PEAK / 1e12, '41 T modmul/s', { anchor: 'end', dy: -8, cls: 'ink2' });
+      c.text(0.75, BW * 0.75 / 1e12, '3 TB/s', { anchor: 'end', dx: -6, dy: -8, cls: 'ink2' });
+      c.text(0.3, 60, 'memory-bound', { cls: 'ink2' });
+      c.text(350, 2.6, 'compute-bound', { anchor: 'end', cls: 'ink2' });
+      // where dnum = 3 starts without tricks, then the dots
+      if (reuse.value > 1 || seeded.value) {
+        const s = state(model[2]);
+        c.scatter([[s.I0, BW * s.I0 / 1e12]], { series: 'muted', r: 3 });
+        c.text(s.I0, BW * s.I0 / 1e12, 'start', { dx: 8, dy: 14, cls: 'ink2' });
+      }
+      const pts = model.map(m => {
+        const s = state(m), b = bound(s);
+        return { x: s.I, y: s.rate / 1e12, series: m.dnum === 3 ? 1 : 'muted', r: m.dnum === 3 ? 6 : 4,
+          tip: `dnum = ${m.dnum}\n${s.I.toFixed(1)} multiplications per byte\ncompute ${us(s.tc)}, load key ${us(s.tm)}\n${b.text}` };
+      });
+      c.scatter(pts.filter(p => p.series !== 1));
+      c.scatter(pts.filter(p => p.series === 1));
+      const s3 = state(model[2]);
+      c.text(s3.I, s3.rate / 1e12, 'dnum = 3', { dx: 10, dy: 16, cls: 'ink strong' });
+    },
+  });
+
+  function readout() {
+    const s = state(model[2]), b = bound(s);
+    DS.stats(root + ' .readout', [
+      { label: 'Multiplications per byte', value: s.I.toFixed(1), note: 'dnum = 3; the corner is at 13.7' },
+      { label: 'Compute', value: us(s.tc), note: DS.fmt(model[2].mults / 1e6, 0) + ' M modmuls' },
+      { label: 'Load the key', value: us(s.tm), note: 'per key switch' },
+      { label: 'Bound', value: b.text, tone: b.tone },
+    ]);
+  }
+  readout();
+})();
+</script>

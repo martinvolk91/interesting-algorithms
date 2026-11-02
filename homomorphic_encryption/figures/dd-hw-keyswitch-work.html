@@ -1,0 +1,63 @@
+<figure class="widget" id="w-dd-hw-keyswitch-work">
+  <p class="widget-title">Where the multiplications of one key switch go</p>
+  <p class="widget-hint">Compare the dnum = 4 bar with ARK's measured split on the right. Then switch to millions to see the total grow with dnum.</p>
+  <div class="controls"></div>
+  <div class="c-work"></div>
+  <figcaption>Modular multiplications of one hybrid key switch, split by step, from the cost model in <code>hw_profile.py</code> (\(N = 2^{16}\), 24 limbs). NTTs and basis conversion do almost all the arithmetic. At dnum = 4 the model gives 55.6 % and 33.3 %, close to ARK's measured 54.8 % and 34.2 % for a whole bootstrap (§1.2). The inner product with the key, the only step that reads the key, is only 3–17 % of the multiplications: one multiplication per 8-byte key word.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-keyswitch-work';
+  // the cost model of hw_profile.keyswitch_model(), split into its terms
+  const N = 2 ** 16, L = 24, LG = 16;
+  const nttMults = (N / 2) * LG;
+  const rows = [1, 2, 3, 4, 6, 12, 24].map(dnum => {
+    const alpha = Math.ceil(L / dnum), k = alpha;
+    const ntts = dnum * alpha + dnum * (L - alpha + k) + 2 * k + 2 * L;
+    const parts = [
+      ntts * nttMults,                                       // NTTs and inverse NTTs
+      dnum * alpha * (L - alpha + k) * N + 2 * k * L * N,    // basis conversions (ModUp, ModDown)
+      2 * dnum * (L + k) * N,                                // inner product with the key
+      2 * L * N,                                             // ModDown: subtract, multiply by P⁻¹
+    ];
+    return { x: String(dnum), ntts, parts, total: parts.reduce((a, b) => a + b, 0) };
+  });
+  // ARK (via the SoK): bootstrapping workload, NTT 54.8 %, basis conversion 34.2 %, everything else ~11 %
+  const ark = { x: 'ARK', parts: [54.8, 34.2, 11.0] };
+  const names = ['NTT and inverse NTT', 'basis conversion', 'inner product with the key', 'other'];
+  const series = [1, 2, 3, 4];
+
+  const ui = DS.controls(root + ' .controls', () => chart.update());
+  const view = ui.choice({ label: 'Show', options: [{ value: 'share', label: 'Share (%)' }, { value: 'count', label: 'Millions' }], value: 'share' });
+
+  const chart = DS.chart(root + ' .c-work', {
+    x: { type: 'band', domain: rows.map(r => r.x).concat(['ARK']), label: 'dnum (digits of the key-switching key)', padding: 0.35 },
+    y: { domain: [0, 100] },
+    height: 300,
+    draw(c) {
+      const share = view.value === 'share';
+      const cats = rows.map(r => r.x).concat(share ? ['ARK'] : []);
+      c.domain(share ? { x: cats, y: [0, 100], yLabel: 'Share of modmuls (%)' } : { x: cats, y: [0, 500], yLabel: 'Modmuls (millions)' });
+      c.legend(names.map((n, i) => ({ label: n, series: series[i], kind: 'rect' })).concat(share ? [{ label: 'ARK: everything else', series: 'muted', kind: 'rect' }] : []));
+      for (const r of rows) {
+        let base = 0;
+        r.parts.forEach((v, i) => {
+          const y = share ? 100 * v / r.total : v / 1e6;
+          const tip = `dnum = ${r.x}: ${names[i]}\n${DS.fmt(v / 1e6, 1)} M of ${DS.fmt(r.total / 1e6, 0)} M (${DS.fmt(100 * v / r.total, 1)} %)` +
+            (i === 0 ? `\n${r.ntts} NTTs of 2¹⁶ points` : '');
+          c.bars([{ x: r.x, y: base + y, tip }], { base, series: series[i], maxWidth: 34 });
+          base += y;
+        });
+      }
+      if (share) {
+        let base = 0;
+        ark.parts.forEach((v, i) => {
+          const tip = `ARK, measured, whole bootstrap\n${i < 2 ? names[i] : 'everything else'}: ${v.toFixed(1)} %`;
+          c.bars([{ x: 'ARK', y: base + v, tip }], { base, series: i < 2 ? series[i] : 'muted', maxWidth: 34 });
+          base += v;
+        });
+      }
+    },
+  });
+})();
+</script>

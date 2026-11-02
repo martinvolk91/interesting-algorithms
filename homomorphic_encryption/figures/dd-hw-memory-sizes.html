@@ -1,0 +1,56 @@
+<figure class="widget" id="w-dd-hw-memory-sizes">
+  <p class="widget-title">Keys against on-chip memory</p>
+  <p class="widget-hint">Move dnum to 1: one key now fits in the 64 MB on chip, but the full set of rotation keys still needs HBM.</p>
+  <div class="controls"></div>
+  <div class="c-mem"></div>
+  <div class="readout"></div>
+  <figcaption>Sizes at the cost model's parameters (\(N = 2^{16}\), 24 limbs of 64 bits; log scale). A ciphertext is 2 polynomials × 24 limbs × \(2^{16}\) coefficients × 8 bytes = 24 MB. A switching key is the model's key size from <code>hw_profile.py</code>. The chapter says only that bootstrapping needs "dozens" of rotation keys, so the count is yours to set. The lines are the 64 MB on chip in F1 and Heracles, and Heracles' 48 GB of HBM.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-memory-sizes';
+  const N = 2 ** 16, L = 24, WORD = 8, MB = 2 ** 20;
+  const ctMB = 2 * L * N * WORD / MB;                                   // 24 MB
+  const keyMB = dnum => { const k = Math.ceil(L / dnum); return 2 * dnum * (L + k) * N * WORD / MB; };   // as in hw_profile.py
+  const ONCHIP = 64, HBM = 48 * 1024;                                   // MB
+  const size = v => v >= 1024 ? DS.fmt(v / 1024, v >= 10240 ? 0 : 1) + ' GB' : DS.fmt(v, 0) + ' MB';
+  const tick = v => v >= 1000 ? (v / 1000) + ' GB' : v + ' MB';     // axis only: 1000 MB shown as 1 GB
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const dnum = ui.slider({ label: 'dnum', values: [1, 2, 3, 4, 6, 12, 24], value: 3 });
+  const nkeys = ui.slider({ label: 'Rotation keys for one bootstrap', min: 1, max: 60, step: 1, value: 24 });
+
+  const cats = ['ciphertext', 'one key', 'all keys'];
+  const chart = DS.chart(root + ' .c-mem', {
+    x: { type: 'band', domain: cats, padding: 0.4 },
+    y: { type: 'log', domain: [1, 2e5], format: tick },
+    height: 290,
+    margin: { l: 58 },
+    draw(c) {
+      const k = keyMB(dnum.value), all = k * nkeys.value;
+      c.hline(ONCHIP, { dash: true, series: 'ink', label: '64 MB on chip', at: 'left' });
+      c.hline(HBM, { dash: true, series: 'ink', label: '48 GB HBM', at: 'left' });
+      const items = [
+        { x: 'ciphertext', y: ctMB, series: 1, tip: `one ciphertext: ${size(ctMB)}` },
+        { x: 'one key', y: k, series: 2, tip: `one switching key at dnum = ${dnum.value}: ${size(k)}` },
+        { x: 'all keys', y: all, series: 2, tip: `${nkeys.value} rotation keys: ${size(all)}` },
+      ];
+      c.bars(items, { base: 1, maxWidth: 70 });
+      for (const it of items) {                      // a halo in the page colour keeps labels clear of the dashed lines
+        const t = c.text(it.x, it.y, size(it.y), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+        t.style.cssText = 'paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round';
+      }
+    },
+  });
+
+  function readout() {
+    const k = keyMB(dnum.value), all = k * nkeys.value;
+    DS.stats(root + ' .readout', [
+      { label: 'Key ÷ ciphertext', value: DS.fmt(k / ctMB, 0) + '×' },
+      { label: 'One key on chip?', value: k <= ONCHIP ? 'fits' : 'no', tone: k <= ONCHIP ? 'good' : 'bad', note: size(k) + ' vs 64 MB' },
+      { label: 'All keys', value: size(all), note: DS.pct(all / HBM) + ' of 48 GB HBM' },
+    ]);
+  }
+  readout();
+})();
+</script>
