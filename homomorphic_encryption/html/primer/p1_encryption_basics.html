@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -103,9 +104,9 @@ function renderMath() {
 </details>
 <article>
 <h1 id="p1--what-encryption-is-keys-secrecy-and-the-one-time-pad">P1 · What encryption is: keys, secrecy and the one-time pad<a class="headerlink" href="#p1--what-encryption-is-keys-secrecy-and-the-one-time-pad" title="Link to this section">#</a></h1>
-<p><a href="../index.html">← index</a> · next: <a href="p2_aes.html">P2 Block ciphers and <abbr title="Advanced Encryption Standard">AES</abbr> →</a></p>
+<p><a href="../index.html">← index</a> · next: <a href="p2_aes.html">P2 Block ciphers and the Advanced Encryption Standard →</a></p>
 <hr />
-<p>Homomorphic encryption is still encryption: before it can compute on hidden data, it has to
+<p>Homomorphic encryption (<abbr title="homomorphic encryption">HE</abbr>) is still encryption: before it can compute on hidden data, it has to
 hide the data. This chapter sets up the vocabulary and the yardsticks the whole primer uses:
 what "secret" means, what a key is, and how to count the cost of an attack. Its central object,
 the one-time pad, is the simplest unbreakable cipher, and it is already homomorphic. The lattice
@@ -116,7 +117,8 @@ noise.</p>
 <li>name the goals of cryptography, use its vocabulary (plaintext, ciphertext, key, <code>Enc</code>, <code>Dec</code>)
   and state Kerckhoffs's principle;</li>
 <li>explain why classical ciphers fall to frequency analysis;</li>
-<li>encrypt with the one-time pad (<abbr title="exclusive or">XOR</abbr> and mod n) and prove that it is perfectly secret;</li>
+<li>encrypt with the one-time pad, using exclusive or (<abbr title="exclusive or">XOR</abbr>) or addition mod n, and prove that it
+  is perfectly secret;</li>
 <li>explain its price, and break a pad that was used twice;</li>
 <li>explain computational security, "128-bit security", and symmetric vs public-key encryption;</li>
 <li>see why the pad mod n can already add encrypted numbers, but not multiply them.</li>
@@ -171,10 +173,10 @@ controlled way. Checking that the server computed the right thing needs separate
 from <code>K</code>, <code>Enc(k, m)</code> returns a ciphertext <code>c</code>, and <code>Dec(k, c)</code> returns a message. The one
 non-negotiable property is <strong>correctness</strong>: decryption undoes encryption.</p>
 <div class="math-display">\[\mathrm{Dec}(k, \mathrm{Enc}(k, m)) = m \quad \text{for every key } k \text{ and every message } m\]</div>
-<p>Two remarks for later. Real <code>Enc</code> algorithms usually also take a fresh random value (an <abbr title="initialization vector">IV</abbr> or
-nonce); P3 and P5 explain why encryption <em>must</em> be randomized. And chapter 01's
-<code>(KeyGen, Enc, Dec, Eval)</code> is this same template with a public key and one extra algorithm,
-<code>Eval</code>, that computes on ciphertexts (P6).</p>
+<p>Two remarks for later. Real <code>Enc</code> algorithms usually also take a fresh random value (an
+initialization vector (<abbr title="initialization vector">IV</abbr>) or a nonce); P3 and P5 explain why encryption <em>must</em> be randomized.
+And chapter 01's <code>(KeyGen, Enc, Dec, Eval)</code> is this same template with a public key and one
+extra algorithm, <code>Eval</code>, that computes on ciphertexts (P6).</p>
 <p><em>Notation.</em> In this chapter the key is <code>k</code>. From P7 on, the secret key is called <code>s</code>, and the
 pad will be <code>⟨a, s⟩</code>.</p>
 <h3 id="kerckhoffss-principle">Kerckhoffs's principle<a class="headerlink" href="#kerckhoffss-principle" title="Link to this section">#</a></h3>
@@ -191,8 +193,8 @@ reasons for it:</p>
 <ul>
 <li><strong>The algorithm will leak.</strong> It sits in every device, binary and specification. A key is
   small and easy to replace; an algorithm is not.</li>
-<li><strong>Public algorithms get public scrutiny.</strong> <abbr title="Advanced Encryption Standard">AES</abbr> was chosen in an open competition (P2). A
-  secret design has only been attacked by its authors.</li>
+<li><strong>Public algorithms get public scrutiny.</strong> The Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>) was chosen
+  in an open competition (P2). A secret design has only been attacked by its authors.</li>
 <li><strong>It makes security measurable.</strong> If only the key is secret, security becomes a statement
   about the key space and the best known attack, which we can count (§8).</li>
 </ul>
@@ -241,8 +243,9 @@ gives noise; laying the same sheet over again cancels it.</p>
 <p><abbr title="exclusive or">XOR</abbr> is the case \(n = 2\), applied bit by bit (addition mod 2 is <abbr title="exclusive or">XOR</abbr>). Both versions say: <strong>add
 a random pad, then subtract it again.</strong> By hand with \(n = 1000\): \(m = 120\), \(k = 905\) gives
 \(c = 1025 \bmod 1000 = 25\), and \(25 - 905 = -880 \equiv 120 \pmod{1000}\).</p>
-<p>This version is the one to remember for <abbr title="homomorphic encryption">HE</abbr>. An <abbr title="learning with errors">LWE</abbr> ciphertext (P7) has exactly the shape
-\(b = \langle a, s \rangle + \Delta \cdot m + e \pmod q\): a message, plus a pad, plus noise.
+<p>This version is the one to remember for <abbr title="homomorphic encryption">HE</abbr>. A learning with errors (<abbr title="learning with errors">LWE</abbr>) ciphertext (P7) has
+exactly the shape \(b = \langle a, s \rangle + \Delta \cdot m + e \pmod q\): a message, plus a
+pad, plus noise.
 Here <code>a</code> is a public random vector, <code>s</code> the secret key, \(\langle a, s \rangle\) their inner
 product (the pad), <code>Δ</code> a large scaling constant that lifts the message <code>m</code>, and <code>e</code> a small
 random error; <code>q</code> is the modulus. All of this is explained in P7.</p>
@@ -315,6 +318,130 @@ Eve's prior gave \(m&#x27;\) any weight, her posterior for it drops to 0, and th
 <p><a href="../../code/primer/p1_one_time_pad.py">Part 2 of the script</a> shows it with a 4-bit key (16 keys) on
 8-bit messages. <code>Y</code> = 0x59 can only encrypt to <code>0x50</code>–<code>0x5F</code>, and <code>N</code> = 0x4E only to
 <code>0x40</code>–<code>0x4F</code>. A ciphertext <code>0x5F</code> tells Eve the answer is <code>Y</code> with certainty.</p>
+<figure class="widget" id="w-p1-perfect-secrecy">
+  <p class="widget-title">What one ciphertext byte tells Eve</p>
+  <p class="widget-hint">Switch to the 4-bit key: only one row of plaintexts is left. Then move the ciphertext to 0x5F.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Plaintexts that some key turns into c</p><div class="c-grid"></div></div>
+    <div><p class="panel-title">Eve's belief before and after seeing c</p><div class="c-bars"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each square is one plaintext byte: row = first hex digit, column = second, so
+    <code>Y</code> = 0x59 sits in row 5, column 9. A square is filled when a key in the key space
+    turns it into c. With the 8-bit key every square is filled, each by exactly one key of
+    probability 1/256, so Eve's 9&nbsp;:&nbsp;1 odds do not move. With 16 keys only the row that shares
+    c's first hex digit survives, and a prior that put weight elsewhere changes.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-perfect-secrecy';
+  const Y = 0x59, N = 0x4E, PRIOR = { Y: 0.9, N: 0.1 };
+  const hex = v => '0x' + v.toString(16).toUpperCase().padStart(2, '0');
+
+  const ui = DS.controls(root + ' .controls', () => { drawGrid(); bars.update(); readout(); });
+  const keyBits = ui.choice({ label: 'Key space', value: 8, options: [
+    { value: 8, label: '8-bit key (256 keys)' }, { value: 4, label: '4-bit key (16 keys)' }] });
+  const cSl = ui.slider({ label: 'Ciphertext c', min: 0, max: 255, step: 1, value: 0x3C, format: hex });
+
+  // The key that turns m into c is m XOR c; it is allowed if it lies in the key space.
+  function state() {
+    const c = cSl.value, nKeys = 2 ** keyBits.value;
+    const kY = Y ^ c, kN = N ^ c;
+    const okY = kY < nKeys, okN = kN < nKeys;
+    const jY = okY ? PRIOR.Y / nKeys : 0, jN = okN ? PRIOR.N / nKeys : 0;   // Pr[M = m, C = c]
+    const tot = jY + jN;
+    return { c, nKeys, kY, kN, okY, okN, postY: tot ? jY / tot : null, postN: tot ? jN / tot : null };
+  }
+
+  // ---- left: 16 x 16 grid of plaintext bytes
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const CELL = 16, OX = 26, OY = 20;
+  const svg = el('svg', { viewBox: `0 0 ${OX + 16 * CELL + 4} ${OY + 16 * CELL + 4}`, role: 'img',
+    'aria-label': 'Grid of the 256 plaintext bytes; filled squares are possible given c' });
+  svg.style.cssText = 'display:block;width:100%;max-width:330px;height:auto;margin:6px auto 0;font-family:var(--font)';
+  document.querySelector(root + ' .c-grid').appendChild(svg);
+  for (let i = 0; i < 16; i++) {
+    const t1 = el('text', { x: OX + i * CELL + CELL / 2, y: OY - 6, 'text-anchor': 'middle' }, svg);
+    t1.textContent = i.toString(16).toUpperCase();
+    const t2 = el('text', { x: OX - 6, y: OY + i * CELL + CELL / 2 + 4, 'text-anchor': 'end' }, svg);
+    t2.textContent = i.toString(16).toUpperCase() + '_';
+  }
+  svg.querySelectorAll('text').forEach(t => { t.style.fill = 'var(--ink-muted)'; t.style.fontSize = '10.5px'; });
+  const cells = [];
+  for (let m = 0; m < 256; m++) {
+    const r = el('rect', { x: OX + (m & 15) * CELL + 1, y: OY + (m >> 4) * CELL + 1, width: CELL - 2, height: CELL - 2, rx: 2 }, svg);
+    r.appendChild(document.createElementNS(NS, 'title'));
+    cells.push(r);
+  }
+  for (const [m, ch] of [[Y, 'Y'], [N, 'N']]) {
+    el('rect', { x: OX + (m & 15) * CELL, y: OY + (m >> 4) * CELL, width: CELL, height: CELL, rx: 3,
+      style: 'fill:none;stroke:var(--ink);stroke-width:2' }, svg);
+    const t = el('text', { x: OX + (m & 15) * CELL + CELL / 2, y: OY + (m >> 4) * CELL + CELL / 2 + 4, 'text-anchor': 'middle',
+      style: 'fill:var(--ink);font-size:11px;font-weight:700;pointer-events:none' }, svg);
+    t.textContent = ch;
+  }
+  function drawGrid() {
+    const s = state();
+    for (let m = 0; m < 256; m++) {
+      const k = m ^ s.c, ok = k < s.nKeys;
+      cells[m].style.cssText = ok ? 'fill:var(--series-1);fill-opacity:.45;stroke:none'
+                                  : 'fill:none;stroke:var(--line);stroke-width:1';
+      cells[m].firstChild.textContent = `${hex(m)}: ` + (ok ? `key ${hex(k)} turns it into ${hex(s.c)}` : `needs key ${hex(k)}, not in the key space`);
+    }
+  }
+
+  // ---- right: prior vs posterior
+  const bars = DS.chart(root + ' .c-bars', {
+    x: { domain: [-0.6, 1.6], tickValues: [0, 1], format: v => (v === 0 ? 'Y (0x59)' : 'N (0x4E)') },
+    y: { domain: [0, 1.12], label: 'Probability', tickValues: [0, 0.2, 0.4, 0.6, 0.8, 1], format: v => v.toFixed(1) },
+    height: 270,
+    draw(c) {
+      const s = state();
+      c.legend([{ label: 'before (prior)', series: 'muted', kind: 'rect' }, { label: 'after seeing c', series: 1, kind: 'rect' }]);
+      c.bars([{ x: -0.17, y: PRIOR.Y, tip: 'prior Pr[Y] = 0.90' }, { x: 0.83, y: PRIOR.N, tip: 'prior Pr[N] = 0.10' }],
+        { series: 'muted', width: 0.3 });
+      c.text(-0.17, PRIOR.Y, '0.90', { anchor: 'middle', dy: -6, cls: 'ink2' });
+      c.text(0.83, PRIOR.N, '0.10', { anchor: 'middle', dy: -6, cls: 'ink2' });
+      if (s.postY === null) {
+        ['No allowed key turns', 'Y or N into c: Eve', 'never sees this c.'].forEach((line, i) =>
+          c.text(1, 0.62, line, { anchor: 'middle', dy: 17 * i, cls: 'ink strong' }));
+        return;
+      }
+      c.bars([{ x: 0.17, y: s.postY, tip: `Pr[Y | c] = ${s.postY.toFixed(2)}` }, { x: 1.17, y: s.postN, tip: `Pr[N | c] = ${s.postN.toFixed(2)}` }],
+        { series: 1, width: 0.3 });
+      c.text(0.17, s.postY, s.postY.toFixed(2), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+      c.text(1.17, s.postN, s.postN.toFixed(2), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+    },
+  });
+
+  function keyTile(name, m, k, ok, s) {
+    return ok
+      ? { label: `Key that turns ${name} into c`, value: hex(k), note: `probability 1/${s.nKeys}` }
+      : { label: `Key that turns ${name} into c`, value: 'none', note: `${hex(k)} is not a 4-bit key`, tone: 'bad' };
+  }
+  function readout() {
+    const s = state();
+    const same = s.postY !== null && Math.abs(s.postY - PRIOR.Y) < 1e-12;
+    DS.stats(root + ' .readout', [
+      { label: 'Plaintexts possible given c', value: `${s.nKeys} of 256` },
+      keyTile('Y', Y, s.kY, s.okY, s),
+      keyTile('N', N, s.kN, s.okN, s),
+      s.postY === null
+        ? { label: 'Pr[Y | c]', value: '–', note: 'c never occurs under this prior' }
+        : { label: 'Pr[Y | c]', value: s.postY.toFixed(2), note: same ? 'equals the prior: nothing learned' : 'prior was 0.90', tone: same ? 'good' : 'bad' },
+    ]);
+  }
+  drawGrid();
+  readout();
+})();
+</script>
 <p>So a gigabyte of data needs a gigabyte of truly random key, delivered in advance over a secure
 channel and kept secret on both sides. If Alice can deliver that much key securely, she could
 almost deliver the message the same way: the pad does not remove the need for a secure channel,
@@ -326,6 +453,100 @@ distribution</strong> problem differently.</p>
 <div class="math-display">\[c_1 \oplus c_2 = (m_1 \oplus k) \oplus (m_2 \oplus k) = m_1 \oplus m_2\]</div>
 <p>The <abbr title="exclusive or">XOR</abbr> of two English texts is far from random, and Eve can now attack it without knowing
 anything about the key. Cryptanalysts say the two messages are <strong>in depth</strong>.</p>
+<figure class="widget" id="w-p1-two-time-pad">
+  <p class="widget-title">Two images, one pad</p>
+  <p class="widget-hint">Each ciphertext alone is noise. Switch to a fresh pad for each image and watch the right panel turn to noise too.</p>
+  <div class="controls"></div>
+  <div class="ttp-row" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px;align-items:start">
+    <div><div class="ttp-img"></div><p class="panel-title" style="text-align:center;margin-top:6px">c₁ = m₁ ⊕ pad</p></div>
+    <div><div class="ttp-img"></div><p class="panel-title" style="text-align:center;margin-top:6px">c₂ = m₂ ⊕ pad</p></div>
+    <div><div class="ttp-img"></div><p class="panel-title ttp-label3" style="text-align:center;margin-top:6px">c₁ ⊕ c₂</p></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each pixel is one bit, and each image is XORed with a random pad of 76 × 50 bits.
+    Alice's two messages are the words MEET / NINE and a smiling face. Eve sees only c₁ and c₂,
+    and each alone is a fair coin flip per pixel. When they share a pad, c₁ ⊕ c₂ = m₁ ⊕ m₂: the
+    pad cancels and both pictures appear on top of each other, each flipping the other's pixels
+    where they overlap.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-two-time-pad';
+  const W = 76, H = 50, NPIX = W * H;
+
+  // ---- the two plaintext images (1 = dark pixel)
+  const FONT = {   // 5 x 7 glyphs
+    M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+    E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+    T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+    N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+    I: ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
+  };
+  const m1 = new Uint8Array(NPIX), m2 = new Uint8Array(NPIX);
+  function word(str, x0, y0) {         // drawn at 3x scale: each letter 15 x 21, 3 px apart
+    [...str].forEach((ch, i) => FONT[ch].forEach((row, r) => [...row].forEach((b, col) => {
+      if (b === '1') for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++)
+        m1[(y0 + 3 * r + dy) * W + x0 + 18 * i + 3 * col + dx] = 1;
+    })));
+  }
+  word('MEET', 4, 2);
+  word('NINE', 4, 27);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x + 0.5 - 38, dy = y + 0.5 - 25, d = Math.hypot(dx, dy);
+    const eye = ex => Math.hypot(x + 0.5 - ex, y + 0.5 - 17.5) <= 3.4;
+    m2[y * W + x] = Math.abs(d - 21.5) <= 2 || eye(30.5) || eye(45.5) || (Math.abs(d - 12.5) <= 1.8 && dy >= 4) ? 1 : 0;
+  }
+
+  // ---- drawing: one SVG per panel, dark pixels as a single path
+  const NS = 'http://www.w3.org/2000/svg';
+  const paths = [...document.querySelectorAll(root + ' .ttp-img')].map(host => {
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `-0.5 -0.5 ${W + 1} ${H + 1}`);
+    svg.setAttribute('role', 'img');
+    svg.style.cssText = 'display:block;width:100%;height:auto;shape-rendering:crispEdges';
+    const bg = document.createElementNS(NS, 'rect');
+    for (const [k, v] of Object.entries({ x: -0.5, y: -0.5, width: W + 1, height: H + 1, rx: 1 })) bg.setAttribute(k, v);
+    bg.style.cssText = 'fill:var(--soft);stroke:var(--line);stroke-width:0.25';
+    svg.appendChild(bg);
+    const p = document.createElementNS(NS, 'path');
+    p.style.fill = 'var(--ink)';
+    svg.appendChild(p);
+    host.appendChild(svg);
+    return p;
+  });
+  function draw(path, bits) {
+    let d = '';
+    for (let i = 0; i < NPIX; i++) if (bits[i]) d += `M${i % W},${(i / W) | 0}h1v1h-1z`;
+    path.setAttribute('d', d);
+  }
+
+  let seed = 8;
+  const ui = DS.controls(root + ' .controls', update);
+  const mode = ui.choice({ label: 'Pads', value: 'same', options: [
+    { value: 'same', label: 'One pad, used twice' }, { value: 'fresh', label: 'A fresh pad for each' }] });
+  ui.button({ label: 'New random pads', onClick: () => { seed++; } });
+
+  function update() {
+    const R = DS.random(seed);
+    const k1 = new Uint8Array(NPIX), k2 = new Uint8Array(NPIX);
+    for (let i = 0; i < NPIX; i++) k1[i] = R.int(2);
+    for (let i = 0; i < NPIX; i++) k2[i] = mode.value === 'same' ? k1[i] : R.int(2);
+    const c1 = m1.map((b, i) => b ^ k1[i]), c2 = m2.map((b, i) => b ^ k2[i]);
+    const x = c1.map((b, i) => b ^ c2[i]);
+    draw(paths[0], c1); draw(paths[1], c2); draw(paths[2], x);
+    document.querySelector(root + ' .ttp-label3').textContent = mode.value === 'same' ? 'c₁ ⊕ c₂ = m₁ ⊕ m₂' : 'c₁ ⊕ c₂';
+    let a1 = 0, ax = 0;
+    for (let i = 0; i < NPIX; i++) { a1 += c1[i] === m1[i]; ax += x[i] === (m1[i] ^ m2[i]); }
+    const n = v => v.toLocaleString('en-US');
+    DS.stats(root + ' .readout', [
+      { label: 'Pixels where c₁ matches m₁', value: DS.pct(a1 / NPIX, 0), note: `${n(a1)} of ${n(NPIX)}: a coin flip` },
+      { label: 'Pixels where c₁ ⊕ c₂ matches m₁ ⊕ m₂', value: DS.pct(ax / NPIX, 0), note: ax === NPIX ? `${n(ax)} of ${n(NPIX)}: the pad cancels` : `${n(ax)} of ${n(NPIX)}: noise again`,
+        tone: ax === NPIX ? 'bad' : undefined },
+    ]);
+  }
+  update();
+})();
+</script>
 <ul>
 <li><strong>Known plaintext.</strong> If Eve knows part of \(m_1\) (a standard header, a greeting), she gets the
   same part of \(m_2 = (c_1 \oplus c_2) \oplus m_1\), and of the key, \(k = c_1 \oplus m_1\).</li>
@@ -349,11 +570,12 @@ advance on Moscow, the Soviet producer of the KGB's pads had made about 35,000 p
 duplicate key. American analysts found the depths, stripped off the key, and then still had
 to reconstruct the codebook. About 3,000 messages were at least partially read. They exposed
 Soviet espionage in the US, including the atomic spies. The project ran until 1 October 1980,
-and NSA released the translations from 1995 on.</p>
-<p><em>WEP.</em> The original Wi-Fi encryption generated an RC4 keystream from the secret key and a
-public 24-bit <abbr title="initialization vector">IV</abbr>. Borisov, Goldberg and Wagner (2001) showed that a busy access point exhausts
-all \(2^{24}\) <abbr title="initialization vector">IV</abbr>s in less than half a day, and that with random <abbr title="initialization vector">IV</abbr>s a repeat is expected after
-about 5,000 packets (the birthday paradox). Every repeat is a two-time pad.</p>
+and the National Security Agency (NSA) released the translations from 1995 on.</p>
+<p><em>WEP.</em> The original Wi-Fi encryption, Wired Equivalent Privacy, generated an RC4 keystream
+from the secret key and a public 24-bit <abbr title="initialization vector">IV</abbr>. Borisov, Goldberg and Wagner (2001) showed that a
+busy access point exhausts all \(2^{24}\) <abbr title="initialization vector">IV</abbr>s in less than half a day, and that with random <abbr title="initialization vector">IV</abbr>s
+a repeat is expected after about 5,000 packets (the birthday paradox). Every repeat is a
+two-time pad.</p>
 </blockquote>
 <p>The lesson carries through the whole primer: <strong>every pad must be fresh.</strong> Stream ciphers ensure
 it with a nonce (§7, P3). <abbr title="learning with errors">LWE</abbr> ensures it with a fresh random vector <code>a</code> in every ciphertext
@@ -369,12 +591,13 @@ requirement is that no efficient algorithm can tell its output from truly random
  message m ─────────────────────────XOR──────&gt; ciphertext c
 </code></pre></div>
 
-<p>The toy generator in <a href="../../code/primer/p1_one_time_pad.py">part 5 of the script</a> is <abbr title="Secure Hash Algorithm">SHA</abbr>-256 in
-counter mode: block <code>i</code> of the pad is <code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong><abbr title="Advanced Encryption Standard">AES</abbr> in
-counter mode</strong> (block <code>i</code> is <code>AES_k(nonce ‖ i)</code>; P2 and P3) or <strong>ChaCha20</strong> (standardised for
-<abbr title="Internet Engineering Task Force">IETF</abbr> protocols in <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8439). The nonce is public, but it must never repeat under the same key:
-the same <code>(k, nonce)</code> gives the same pad, and we are back to the two-time pad. Part 5 checks
-this as well.</p>
+<p>The toy generator in <a href="../../code/primer/p1_one_time_pad.py">part 5 of the script</a> is <abbr title="Secure Hash Algorithm">SHA</abbr>-256 (a
+hash function from the Secure Hash Algorithm family) in counter mode: block <code>i</code> of the pad is
+<code>SHA-256(k ‖ nonce ‖ i)</code>. Real systems use <strong><abbr title="Advanced Encryption Standard">AES</abbr> in counter mode</strong> (block <code>i</code> is
+<code>AES_k(nonce ‖ i)</code>; P2 and P3) or <strong>ChaCha20</strong> (standardised for Internet Engineering Task Force
+(<abbr title="Internet Engineering Task Force">IETF</abbr>) protocols in Request for Comments (<abbr title="Request for Comments (an IETF standard)">RFC</abbr>) 8439). The nonce is public, but it must never
+repeat under the same key: the same <code>(k, nonce)</code> gives the same pad, and we are back to the
+two-time pad. Part 5 checks this as well.</p>
 <h3 id="the-catch-no-longer-perfectly-secret">The catch: no longer perfectly secret<a class="headerlink" href="#the-catch-no-longer-perfectly-secret" title="Link to this section">#</a></h3>
 <p>For a fixed nonce there are only \(2^{128}\) possible pads, but vastly more possible messages, so
 Shannon's theorem rules out perfect secrecy. An attacker with unlimited time could try all
@@ -382,6 +605,74 @@ Shannon's theorem rules out perfect secrecy. An attacker with unlimited time cou
 sensible text. (Shannon called the length where this happens the <em>unicity distance</em>.) Part 6 of
 the script shrinks the key to 20 bits and does exactly that: it tries all \(2^{20}\) keys in about
 two seconds on a laptop, and exactly one of them decrypts to readable text.</p>
+<figure class="widget" id="w-p1-unicity">
+  <p class="widget-title">How long a message gives the key away</p>
+  <p class="widget-hint">Shorten the message to 4 characters: about 130 wrong keys now read as text. Then raise the key to 128 bits.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>Expected number of wrong keys whose decryption is "readable", using the test of
+    part 6 of the script: every byte is a lowercase letter or a space, 27 of the 256 byte values.
+    A wrong key gives a random-looking pad, so each byte passes with probability 27/256, and
+    \((2^k - 1)(27/256)^L\) wrong keys pass for an \(L\)-character message. Where the curve
+    drops below one is the unicity distance: about 6 characters for the 20-bit toy key, about 39
+    for a 128-bit key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-unicity';
+  const PASS = Math.log10(27 / 256);                       // log10 of one byte passing
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(ch => SUP[ch]).join('');
+  const wrongLog = (k, L) => Math.log10(2 ** k - 1) + L * PASS;   // log10 of expected wrong keys
+  function count(lg) {
+    const v = 10 ** lg;
+    if (lg >= 6 || lg < -2) {
+      const e = Math.floor(lg), m = (10 ** (lg - e)).toFixed(1);
+      return m === '10.0' ? `1.0 × 10${sup(e + 1)}` : `${m} × 10${sup(e)}`;
+    }
+    return v >= 10 ? Math.round(v).toLocaleString('en-US') : v.toPrecision(2);
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Key size', min: 8, max: 128, step: 1, value: 20, format: v => v + ' bits' });
+  const len = ui.slider({ label: 'Message length', min: 1, max: 60, step: 1, value: 28, format: v => v + ' characters' });
+
+  const Ls = DS.math.range(61);
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [0, 60], label: 'Message length L (characters)', tipLabel: 'L =' },
+    y: { domain: [-25, 40], label: 'Wrong keys that read as text', tickValues: [-20, -10, 0, 10, 20, 30, 40], baseline: 'bottom',
+         format: v => (v === 0 ? '1' : `10${sup(v)}`) },
+    height: 300,
+    draw(c) {
+      const k = bits.value, L = len.value;
+      const Lstar = Math.log10(2 ** k - 1) / -PASS;
+      const far = Lstar > 30;                       // keep the labels away from the crossing
+      c.hline(0, { series: 'ink' });
+      c.text(far ? 0 : 60, 0, 'several keys read as text ↑', { anchor: far ? 'start' : 'end', dx: far ? 4 : 0, dy: -6, cls: 'ink2' });
+      c.text(far ? 0 : 60, 0, 'only the right key does ↓', { anchor: far ? 'start' : 'end', dx: far ? 4 : 0, dy: 15, cls: 'ink2' });
+      c.vline(Lstar, { dash: true });
+      c.text(Lstar, 40, `unicity distance ${Lstar.toFixed(1)}`, { anchor: far ? 'end' : 'start', dx: far ? -5 : 5, dy: 11 });
+      c.line(Ls.map(l => [l, wrongLog(k, l)]), { series: 1, label: `${k}-bit key`, format: v => count(v) });
+      c.point(L, wrongLog(k, L), { series: 1 });
+    },
+  });
+
+  function readout() {
+    const k = bits.value, L = len.value;
+    const Lstar = Math.log10(2 ** k - 1) / -PASS;
+    const lg = wrongLog(k, L);
+    DS.stats(root + ' .readout', [
+      { label: 'Unicity distance', value: Lstar.toFixed(1), note: `characters, for a ${k}-bit key` },
+      { label: 'Wrong keys that read as text', value: (lg >= 0 ? '≈ ' : '') + count(lg), note: `for ${L} characters` },
+      lg >= 0 ? { label: 'Can Eve spot the right key?', value: 'no', note: 'too many keys read as text', tone: 'good' }
+        : lg >= -1 ? { label: 'Can Eve spot the right key?', value: 'usually', note: 'a wrong key sometimes also fits', tone: 'bad' }
+        : { label: 'Can Eve spot the right key?', value: 'yes', note: 'only the right key reads as text', tone: 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>So the security of a stream cipher rests on something new: <strong>the attacker cannot do \(2^{128}\)
 operations.</strong></p>
 <h2 id="8-computational-security-and-bits-of-security">8. Computational security and bits of security<a class="headerlink" href="#8-computational-security-and-bits-of-security" title="Link to this section">#</a></h2>
@@ -400,23 +691,25 @@ simultaneous equations of a complex type. Learning With Errors (P7) is exactly t
 problem: linear equations made hard by a little noise.</p>
 <h3 id="bits-of-security">Bits of security<a class="headerlink" href="#bits-of-security" title="Link to this section">#</a></h3>
 <p>A scheme has <strong>κ-bit security</strong> (κ is the Greek letter kappa) if the best known attack costs
-about \(2^\kappa\) operations; "128-bit security" means κ = 128. <abbr title="National Institute of Standards and Technology">NIST</abbr> calls this the <strong>security
-strength</strong>: a number associated with the amount of work needed to break the system. For an
-ideal cipher with a <code>k</code>-bit key, the best attack is brute force: \(2^k\) trials in the worst
-case, \(2^{k-1}\) on average. So \(\kappa = k\). (P5 uses the same letter, and refines the count.)</p>
-<p>Key length and security strength differ in general. <abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-57 rates <abbr title="Advanced Encryption Standard">AES</abbr>-128, <abbr title="Rivest–Shamir–Adleman">RSA</abbr> with a
-3072-bit modulus and elliptic curves of 256–383 bits all at <strong>128 bits</strong>, because factoring has
-attacks far better than trying every key. <abbr title="homomorphic encryption">HE</abbr> is rated the same way: when chapter 02 says that
-<code>N = 16384</code>, <code>log q = 438</code> is "128-bit secure", it means the best known lattice attacks are
-estimated to cost about \(2^{128}\) operations (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>).</p>
+about \(2^\kappa\) operations; "128-bit security" means κ = 128. The National Institute of
+Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>) calls this the <strong>security strength</strong>: a number associated with
+the amount of work needed to break the system. For an ideal cipher with a <code>k</code>-bit key, the best
+attack is brute force: \(2^k\) trials in the worst case, \(2^{k-1}\) on average. So \(\kappa = k\).
+(P5 uses the same letter, and refines the count.)</p>
+<p>Key length and security strength differ in general. <abbr title="National Institute of Standards and Technology">NIST</abbr> Special Publication (<abbr title="Special Publication (a NIST document series)">SP</abbr>) 800-57 rates
+<abbr title="Advanced Encryption Standard">AES</abbr>-128, <abbr title="Rivest–Shamir–Adleman">RSA</abbr> (Rivest–Shamir–Adleman) with a 3072-bit modulus and elliptic curves of 256–383
+bits all at <strong>128 bits</strong>, because factoring has attacks far better than trying every key. <abbr title="homomorphic encryption">HE</abbr> is
+rated the same way: when chapter 02 says that <code>N = 16384</code>, <code>log q = 438</code> is "128-bit secure",
+it means the best known lattice attacks are estimated to cost about \(2^{128}\) operations
+(<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>).</p>
 <p>Each extra bit doubles the work. Doubling the attacker's hardware buys one bit, a thousandfold
 increase buys ten.</p>
 <h3 id="brute-force-in-numbers">Brute force in numbers<a class="headerlink" href="#brute-force-in-numbers" title="Link to this section">#</a></h3>
-<p><abbr title="Data Encryption Standard">DES</abbr>, the US standard block cipher from 1977, had a 56-bit key. In 1998 the Electronic Frontier
-Foundation built a dedicated key-search machine for under $250,000 that found a <abbr title="Data Encryption Standard">DES</abbr> key in 56
-hours. In January 1999, together with the volunteers of distributed.net, it found one in
-22 hours and 15 minutes, testing about 245 billion keys per second. That ended 56-bit keys, and
-<abbr title="Advanced Encryption Standard">AES</abbr> (P2) starts at 128 bits.</p>
+<p>The Data Encryption Standard (<abbr title="Data Encryption Standard">DES</abbr>), the US standard block cipher from 1977, had a 56-bit key.
+In 1998 the Electronic Frontier Foundation (EFF) built a dedicated key-search machine for under
+$250,000 that found a <abbr title="Data Encryption Standard">DES</abbr> key in 56 hours. In January 1999, together with the volunteers of
+distributed.net, it found one in 22 hours and 15 minutes, testing about 245 billion keys per
+second. That ended 56-bit keys, and <abbr title="Advanced Encryption Standard">AES</abbr> (P2) starts at 128 bits.</p>
 <p><a href="../../code/primer/p1_one_time_pad.py">Part 6 of the script</a> measures how fast plain Python tries
 keys of its toy cipher and extrapolates. Times are for the whole key space; on average the key
 turns up halfway.</p>
@@ -462,6 +755,84 @@ turns up halfway.</p>
 </tr>
 </tbody>
 </table></div>
+<figure class="widget" id="w-p1-brute-force">
+  <p class="widget-title">Time to try every key</p>
+  <p class="widget-hint">Drag the key size down to 80 bits, then to 56. Every bit doubles the time, so all three lines climb at the same slope.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>Time for \(2^k\) trials at three rates from §8, on a log scale. The lines are
+    parallel: the whole Bitcoin network is about \(1.8 \times 10^{15}\) times faster than plain
+    Python on a laptop, and that buys only \(\log_2(1.8 \times 10^{15}) \approx 51\) bits. At
+    128 bits even the fastest rate needs about 0.8 times the age of the universe.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p1-brute-force';
+  const RATES = [
+    { name: 'This laptop, Python', rate: 5.7e5, rateText: '5.7 × 10⁵ keys/s', series: 1 },
+    { name: 'EFF cracker + distributed.net, 1999', rate: 2.45e11, rateText: '2.45 × 10¹¹ keys/s', series: 2 },
+    { name: 'Whole Bitcoin network', rate: 1e21, rateText: '10²¹ hashes/s', series: 3 },
+  ];
+  const YEAR = 3.156e7, UNIVERSE = 13.8e9 * YEAR;
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(ch => SUP[ch]).join('');
+  const sci = (v, unit) => {                       // 6.7 × 10¹⁰ years
+    const e = Math.floor(Math.log10(v)), m = v / 10 ** e;
+    const ms = m.toFixed(1);
+    return (ms === '10.0' ? `1.0 × 10${sup(e + 1)}` : `${ms} × 10${sup(e)}`) + (unit ? ' ' + unit : '');
+  };
+  const two = v => (v >= 10 ? Math.round(v).toString() : v.toPrecision(2));
+  function human(s) {                              // the rounding of the table in §8
+    if (s < 1e-6) return two(s * 1e9) + ' ns';
+    if (s < 1e-3) return two(s * 1e6) + ' µs';
+    if (s < 1) return two(s * 1e3) + ' ms';
+    if (s < 60) return two(s) + ' s';
+    if (s < 3600) return two(s / 60) + ' minutes';
+    if (s < 86400) return two(s / 3600) + ' hours';
+    if (s < YEAR) return two(s / 86400) + ' days';
+    const y = s / YEAR;
+    if (y < 1000) return two(y) + ' years';
+    if (y < 1e6) return (Math.round(y / 1000) * 1000).toLocaleString('en-US') + ' years';
+    if (y < 1e9) return (y / 1e6).toFixed(1) + ' million years';
+    return sci(y, 'years');
+  }
+  const lg = (bits, rate) => bits * Math.LOG10E * Math.LN2 - Math.log10(rate);   // log10(2^bits / rate)
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Key size', min: 16, max: 136, step: 1, value: 128, format: v => v + ' bits' });
+
+  const BITS = DS.math.range(121).map(i => 16 + i);
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [16, 136], label: 'Key bits k', tickValues: [16, 40, 56, 80, 100, 128], tipLabel: 'k =', tipFormat: v => v + ' bits' },
+    y: { domain: [-15, 36], label: 'Seconds (log scale)', tickValues: [-10, 0, 10, 20, 30], baseline: 'bottom',
+         format: v => (v === 0 ? '1 s' : `10${sup(v)} s`) },
+    height: 320,
+    margin: { l: 74 },
+    draw(c) {
+      c.legend(RATES.map(r => ({ label: `${r.name} (${r.rateText})`, series: r.series })));
+      c.hline(Math.log10(YEAR), { dash: true, label: '1 year', at: 'left' });
+      c.hline(Math.log10(UNIVERSE), { dash: true, label: 'age of the universe', at: 'left' });
+      const k = bits.value;
+      if (k !== 56) c.vline(56, { dash: true, label: 'DES' });
+      if (k !== 128) c.vline(128, { dash: true, label: 'AES-128' });
+      for (const r of RATES)
+        c.line(BITS.map(b => [b, lg(b, r.rate)]), { series: r.series, label: r.name, format: v => human(10 ** v) });
+      c.vline(k, { series: 'ink', label: k === 128 ? 'AES-128' : k === 56 ? 'DES' : k + ' bits', labelPos: k === 128 || k === 56 ? 'top' : 'bottom' });
+      for (const r of RATES) c.point(k, lg(k, r.rate), { series: r.series });
+    },
+  });
+
+  function readout() {
+    const k = bits.value;
+    DS.stats(root + ' .readout', [
+      { label: 'Keys to try', value: '2' + sup(k), note: '≈ ' + sci(2 ** k) },
+      ...RATES.map(r => ({ label: r.name, value: human(2 ** k / r.rate), note: r.rateText })),
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="what-128-bit-security-means-physically">What 128-bit security means physically<a class="headerlink" href="#what-128-bit-security-means-physically" title="Link to this section">#</a></h3>
 <ul>
 <li>\(2^{128} \approx 3.4 \times 10^{38}\). Even at \(10^{21}\) operations per second (roughly the
@@ -518,7 +889,7 @@ must share it beforehand. <strong>Public-key</strong> (asymmetric) encryption sp
 <tr>
 <td>Examples</td>
 <td>One-time pad, <abbr title="Advanced Encryption Standard">AES</abbr>, ChaCha20</td>
-<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr>, ElGamal, <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (P4)</td>
+<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr>, ElGamal, <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (Module-Lattice-Based Key-Encapsulation Mechanism; P4)</td>
 </tr>
 <tr>
 <td>Speed</td>
@@ -534,7 +905,8 @@ must share it beforehand. <strong>Public-key</strong> (asymmetric) encryption sp
 </table></div>
 <p>You already know <abbr title="Rivest–Shamir–Adleman">RSA</abbr>: \((n, e)\) is the public key and \(d\) the secret one. In practice the two
 are combined: public-key cryptography agrees on a fresh symmetric key, and <abbr title="Advanced Encryption Standard">AES</abbr> or ChaCha20
-encrypts the data. That is <strong>hybrid encryption</strong>, and P4 shows how <abbr title="Transport Layer Security">TLS</abbr> does it.</p>
+encrypts the data. That is <strong>hybrid encryption</strong>, and P4 shows how Transport Layer Security
+(<abbr title="Transport Layer Security">TLS</abbr>) does it.</p>
 <p>One structural fact: <strong>public-key encryption can never be perfectly secret.</strong> An attacker with
 unlimited time and the public key can encrypt every candidate message with every possible
 random choice and compare the results with the ciphertext. Public-key security is always
@@ -680,10 +1052,10 @@ becomes quadratic in the keys. <abbr title="learning with errors">LWE</abbr> cip
 become three, with an \(s^2\) term), and <strong>relinearization</strong> shrinks them back (P8).</p>
 </li>
 </ol>
-<p>A stream cipher like <abbr title="Advanced Encryption Standard">AES</abbr>-CTR is also "message <abbr title="exclusive or">XOR</abbr> pad", so <abbr title="exclusive or">XOR</abbr> of ciphertexts carries over in
-the same way. But its pad comes out of <abbr title="Advanced Encryption Standard">AES</abbr>, which scrambles the key so thoroughly that no
-algebra survives (P2). <abbr title="homomorphic encryption">HE</abbr> needs pads with structure, and \(\langle a, s \rangle + e\) is that
-structure.</p>
+<p>A stream cipher like <abbr title="Advanced Encryption Standard">AES</abbr> in counter mode (<abbr title="Advanced Encryption Standard">AES</abbr>-CTR) is also "message <abbr title="exclusive or">XOR</abbr> pad", so <abbr title="exclusive or">XOR</abbr> of
+ciphertexts carries over in the same way. But its pad comes out of <abbr title="Advanced Encryption Standard">AES</abbr>, which scrambles the key
+so thoroughly that no algebra survives (P2). <abbr title="homomorphic encryption">HE</abbr> needs pads with structure, and
+\(\langle a, s \rangle + e\) is that structure.</p>
 <h2 id="12-check-yourself">12. Check yourself<a class="headerlink" href="#12-check-yourself" title="Link to this section">#</a></h2>
 <ol>
 <li>A one-byte <abbr title="exclusive or">XOR</abbr> one-time pad produces the ciphertext <code>0x7D</code>. Eve's prior is <code>Y</code> with 0.9 and

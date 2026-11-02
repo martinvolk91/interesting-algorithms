@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -91,13 +92,13 @@ function renderMath() {
 <h1 id="p7--lattices-and-lwe-encryption-from-noisy-equations">P7 · Lattices and LWE: encryption from noisy equations<a class="headerlink" href="#p7--lattices-and-lwe-encryption-from-noisy-equations" title="Link to this section">#</a></h1>
 <p><a href="p6_computing_on_ciphertexts.html">← P6 Computing on ciphertexts</a> · <a href="../index.html">index</a> · next: <a href="p8_multiplication_and_relinearization.html">P8 Multiplication and relinearization →</a></p>
 <hr />
-<p>Every practical <abbr title="fully homomorphic encryption">FHE</abbr> scheme rests on one problem, <strong>Learning With Errors</strong> (<abbr title="learning with errors">LWE</abbr>), usually in
-its ring form. It starts from linear algebra you know: a system of linear equations mod \(q\)
-is easy to solve, but add a small random error to every equation and, as far as anyone knows,
-it becomes hard, even for quantum computers. Turned into encryption, <abbr title="learning with errors">LWE</abbr> is a one-time pad
-whose pad is generated from a short key plus a little noise. Adding ciphertexts works out of
-the box. The noise is what makes it secure, and it is also what limits how much you can
-compute.</p>
+<p><strong>Learning With Errors</strong> (<abbr title="learning with errors">LWE</abbr>), usually in its ring form, is the one problem that every
+practical fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) scheme rests on. It starts from linear algebra
+you know: a system of linear equations mod \(q\) is easy to solve, but add a small random error
+to every equation and, as far as anyone knows, it becomes hard, even for quantum computers.
+Turned into encryption, <abbr title="learning with errors">LWE</abbr> is a one-time pad whose pad is generated from a short key plus a
+little noise. Adding ciphertexts works out of the box. The noise is what makes it secure, and
+it is also what limits how much you can compute.</p>
 <p><strong>In this chapter</strong></p>
 <ul>
 <li>Solve \(b = A s \bmod q\) by elimination, and explain why the same method fails once noise is
@@ -157,11 +158,12 @@ There are two versions of the problem:</p>
   in \(\mathbb{Z}_q^\ell\).</li>
 </ul>
 <p>Decision looks easier, but for prime \(q\) of polynomial size Regev showed the two are
-equivalent. Decision-LWE is the version encryption needs, because <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>
-(<a href="p5_security_definitions.html">P5</a>) asks that ciphertexts of any two chosen messages be
-<em>indistinguishable</em>, not merely that the key is hard to find. The proof gets there by showing
-that the pad looks random, which is exactly what decision-LWE says. With \(q = 2\), <abbr title="learning with errors">LWE</abbr> is the older "learning parity with noise" problem; <abbr title="learning with errors">LWE</abbr>
-generalizes it to larger moduli.</p>
+equivalent. Decision-LWE is the version encryption needs, because indistinguishability under
+chosen-plaintext attack (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>, <a href="p5_security_definitions.html">P5</a>) asks that ciphertexts of
+any two chosen messages be <em>indistinguishable</em>, not merely that the key is hard to find. The
+proof gets there by showing that the pad looks random, which is exactly what decision-LWE
+says. With \(q = 2\), <abbr title="learning with errors">LWE</abbr> is the older "learning parity with noise" problem; <abbr title="learning with errors">LWE</abbr> generalizes it
+to larger moduli.</p>
 <h2 id="3-why-the-noise-defeats-elimination">3. Why the noise defeats elimination<a class="headerlink" href="#3-why-the-noise-defeats-elimination" title="Link to this section">#</a></h2>
 <p>Run the same elimination on noisy equations, \(b = A s + e\) with \(e = (3, 1, -2, -3)\). Since
 every step is linear, we can also apply each step to the noise column on its own and watch it
@@ -182,6 +184,106 @@ Noise of size at most 3 has become \((19, 46, 36, 21)\): pure garbage.</p>
 <p>Over the real numbers this would not happen. Least squares handles noisy equations routinely,
 because a small error times a moderate coefficient stays moderate. Mod \(q\) there is no notion
 of "small" that survives multiplication: \(3 \cdot 25 = 75\) wraps around to \(-22\).</p>
+<figure class="widget" id="w-p7-noisy-elimination">
+  <p class="widget-title">The same elimination, mod 97 and over the real numbers</p>
+  <p class="widget-hint">Step through the four pivots. Mod 97 the noise leaves the ±3 band at the
+    first pivot; over the reals it ends up smaller than it started.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Mod 97</p><div class="c-mod"></div></div>
+    <div><p class="panel-title">Over the real numbers</p><div class="c-real"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Bars are the noise column: what each equation's error has become after the
+    pivots so far (mod 97 as a signed number between −48 and 48). The grey band is the original
+    noise bound, \(|e_i| \le 3\). Both panels run Gauss–Jordan on the same matrix \(A\) of part 1,
+    pivoting on the same columns in the same order. Mod 97 the result \(s' = s + A^{-1}e\) is garbage; over the reals
+    \(A^{-1}e\) is small, and rounding gives back \(s\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-noisy-elimination';
+  const Q = 97, N = 4;
+  const A = [[66, 38, 69, 53], [90, 29, 12, 47], [79, 8, 43, 82], [32, 73, 26, 2]];
+  const S = [71, 1, 60, 83];
+  const mod = x => ((x % Q) + Q) % Q;
+  const centre = x => mod(x + 48) - 48;
+  const inv = a => { for (let x = 1; x < Q; x++) if ((a * x) % Q === 1) return x; throw new Error('no inverse'); };
+
+  /* Gauss–Jordan on [A | e], recording the noise column after each pivot. */
+  function traceMod(e) {
+    const rows = A.map((r, i) => [...r, mod(e[i])]), steps = [e.slice()], pivots = [];
+    for (let col = 0; col < N; col++) {
+      let p = col; while (rows[p][col] === 0) p++;
+      [rows[col], rows[p]] = [rows[p], rows[col]];
+      const pv = rows[col][col], iv = inv(pv);
+      pivots.push([pv, iv]);
+      rows[col] = rows[col].map(x => (x * iv) % Q);
+      for (let i = 0; i < N; i++) if (i !== col && rows[i][col]) {
+        const f = rows[i][col];
+        rows[i] = rows[i].map((x, j) => mod(x - f * rows[col][j]));
+      }
+      steps.push(rows.map(r => centre(r[N])));
+    }
+    return { steps, pivots, sol: S.map((s, i) => mod(s + steps[N][i])) };
+  }
+  function traceReal(e) {
+    const rows = A.map((r, i) => [...r, e[i]]), steps = [e.slice()];
+    for (let col = 0; col < N; col++) {
+      const pv = rows[col][col];
+      rows[col] = rows[col].map(x => x / pv);
+      for (let i = 0; i < N; i++) if (i !== col) {
+        const f = rows[i][col];
+        rows[i] = rows[i].map((x, j) => x - f * rows[col][j]);
+      }
+      steps.push(rows.map(r => r[N]));
+    }
+    return { steps, sol: S.map((s, i) => s + steps[N][i]) };
+  }
+
+  let e = [3, 1, -2, -3], seed = 7, M = traceMod(e), R = traceReal(e);
+  const ui = DS.controls(root + ' .controls', () => { modChart.update(); realChart.update(); readout(); });
+  const step = ui.slider({ label: 'Pivots done', min: 0, max: 4, step: 1, value: 4 });
+  ui.button({ label: 'New noise', onClick: () => {
+    const rnd = DS.random(seed++);
+    do e = [0, 0, 0, 0].map(() => rnd.int(7) - 3); while (e.every(v => v === 0));
+    M = traceMod(e); R = traceReal(e);
+  } });
+
+  const fmtv = v => (Math.abs(v) < 10 && !Number.isInteger(v) ? v.toFixed(2) : String(Math.round(v))).replace('-', '−');
+  function panel(sel, get) {
+    return DS.chart(sel, {
+      x: { domain: [0.5, 4.5], tickValues: [1, 2, 3, 4], format: v => 'eq. ' + v, grid: false },
+      y: { domain: [-48, 48], tickValues: [-48, -24, 0, 24, 48], format: v => String(v).replace('-', '−'), label: 'Noise' },
+      height: 250,
+      draw(c) {
+        c.area([[0.5, 3], [4.5, 3]], { lower: [[0.5, -3], [4.5, -3]], series: 'muted', strong: true });
+        const vals = get().steps[step.value];
+        c.bars(vals.map((v, i) => ({ x: i + 1, y: v, tip: `equation ${i + 1}: noise ${fmtv(v)}` })), { width: 0.55, series: 1 });
+        vals.forEach((v, i) => c.text(i + 1, v, fmtv(v), { anchor: 'middle', dy: v >= 0 ? -6 : 15, cls: 'ink strong' }));
+      },
+    });
+  }
+  const modChart = panel(root + ' .c-mod', () => M);
+  const realChart = panel(root + ' .c-real', () => R);
+
+  const tup = v => '(' + v.join(', ') + ')';
+  function readout() {
+    const k = step.value, big = a => Math.max(...a.map(Math.abs));
+    const mBig = big(M.steps[k]), rBig = big(R.steps[k]);
+    const done = k === N;
+    const items = [
+      { label: 'Noise e', value: tup(e.map(v => String(v).replace('-', '−'))), note: k === 0 ? 'before elimination' : `pivot ${k}: × ${M.pivots[k - 1][0]}⁻¹ = ${M.pivots[k - 1][1]} (mod 97)` },
+      { label: 'Largest noise, mod 97', value: fmtv(mBig), tone: mBig > 3 ? 'bad' : undefined,
+        note: done ? 's′ = ' + tup(M.sol) : 'started at most 3' },
+      { label: 'Largest noise, reals', value: fmtv(rBig), tone: done ? 'good' : undefined,
+        note: done ? 'rounds to ' + tup(R.sol.map(Math.round)) : 'started at most 3' },
+    ];
+    DS.stats(root + ' .readout', items);
+  }
+  readout();
+})();
+</script>
 <p>More equations do not help elimination either. Any \(n\) of them give garbage. The script's
 part 2 tests \(s&#x27;\) on four fresh samples: the residuals \(b - \langle a, s&#x27; \rangle\) are
 \(-6, 47, -1, -27\), while the true \(s\) gives \(2, -2, -2, -2\). A wrong guess sometimes fits one equation by luck
@@ -223,6 +325,98 @@ dimension: write the target in basis coordinates and round them (Babai's method)
 target is close enough to the lattice, the rounded coordinates give the nearest point. With a
 bad basis the rounded coordinates land far away. In dimension 500 or 1000, given only a bad
 basis, nobody knows an efficient way.</p>
+<figure class="widget" id="w-p7-babai-rounding">
+  <p class="widget-title">Rounding to the lattice with a good and a bad basis</p>
+  <p class="widget-hint">Drag the target point in either panel. Green is the nearest lattice
+    point; red is where rounding lands when it misses. Try targets close to a lattice point.</p>
+  <div class="widget-grid">
+    <div><p class="panel-title">Good basis \(A = (3, 1)\), \(B = (1, 2)\)</p><div class="c-good"></div></div>
+    <div><p class="panel-title">Bad basis \(C = (7, 4)\), \(D = (11, 7)\)</p><div class="c-bad"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both bases generate the same lattice (grey dots). Babai's method writes the target
+    in basis coordinates and rounds them. Every target inside the shaded cell rounds to the same
+    lattice point. Both cells have area 5, but the good basis's cell is compact and the bad
+    basis's cell is a long sliver, so a target right next to a lattice point can round to one far
+    away.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-babai-rounding';
+  const X0 = -2, X1 = 14, Y0 = -2, Y1 = 10;
+  const GOOD = { b1: [3, 1], b2: [1, 2], names: ['A', 'B'], series: 1, labelAt: 0.55 };
+  const BAD = { b1: [7, 4], b2: [11, 7], names: ['C', 'D'], series: 2, labelAt: 0.3 };
+  const LATTICE = [];
+  for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) {
+    const p = [3 * i + j, i + 2 * j];
+    if (p[0] >= X0 - 3 && p[0] <= X1 + 3 && p[1] >= Y0 - 3 && p[1] <= Y1 + 3) LATTICE.push(p);
+  }
+  const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const st = { t: [6.2, 7.4] };
+
+  function babai(B, t) {
+    const [a, c] = B.b1, [b, d] = B.b2, det = a * d - b * c;
+    const u = (d * t[0] - b * t[1]) / det, v = (-c * t[0] + a * t[1]) / det;
+    const ru = Math.round(u), rv = Math.round(v);
+    return { coords: [u, v], round: [ru, rv], p: [ru * a + rv * b, ru * c + rv * d] };
+  }
+  function nearest(t) {
+    let best = LATTICE[0];
+    for (const p of LATTICE) if (dist(p, t) < dist(best, t)) best = p;
+    return best;
+  }
+
+  function panel(sel, B) {
+    const chart = DS.chart(sel, {
+      x: { domain: [X0, X1], ticks: 8, zeroLine: true }, y: { domain: [Y0, Y1], ticks: 6 },
+      equal: true, maxHeight: 360, minHeight: 250, margin: { l: 30, r: 8 },
+      ariaLabel: 'A two-dimensional lattice with a basis, a draggable target point and the point Babai rounding picks.',
+      draw(c) {
+        const t = st.t, r = babai(B, t), n = nearest(t), hit = r.p[0] === n[0] && r.p[1] === n[1];
+        const h1 = B.b1.map(x => x / 2), h2 = B.b2.map(x => x / 2), v = r.p;
+        c.polygon([[v[0] - h1[0] - h2[0], v[1] - h1[1] - h2[1]], [v[0] + h1[0] - h2[0], v[1] + h1[1] - h2[1]],
+          [v[0] + h1[0] + h2[0], v[1] + h1[1] + h2[1]], [v[0] - h1[0] + h2[0], v[1] - h1[1] + h2[1]]],
+          { series: B.series, thin: true }).setAttribute('clip-path', c._clip());
+        c.scatter(LATTICE, { series: 'muted', r: 3 });
+        [B.b1, B.b2].forEach((b, k) => {
+          c.arrow(0, 0, b[0], b[1], { series: B.series });
+          const L = Math.hypot(b[0], b[1]), side = k === 0 ? 1 : -1, f = B.labelAt;
+          c.text(b[0] * f + side * 0.5 * b[1] / L, b[1] * f - side * 0.5 * b[0] / L, B.names[k],
+            { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+        });
+        c.text(0, 0, 'O', { anchor: 'end', dx: -6, dy: 14, cls: 'ink strong' });
+        const inView = p => p[0] >= c.x.domain[0] && p[0] <= c.x.domain[1] && p[1] >= c.y.domain[0] && p[1] <= c.y.domain[1];
+        if (!hit) c.segment(t[0], t[1], v[0], v[1], { series: 'bad', dash: true, thin: true }).setAttribute('clip-path', c._clip());
+        c.point(n[0], n[1], { series: 'good', r: 6.5 });
+        if (!hit && inView(v)) c.point(v[0], v[1], { series: 'bad', r: 6.5 });
+        c.point(t[0], t[1], { series: 'ink', r: 5 });
+      },
+    });
+    chart.onPointer({ drag(x, y) {
+      st.t = [DS.math.clamp(x, X0, X1), DS.math.clamp(y, Y0, Y1)];
+      good.update(); bad.update(); readout();
+    } });
+    return chart;
+  }
+  const good = panel(root + ' .c-good', GOOD);
+  const bad = panel(root + ' .c-bad', BAD);
+
+  const f2 = v => v.toFixed(2).replace('-', '−'), pt = p => `(${p.map(v => String(v).replace('-', '−')).join(', ')})`;
+  function readout() {
+    const t = st.t, n = nearest(t);
+    const tile = (name, B) => {
+      const r = babai(B, t), hit = r.p[0] === n[0] && r.p[1] === n[1];
+      return { label: name + ' rounds to', value: pt(r.p), tone: hit ? 'good' : 'bad',
+        note: `coordinates (${f2(r.coords[0])}, ${f2(r.coords[1])}) → ${pt(r.round)}` + (hit ? '' : `; ${f2(dist(r.p, t))} away`) };
+    };
+    DS.stats(root + ' .readout', [
+      { label: 'Target', value: `(${f2(t[0])}, ${f2(t[1])})`, note: `nearest lattice point ${pt(n)}, ${f2(dist(n, t))} away` },
+      tile('Good basis', GOOD), tile('Bad basis', BAD),
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong><abbr title="learning with errors">LWE</abbr> is a lattice problem.</strong> The vectors \(A z \bmod q\), for all \(z \in \mathbb{Z}_q^n\),
 together with all multiples of \(q\) in each coordinate, form a lattice in \(\mathbb{Z}^\ell\) (a
 "\(q\)-ary" lattice). \(A s\) is one of its points, and \(b = A s + e\) is a point at distance
@@ -238,9 +432,9 @@ bigger dimension to stay secure. That trade-off is the parameter table of
 <p><strong>The attack family: lattice reduction.</strong> Algorithms that turn a bad basis into a better one
 are the main tool against <abbr title="learning with errors">LWE</abbr>. <strong><abbr title="Lenstra–Lenstra–Lovász lattice reduction">LLL</abbr></strong> (Lenstra, Lenstra, Lovász, 1982) runs in polynomial time
 but only guarantees a vector within a factor \(2^{(n-1)/2}\) of the shortest, which is useless
-for cryptographic dimensions. <strong><abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr></strong> (Schnorr 1987; Schnorr and Euchner 1994) works on blocks
-of \(\beta\) coordinates at a time and gets closer as \(\beta\) grows, at a cost exponential in
-\(\beta\). Breaking a parameter set means running <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> with a large enough block size. The best
+for cryptographic dimensions. <strong><abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr></strong> (block Korkine–Zolotarev reduction; Schnorr 1987;
+Schnorr and Euchner 1994) works on blocks of \(\beta\) coordinates at a time and gets closer as
+\(\beta\) grows, at a cost exponential in \(\beta\). Breaking a parameter set means running <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> with a large enough block size. The best
 known methods for that inner step (lattice sieving) take roughly \(2^{0.29\beta}\) operations
 heuristically, and known quantum speedups only lower the constant in the exponent a little.
 Security estimates for <abbr title="fully homomorphic encryption">FHE</abbr> parameters are exactly this calculation
@@ -251,8 +445,8 @@ Security estimates for <abbr title="fully homomorphic encryption">FHE</abbr> par
 a random key produces. <strong>Regev (2005)</strong> proved something stronger for <abbr title="learning with errors">LWE</abbr>: if an efficient
 algorithm solves <abbr title="learning with errors">LWE</abbr> on random instances (with noise above a threshold that grows like
 \(\sqrt{n}\)), then there is an efficient <strong>quantum</strong> algorithm that approximately solves the
-lattice problems <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr> and <abbr title="shortest independent vectors problem">SIVP</abbr> on <strong>every</strong> lattice of dimension \(n\), to within factors
-polynomial in \(n\). (Both are approximate versions of <abbr title="shortest vector problem">SVP</abbr>: <strong><abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></strong> asks to decide roughly
+lattice problems <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr> and <abbr title="shortest independent vectors problem">SIVP</abbr> (shortest independent vectors problem) on <strong>every</strong> lattice
+of dimension \(n\), to within factors polynomial in \(n\). (Both are approximate versions of <abbr title="shortest vector problem">SVP</abbr>: <strong><abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></strong> asks to decide roughly
 how short the shortest vector is, <strong><abbr title="shortest independent vectors problem">SIVP</abbr></strong> asks for \(n\) short linearly independent vectors.)
 So breaking random <abbr title="learning with errors">LWE</abbr> would break the hardest instances of problems
 studied for decades. <strong>Peikert (2009)</strong> gave a classical, non-quantum version of the reduction
@@ -267,8 +461,10 @@ threshold, so their security rests on the attack estimates above, not on the the
 comparable structure is known in lattice problems. No known quantum algorithm solves <abbr title="learning with errors">LWE</abbr>
 substantially faster than classical ones; a 2024 claim of one was withdrawn within about ten
 days, after a bug was found (<a href="../02_math_foundations.html#7-why-this-is-post-quantum">02 §7</a>).
-That is why <abbr title="National Institute of Standards and Technology">NIST</abbr>'s post-quantum key-encapsulation standard <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (<abbr title="Federal Information Processing Standard">FIPS</abbr> 203,
-<a href="p4_public_key.html">P4</a>) is built on a variant of <abbr title="learning with errors">LWE</abbr>, and why <abbr title="fully homomorphic encryption">FHE</abbr> is post-quantum too.</p>
+That is why <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>, the Module-Lattice-Based Key-Encapsulation Mechanism that the National
+Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>) standardized as Federal Information Processing
+Standard (<abbr title="Federal Information Processing Standard">FIPS</abbr>) 203 (<a href="p4_public_key.html">P4</a>), is built on a variant of <abbr title="learning with errors">LWE</abbr>, and why <abbr title="fully homomorphic encryption">FHE</abbr> is
+post-quantum too.</p>
 <h2 id="5-building-encryption-the-noisy-one-time-pad">5. Building encryption: the noisy one-time pad<a class="headerlink" href="#5-building-encryption-the-noisy-one-time-pad" title="Link to this section">#</a></h2>
 <p>The one-time pad mod \(q\) (<a href="p1_encryption_basics.html#the-pad-mod-n">P1 §4</a>) is \(c = m + k\)
 with a truly random pad \(k\). <abbr title="learning with errors">LWE</abbr> encryption keeps that shape and changes two things:</p>
@@ -344,21 +540,90 @@ on the circle.</p>
 <p>Arrange \(\mathbb{Z}_{97}\) on a circle (Regev's paper draws it the same way). The message picks
 one of \(t = 4\) sectors, each centred on \(\Delta \cdot m\). The noise is the offset from the
 centre. Decryption asks which sector the phase landed in.</p>
-<div class="highlight"><pre><span></span><code>                                 0
-                      84  \               /  12
-                           \  *95        /
-                            \   m = 0   /
-                             \         /
-                              \       /
-          72        m = 3        ( )        m = 1        24
-                              /       \           * 26
-                             /         \
-                            /   m = 2   \
-                           /             \
-                      60  /               \  36
-                                 48
-</code></pre></div>
+<figure class="widget" id="w-p7-decryption-wheel">
+  <p class="widget-title">The decryption wheel: \(\mathbb{Z}_{97}\) cut into four sectors</p>
+  <p class="widget-hint">Drag the noise up or down until the dot leaves the blue sector: the
+    ciphertext then decrypts to a different message.</p>
+  <div class="controls"></div>
+  <div class="c-wheel"></div>
+  <div class="readout"></div>
+  <figcaption>The phase \(\varphi = \Delta m + e \bmod 97\) is the dot. Each sector is centred on
+    \(\Delta m = 0, 24, 48, 72\), and decryption reports the sector the dot is in. The orange arc
+    is the noise. While \(|e| < \Delta/2 = 12\) the dot stays in its own sector. The small rings
+    mark the two example phases of the text, 26 and 95.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-decryption-wheel';
+  const Q = 97, T = 4, D = 24;
+  const BOUNDS = [[-13.5, 11.5], [11.5, 35.5], [35.5, 59.5], [59.5, 83.5]];   // sector m spans these phases
+  const mod = x => ((x % Q) + Q) % Q;
+  const decrypt = phi => Math.floor((2 * phi + D) / (2 * D)) % T;            // round(φ/Δ) mod t, halves up
+  const P = (v, r) => { const a = 2 * Math.PI * v / Q; return [r * Math.sin(a), r * Math.cos(a)]; };
+  const arc = (v0, v1, r, n = 60) => DS.math.linspace(v0, v1, n).map(v => P(v, r));
+  const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
+  const NS = 'http://www.w3.org/2000/svg';
+  function ring(c, x, y, r, cls) {
+    const e = document.createElementNS(NS, 'circle');
+    e.setAttribute('cx', c.x(x)); e.setAttribute('cy', c.y(y)); e.setAttribute('r', r);
+    e.setAttribute('class', cls); c.gData.appendChild(e);
+  }
 
+  const ui = DS.controls(root + ' .controls', () => { wheel.update(); readout(); });
+  const msg = ui.choice({ label: 'Message m', options: [0, 1, 2, 3], value: 1 });
+  const noise = ui.slider({ label: 'Noise e', min: -24, max: 24, step: 1, value: 2, format: sgn });
+
+  const wheel = DS.chart(root + ' .c-wheel', {
+    x: { domain: [-1.32, 1.32], hidden: true }, y: { domain: [-1.3, 1.3], hidden: true },
+    equal: true, maxHeight: 400, minHeight: 300, margin: { t: 6, r: 6, b: 6, l: 6 },
+    ariaLabel: 'The numbers 0 to 96 on a circle, cut into four sectors; a dot marks the phase.',
+    draw(c) {
+      const m = msg.value, e = noise.value, phi = mod(D * m + e), ok = decrypt(phi) === m;
+      BOUNDS.forEach(([lo, hi], k) => {
+        c.polygon([[0, 0], ...arc(lo, hi, 1)], { series: k === m ? 1 : 'muted', strong: k === m, stroke: false });
+      });
+      c.line(arc(0, Q, 1, 200), { series: 'muted', thin: true, clip: false });
+      for (let v = 0; v < Q; v++) {
+        const major = v % 12 === 0;
+        c.segment(...P(v, 1), ...P(v, major ? 1.07 : 1.035), { series: 'muted', thin: true });
+      }
+      BOUNDS.forEach(([lo]) => c.segment(0, 0, ...P(lo, 1.1), { series: 'ink', thin: true }));
+      for (let v = 0; v <= 84; v += 12) {
+        const [x, y] = P(v, 1.18);
+        c.text(x, y, String(v), { anchor: 'middle', baseline: 'middle', cls: v % 24 === 0 ? 'ink strong' : 'ink2' });
+      }
+      for (let k = 0; k < T; k++) {
+        const [x, y] = P(D * k, 0.55);
+        c.text(x, y, 'm = ' + k, { anchor: 'middle', baseline: 'middle', cls: k === m ? 'ink strong' : 'ink2' });
+      }
+      [26, 95].forEach(v => {
+        const [x, y] = P(v, 1), [tx, ty] = P(v, 0.82);
+        ring(c, x, y, 7.5, 'ln thin sink');
+        c.text(tx, ty, String(v), { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+      });
+      if (e !== 0) {
+        const pts = arc(D * m, D * m + e, 0.93, 2 + 3 * Math.abs(e));
+        c.line(pts, { series: 2, thick: true, clip: false });
+      }
+      c.segment(...P(D * m, 0.88), ...P(D * m, 1), { series: 2, thin: true });
+      const [px, py] = P(phi, 1);
+      c.point(px, py, { series: ok ? 'good' : 'bad', r: 7 });
+    },
+  });
+
+  function readout() {
+    const m = msg.value, e = noise.value, phi = mod(D * m + e), d = decrypt(phi), ok = d === m;
+    const r = Math.floor((2 * phi + D) / (2 * D));
+    DS.stats(root + ' .readout', [
+      { label: 'Phase φ', value: String(phi), note: `Δm + e = ${D}·${m} ${e < 0 ? '−' : '+'} ${Math.abs(e)}` + (D * m + e !== phi ? ' mod 97' : '') },
+      { label: 'φ / Δ, rounded', value: (phi / D).toFixed(2).replace('-', '−') + ' → ' + r, note: `${r} mod 4 = ${d}` },
+      { label: 'Decrypts to', value: String(d), note: ok ? 'correct' : `wrong: m was ${m}`, tone: ok ? 'good' : 'bad' },
+      { label: 'Margin Δ/2 − |e|', value: DS.fmt(12 - Math.abs(e)), note: 'noise budget left', tone: ok ? undefined : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>The two example phases are marked: 26 lies 2 past the centre of sector 1, and 95 lies 2
 before the centre of sector 0. Unrolled, the sectors are:</p>
 <div class="table-wrap"><table>
@@ -438,6 +703,98 @@ errors partly cancel. Here it took 22 additions. Real parameters have \(\Delta\)
 larger than the noise, so additions are almost free; it is multiplication that eats the
 budget fast (<a href="p8_multiplication_and_relinearization.html">P8</a>), and bootstrapping that refills
 it (<a href="p9_bootstrapping.html">P9</a>).</p>
+<figure class="widget" id="w-p7-noise-walk">
+  <p class="widget-title">Noise under repeated additions: worst case against typical</p>
+  <p class="widget-hint">Switch the fresh noise to [−6, 6], the script's "things to try" setting,
+    and watch the guarantee drop to a single addition while random runs still last a while.</p>
+  <div class="controls"></div>
+  <div class="c-walk"></div>
+  <div class="readout"></div>
+  <figcaption>Start from \(\mathrm{Enc}(1)\) with noise \(+2\) and keep adding fresh encryptions of
+    0. The blue line is the run of part 4 of the script; the thin lines are other random runs,
+    each ending (red dot) where decryption first fails. The dashed lines are the worst case
+    \(2 \pm Bk\), the shaded band the typical size \(2 \pm \sigma\sqrt{k}\), with \(\sigma = 2\) for
+    noise in \([-3, 3]\). Decryption fails
+    once the noise reaches \(\Delta/2 = 12\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-noise-walk';
+  const Q = 97, T = 4, D = 24, KMAX = 80, SHOWN = 16;
+  // Part 4 of code/primer/p7_lwe_by_hand.py (seed 56), with NOISE = 3 and with NOISE = 6.
+  const SCRIPT = {
+    3: [2, 3, 3, 1, 3, 2, 0, 0, 3, 0, 1, 2, 1, 3, 5, 6, 3, 2, 1, 4, 7, 10, 12],
+    6: [2, 4, 4, 1, 5, 4, 1, 2, 0, -6, 0, 2, 0, 5, 9, 11, 5, 3, 1, 7, 4, 3, 5, 5, 3, 0, 2, 5, 5, 6, 5, 6, 7, 1,
+        -5, -8, -8, -2, -5, -4, -1, -5, -3, -3, 1, -2, -5, -10, -13],
+  };
+  const mod = x => ((x % Q) + Q) % Q;
+  const ok = e => Math.floor((2 * mod(D + e) + D) / (2 * D)) % T === 1;   // Enc(1) with noise e still decrypts to 1
+  function walk(rnd, B) {
+    const pts = [[0, 2]];
+    let e = 2;
+    for (let k = 1; k <= KMAX; k++) {
+      e += rnd.int(2 * B + 1) - B;
+      pts.push([k, e]);
+      if (!ok(e)) return { pts, fail: k };
+    }
+    return { pts, fail: null };
+  }
+  const STATS = {};
+  for (const B of [3, 6]) {                    // 4000 runs per setting, computed once
+    const rnd = DS.random(2024 + B), fails = [];
+    for (let i = 0; i < 4000; i++) {
+      let e = 2, k = 0;
+      while (ok(e)) { e += rnd.int(2 * B + 1) - B; k++; }
+      fails.push(k);
+    }
+    STATS[B] = { median: DS.math.quantile(fails, 0.5), p10: DS.math.quantile(fails, 0.1) };
+  }
+
+  let seed = 1;
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bound = ui.choice({ label: 'Fresh noise e in', options: [{ value: 3, label: '[−3, 3]' }, { value: 6, label: '[−6, 6]' }], value: 3 });
+  ui.button({ label: 'Other random runs', onClick: () => { seed++; } });
+
+  const chart = DS.chart(root + ' .c-walk', {
+    x: { domain: [0, KMAX], label: 'Fresh encryptions of 0 added (k)', tipLabel: 'k =' },
+    y: { domain: [-18, 18], label: 'Noise e', tickValues: [-12, -6, 0, 6, 12], format: v => String(v).replace('-', '−') },
+    height: 320,
+    draw(c) {
+      const B = bound.value, sigma = Math.sqrt(((2 * B + 1) ** 2 - 1) / 12), ks = DS.math.range(KMAX + 1);
+      c.area(ks.map(k => [k, 2 + sigma * Math.sqrt(k)]), { lower: ks.map(k => [k, 2 - sigma * Math.sqrt(k)]), series: 'muted' });
+      c.line([[0, 2], [KMAX, 2 + B * KMAX]], { series: 'ink', dash: true, thin: true });
+      c.line([[0, 2], [KMAX, 2 - B * KMAX]], { series: 'ink', dash: true, thin: true });
+      c.hline(12, { series: 'bad', label: '+Δ/2' });
+      c.hline(-12, { series: 'bad', label: '−Δ/2' });
+      const rnd = DS.random(100 * B + seed), ends = [];
+      for (let i = 0; i < SHOWN; i++) {
+        const w = walk(rnd, B);
+        c.line(w.pts, { series: 'muted', thin: true }).style.opacity = 0.55;
+        if (w.fail !== null) ends.push(w.pts[w.pts.length - 1]);
+      }
+      c.scatter(ends, { series: 'bad', r: 3 });
+      const run = SCRIPT[B].map((e, k) => [k, e]), last = run[run.length - 1];
+      c.line(run, { series: 1, thick: true, label: 'script run, noise' });
+      c.point(last[0], last[1], { series: 'bad', r: 5.5, label: `fails at k = ${last[0]}`,
+        labelOpts: { dy: last[1] > 0 ? -10 : 20 } });
+      c.legend([{ label: 'script run', series: 1 }, { label: 'other random runs', series: 'muted' },
+        { label: 'worst case 2 ± Bk', series: 'ink', kind: 'dash' }, { label: 'typical 2 ± σ√k', series: 'muted', kind: 'rect' },
+        { label: '±Δ/2 = ±12: decryption fails', series: 'bad' }]);
+    },
+  });
+
+  function readout() {
+    const B = bound.value, safe = Math.floor((11 - 2) / B), s = STATS[B];
+    DS.stats(root + ' .readout', [
+      { label: 'Guaranteed safe (worst case)', value: safe + (safe === 1 ? ' addition' : ' additions'),
+        note: `2 + ${B}·${safe} = ${2 + B * safe} < 12; one more could reach ${2 + B * (safe + 1)}` },
+      { label: 'Script run failed at', value: 'k = ' + (SCRIPT[B].length - 1), note: 'part 4, seed 56' },
+      { label: 'Median of 4000 random runs', value: 'k = ' + s.median, note: `10% fail by k = ${s.p10}` },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h2 id="7-public-key-encryption-regevs-trick">7. Public-key encryption: Regev's trick<a class="headerlink" href="#7-public-key-encryption-regevs-trick" title="Link to this section">#</a></h2>
 <p>So far only the holder of \(s\) can encrypt. Regev's 2005 paper made it public-key with a
 simple idea: <strong>publish many encryptions of 0</strong>.</p>
@@ -487,6 +844,88 @@ to the constant term <strong>with a minus sign</strong>. In \(\mathbb{Z}_{97}[X]
 <p>Chapter 02's example comes out the same:
 \((1 + 2X + X^3)(3 + X^2) = 3 + 5X + X^2 + 5X^3\) (there, \(X^5 = -X\) moves a term from the top
 back to \(X\)).</p>
+<figure class="widget" id="w-p7-negacyclic-shift">
+  <p class="widget-title">Multiplying by \(X\) in \(\mathbb{Z}_{97}[X]/(X^4 + 1)\)</p>
+  <p class="widget-hint">Move the slider one step at a time from 0 and follow one colour. Then
+    switch the ring to \(X^4 - 1\) and compare column 4.</p>
+  <div class="controls"></div>
+  <div class="c-shift"></div>
+  <div class="readout"></div>
+  <figcaption>Each column is \(X^j \cdot p\) for \(p = 5 + X + 7X^2 + 2X^3\), read top to bottom as
+    the coefficients of \(1, X, X^2, X^3\). A colour follows one coefficient of \(p\). Each step
+    moves every coefficient down one row, and the bottom one comes back on top with its sign
+    flipped, because \(X^4 = -1\). Columns 0–3 side by side form the negacyclic matrix
+    \(M_p\) with \(M_p\, s = p \cdot s\), the shape of \(M_a\) in §8.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p7-negacyclic-shift';
+  const P = [5, 1, 7, 2], N = 4, J = 8;
+  const SUP = ['', '', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸'];
+  const MONO = ['', 'X', 'X²', 'X³'];
+  /* cols[j][i] = { v, o }: coefficient i of X^j·p, and which coefficient o of p it came from. */
+  function columns(sign) {
+    const cols = [P.map((v, i) => ({ v, o: i }))];
+    for (let j = 1; j <= J; j++) {
+      const prev = cols[j - 1];
+      cols.push([{ v: sign * prev[N - 1].v, o: prev[N - 1].o }, ...prev.slice(0, N - 1)]);
+    }
+    return cols;
+  }
+  const COLS = { nega: columns(-1), cyc: columns(1) };
+  const num = v => String(v).replace('-', '−');
+  function poly(c) {
+    let out = '';
+    c.forEach(({ v }, i) => {
+      if (v === 0) return;
+      const a = Math.abs(v), body = (a === 1 && i > 0 ? '' : String(a)) + MONO[i];
+      out += out ? (v < 0 ? ' − ' : ' + ') + body : (v < 0 ? '−' : '') + body;
+    });
+    return out || '0';
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const steps = ui.slider({ label: 'Multiply by X, j times', min: 0, max: J, step: 1, value: 4 });
+  const ring = ui.choice({ label: 'Ring', options: [{ value: 'nega', label: 'X⁴ + 1' }, { value: 'cyc', label: 'X⁴ − 1' }], value: 'nega' });
+
+  const chart = DS.chart(root + ' .c-shift', {
+    x: { domain: [-0.55, J + 0.55], tickValues: DS.math.range(J + 1), format: j => (j === 0 ? 'p' : 'X' + SUP[j] + 'p') },
+    y: { domain: [N - 0.45, -1.05], tickValues: [0, 1, 2, 3], format: i => (i === 0 ? '1' : MONO[i]), grid: false },
+    height: 250, margin: { l: 34, r: 8, t: 4 },
+    ariaLabel: 'Columns of coloured tiles: the coefficients of X^j times p for j = 0 to 8.',
+    draw(c) {
+      const j = steps.value, cols = COLS[ring.value], w = 0.42, h = 0.4;
+      cols.forEach((col, k) => col.forEach(({ v, o }, i) => {
+        const box = [[k - w, i - h], [k + w, i - h], [k + w, i + h], [k - w, i + h]];
+        if (k > j) { c.polygon(box, { fill: false, series: 'muted', thin: true, dash: true }); return; }
+        c.polygon(box, { series: o + 1, strong: true, thin: true });
+        c.text(k, i, num(v), { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+      }));
+      c.polygon([[j - 0.5, -0.5], [j + 0.5, -0.5], [j + 0.5, N - 0.5], [j - 0.5, N - 0.5]], { fill: false, series: 'ink', thin: true });
+      if (j >= 3) {
+        c.segment(-0.45, -0.72, 3.45, -0.72, { series: 'ink', thin: true });
+        c.text(1.5, -0.72, 'columns 0–3: the matrix Mₚ', { anchor: 'middle', dy: -5, cls: 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    const j = steps.value, cols = COLS[ring.value], c = cols[j], nega = ring.value === 'nega';
+    let note = 'p itself';
+    if (j > 0) {
+      const top = c[0], before = cols[j - 1][N - 1];
+      note = `last step: the X³ coefficient ${num(before.v)} came back as the constant ${num(top.v)}`;
+    }
+    const same = c.every((x, i) => x.v === P[i]), neg = c.every((x, i) => x.v === -P[i]);
+    const eq = j === 0 ? '' : same ? ' = p' : neg ? ' = −p' : '';
+    DS.stats(root + ' .readout', [
+      { label: `X${SUP[j] || (j === 1 ? '' : '⁰')}·p in Z₉₇[X]/(X⁴ ${nega ? '+' : '−'} 1)`, value: poly(c) + eq, note },
+      { label: 'X⁴ in this ring', value: nega ? '−1' : '+1', note: nega ? 'so X⁴·p = −p and X⁸·p = p' : 'so X⁴·p = p: a plain rotation' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>Why \(X^N + 1\) and not the plain cyclic \(X^N - 1\)? \(X^N - 1\) has the root \(X = 1\), and
 evaluating at 1 keeps small things small: each sample would yield a one-dimensional equation
 \(b(1) = a(1) s(1) + e(1)\) whose unknowns are sums of small coefficients, which leaks
@@ -510,9 +949,9 @@ samples whose vectors are the rows of \(M_a\), all sharing the secret \(s\).</p>
   message: roughly \(N/2\) times less data. The ratio of ciphertext size to message size is the
   <strong>ciphertext expansion</strong>: \(2N \log_2 q\) bits carry \(N \log_2 t\) bits, a factor
   \(2 \log_2 q / \log_2 t\) (about 55 with chapter 02's \(\log_2 q = 438\) and a 16-bit \(t\)).</li>
-<li><strong>Speed.</strong> \(a \cdot s\) costs \(O(N \log N)\) with the <strong>Number Theoretic Transform</strong> (<abbr title="number-theoretic transform">NTT</abbr>), an
-  <abbr title="fast Fourier transform">FFT</abbr> over \(\mathbb{Z}_q\) that needs \(q \equiv 1 \pmod{2N}\). A matrix-vector product costs
-  \(O(N^2)\). Chapter 02 explains the <abbr title="number-theoretic transform">NTT</abbr>
+<li><strong>Speed.</strong> \(a \cdot s\) costs \(O(N \log N)\) with the <strong>Number Theoretic Transform</strong> (<abbr title="number-theoretic transform">NTT</abbr>), a
+  fast Fourier transform (<abbr title="fast Fourier transform">FFT</abbr>) over \(\mathbb{Z}_q\) that needs \(q \equiv 1 \pmod{2N}\). A
+  matrix-vector product costs \(O(N^2)\). Chapter 02 explains the <abbr title="number-theoretic transform">NTT</abbr>
   (<a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4</a>); it is the kernel
   that <abbr title="fully homomorphic encryption">FHE</abbr> hardware accelerates.</li>
 </ul>

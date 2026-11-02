@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -103,24 +104,29 @@ function renderMath() {
 <h1 id="p4--public-key-cryptography-diffiehellman-rsa-elgamal">P4 · Public-key cryptography: Diffie–Hellman, RSA, ElGamal<a class="headerlink" href="#p4--public-key-cryptography-diffiehellman-rsa-elgamal" title="Link to this section">#</a></h1>
 <p><a href="p3_modes_and_integrity.html">← P3 Modes and integrity</a> · <a href="../index.html">index</a> · next: <a href="p5_security_definitions.html">P5 Security definitions →</a></p>
 <hr />
-<p>P1–P3 assumed that Alice and Bob already share a secret key. Public-key cryptography drops that
-assumption, and it does so with algebra: exponentiation in a group, not the scrambling of <abbr title="Advanced Encryption Standard">AES</abbr>.
-The algebra survives encryption. Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> and ElGamal let anyone multiply encrypted
-numbers, which makes them the first homomorphic schemes, and it is also why <abbr title="Rivest–Shamir–Adleman">RSA</abbr> has to be padded
-before it is safe. The chapter ends with the threat that will retire all of these schemes,
-quantum computers, and with their replacement: lattices, the same mathematics <abbr title="fully homomorphic encryption">FHE</abbr> is built on.</p>
+<p>P1–P3 assumed that Alice and Bob already share a secret key. Public-key cryptography, such as <abbr title="Rivest–Shamir–Adleman">RSA</abbr>
+(Rivest–Shamir–Adleman), drops that assumption, and it does so with algebra: exponentiation in a
+group, not the scrambling of the Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>). The algebra survives
+encryption. Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> and ElGamal let anyone multiply encrypted numbers, which makes them the
+first homomorphic schemes, and it is also why <abbr title="Rivest–Shamir–Adleman">RSA</abbr> has to be padded before it is safe. The chapter
+ends with the threat that will retire all of these schemes, quantum computers, and with their
+replacement: lattices, the same mathematics fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) is built on.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
 <li>explain the key distribution problem and how a public key solves it;</li>
 <li>say what one-way and trapdoor functions are, and which ones <abbr title="Rivest–Shamir–Adleman">RSA</abbr> and Diffie–Hellman use;</li>
 <li>run a Diffie–Hellman exchange by hand, list what an eavesdropper sees, and name the problems
-  (discrete log, <abbr title="computational Diffie–Hellman">CDH</abbr>, <abbr title="decisional Diffie–Hellman">DDH</abbr>) that protect it;</li>
-<li>explain the two properties of textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> that matter for <abbr title="homomorphic encryption">HE</abbr>, determinism and the
-  multiplicative homomorphism, and how <abbr title="optimal asymmetric encryption padding">OAEP</abbr> padding removes both;</li>
+  that protect it: discrete log, computational Diffie–Hellman (<abbr title="computational Diffie–Hellman">CDH</abbr>) and decisional
+  Diffie–Hellman (<abbr title="decisional Diffie–Hellman">DDH</abbr>);</li>
+<li>explain the two properties of textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> that matter for homomorphic encryption (<abbr title="homomorphic encryption">HE</abbr>),
+  determinism and the multiplicative homomorphism, and how optimal asymmetric encryption padding
+  (<abbr title="optimal asymmetric encryption padding">OAEP</abbr>) removes both;</li>
 <li>encrypt with ElGamal, multiply ElGamal ciphertexts, and add with exponential ElGamal;</li>
-<li>describe how <abbr title="Transport Layer Security">TLS</abbr> 1.3 combines a key exchange with <abbr title="Advanced Encryption Standard">AES</abbr>-GCM (hybrid encryption);</li>
+<li>describe how Transport Layer Security (<abbr title="Transport Layer Security">TLS</abbr>) 1.3 combines a key exchange with <abbr title="Advanced Encryption Standard">AES</abbr>-GCM (<abbr title="Advanced Encryption Standard">AES</abbr> in
+  Galois/counter mode) into hybrid encryption;</li>
 <li>say what quantum computers break (Shor) and what they barely dent (Grover), and why the
-  post-quantum standard <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> and <abbr title="fully homomorphic encryption">FHE</abbr> rest on the same lattice problems.</li>
+  post-quantum standard <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (Module-Lattice-Based Key-Encapsulation Mechanism) and <abbr title="fully homomorphic encryption">FHE</abbr> rest on
+  the same lattice problems.</li>
 </ul>
 <p><strong>Companion script:</strong> <a href="../../code/primer/p4_public_key.py"><code>code/primer/p4_public_key.py</code></a>. Run it from
 the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p4_public_key.py</code>. Its output
@@ -249,6 +255,97 @@ is exponentiation and unmixing is the discrete logarithm.</p>
 
 <p>Check: \(6^6 = 46656 = 2028 \cdot 23 + 12\). Also \(g^{ab} = 2^{54}\), and since \(2^{11} \equiv 1\),
 \(2^{54} = 2^{54 \bmod 11} = 2^{10} \equiv 12\).</p>
+<figure class="widget" id="w-p4-dh-clock">
+  <p class="widget-title">Diffie–Hellman on a clock with 11 hours</p>
+  <p class="widget-hint">Move \(a\) up by one: \(A\) moves one hour clockwise, but its number jumps (1, 2, 4, 8, 16, 9, 18, …). Whatever \(a\) and \(b\) are, Alice and Bob land on the same \(K\).</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Powers of 2 mod 23, one per hour</p><div class="c-clock"></div></div>
+    <div><p class="panel-title">The exchange</p><div class="c-steps"></div><div class="readout"></div></div>
+  </div>
+  <figcaption>The hour \(k\) is the exponent and the number at that hour is \(2^k \bmod 23\). Alice's
+  secret \(a\) is how many hours she walks from 1, and \(A\) is where she stops; the same for Bob.
+  The key sits at hour \(ab \bmod 11\), because \(2^{11} \equiv 1\). Eve sees only the numbers
+  \(A\) and \(B\), not the hours. Here she can read the hour off the clock; with a 2048-bit \(p\)
+  the clock has about \(2^{2047}\) hours.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-dh-clock';
+  const p = 23, g = 2, q = 11;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const val = k => powmod(g, k, p);                     // 2^k mod 23: the number at hour k
+  const at = (k, r) => [r * Math.sin(2 * Math.PI * k / q), r * Math.cos(2 * Math.PI * k / q)];
+
+  const ui = DS.controls(root + ' .controls', () => { clock.update(); steps(); });
+  const sa = ui.slider({ label: "Alice's secret a", min: 1, max: 10, step: 1, value: 6 });
+  const sb = ui.slider({ label: "Bob's secret b", min: 1, max: 10, step: 1, value: 9 });
+
+  function arc(k0, k1, r) {                              // points along the circle from hour k0 to k1
+    const pts = [], n = Math.max(2, Math.round((k1 - k0) * 12));
+    for (let i = 0; i <= n; i++) pts.push(at(k0 + (k1 - k0) * i / n, r));
+    return pts;
+  }
+
+  const clock = DS.chart(root + ' .c-clock', {
+    x: { domain: [-1.5, 1.5], hidden: true },
+    y: { domain: [-1.5, 1.5], hidden: true },
+    equal: true, maxHeight: 400, minHeight: 280,
+    margin: { t: 6, r: 6, b: 6, l: 6 },
+    draw(c) {
+      const a = sa.value, b = sb.value, kK = a * b % q;
+      c.line(arc(0, q, 1), { series: 'muted', thin: true });
+      // the two walks: Alice inside the ring, Bob outside
+      const ra = 0.84, rb = 1.16;
+      c.line(arc(0, a - 0.12, ra), { series: 1, thick: true });
+      c.arrow(...at(a - 0.2, ra), ...at(a - 0.02, ra), { series: 1, head: 10 });
+      c.line(arc(0, b - 0.12, rb), { series: 2, thick: true });
+      c.arrow(...at(b - 0.2, rb), ...at(b - 0.02, rb), { series: 2, head: 10 });
+      // every hour: a dot, the public number outside, the exponent inside
+      for (let k = 0; k < q; k++) {
+        const [x, y] = at(k, 1);
+        c.scatter([[x, y]], { series: 'muted', r: 3.5, clip: false });
+        const [tx, ty] = at(k, 1.36);
+        c.text(tx, ty, String(val(k)), { anchor: 'middle', baseline: 'middle', cls: 'ink strong', size: 15 });
+        const [ix, iy] = at(k, 0.66);
+        c.text(ix, iy, String(k), { anchor: 'middle', baseline: 'middle', size: 11 });
+      }
+      // K: a ring in the "good" colour; A and B: filled dots
+      const [kx, ky] = at(kK, 1);
+      c.line(DS.math.linspace(0, 2 * Math.PI, 40).map(t => [kx + 0.1 * Math.cos(t), ky + 0.1 * Math.sin(t)]), { series: 'good', thick: true });
+      c.point(...at(b, 1), { series: 2, r: 6.5 });
+      c.point(...at(a, 1), { series: 1, r: 6.5 });
+      c.point(kx, ky, { series: 'good', r: 4 });
+      c.text(0, 0.18, 'a·b mod 11', { anchor: 'middle', size: 12 });
+      c.text(0, -0.04, `${a}·${b} = ${a * b} ≡ ${kK}`, { anchor: 'middle', cls: 'ink strong', size: 14 });
+      c.text(0, -0.24, `K = 2${sup(kK)} = ${val(kK)}`, { anchor: 'middle', cls: 'ink', size: 12.5 });
+      c.legend([{ label: 'Alice walks a hours to A', series: 1 }, { label: 'Bob walks b hours to B', series: 2 },
+                { label: 'shared key K', series: 'good', kind: 'dot' }]);
+    },
+  });
+
+  function steps() {
+    const a = sa.value, b = sb.value, A = val(a), B = val(b);
+    const KA = powmod(B, a, p), KB = powmod(A, b, p);
+    DS.table(root + ' .c-steps', {
+      columns: ['', 'Alice', 'Bob'],
+      rows: [
+        [{ text: 'keeps', th: true }, `a = ${a}`, `b = ${b}`],
+        [{ text: 'sends', th: true }, `A = 2${sup(a)} mod 23 = ${A}`, `B = 2${sup(b)} mod 23 = ${B}`],
+        [{ text: 'computes', th: true }, `K = ${B}${sup(a)} mod 23 = ${KA}`, `K = ${A}${sup(b)} mod 23 = ${KB}`],
+      ],
+    });
+    DS.stats(root + ' .readout', [
+      { label: 'Eve sees', value: `A = ${A}, B = ${B}`, note: 'and p = 23, g = 2' },
+      { label: 'Shared key', value: `K = ${KA}`, tone: KA === KB ? 'good' : 'bad', note: KA === KB ? 'both sides agree' : 'mismatch' },
+      { label: "Eve's brute force for a", value: `${a + 1} tries`, note: `2ᵏ for k = 0, 1, …, ${a} until it hits ${A}` },
+    ]);
+  }
+  steps();
+})();
+</script>
 <h3 id="what-the-eavesdropper-sees-three-hard-problems">What the eavesdropper sees: three hard problems<a class="headerlink" href="#what-the-eavesdropper-sees-three-hard-problems" title="Link to this section">#</a></h3>
 <p>Eve holds \((p, g, A, B)\). Three problems describe her position:</p>
 <ul>
@@ -279,8 +376,9 @@ an attack that wins the security game every time against ElGamal in the wrong gr
 does it on a 20-bit prime and finds Alice's secret after 123,759 tries (§10).
 Generic algorithms (baby-step giant-step, Pollard's rho) need
 about \(\sqrt{q}\) steps in any group. In \(\mathbb{Z}_p^*\) there is also the <strong>number field sieve</strong>,
-which is sub-exponential, and that is why \(p\) must have thousands of bits. <abbr title="National Institute of Standards and Technology">NIST</abbr> rates a 2048-bit
-\(p\) at 112-bit security and a 3072-bit \(p\) at 128 bits (table in §8).</p>
+which is sub-exponential, and that is why \(p\) must have thousands of bits. The National Institute
+of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>) rates a 2048-bit \(p\) at 112-bit security and a 3072-bit \(p\) at
+128 bits (table in §8).</p>
 <h3 id="the-man-in-the-middle">The man in the middle<a class="headerlink" href="#the-man-in-the-middle" title="Link to this section">#</a></h3>
 <p>Diffie–Hellman on its own authenticates nobody. Mallory, who controls the network, runs one
 exchange with Alice and another with Bob and relays the traffic. Both "share a key", each with
@@ -317,14 +415,16 @@ part 2 of the script, "pay 100" encrypts to 1773; Eve multiplies by \(\mathrm{En
 decrypts 900. It is
 P3's "pay $100 → pay $900" forgery again
 (<a href="p3_modes_and_integrity.html#7-malleability-changing-a-message-without-reading-it">P3 §7</a>),
-through multiplication instead of <abbr title="exclusive or">XOR</abbr>. For ordinary encryption this is a bug: it rules out
-chosen-ciphertext security (<a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a>). For
+through multiplication instead of <abbr title="exclusive or">XOR</abbr> (exclusive or). For ordinary encryption this is a bug: it
+rules out chosen-ciphertext security (<a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a>). For
 <abbr title="homomorphic encryption">HE</abbr> it is the whole point: Rivest, Adleman and Dertouzos noticed it in 1978 and asked for
 "privacy homomorphisms" that would allow more (<a href="p6_computing_on_ciphertexts.html">P6</a>).</p>
 <h3 id="oaep-randomize-then-destroy-the-algebra">OAEP: randomize, then destroy the algebra<a class="headerlink" href="#oaep-randomize-then-destroy-the-algebra" title="Link to this section">#</a></h3>
 <p>Real <abbr title="Rivest–Shamir–Adleman">RSA</abbr> encryption never exponentiates the raw message. It first encodes it with <strong><abbr title="optimal asymmetric encryption padding">OAEP</abbr></strong>
 (Optimal Asymmetric Encryption Padding, Bellare and Rogaway, 1994), standardized as RSAES-OAEP in
-<abbr title="Public-Key Cryptography Standards">PKCS</abbr> #1 (<a href="https://www.rfc-editor.org/rfc/rfc8017"><abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8017</a>):</p>
+<abbr title="Public-Key Cryptography Standards">PKCS</abbr> #1, the first of the Public-Key Cryptography Standards, published as
+<a href="https://www.rfc-editor.org/rfc/rfc8017"><abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8017</a>, a Request for Comments of the Internet
+Engineering Task Force (<abbr title="Internet Engineering Task Force">IETF</abbr>):</p>
 <div class="highlight"><pre><span></span><code>DB         = lHash || 00 00 ... 00 || 01 || M     hash of a label, zero padding, separator, message
 seed       = fresh random bytes
 maskedDB   = DB   XOR MGF(seed)                   MGF: a hash function stretched to any length
@@ -341,8 +441,9 @@ the <code>01</code> separator are where they should be. That does three things:<
    \(EM_a \cdot EM_b \bmod n\), which is not the encoding of anything. Unmasking produces garbage, the
    checks fail, and decryption rejects the ciphertext. Malleability becomes useless instead of
    merely inconvenient.</li>
-<li><strong>It is provably strong.</strong> <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-OAEP is <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> secure (the strongest notion in P5) under the
-   <abbr title="Rivest–Shamir–Adleman">RSA</abbr> assumption in the random-oracle model (analysing hash functions as if they were truly
+<li><strong>It is provably strong.</strong> <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-OAEP is <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> secure (indistinguishability under adaptive
+   chosen-ciphertext attack, the strongest notion in P5) under the <abbr title="Rivest–Shamir–Adleman">RSA</abbr> assumption in the
+   random-oracle model (analysing hash functions as if they were truly
    random functions). Shoup found a gap in the original 1994 proof;
    Fujisaki, Okamoto, Pointcheval and Stern closed it for <abbr title="Rivest–Shamir–Adleman">RSA</abbr> in 2001.</li>
 </ol>
@@ -410,6 +511,77 @@ transports random keys (§6), and the question disappears.</p>
 <p>The same message gives two unrelated-looking ciphertexts. To decrypt (16, 6), Bob computes
 \(c_1^x = 16^3 = 4096 \equiv 2\) (the pad), its inverse \(2^{-1} \equiv 12\) (as \(2 \cdot 12 = 24 \equiv 1\)),
 and \(m = 6 \cdot 12 = 72 \equiv 3\).</p>
+<figure class="widget" id="w-p4-elgamal-grid">
+  <p class="widget-title">Every ElGamal ciphertext mod 23</p>
+  <p class="widget-hint">Drag \(y\): the encryption of \(m = 3\) jumps to another column and still decrypts to 3. Then change \(m\): its ten ciphertexts form a new pattern, again one per column.</p>
+  <div class="controls"></div>
+  <div class="c-grid"></div>
+  <div class="readout"></div>
+  <figcaption>Bob's key is \(x = 3\), \(h = 2^3 = 8\), and \(y\) runs from 1 to 10. The grey dots are
+  all 110 pairs \((c_1, c_2)\) that encryption can produce, and each is an encryption of exactly one
+  message. Every column holds exactly one encryption of each of the 11 messages, so \(c_1\) alone
+  says nothing about \(m\); only the key tells which pattern a dot belongs to. Textbook RSA gives
+  each message a single ciphertext.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-elgamal-grid';
+  const p = 23, g = 2, x = 3;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const inv = v => powmod(v, p - 2, p);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const h = powmod(g, x, p);                                           // 8
+  const SQ = [1, 2, 3, 4, 6, 8, 9, 12, 13, 16, 18];                     // the messages: squares mod 23
+  const YS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const C1 = YS.map(y => powmod(g, y, p)).sort((u, v) => u - v);      // the 10 possible c1 values
+  const enc = (m, y) => [powmod(g, y, p), m * powmod(h, y, p) % p];
+  const dec = (c1, c2) => c2 * inv(powmod(c1, x, p)) % p;
+  const ix = c1 => C1.indexOf(c1), iy = c2 => SQ.indexOf(c2);
+
+  // all 110 ciphertexts, computed once
+  const ALL = [];
+  for (const m of SQ) for (const y of YS) {
+    const [c1, c2] = enc(m, y);
+    ALL.push({ x: ix(c1), y: iy(c2), tip: `(${c1}, ${c2}) decrypts to ${dec(c1, c2)}` });
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const sm = ui.slider({ label: 'Message m', values: SQ, value: 3 });
+  const sy = ui.slider({ label: 'Randomness y', min: 1, max: 10, step: 1, value: 4 });
+
+  const chart = DS.chart(root + ' .c-grid', {
+    x: { domain: [-0.5, 9.5], tickValues: C1.map((_, i) => i), format: i => String(C1[Math.round(i)]), label: 'c₁ = 2ʸ mod 23', grid: true },
+    y: { domain: [-0.5, 10.5], tickValues: SQ.map((_, i) => i), format: i => String(SQ[Math.round(i)]), label: 'c₂ = m · 8ʸ mod 23', baseline: 'bottom' },
+    height: 340,
+    draw(c) {
+      const m = sm.value, y = sy.value;
+      c.scatter(ALL, { series: 'muted', r: 2.5 });
+      const mine = YS.map(yy => { const [c1, c2] = enc(m, yy); return { x: ix(c1), y: iy(c2), tip: `y = ${yy}: (${c1}, ${c2})` }; });
+      c.scatter(mine, { series: 1, r: 5 });
+      const [c1, c2] = enc(m, y);
+      const right = ix(c1) > 6, top = iy(c2) > 8;          // keep the label inside the plot
+      c.point(ix(c1), iy(c2), { series: 1, r: 8, label: `(${c1}, ${c2})`,
+        labelOpts: { dx: right ? -12 : 12, dy: top ? 18 : -10, anchor: right ? 'end' : 'start', cls: 'ink strong' } });
+      c.legend([{ label: 'all 110 possible ciphertexts', series: 'muted', kind: 'dot' },
+                { label: `the 10 encryptions of m = ${m}`, series: 1, kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const m = sm.value, y = sy.value;
+    const [c1, c2] = enc(m, y), pad = powmod(h, y, p), back = powmod(c1, x, p);
+    DS.stats(root + ' .readout', [
+      { label: 'c₁ = 2ʸ', value: `2${sup(y)} ≡ ${c1}` },
+      { label: 'pad = hʸ = 8ʸ', value: `8${sup(y)} ≡ ${pad}` },
+      { label: 'c₂ = m · pad', value: `${m} · ${pad} ≡ ${c2}` },
+      { label: 'Bob: c₂ · (c₁ˣ)⁻¹', value: `${c2} · ${inv(back)} ≡ ${dec(c1, c2)}`, tone: dec(c1, c2) === m ? 'good' : 'bad',
+        note: `c₁³ = ${c1}³ ≡ ${back}, ${back}⁻¹ ≡ ${inv(back)}` },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>The price is size. A ciphertext is two group elements for one element of message, an
 <strong>expansion</strong> factor of 2. Some expansion is unavoidable for randomized encryption: there must be
 many ciphertexts for each message.</p>
@@ -442,12 +614,108 @@ exponential ElGamal this way; real systems add zero-knowledge proofs that each b
 encrypts 0 or 1, and threshold decryption so no single person holds \(x\).
 <a href="p6_computing_on_ciphertexts.html#3-paillier-addition-with-a-public-key">P6 §3</a> adds Paillier, which
 adds without the small-result limit.</p>
+<figure class="widget" id="w-p4-elgamal-tally">
+  <p class="widget-title">A vote tally on encrypted ballots</p>
+  <p class="widget-hint">Click a ballot to flip its vote: its ciphertext changes, and so does the tally. Then press New randomness: every ciphertext changes, the tally does not.</p>
+  <div class="controls"></div>
+  <div class="ballots" role="group" aria-label="Ten ballots; click one to flip its vote"></div>
+  <div class="readout"></div>
+  <p class="panel-title">Bob tries k = 0, 1, 2, … until 2ᵏ mod 23 equals the decrypted value</p>
+  <div class="c-lookup"></div>
+  <figcaption>Exponential ElGamal with \(p = 23\), \(g = 2\) and Bob's key \(x = 3\), \(h = 8\). Ballot
+  \(i\) is \((2^{y_i},\ 2^{v_i} \cdot 8^{y_i}) \bmod 23\) with a fresh \(y_i\) and the vote
+  \(v_i \in \{0, 1\}\). Anyone can multiply the ballots; the votes add up in the exponent, so the
+  product decrypts to \(2^{v_1 + \dots + v_{10}}\), and only that is ever decrypted. The search
+  works because the tally is small. Here it must also stay below \(q = 11\), which is why there are
+  ten voters.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-elgamal-tally';
+  const p = 23, g = 2, q = 11, x = 3;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const inv = v => powmod(v, p - 2, p);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const h = powmod(g, x, p);                                        // 8
+  const votes = [1, 0, 1, 1, 0, 0, 1, 0, 1, 0];
+  let seed = 7, ys = [];
+  const draw = () => { const R = DS.random(seed); ys = votes.map(() => 1 + R.int(q - 1)); };   // y in 1..10
+  draw();
+  const ballot = i => [powmod(g, ys[i], p), powmod(g, votes[i], p) * powmod(h, ys[i], p) % p];
+
+  const ui = DS.controls(root + ' .controls', () => { render(); });
+  ui.button({ label: 'New randomness', onClick: () => { seed++; draw(); } });
+
+  // the ten ballots: plain buttons in a grid
+  const box = document.querySelector(root + ' .ballots');
+  box.style.cssText = 'display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:2px 0 6px;max-width:34rem';
+  const buttons = votes.map((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.cssText = 'font:inherit;font-size:13px;line-height:1.35;padding:5px 2px;border-radius:8px;cursor:pointer;min-width:0;' +
+      'border:1px solid var(--line-strong);color:var(--fg);display:flex;flex-direction:column;align-items:center;gap:1px';
+    b.addEventListener('click', () => { votes[i] = 1 - votes[i]; render(); });
+    box.appendChild(b);
+    return b;
+  });
+
+  const lookup = DS.chart(root + ' .c-lookup', {
+    x: { type: 'band', domain: DS.math.range(q), label: 'k' },
+    y: { domain: [0, 20], label: '2ᵏ mod 23', ticks: 4 },
+    height: 200,
+    draw(c) {
+      const t = tally();
+      const target = powmod(g, t, p);
+      c.bars(DS.math.range(q).map(k => {
+        const v = powmod(g, k, p);
+        return { x: k, y: v, series: k === t ? 'good' : 'muted', opacity: k > t ? 0.3 : 1,
+                 tip: `2${sup(k)} mod 23 = ${v}` + (k < t ? ': no match' : k === t ? ': match, tally = ' + k : ': not needed') };
+      }), { maxWidth: 30 });
+      c.hline(target, { dash: true, series: 'ink' });
+      c.legend([{ label: 'tried, no match', series: 'muted', kind: 'rect' }, { label: 'first match: k = tally', series: 'good', kind: 'rect' },
+                { label: `decrypted value ${target}`, series: 'ink', kind: 'dash' }]);
+    },
+  });
+
+  function tally() {                                   // what Bob gets: decrypt the product, then search
+    let P1 = 1, P2 = 1;
+    votes.forEach((_, i) => { const [c1, c2] = ballot(i); P1 = P1 * c1 % p; P2 = P2 * c2 % p; });
+    const D = P2 * inv(powmod(P1, x, p)) % p;
+    for (let k = 0; k < q; k++) if (powmod(g, k, p) === D) return k;
+    return -1;
+  }
+
+  function render() {
+    let P1 = 1, P2 = 1;
+    buttons.forEach((b, i) => {
+      const [c1, c2] = ballot(i);
+      P1 = P1 * c1 % p; P2 = P2 * c2 % p;
+      b.setAttribute('aria-pressed', String(votes[i] === 1));
+      b.style.background = votes[i] ? 'color-mix(in srgb, var(--series-1) 16%, var(--bg))' : 'var(--bg)';
+      b.innerHTML = `<span style="font-size:11.5px;color:var(--fg-2)">voter ${i + 1}</span>` +
+        `<b>${votes[i] ? 'yes' : 'no'}</b><span style="font-variant-numeric:tabular-nums">(${c1}, ${c2})</span>`;
+    });
+    const back = powmod(P1, x, p), D = P2 * inv(back) % p, t = tally();
+    const truth = votes.reduce((s, v) => s + v, 0);
+    DS.stats(root + ' .readout', [
+      { label: 'Product of all ten ballots', value: `(${P1}, ${P2})`, note: 'component by component, mod 23' },
+      { label: 'Bob decrypts it', value: `${P2} · ${inv(back)} ≡ ${D}`, note: `c₁³ = ${P1}³ ≡ ${back}, inverse ${inv(back)}` },
+      { label: 'Search: 2ᵏ = ' + D + ' at', value: `k = ${t}`, tone: t === truth ? 'good' : 'bad',
+        note: `${t} yes votes out of 10` },
+    ]);
+    lookup.update();
+  }
+  render();
+})();
+</script>
 <h2 id="6-hybrid-encryption-and-tls-13">6. Hybrid encryption and TLS 1.3<a class="headerlink" href="#6-hybrid-encryption-and-tls-13" title="Link to this section">#</a></h2>
 <p>Public-key operations are slow, ciphertexts are large, and a message must be smaller than the
 modulus. On the machine these notes were written on (OpenSSL 3.0, one core), one <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-2048
 private-key operation took about 0.19 ms; in that time <abbr title="Advanced Encryption Standard">AES</abbr>-128-GCM encrypts about 3 MB. So real
 systems use public-key cryptography only to agree on a fresh symmetric key, and encrypt the data
-with an <abbr title="authenticated encryption with associated data">AEAD</abbr> cipher from P3. That is <strong>hybrid encryption</strong>.</p>
+with an <abbr title="authenticated encryption with associated data">AEAD</abbr> cipher (authenticated encryption with associated data) from P3. That is <strong>hybrid
+encryption</strong>.</p>
 <p>The modern formulation is <strong><abbr title="key encapsulation mechanism">KEM</abbr>/DEM</strong>. A <strong>key encapsulation mechanism</strong> (<abbr title="key encapsulation mechanism">KEM</abbr>) takes the public
 key and outputs a random shared key plus an "encapsulation" that lets the secret-key holder
 recover it. A <strong>data encapsulation mechanism</strong> (an <abbr title="authenticated encryption with associated data">AEAD</abbr> such as <abbr title="Advanced Encryption Standard">AES</abbr>-GCM) then encrypts the payload
@@ -455,10 +723,76 @@ under that key. HPKE (<a href="https://www.rfc-editor.org/rfc/rfc9180"><abbr tit
 combination, and <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (§9) is a <abbr title="key encapsulation mechanism">KEM</abbr>.</p>
 <p>The script's version, in <a href="../../code/primer/p4_public_key.py">part 4</a>: Bob's ElGamal public key
 \(h\) doubles as a Diffie–Hellman public value. Alice picks \(y\), sends \(c_1 = g^y\), hashes the shared
-secret \(h^y\) with <abbr title="Secure Hash Algorithm">SHA</abbr>-256 into a key, and <abbr title="exclusive or">XOR</abbr>s
+secret \(h^y\) with <abbr title="Secure Hash Algorithm">SHA</abbr>-256 (the 256-bit Secure Hash Algorithm) into a key, and <abbr title="exclusive or">XOR</abbr>s
 a <abbr title="Secure Hash Algorithm">SHA</abbr>-256 keystream onto her message. That is ElGamal with the pad moved into a hash function;
-the real-world versions are called DHIES and ECIES. They use a proper key-derivation function
-(<abbr title="HMAC-based key derivation function">HKDF</abbr>) and an <abbr title="authenticated encryption with associated data">AEAD</abbr> instead of the toy keystream.</p>
+the real-world versions are called DHIES and ECIES. They use a proper key-derivation function,
+<abbr title="HMAC-based key derivation function">HKDF</abbr> (built on <abbr title="hash-based message authentication code">HMAC</abbr>, a hash-based message authentication code), and an <abbr title="authenticated encryption with associated data">AEAD</abbr> instead of the toy
+keystream.</p>
+<figure class="diagram" id="d-p4-hybrid">
+  <svg viewBox="0 0 480 384" style="max-width: 580px" role="img"
+       aria-label="Hybrid encryption. Key encapsulation: Alice picks a fresh y, sends c1 = g^y, and both sides derive K = SHA-256(h^y). Data encapsulation: Alice encrypts the message with AES-GCM under K and sends the body; Bob decrypts it and checks the tag.">
+    <defs>
+      <marker id="p4-hy-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+      </marker>
+      <marker id="p4-hy-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--series-1)"/>
+      </marker>
+      <marker id="p4-hy-arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--series-3)"/>
+      </marker>
+    </defs>
+
+    <!-- column heads -->
+    <text x="90" y="18" text-anchor="middle" font-weight="650" style="font-size:15px">Alice</text>
+    <text x="90" y="36" text-anchor="middle" fill="var(--muted)" style="font-size:13px">has Bob's public h = gˣ</text>
+    <text x="240" y="18" text-anchor="middle" fill="var(--muted)" style="font-size:13px">on the wire</text>
+    <text x="240" y="36" text-anchor="middle" fill="var(--muted)" style="font-size:13px">(Eve sees this)</text>
+    <text x="390" y="18" text-anchor="middle" font-weight="650" style="font-size:15px">Bob</text>
+    <text x="390" y="36" text-anchor="middle" fill="var(--muted)" style="font-size:13px">has the secret x</text>
+
+    <!-- band 1: key encapsulation -->
+    <rect x="0" y="48" width="480" height="150" rx="8" fill="var(--series-1)" fill-opacity="0.09"/>
+    <text x="240" y="68" text-anchor="middle" font-weight="650">KEM: public-key step, once</text>
+    <rect x="12" y="80" width="156" height="104" rx="6" fill="var(--bg)" stroke="var(--line-strong)"/>
+    <text x="90" y="104" text-anchor="middle" style="font-size:14px">pick a fresh y</text>
+    <text x="90" y="135" text-anchor="middle" style="font-size:14px">c₁ = gʸ</text>
+    <text x="90" y="166" text-anchor="middle" style="font-size:14px">K = SHA-256(hʸ)</text>
+    <rect x="312" y="80" width="156" height="104" rx="6" fill="var(--bg)" stroke="var(--line-strong)"/>
+    <text x="390" y="104" text-anchor="middle" style="font-size:14px">receive c₁</text>
+    <text x="390" y="135" text-anchor="middle" style="font-size:14px">c₁ˣ = gˣʸ = hʸ</text>
+    <text x="390" y="166" text-anchor="middle" style="font-size:14px">K = SHA-256(hʸ)</text>
+    <line x1="170" y1="131" x2="309" y2="131" stroke="var(--series-1)" stroke-width="2" marker-end="url(#p4-hy-arrow1)"/>
+    <text x="240" y="123" text-anchor="middle" font-weight="650" style="font-size:14px">c₁</text>
+    <text x="240" y="149" text-anchor="middle" fill="var(--muted)" style="font-size:13px">32 bytes (X25519)</text>
+    <text x="240" y="164" text-anchor="middle" fill="var(--muted)" style="font-size:13px">1,088 (ML-KEM-768)</text>
+
+    <!-- K flows down on both sides -->
+    <line x1="90" y1="184" x2="90" y2="250" stroke="currentColor" stroke-width="1.5" marker-end="url(#p4-hy-arrow)"/>
+    <text x="99" y="222" font-weight="650" style="font-size:14px">K</text>
+    <line x1="390" y1="184" x2="390" y2="250" stroke="currentColor" stroke-width="1.5" marker-end="url(#p4-hy-arrow)"/>
+    <text x="399" y="222" font-weight="650" style="font-size:14px">K</text>
+
+    <!-- band 2: data encapsulation -->
+    <rect x="0" y="210" width="480" height="168" rx="8" fill="var(--series-3)" fill-opacity="0.09"/>
+    <text x="240" y="230" text-anchor="middle" font-weight="650">DEM: symmetric step, every byte</text>
+    <rect x="12" y="252" width="156" height="78" rx="6" fill="var(--bg)" stroke="var(--line-strong)"/>
+    <text x="90" y="279" text-anchor="middle" style="font-size:14px">message, any size</text>
+    <text x="90" y="309" text-anchor="middle" style="font-size:14px">AES-GCM under K</text>
+    <rect x="312" y="252" width="156" height="78" rx="6" fill="var(--bg)" stroke="var(--line-strong)"/>
+    <text x="390" y="279" text-anchor="middle" style="font-size:14px">AES-GCM under K</text>
+    <text x="390" y="309" text-anchor="middle" style="font-size:14px">tag ok → message</text>
+    <line x1="170" y1="295" x2="309" y2="295" stroke="var(--series-3)" stroke-width="2" marker-end="url(#p4-hy-arrow3)"/>
+    <text x="240" y="287" text-anchor="middle" font-weight="650" style="font-size:14px">body</text>
+    <text x="240" y="313" text-anchor="middle" fill="var(--muted)" style="font-size:13px">message size + tag</text>
+    <text x="240" y="358" text-anchor="middle" fill="var(--muted)" style="font-size:13px">a tampered body fails the tag check</text>
+  </svg>
+  <figcaption>Hybrid encryption in two layers. The public-key step runs once and moves only a short
+  key; the symmetric step carries the data. One RSA-2048 private-key operation took about 0.19 ms on
+  the machine these notes were written on, and AES-128-GCM encrypts about 3 MB in that time. The
+  script's part 4 has this shape, with a SHA-256 keystream in place of AES-GCM; real systems derive
+  \(K\) with HKDF. TLS 1.3 is the same picture with both sides ephemeral.</figcaption>
+</figure>
 <p><em>Optional on a first read: the rest of this section, and §§7–8. They show how the pieces are
 used in practice; nothing later in the primer depends on them.</em></p>
 <p><strong><abbr title="Transport Layer Security">TLS</abbr> 1.3</strong> (<a href="https://www.rfc-editor.org/rfc/rfc8446"><abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8446</a>, 2018) is hybrid encryption with
@@ -490,13 +824,14 @@ ClientHello: random, cipher suites, key_share = g^a   --------&gt;
 </ul>
 <h2 id="7-digital-signatures">7. Digital signatures<a class="headerlink" href="#7-digital-signatures" title="Link to this section">#</a></h2>
 <p><em>Optional on a first read.</em></p>
-<p>A <strong>signature scheme</strong> is the public-key version of a <abbr title="message authentication code">MAC</abbr> (P3): \(\mathrm{Sign}(sk, m) \to \sigma\) and
-\(\mathrm{Verify}(pk, m, \sigma) \to\) yes/no. Only the holder of <code>sk</code> can sign; anyone can verify. That
+<p>A <strong>signature scheme</strong> is the public-key version of a message authentication code (<abbr title="message authentication code">MAC</abbr>, P3):
+\(\mathrm{Sign}(sk, m) \to \sigma\) and \(\mathrm{Verify}(pk, m, \sigma) \to\) yes/no. Only the holder of <code>sk</code> can sign; anyone can verify. That
 gives integrity and authenticity that third parties can check, which is what certificates are:
 a certificate authority's signature on someone's public key. The main families are <abbr title="Rivest–Shamir–Adleman">RSA</abbr>
 signatures (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>-PSS; "sign by decrypting the raw message" is malleable for the same reason
-textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> encryption is), <abbr title="Digital Signature Algorithm">DSA</abbr> and <abbr title="elliptic-curve Digital Signature Algorithm">ECDSA</abbr>, EdDSA (Ed25519), and the post-quantum <abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr> and
-<abbr title="Stateless Hash-Based Digital Signature Algorithm (FIPS 205)">SLH-DSA</abbr> (§9). <abbr title="homomorphic encryption">HE</abbr> schemes do not sign anything, but <abbr title="homomorphic encryption">HE</abbr> provides no integrity at all
+textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> encryption is), the Digital Signature Algorithm (<abbr title="Digital Signature Algorithm">DSA</abbr>) and its elliptic-curve version
+<abbr title="elliptic-curve Digital Signature Algorithm">ECDSA</abbr>, EdDSA (Ed25519), and the post-quantum <abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr> (module-lattice-based) and <abbr title="Stateless Hash-Based Digital Signature Algorithm (FIPS 205)">SLH-DSA</abbr> (stateless
+hash-based) signatures (§9). <abbr title="homomorphic encryption">HE</abbr> schemes do not sign anything, but <abbr title="homomorphic encryption">HE</abbr> provides no integrity at all
 (<a href="../06_security.html#1-the-baseline-guarantee-ind-cpa">06 §1</a>), and signatures and proofs are part of
 the fixes.</p>
 <h2 id="8-elliptic-curves">8. Elliptic curves<a class="headerlink" href="#8-elliptic-curves" title="Link to this section">#</a></h2>
@@ -504,12 +839,13 @@ the fixes.</p>
 <p>The points on a curve \(y^2 = x^3 + ax + b\) over a finite field form a group under a geometric
 "addition" rule, proposed for cryptography independently by Miller (1985) and Koblitz (1987).
 Exponentiation \(g^a\) becomes scalar multiplication \(a \cdot G\), and the discrete-log problem becomes
-"given \(G\) and \(aG\), find \(a\)". Diffie–Hellman and ElGamal carry over unchanged (<abbr title="elliptic-curve Diffie–Hellman">ECDH</abbr>, EC-ElGamal).
+"given \(G\) and \(aG\), find \(a\)". Diffie–Hellman and ElGamal carry over unchanged (elliptic-curve
+Diffie–Hellman, <abbr title="elliptic-curve Diffie–Hellman">ECDH</abbr>, and EC-ElGamal).
 The difference is the attacks. For well-chosen curves no sub-exponential algorithm like the
 number field sieve is known, so the best attack is generic, about \(\sqrt{q}\) steps, and a 256-bit
 curve gives about 128-bit security. X25519 (Bernstein's Curve25519) and P-256 are the workhorses
 of <abbr title="Transport Layer Security">TLS</abbr>. <abbr title="National Institute of Standards and Technology">NIST</abbr>'s comparable strengths
-(<a href="https://doi.org/10.6028/NIST.SP.800-57pt1r5"><abbr title="Special Publication (a NIST document series)">SP</abbr> 800-57 Part 1 Rev. 5</a>, Table 2):</p>
+(Special Publication <a href="https://doi.org/10.6028/NIST.SP.800-57pt1r5"><abbr title="Special Publication (a NIST document series)">SP</abbr> 800-57 Part 1 Rev. 5</a>, Table 2):</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -583,12 +919,12 @@ larger parameters. Public-key cryptography needs new mathematics.</p>
 <p><em>Optional on a first read:</em> the standards and deployment details below. What matters for <abbr title="homomorphic encryption">HE</abbr> is
 the next subsection.</p>
 <ul>
-<li><strong>13 August 2024:</strong> <abbr title="National Institute of Standards and Technology">NIST</abbr> published <abbr title="Federal Information Processing Standard">FIPS</abbr> 203 <strong><abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr></strong> (from CRYSTALS-Kyber, a <abbr title="key encapsulation mechanism">KEM</abbr> whose
-  security rests on the Module Learning With Errors problem), <abbr title="Federal Information Processing Standard">FIPS</abbr> 204 <strong><abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr></strong> (from
-  CRYSTALS-Dilithium, a lattice signature) and <abbr title="Federal Information Processing Standard">FIPS</abbr> 205 <strong><abbr title="Stateless Hash-Based Digital Signature Algorithm (FIPS 205)">SLH-DSA</abbr></strong> (from SPHINCS+, a hash-based
-  signature).</li>
-<li><strong>In progress:</strong> FN-DSA (from Falcon, lattices) as <abbr title="Federal Information Processing Standard">FIPS</abbr> 206, and <abbr title="Hamming Quasi-Cyclic (a code-based KEM)">HQC</abbr>, a code-based <abbr title="key encapsulation mechanism">KEM</abbr> selected
-  in March 2025 as a backup to <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> built on different mathematics.</li>
+<li><strong>13 August 2024:</strong> <abbr title="National Institute of Standards and Technology">NIST</abbr> published Federal Information Processing Standard (<abbr title="Federal Information Processing Standard">FIPS</abbr>) 203
+  <strong><abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr></strong> (from CRYSTALS-Kyber, a <abbr title="key encapsulation mechanism">KEM</abbr> whose security rests on the Module Learning With Errors
+  problem), <abbr title="Federal Information Processing Standard">FIPS</abbr> 204 <strong><abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr></strong> (from CRYSTALS-Dilithium, a lattice signature) and <abbr title="Federal Information Processing Standard">FIPS</abbr> 205
+  <strong><abbr title="Stateless Hash-Based Digital Signature Algorithm (FIPS 205)">SLH-DSA</abbr></strong> (from SPHINCS+, a hash-based signature).</li>
+<li><strong>In progress:</strong> FN-DSA (from Falcon, lattices) as <abbr title="Federal Information Processing Standard">FIPS</abbr> 206, and <abbr title="Hamming Quasi-Cyclic (a code-based KEM)">HQC</abbr> (Hamming Quasi-Cyclic), a
+  code-based <abbr title="key encapsulation mechanism">KEM</abbr> selected in March 2025 as a backup to <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> built on different mathematics.</li>
 <li><strong>Sizes:</strong> <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>-768 has a 1,184-byte public key and a 1,088-byte ciphertext, against 32 bytes
   for X25519. Bigger, but fast.</li>
 <li><strong>Deployment:</strong> <abbr title="Transport Layer Security">TLS</abbr> already uses the hybrid group <strong>X25519MLKEM768</strong>, which runs X25519 and
@@ -606,8 +942,10 @@ the next subsection.</p>
 <h3 id="lattices-the-bridge-to-fhe">Lattices: the bridge to FHE<a class="headerlink" href="#lattices-the-bridge-to-fhe" title="Link to this section">#</a></h3>
 <p><abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> is built in two steps. First comes <strong>K-PKE</strong>, a public-key encryption scheme whose
 ciphertexts hide the message under a pad of the form "inner product with a secret, plus small
-noise". That is the <abbr title="learning with errors">LWE</abbr> idea of <a href="p7_lattices_and_lwe.html">P7</a>, over polynomial rings, the same family (Ring-/Module-LWE)
-that <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> use (<a href="../02_math_foundations.html">02</a>). Then the <strong>Fujisaki–Okamoto
+noise". That is the learning with errors (<abbr title="learning with errors">LWE</abbr>) idea of <a href="p7_lattices_and_lwe.html">P7</a>, over
+polynomial rings, the same family (Ring-/Module-LWE) that the <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski/Fan–Vercauteren),
+<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan) and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song) schemes use
+(<a href="../02_math_foundations.html">02</a>). Then the <strong>Fujisaki–Okamoto
 transform</strong> turns K-PKE into a <abbr title="key encapsulation mechanism">KEM</abbr>: decapsulation decrypts, re-encrypts, and rejects anything
 that does not match exactly (implicitly: it returns an unrelated pseudorandom key rather than an
 error). <abbr title="Federal Information Processing Standard">FIPS</abbr> 203 itself says K-PKE is not <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> secure and must not be used on its own. The transform is the lattice counterpart of <abbr title="optimal asymmetric encryption padding">OAEP</abbr>: it trades malleability for
@@ -662,7 +1000,7 @@ prime, the 12-bit <abbr title="Rivest–Shamir–Adleman">RSA</abbr> modulus 323
 </tr>
 <tr>
 <td>4</td>
-<td>Hybrid encryption: <abbr title="Diffie–Hellman">DH</abbr> key agreement, <abbr title="Secure Hash Algorithm">SHA</abbr>-256, stream cipher</td>
+<td>Hybrid encryption: Diffie–Hellman (<abbr title="Diffie–Hellman">DH</abbr>) key agreement, <abbr title="Secure Hash Algorithm">SHA</abbr>-256, stream cipher</td>
 <td><a href="#6-hybrid-encryption-and-tls-13">§6</a></td>
 </tr>
 </tbody>
@@ -733,7 +1071,8 @@ decrypts to \(6 \cdot 7 = 42\). In part 3b only the tally is decrypted, never a 
   recompute (P7). Both are one-time pads with a pad generated from a short key, as in P1.</li>
 <li><strong>Malleability is the fault line.</strong> Ordinary encryption removes it (<abbr title="optimal asymmetric encryption padding">OAEP</abbr>, the
   Fujisaki–Okamoto transform, <abbr title="authenticated encryption with associated data">AEAD</abbr>); <abbr title="homomorphic encryption">HE</abbr> keeps it, so <abbr title="homomorphic encryption">HE</abbr> can at best be <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure
-  (<a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a>).</li>
+  (indistinguishability under chosen-plaintext attack;
+  <a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a>).</li>
 <li><strong>Hybrid encryption has an <abbr title="homomorphic encryption">HE</abbr> twin.</strong> <abbr title="homomorphic encryption">HE</abbr> ciphertexts are large, so clients may send data under
   a small symmetric cipher and let the server convert it into <abbr title="homomorphic encryption">HE</abbr> ciphertexts. That is
   transciphering (P2).</li>

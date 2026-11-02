@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -96,19 +97,22 @@ function renderMath() {
 <h1 id="p2--block-ciphers-how-aes-works-inside">P2 · Block ciphers: how AES works inside<a class="headerlink" href="#p2--block-ciphers-how-aes-works-inside" title="Link to this section">#</a></h1>
 <p><a href="p1_encryption_basics.html">← P1 Encryption basics</a> · <a href="../index.html">index</a> · next: <a href="p3_modes_and_integrity.html">P3 Modes and integrity →</a></p>
 <hr />
-<p>P1 ended with the one-time pad: perfectly secret, and homomorphic, because its keys simply
-add. <abbr title="Advanced Encryption Standard">AES</abbr> is built the opposite way. It scrambles 16 bytes so thoroughly that no algebraic
-relation between plaintexts survives into the ciphertexts. Seeing exactly how it does that,
+<p>P1 ended with the one-time pad: perfectly secret, and homomorphic, since its keys add. The
+Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>) is built the opposite way. It scrambles 16 bytes so
+thoroughly that no algebraic relation between plaintexts survives into the ciphertexts. Seeing exactly how it does that,
 and which single step is responsible, explains both why <abbr title="Advanced Encryption Standard">AES</abbr> is trusted everywhere and why
 nobody can compute on <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
 <li>say what a block cipher is and what it means for one to be secure;</li>
-<li>add, multiply and invert bytes in the field \(\mathrm{GF}(2^8)\) by hand;</li>
-<li>follow <abbr title="Advanced Encryption Standard">AES</abbr>-128 through one full round on the official <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 test vector;</li>
+<li>add, multiply and invert bytes in the finite field \(\mathrm{GF}(2^8)\) (<abbr title="Galois field (a finite field)">GF</abbr> for Galois field) by
+  hand;</li>
+<li>follow <abbr title="Advanced Encryption Standard">AES</abbr>-128 through one full round on the official test vector of <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 (Federal
+  Information Processing Standard 197);</li>
 <li>explain why SubBytes is the only non-linear step, and why a cipher without one falls to
   Gaussian elimination;</li>
-<li>describe the key schedule, the 10/12/14 rounds, <abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr> and what the best attacks achieve;</li>
+<li>describe the key schedule, the 10/12/14 rounds, Intel's <abbr title="Advanced Encryption Standard">AES</abbr> New Instructions (<abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr>) and
+  what the best attacks achieve;</li>
 <li>explain why <abbr title="Advanced Encryption Standard">AES</abbr> ciphertexts carry no usable algebra, and what transciphering is.</li>
 </ul>
 <p><strong>Companion script:</strong> <a href="../../code/primer/p2_mini_aes.py"><code>code/primer/p2_mini_aes.py</code></a>. Run it from
@@ -148,12 +152,13 @@ precise; for now read it as "no efficient test tells the two apart".</p>
 <li>\(E_K(P_1) \oplus E_K(P_2) = P_1 \oplus P_2\) for every key, a relation that a random
   permutation would almost never satisfy.</li>
 </ul>
-<p>The <abbr title="exclusive or">XOR</abbr> structure passes straight through the cipher. The whole job of <abbr title="Advanced Encryption Standard">AES</abbr> is to destroy every
-relation of that kind, while staying fast and exactly invertible.</p>
+<p>The <abbr title="exclusive or">XOR</abbr> (exclusive or) structure passes straight through the cipher. The whole job of <abbr title="Advanced Encryption Standard">AES</abbr> is
+to destroy every relation of that kind, while staying fast and exactly invertible.</p>
 <p>Two remarks before we open the box. First, a block cipher alone is not yet a way to encrypt
 messages: it handles exactly 16 bytes and is deterministic. <a href="p3_modes_and_integrity.html">P3</a>
-fixes that with modes of operation. Second, some history. <abbr title="Advanced Encryption Standard">AES</abbr>'s predecessor <abbr title="Data Encryption Standard">DES</abbr> (1977) had a
-56-bit key and 64-bit blocks, both too small today. <abbr title="National Institute of Standards and Technology">NIST</abbr> ran an open competition for a
+fixes that with modes of operation. Second, some history. <abbr title="Advanced Encryption Standard">AES</abbr>'s predecessor, the Data
+Encryption Standard (<abbr title="Data Encryption Standard">DES</abbr>, 1977), had a 56-bit key and 64-bit blocks, both too small today. The
+US National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>) ran an open competition for a
 successor from 1997: fifteen candidates, five finalists (MARS, RC6, Rijndael, Serpent,
 Twofish), and on 2 October 2000 it chose <strong>Rijndael</strong> by Joan Daemen and Vincent Rijmen. <abbr title="Advanced Encryption Standard">AES</abbr>
 was published as <abbr title="Federal Information Processing Standard">FIPS</abbr> 197 on 26 November 2001. A 2023 update made editorial changes only; the
@@ -254,6 +259,70 @@ replace it by <abbr title="exclusive or">XOR</abbr>-ing {1b}. <abbr title="Feder
 <div class="math-display">\[\{57\} \cdot \{13\} = \{57\} \oplus \{ae\} \oplus \{07\} = \{fe\}.\]</div>
 <p>This shift-and-add loop is exactly the function <code>gmul</code> in the script, and
 <a href="../../code/primer/p2_mini_aes.py">part 1 of the script</a> prints both products.</p>
+<figure class="widget" id="w-p2-xtime">
+  <p class="widget-title">Multiplying two bytes: shift, reduce, add</p>
+  <p class="widget-hint">The default is the chapter's \(\{57\} \cdot \{13\}\). Set \(a = \{80\}\) and \(b = \{02\}\) or \(\{03\}\) to check question 2 at the end of the chapter.</p>
+  <div class="controls"></div>
+  <div class="tbl"></div>
+  <p class="result"></p>
+  <figcaption>Each row is the row above times \(x\): a left shift, and if a bit falls off the top, XOR with {1b}. The bits of \(b\) pick which rows to add (XOR). This is the loop of <code>gmul</code> in the companion script.</figcaption>
+</figure>
+<style>
+#w-p2-xtime table { border-collapse: collapse; margin: 0 auto; font-size: 13.5px; }
+#w-p2-xtime th, #w-p2-xtime td { border: 0; border-bottom: 1px solid var(--line); padding: 4px 9px; text-align: left; background: none; vertical-align: middle; }
+#w-p2-xtime th { color: var(--fg-2); font-weight: 600; font-size: 12.5px; }
+#w-p2-xtime td.m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; }
+#w-p2-xtime td.how { color: var(--fg-2); font-size: 12.5px; }
+#w-p2-xtime tr.on td { background: color-mix(in srgb, var(--series-1) 14%, transparent); }
+#w-p2-xtime tr.on td.pick { font-weight: 700; }
+#w-p2-xtime tr.off td { color: var(--muted); }
+#w-p2-xtime .result { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; text-align: center;
+  background: var(--soft); border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { #w-p2-xtime th, #w-p2-xtime td { padding: 4px 5px; } #w-p2-xtime table { font-size: 12.5px; } }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-xtime';
+  const el = document.querySelector(root);
+  const hex = v => '{' + v.toString(16).padStart(2, '0') + '}';
+  const bin = v => v.toString(2).padStart(8, '0').replace(/(....)(....)/, '$1 $2');
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const bytes = Array.from({ length: 256 }, (_, v) => ({ value: String(v), label: hex(v) }));
+  const a = ui.select({ label: 'a', options: bytes, value: String(0x57) });
+  const b = ui.select({ label: 'b', options: bytes, value: String(0x13) });
+
+  function draw() {
+    const A = +a.value, B = +b.value;
+    const rows = [];
+    let v = A, result = 0;
+    const picked = [];
+    for (let i = 0; i < 8; i++) {
+      let how;
+      if (i > 0) {
+        const shifted = v << 1;                      // multiply by x
+        const over = shifted & 0x100;
+        v = over ? (shifted ^ 0x11b) : shifted;      // x^8 appeared: XOR the modulus {11b}, i.e. {1b} on the low byte
+        how = over ? `shift gives 1 ${bin(shifted & 0xff)}: overflow, XOR {1b}` : 'shift, no overflow';
+      } else how = 'a itself';
+      const on = (B >> i) & 1;
+      if (on) { result ^= v; picked.push(v); }
+      rows.push({ i, v, how, on });
+    }
+    const term = i => i === 0 ? 'a' : i === 1 ? 'a·x' : `a·x${'⁰¹²³⁴⁵⁶⁷'[i]}`;
+    const html = ['<table><thead><tr><th>row</th><th>value</th><th>bits</th><th>how</th><th>bit of b</th></tr></thead><tbody>'];
+    for (const r of rows) {
+      html.push(`<tr class="${r.on ? 'on' : 'off'}"><td class="m">${term(r.i)}</td><td class="m">${hex(r.v)}</td>` +
+        `<td class="m">${bin(r.v)}</td><td class="how">${r.how}</td><td class="m pick">${r.on}</td></tr>`);
+    }
+    html.push('</tbody></table>');
+    el.querySelector('.tbl').innerHTML = html.join('');
+    el.querySelector('.result').textContent = `${hex(A)} · ${hex(B)} = ` +
+      (picked.length ? picked.map(hex).join(' ⊕ ') + (picked.length > 1 ? ` = ${hex(result)}` : '') : '{00}');
+  }
+  draw();
+})();
+</script>
 <h3 id="35-inverses">3.5 Inverses<a class="headerlink" href="#35-inverses" title="Link to this section">#</a></h3>
 <p>Every non-zero byte \(a\) has an inverse \(a^{-1}\) with \(a \cdot a^{-1} = \{01\}\). For example
 \(\{53\}^{-1} = \{ca\}\), because \(\{53\} \cdot \{ca\} = \{01\}\). There are three ways to find it:
@@ -292,6 +361,177 @@ plaintext <abbr title="exclusive or">XOR</abbr> the key. This is real output fro
 </code></pre></div>
 
 <p>The four subsections below follow this table from left to right.</p>
+<figure class="widget" id="w-p2-round-stepper">
+  <p class="widget-title">AES-128 step by step, on the FIPS 197 test vector</p>
+  <p class="widget-hint">Drag the slider back to round 1 · SubBytes, then forward through ShiftRows and MixColumns to the ciphertext. Click any byte of the result to see how it was computed.</p>
+  <div class="controls"></div>
+  <div class="stage">
+    <div class="pane"><p class="panel-title t-before">Before</p><div class="grid g-before"></div></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="pane"><p class="panel-title t-after">After</p><div class="grid g-after"></div></div>
+  </div>
+  <div class="how"><p class="what"></p><p class="calc"></p><p class="state"></p></div>
+  <figcaption>Plaintext <code>00112233445566778899aabbccddeeff</code>, key <code>000102030405060708090a0b0c0d0e0f</code>. SubBytes and AddRoundKey work on each byte alone, ShiftRows only moves bytes between columns, and MixColumns is the step where the four bytes of a column mix. The last step gives the ciphertext <code>69c4e0d86a7b0430d8cdb78070b4c55a</code> of FIPS 197 Appendix C.1.</figcaption>
+</figure>
+<style>
+#w-p2-round-stepper .stage { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 16px; margin: 4px 0 6px; }
+#w-p2-round-stepper .pane .panel-title { text-align: center; margin-bottom: 6px; }
+#w-p2-round-stepper .arrow { font-size: 22px; color: var(--muted); padding-top: 18px; }
+#w-p2-round-stepper .grid { display: grid; grid-template-columns: repeat(4, 2.75em); gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; }
+#w-p2-round-stepper .cell { height: 2.2em; display: flex; align-items: center; justify-content: center; padding: 0;
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+#w-p2-round-stepper .g-after .cell { cursor: pointer; }
+#w-p2-round-stepper .cell.k1 { background: color-mix(in srgb, var(--series-1) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k2 { background: color-mix(in srgb, var(--series-2) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k3 { background: color-mix(in srgb, var(--series-3) 22%, var(--bg)); }
+#w-p2-round-stepper .cell.k4 { background: color-mix(in srgb, var(--series-4) 26%, var(--bg)); }
+#w-p2-round-stepper .cell.src { box-shadow: inset 0 0 0 2px var(--fg); font-weight: 700; }
+#w-p2-round-stepper .cell.sel { box-shadow: inset 0 0 0 2.5px var(--fg); font-weight: 700; }
+@media (max-width: 600px) {
+  #w-p2-round-stepper .stage { gap: 6px 6px; }
+  #w-p2-round-stepper .grid { font-size: 13px; grid-template-columns: repeat(4, 2.3em); gap: 3px; }
+  #w-p2-round-stepper .arrow { font-size: 18px; }
+  #w-p2-round-stepper .pane .panel-title { font-size: 11.5px; max-width: 10em; margin-left: auto; margin-right: auto; }
+}
+#w-p2-round-stepper .how { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; line-height: 1.5; }
+#w-p2-round-stepper .how p { margin: 2px 0; }
+#w-p2-round-stepper .how .calc, #w-p2-round-stepper .how .state {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; overflow-wrap: anywhere; }
+#w-p2-round-stepper .how .state { color: var(--muted); }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-round-stepper';
+  const el = document.querySelector(root);
+
+  // AES-128 from GF(2^8) arithmetic up, as in code/primer/p2_mini_aes.py. Bytes in FIPS 197 order:
+  // state byte i sits at row i % 4, column floor(i / 4).
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const SBOX = INV.map(affine);
+  const MIX = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
+  const shiftSrc = i => (i % 4) + 4 * ((Math.floor(i / 4) + (i % 4)) % 4);   // where byte i comes from
+  const subBytes = s => s.map(b => SBOX[b]);
+  const shiftRows = s => s.map((_, i) => s[shiftSrc(i)]);
+  const mixColumns = s => s.map((_, i) => {
+    const r = i % 4, c4 = i - r;
+    return gmul(MIX[r][0], s[c4]) ^ gmul(MIX[r][1], s[c4 + 1]) ^ gmul(MIX[r][2], s[c4 + 2]) ^ gmul(MIX[r][3], s[c4 + 3]);
+  });
+  const addRoundKey = (s, k) => s.map((b, i) => b ^ k[i]);
+  function roundKeys(key) {                 // 16 key bytes -> 11 round keys of 16 bytes
+    const w = [];
+    for (let i = 0; i < 4; i++) w.push(key.slice(4 * i, 4 * i + 4));
+    let rcon = 1;
+    for (let i = 4; i < 44; i++) {
+      let t = w[i - 1];
+      if (i % 4 === 0) { t = [t[1], t[2], t[3], t[0]].map(b => SBOX[b]); t[0] ^= rcon; rcon = xtime(rcon); }
+      w.push(w[i - 4].map((b, j) => b ^ t[j]));
+    }
+    return Array.from({ length: 11 }, (_, r) => [].concat(w[4 * r], w[4 * r + 1], w[4 * r + 2], w[4 * r + 3]));
+  }
+  const hexBytes = s => s.match(/../g).map(h => parseInt(h, 16));
+  const hex = b => b.toString(16).padStart(2, '0');
+
+  // ---------------------------------------------------------------- every step of the encryption
+  const key = hexBytes('000102030405060708090a0b0c0d0e0f');
+  const pt = hexBytes('00112233445566778899aabbccddeeff');
+  const rk = roundKeys(key);
+  const steps = [];
+  let s = pt;
+  const push = (round, op, out) => { steps.push({ round, op, before: s, after: out }); s = out; };
+  push(0, 'AddRoundKey', addRoundKey(s, rk[0]));
+  for (let r = 1; r <= 10; r++) {
+    push(r, 'SubBytes', subBytes(s));
+    push(r, 'ShiftRows', shiftRows(s));
+    if (r < 10) push(r, 'MixColumns', mixColumns(s));
+    push(r, 'AddRoundKey', addRoundKey(s, rk[r]));
+  }
+  const stepName = st => `round ${st.round} · ${st.op}`;
+  const START = steps.findIndex(st => st.round === 1 && st.op === 'MixColumns');
+
+  // ---------------------------------------------------------------- the two grids
+  function makeGrid(sel, clickable) {
+    const g = el.querySelector(sel);
+    return Array.from({ length: 16 }, (_, k) => {
+      const i = (k % 4) * 4 + Math.floor(k / 4);            // fill the grid row by row: row k/4, column k%4
+      const c = document.createElement(clickable ? 'button' : 'div');
+      c.className = 'cell';
+      if (clickable) {
+        c.type = 'button';
+        c.setAttribute('aria-label', `row ${i % 4}, column ${Math.floor(i / 4)}`);
+        c.addEventListener('click', () => { selected = i; draw(); });
+      }
+      g.appendChild(c);
+      return { i, c };
+    }).sort((a, b) => a.i - b.i).map(o => o.c);           // index the cells by FIPS byte order
+  }
+  const before = makeGrid('.g-before', false), after = makeGrid('.g-after', true);
+  let selected = 0;
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const step = ui.slider({ label: 'Step', values: steps.map((_, k) => k), value: START,
+    format: k => `${k + 1} of ${steps.length}: ${stepName(steps[k])}` });
+
+  const rc = i => `row ${i % 4}, column ${Math.floor(i / 4)}`;
+  function draw() {
+    const st = steps[step.value], i = selected, r = i % 4, c = Math.floor(i / 4);
+    const tint = Array(16).fill(''), tintAfter = Array(16).fill(''), src = [];
+    let what = '', calc = '';
+    if (st.op === 'SubBytes') {
+      src.push(i);
+      tint[i] = tintAfter[i] = 'k1';
+      const x = st.before[i];
+      what = 'SubBytes replaces every byte by S(byte), using the same table for all 16. Each byte changes on its own.';
+      calc = `${hex(st.after[i])} = S(${hex(x)}) = affine(${hex(x)}⁻¹) = affine(${hex(INV[x])})`;
+    } else if (st.op === 'ShiftRows') {
+      const from = shiftSrc(i);
+      src.push(from);
+      for (let k = 0; k < 16; k++) { tint[k] = 'k' + (Math.floor(k / 4) + 1); tintAfter[k] = 'k' + (Math.floor(shiftSrc(k) / 4) + 1); }
+      what = 'ShiftRows rotates row r left by r places. Colours mark the column each byte started in: every column now holds one byte from each old column.';
+      calc = r === 0 ? `${hex(st.after[i])} stays where it was (row 0 does not move)`
+        : `${hex(st.after[i])} moved from ${rc(from)} (row ${r} rotates left by ${r})`;
+    } else if (st.op === 'MixColumns') {
+      for (let k = 0; k < 4; k++) { src.push(4 * c + k); tint[4 * c + k] = 'k1'; }
+      tintAfter[i] = 'k1';
+      const a = [0, 1, 2, 3].map(k => st.before[4 * c + k]);
+      const terms = a.map((v, k) => `${hex(MIX[r][k])}·${hex(v)}`).join(' ⊕ ');
+      const prods = a.map((v, k) => hex(gmul(MIX[r][k], v))).join(' ⊕ ');
+      what = `MixColumns multiplies each column by a fixed matrix over GF(2⁸). Every output byte depends on all four bytes of its column (column ${c} here).`;
+      calc = `${hex(st.after[i])} = ${terms} = ${prods}`;
+    } else {
+      src.push(i);
+      tint[i] = tintAfter[i] = 'k1';
+      const k = rk[st.round][i];
+      what = st.round === 0
+        ? 'Round 0 is one AddRoundKey: plaintext XOR round key 0, which is the cipher key itself.'
+        : `AddRoundKey XORs round key ${st.round} into the state. It is the only step that uses the key.`;
+      calc = `${hex(st.after[i])} = ${hex(st.before[i])} ⊕ ${hex(k)}   (round key ${st.round}: ${rk[st.round].map(hex).join('')})`;
+    }
+    before.forEach((cell, k) => {
+      cell.textContent = hex(st.before[k]);
+      cell.className = 'cell ' + tint[k] + (src.includes(k) ? ' src' : '');
+    });
+    after.forEach((cell, k) => {
+      cell.textContent = hex(st.after[k]);
+      cell.className = 'cell ' + tintAfter[k] + (k === i ? ' sel' : '');
+      cell.setAttribute('aria-pressed', String(k === i));
+    });
+    const prev = step.value === 0 ? 'Plaintext' : 'After ' + stepName(steps[step.value - 1]);
+    el.querySelector('.t-before').textContent = prev;
+    el.querySelector('.t-after').textContent = 'After ' + stepName(st);
+    el.querySelector('.what').textContent = what;
+    el.querySelector('.calc').textContent = `Selected byte (${rc(i)}): ${calc}`;
+    const last = step.value === steps.length - 1;
+    el.querySelector('.state').textContent = (last ? 'Ciphertext: ' : 'State in byte order: ') + st.after.map(hex).join('');
+  }
+  draw();
+})();
+</script>
 <h3 id="41-subbytes-the-s-box">4.1 SubBytes: the S-box<a class="headerlink" href="#41-subbytes-the-s-box" title="Link to this section">#</a></h3>
 <p>Every byte \(b\) is replaced by \(S(b)\), using the same 256-entry table for all 16 bytes. The
 table is not arbitrary. It is computed in two steps:</p>
@@ -336,6 +576,71 @@ both in the toy.</p>
 <p><strong>The point that matters most for this primer:</strong> \(S\) is not linear. With \(a = \{53\}\) and
 \(b = \{0f\}\), part 1 of the script prints</p>
 <div class="math-display">\[S(a \oplus b) = S(\{5c\}) = \{4a\}, \qquad S(a) \oplus S(b) = \{ed\} \oplus \{76\} = \{9b\}.\]</div>
+<figure class="widget" id="w-p2-sbox-differences">
+  <p class="widget-title">Where does an input difference go?</p>
+  <p class="widget-hint">Switch to "affine part only": all 256 inputs pile up on one output difference. Then drag the input difference \(a\) and watch the AES bars never pass 4.</p>
+  <div class="controls"></div>
+  <p class="panel-title">For how many of the 256 inputs \(x\) is \(S(x \oplus a) \oplus S(x) = d\)?</p>
+  <div class="c-bars"></div>
+  <div class="readout"></div>
+  <figcaption>An attacker who knows the input difference \(a\) wants to predict the output difference \(d\). With the real S-box the 256 inputs spread over 127 output differences, at most 4 inputs each, so the best guess is right with probability \(4/256 = 2^{-6}\). With the affine part alone, \(S(x \oplus a) \oplus S(x)\) is the same for every \(x\): the guess is always right. That is linearity seen as differences.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p2-sbox-differences';
+
+  // The S-box computed from GF(2^8), as in code/primer/p2_mini_aes.py, and its affine part alone.
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const BOXES = { aes: INV.map(affine), affine: Array.from({ length: 256 }, (_, x) => affine(x)) };
+  const hex = b => b.toString(16).padStart(2, '0');
+
+  function spectrum(box, a) {                // inputs x for every output difference d
+    const xs = Array.from({ length: 256 }, () => []);
+    for (let x = 0; x < 256; x++) xs[box[x ^ a] ^ box[x]].push(x);
+    return xs;
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const kind = ui.choice({ label: 'S-box', options: [{ value: 'aes', label: 'AES S-box' }, { value: 'affine', label: 'affine part only' }], value: 'aes' });
+  const diff = ui.slider({ label: 'Input difference a', min: 1, max: 255, step: 1, value: 0x0f, format: v => '{' + hex(v) + '}' });
+
+  const hexTicks = [0, 64, 128, 192, 255];
+  const chart = DS.chart(root + ' .c-bars', {
+    x: { domain: [-1, 256], label: 'output difference d', tickValues: hexTicks, format: v => '{' + hex(v) + '}' },
+    y: { domain: [0, 5], label: 'inputs x' },
+    height: 250,
+    draw(c) {
+      const xs = spectrum(BOXES[kind.value], diff.value);
+      const aes = kind.value === 'aes';
+      c.domain(aes ? { y: [0, 5] } : { y: [0, 280] });
+      c.hline(aes ? 4 : 256, { dash: true, label: aes ? 'never more than 4' : 'all 256 inputs' });
+      c.bars(xs.map((list, d) => ({ d, list })).filter(o => o.list.length).map(o => ({
+        x: o.d, y: o.list.length, width: aes ? 1 : 3,
+        tip: `d = {${hex(o.d)}}: ${o.list.length} of 256 inputs` + (o.list.length <= 4 ? '\nx = ' + o.list.map(hex).join(', ') : ''),
+      })), { series: aes ? 1 : 2, gap: 1 });
+    },
+  });
+
+  function readout() {
+    const xs = spectrum(BOXES[kind.value], diff.value);
+    const counts = xs.map(l => l.length);
+    const best = counts.indexOf(Math.max(...counts));
+    const n = counts[best];
+    DS.stats(root + ' .readout', [
+      { label: 'Output differences that occur', value: `${counts.filter(v => v).length} of 256` },
+      { label: 'Most likely output difference', value: '{' + hex(best) + '}', note: `for ${n} of the 256 inputs` },
+      { label: 'Best prediction is right with probability', value: n === 256 ? '256/256 = 1' : n === 4 ? '4/256 = 2⁻⁶' : `${n}/256`,
+        tone: n === 256 ? 'bad' : 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="42-shiftrows">4.2 ShiftRows<a class="headerlink" href="#42-shiftrows" title="Link to this section">#</a></h3>
 <p>Row \(r\) of the state is rotated left by \(r\) positions. Row 0 stays put. In the trace, row 1
 <code>ca 53 60 70</code> becomes <code>53 60 70 ca</code>, row 2 moves by two, row 3 by three. The effect is that the
@@ -451,8 +756,9 @@ protocols never give an attacker that power, so these attacks do not threaten no
 </ul>
 <p>This is <code>decrypt_block</code> in the script, and
 <a href="../../code/primer/p2_mini_aes.py">part 2 of the script</a> uses it to decrypt the C.1 ciphertext.
-The bigger InvMixColumns constants make decryption a little slower in software. Modes like <abbr title="counter mode (a block cipher mode)">CTR</abbr>
-and <abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr> (<a href="p3_modes_and_integrity.html">P3</a>) never call it.</p>
+The bigger InvMixColumns constants make decryption a little slower in software. Modes like
+counter mode (<abbr title="counter mode (a block cipher mode)">CTR</abbr>) and Galois/counter mode (<abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr>) (<a href="p3_modes_and_integrity.html">P3</a>) never call
+it.</p>
 <h2 id="7-the-avalanche-effect">7. The avalanche effect<a class="headerlink" href="#7-the-avalanche-effect" title="Link to this section">#</a></h2>
 <p>Change one bit of the input and about half of the output bits flip; the two ciphertexts look
 unrelated. This is the <strong>avalanche effect</strong>. From
@@ -478,6 +784,144 @@ after each round:</p>
 <li>Round 2: ShiftRows sends those 4 bytes to 4 different columns, and MixColumns spreads each
   one: all 16 bytes differ, about 64 bits.</li>
 </ul>
+<figure class="widget" id="w-p2-avalanche">
+  <p class="widget-title">One flipped bit, round by round</p>
+  <p class="widget-hint">Drag the slider to flip a different bit. After round 1 the changed bits sit in one column; after round 2 they cover every byte.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Changed bits of the state after each round (of 128)</p><div class="c-line"></div></div>
+    <div><p class="panel-title">Where they are: changed bits in each byte of the state</p><div class="maps"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The FIPS 197 test vector (key <code>000102…0f</code>, plaintext <code>001122…ff</code>) encrypted twice, once with one bit flipped. One round spreads the difference to a column, the next to the whole state, and from then on about half of the 128 bits differ, as for two unrelated random blocks. The dashed line is the average over 1000 random keys and plaintexts, computed with the companion script.</figcaption>
+</figure>
+<style>
+#w-p2-avalanche .maps { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; gap: 12px 22px; padding-top: 8px; }
+#w-p2-avalanche .map p { margin: 0 0 4px; font-size: 12.5px; color: var(--fg-2); text-align: center; }
+#w-p2-avalanche .map .g { display: grid; grid-template-columns: repeat(4, 2.1em); gap: 3px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#w-p2-avalanche .map .g div { height: 1.9em; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 4px; color: var(--fg); }
+</style>
+<script>
+(() => {
+  const root = '#w-p2-avalanche';
+  const el = document.querySelector(root);
+
+  // AES-128 from GF(2^8) arithmetic up, as in code/primer/p2_mini_aes.py. Bytes in FIPS 197 order:
+  // state byte i sits at row i % 4, column floor(i / 4).
+  const xtime = b => (b & 0x80 ? (b << 1) ^ 0x11b : b << 1);
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+  const rotl8 = (b, r) => ((b << r) | (b >> (8 - r))) & 0xff;
+  const INV = [0];
+  for (let a = 1; a < 256; a++) for (let b = 1; b < 256; b++) if (gmul(a, b) === 1) { INV[a] = b; break; }
+  const affine = b => b ^ rotl8(b, 1) ^ rotl8(b, 2) ^ rotl8(b, 3) ^ rotl8(b, 4) ^ 0x63;
+  const SBOX = INV.map(affine);
+  const MIX = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
+  const subBytes = s => s.map(b => SBOX[b]);
+  const shiftRows = s => s.map((_, i) => s[(i % 4) + 4 * ((Math.floor(i / 4) + (i % 4)) % 4)]);
+  const mixColumns = s => s.map((_, i) => {
+    const r = i % 4, c4 = i - r;
+    return gmul(MIX[r][0], s[c4]) ^ gmul(MIX[r][1], s[c4 + 1]) ^ gmul(MIX[r][2], s[c4 + 2]) ^ gmul(MIX[r][3], s[c4 + 3]);
+  });
+  const addRoundKey = (s, k) => s.map((b, i) => b ^ k[i]);
+  function roundKeys(key) {                 // 16 key bytes -> 11 round keys of 16 bytes
+    const w = [];
+    for (let i = 0; i < 4; i++) w.push(key.slice(4 * i, 4 * i + 4));
+    let rcon = 1;
+    for (let i = 4; i < 44; i++) {
+      let t = w[i - 1];
+      if (i % 4 === 0) { t = [t[1], t[2], t[3], t[0]].map(b => SBOX[b]); t[0] ^= rcon; rcon = xtime(rcon); }
+      w.push(w[i - 4].map((b, j) => b ^ t[j]));
+    }
+    return Array.from({ length: 11 }, (_, r) => [].concat(w[4 * r], w[4 * r + 1], w[4 * r + 2], w[4 * r + 3]));
+  }
+  function encryptStates(key, block) {      // the state after round 0, 1, ..., 10
+    const rk = roundKeys(key);
+    let s = addRoundKey(block, rk[0]);
+    const out = [s];
+    for (let r = 1; r <= 10; r++) {
+      s = shiftRows(subBytes(s));
+      if (r < 10) s = mixColumns(s);
+      s = addRoundKey(s, rk[r]);
+      out.push(s);
+    }
+    return out;
+  }
+  const hexBytes = s => s.match(/../g).map(h => parseInt(h, 16));
+  const popcount = v => { let n = 0; while (v) { n += v & 1; v >>= 1; } return n; };
+  const flipBit = (a, i) => { const b = a.slice(); b[i >> 3] ^= 0x80 >> (i & 7); return b; };   // as flip_bit in the script
+
+  // ---------------------------------------------------------------- precompute all 2 x 128 flips
+  const key = hexBytes('000102030405060708090a0b0c0d0e0f');
+  const pt = hexBytes('00112233445566778899aabbccddeeff');
+  const base = encryptStates(key, pt);
+  const perByte = (which, i) => {           // [round][byte] -> changed bits
+    const other = which === 'plaintext' ? encryptStates(key, flipBit(pt, i)) : encryptStates(flipBit(key, i), pt);
+    return base.map((s, r) => s.map((b, j) => popcount(b ^ other[r][j])));
+  };
+  const TABLE = { plaintext: [], key: [] };
+  for (let i = 0; i < 128; i++) { TABLE.plaintext.push(perByte('plaintext', i)); TABLE.key.push(perByte('key', i)); }
+  // Averages over 1000 random keys and plaintexts from code/primer/p2_mini_aes.py (part 5 prints
+  // the plaintext line; the key line uses the same functions with key bits flipped, random.seed(2)).
+  const AVG = { plaintext: [1.0, 16.2, 64.0, 64.1, 64.3, 64.2, 64.0, 64.0, 63.8, 64.1, 64.1],
+                key: [1.0, 21.4, 64.0, 63.9, 63.8, 64.0, 64.3, 64.1, 64.0, 63.9, 64.2] };
+  const sum = a => a.reduce((x, y) => x + y, 0);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); maps(); readout(); });
+  const which = ui.choice({ label: 'Flip a bit of the', options: ['plaintext', 'key'], value: 'plaintext' });
+  const bit = ui.slider({ label: 'Flipped bit', min: 0, max: 127, step: 1, value: 0, format: v => `bit ${v} (byte ${v >> 3})` });
+
+  const rounds = DS.math.range(11);
+  const chart = DS.chart(root + ' .c-line', {
+    x: { domain: [0, 10], label: 'after round', tickValues: rounds, tipLabel: 'after round' },
+    y: { domain: [0, 128], label: 'changed bits', tickValues: [0, 32, 64, 96, 128] },
+    height: 260,
+    draw(c) {
+      const counts = TABLE[which.value][bit.value].map(sum);
+      c.text(0.15, 64, 'half of 128', { dy: -6, cls: 'ink2' });
+      c.line(rounds.map(r => [r, AVG[which.value][r]]), { series: 'muted', dash: true, label: 'average, 1000 random' });
+      c.line(rounds.map(r => [r, counts[r]]), { series: 1, label: 'this block' });
+      c.scatter(rounds.map(r => [r, counts[r]]), { series: 1, r: 3.5 });
+      c.legend([{ label: 'this block', series: 1 }, { label: 'average of 1000 random', series: 'muted', kind: 'dash' }]);
+    },
+  });
+
+  const SHOW = [0, 1, 2, 10];
+  const box = el.querySelector('.maps');
+  const cells = SHOW.map(r => {
+    const m = document.createElement('div');
+    m.className = 'map';
+    m.innerHTML = `<p>${r === 10 ? 'round 10 (ciphertext)' : 'round ' + r}</p><div class="g"></div>`;
+    box.appendChild(m);
+    const g = m.querySelector('.g');
+    return Array.from({ length: 16 }, (_, k) => {
+      const d = document.createElement('div');
+      g.appendChild(d);
+      return { d, j: (k % 4) * 4 + Math.floor(k / 4) };    // grid row k/4, column k%4 holds byte row + 4*column
+    });
+  });
+  function maps() {
+    const t = TABLE[which.value][bit.value];
+    SHOW.forEach((r, n) => cells[n].forEach(({ d, j }) => {
+      const v = t[r][j];
+      d.textContent = v ? v : '';
+      d.style.background = v ? `var(--seq-${Math.min(5, Math.ceil(v * 5 / 8))})` : 'transparent';
+    }));
+  }
+
+  function readout() {
+    const t = TABLE[which.value][bit.value];
+    const bytes = r => t[r].filter(v => v).length;
+    DS.stats(root + ' .readout', [1, 2, 10].map(r => ({
+      label: r === 10 ? 'Ciphertext' : `After round ${r}`,
+      value: `${sum(t[r])} bits`,
+      note: `in ${bytes(r)} of 16 bytes`,
+    })));
+  }
+  maps();
+  readout();
+})();
+</script>
 <p>After two rounds every output byte depends on every input byte. The remaining rounds are there
 for confusion: to make the dependence so tangled that statistical attacks find nothing.
 Daemen and Rijmen's <strong>wide trail</strong> argument quantifies this. Follow a difference through the
@@ -557,14 +1001,14 @@ In 2002 Courtois and Pieprzyk proposed that such systems might be solvable (the 
 Later analysis, notably Cid and Leurent (2005), found that XSL does not work as claimed, and no
 algebraic attack on full <abbr title="Advanced Encryption Standard">AES</abbr> is known. Quadratic systems are much harder than linear ones.</p>
 <p>Keep this section in mind for <a href="p7_lattices_and_lwe.html">P7</a>. Gaussian elimination is the
-attacker's best friend, and <abbr title="Advanced Encryption Standard">AES</abbr> defeats it with a non-linear S-box. <abbr title="learning with errors">LWE</abbr> defeats it in a
-different way: it keeps every equation linear but adds a little random noise to each one, and
-that alone makes elimination fail. Keeping the linearity is what lets homomorphic encryption
+attacker's best friend, and <abbr title="Advanced Encryption Standard">AES</abbr> defeats it with a non-linear S-box. Learning with errors (<abbr title="learning with errors">LWE</abbr>)
+defeats it in a different way: it keeps every equation linear but adds a little random noise to
+each one, and that alone makes elimination fail. Keeping the linearity is what lets homomorphic encryption
 compute.</p>
 <h2 id="9-speed-and-security-today">9. Speed and security today<a class="headerlink" href="#9-speed-and-security-today" title="Link to this section">#</a></h2>
 <h3 id="91-aes-in-hardware-aes-ni">9.1 AES in hardware: AES-NI<a class="headerlink" href="#91-aes-in-hardware-aes-ni" title="Link to this section">#</a></h3>
-<p>Since the Westmere processors of 2010, Intel <abbr title="central processing unit">CPU</abbr>s have had the <strong><abbr title="Advanced Encryption Standard">AES</abbr> New Instructions
-(<abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr>)</strong>. <code>AESENC</code> performs one complete middle round (ShiftRows, SubBytes, MixColumns,
+<p>Since the Westmere processors of 2010, Intel central processing units (<abbr title="central processing unit">CPU</abbr>s) have had the
+<strong><abbr title="Advanced Encryption Standard">AES</abbr> New Instructions (<abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr>)</strong>. <code>AESENC</code> performs one complete middle round (ShiftRows, SubBytes, MixColumns,
 AddRoundKey) in a single instruction, and <code>AESENCLAST</code> the final round. <code>AESDEC</code> and
 <code>AESDECLAST</code> do the same for decryption, and <code>AESKEYGENASSIST</code> and <code>AESIMC</code> help with the key
 schedule. AMD has the same instructions, and ARMv8 <abbr title="central processing unit">CPU</abbr>s have their own equivalents. Intel
@@ -626,7 +1070,7 @@ chapter explains them:</p>
 </tr>
 <tr>
 <td>4</td>
-<td>More official vectors, including <abbr title="Advanced Encryption Standard">AES</abbr>-192 and <abbr title="Advanced Encryption Standard">AES</abbr>-256</td>
+<td>More official vectors (<abbr title="Federal Information Processing Standard">FIPS</abbr> 197 and <abbr title="National Institute of Standards and Technology">NIST</abbr> Special Publication (<abbr title="Special Publication (a NIST document series)">SP</abbr>) 800-38A), including <abbr title="Advanced Encryption Standard">AES</abbr>-192 and <abbr title="Advanced Encryption Standard">AES</abbr>-256</td>
 <td><a href="#5-the-key-schedule">§5</a></td>
 </tr>
 <tr>
@@ -725,7 +1169,7 @@ vectors to <abbr title="National Institute of Standards and Technology">NIST</ab
   Smart (CRYPTO 2012) were the first to do it: about 36 hours for one evaluation that
   processed 54 blocks in parallel, just under 40 minutes per block. An updated HElib
   implementation took about 4 minutes on a laptop for up to 120 blocks (about 2 seconds per
-  block, amortized). With <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, Belaïd et
+  block, amortized). With <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (Torus fully homomorphic encryption), Belaïd et
   al. (2025) report 32 seconds per block on a single core. These numbers come from different
   schemes and machines; treat them as orders of magnitude.</li>
 <li><strong><abbr title="homomorphic encryption">HE</abbr>-friendly ciphers</strong> are symmetric ciphers designed to be cheap inside <abbr title="homomorphic encryption">HE</abbr>: few

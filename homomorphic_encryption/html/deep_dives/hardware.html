@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -91,15 +92,19 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-fhe-hardware-why-its-slow-and-how-gpus-and-asics-fix-it">Deep dive: FHE hardware (why it's slow, and how GPUs and ASICs fix it)<a class="headerlink" href="#deep-dive-fhe-hardware-why-its-slow-and-how-gpus-and-asics-fix-it" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4 <abbr title="number-theoretic transform">NTT</abbr></a>, <a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5 <abbr title="residue number system">RNS</abbr></a>, <a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5 key switching</a>, <a href="../07_state_of_the_art_2026.html#4-hardware-acceleration">07 §4 hardware</a></p>
+<p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html#4-the-number-theoretic-transform-ntt">02 §4 number-theoretic transform</a>, <a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5 residue number system</a>, <a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5 key switching</a></p>
 <hr />
-<p>Every deep dive so far ran into the same wall: <abbr title="fully homomorphic encryption">FHE</abbr> is slow. This one asks <strong>why, at the level
-of arithmetic and memory</strong>, and looks at how <abbr title="central processing unit">CPU</abbr>s, <abbr title="graphics processing unit">GPU</abbr>s, <abbr title="field-programmable gate array">FPGA</abbr>s and dedicated chips attack the
-problem, from academic designs (F1, BTS, CraterLake, ARK, SHARP) to Intel's fabricated
-<strong>Heracles</strong>.</p>
+<p>Fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) is slow: every deep dive so far ran into that wall. This one
+asks <strong>why, at the level of arithmetic and memory</strong>, and looks at how central processing units
+(<abbr title="central processing unit">CPU</abbr>s), graphics processing units (<abbr title="graphics processing unit">GPU</abbr>s), field-programmable gate arrays (<abbr title="field-programmable gate array">FPGA</abbr>s) and dedicated
+chips (application-specific integrated circuits, <abbr title="application-specific integrated circuit">ASIC</abbr>s) attack the problem, from academic
+designs (F1, BTS, CraterLake, ARK, SHARP) to Intel's fabricated <strong>Heracles</strong>. The short version
+is in <a href="../07_state_of_the_art_2026.html#4-hardware-acceleration">07 §4</a>.</p>
 <p>Measurements come from <a href="../../code/hw_profile.py"><code>../code/hw_profile.py</code></a>, which profiles the
-earlier toys, implements a real <strong>negacyclic <abbr title="number-theoretic transform">NTT</abbr></strong>, demonstrates <strong><abbr title="residue number system">RNS</abbr></strong> limbs, and runs a cost
-model of <strong>key switching</strong> at bootstrapping-size parameters:</p>
+earlier toys of the Cheon–Kim–Kim–Song (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>), Torus fully homomorphic encryption (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) and
+Brakerski/Fan–Vercauteren (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>) schemes, implements a real <strong>negacyclic number-theoretic
+transform (<abbr title="number-theoretic transform">NTT</abbr>)</strong>, demonstrates <strong>residue number system (<abbr title="residue number system">RNS</abbr>)</strong> limbs, and runs a cost model of
+<strong>key switching</strong> at bootstrapping-size parameters:</p>
 <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>code/hw_profile.py<span class="w">       </span><span class="c1"># from the homomorphic_encryption/ folder, ~2 s</span>
 </code></pre></div>
 
@@ -165,11 +170,115 @@ Gentleman–Sande butterflies go back, with the multiplication by powers of <cod
 
 <p>Each <strong>butterfly</strong> is one modular multiplication, one addition and one subtraction, and there
 are <code>(N/2)·log₂N</code> of them per transform:</p>
-<div class="highlight"><pre><span></span><code> stage 1 (stride N/2)      stage 2 (stride N/4)      …   stage log N (stride 1)
- a0 ──┬── a0+w·a4          a0 ──┬──                        neighbours
- a4 ──┴── a0−w·a4          a2 ──┴──
-</code></pre></div>
+<figure class="widget" id="w-dd-hw-ntt-butterfly">
+  <p class="widget-title">An 8-point negacyclic NTT, butterfly by butterfly</p>
+  <p class="widget-hint">Step through the stages. Each stage pairs every element with a partner at a different distance: 4, then 2, then 1.</p>
+  <div class="controls"></div>
+  <div class="c-net"></div>
+  <div class="readout"></div>
+  <figcaption>The forward NTT of <code>hw_profile.py</code> run on \(a(X) = 1 + 2X + \dots + 8X^7\) with \(N = 8\), \(p = 17\) and \(\psi = 3\) (\(3^8 \equiv -1 \bmod 17\)). Every crossing is one butterfly: \((u, v) \mapsto (u + wv,\ u - wv) \bmod p\). Three stages of four butterflies make 12 modular multiplications, against 64 for schoolbook. The outputs come out in bit-reversed order: each one is \(a\) evaluated at an odd power of \(\psi\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-ntt-butterfly';
+  const N = 8, P = 17, PSI = 3, LG = 3;
+  const mod = v => ((v % P) + P) % P;
+  const pw = (b, e) => { let r = 1; for (let i = 0; i < e; i++) r = r * b % P; return r; };
+  const bitrev = k => parseInt(k.toString(2).padStart(LG, '0').split('').reverse().join(''), 2);
+  const psiRev = Array.from({ length: N }, (_, k) => pw(PSI, bitrev(k)));
+  const a = [1, 2, 3, 4, 5, 6, 7, 8];
 
+  // NTT.forward from hw_profile.py, keeping every stage and every butterfly
+  const cols = [a.slice()], flies = [];
+  let A = a.slice(), t = N, m = 1;
+  while (m < N) {
+    t /= 2;
+    const st = [];
+    for (let i = 0; i < m; i++) {
+      const w = psiRev[m + i];
+      for (let j = 2 * i * t; j < 2 * i * t + t; j++) {
+        const u = A[j], v = A[j + t], wv = v * w % P;
+        A[j] = mod(u + wv); A[j + t] = mod(u - wv);
+        st.push({ j, k: j + t, w, u, v, wv, top: A[j], bot: A[j + t] });
+      }
+    }
+    flies.push({ stride: t, list: st });
+    cols.push(A.slice());
+    m *= 2;
+  }
+  // output k is a(ψ^(2·bitrev(k)+1)); check it against direct evaluation
+  const expo = Array.from({ length: N }, (_, k) => 2 * bitrev(k) + 1);
+  expo.forEach((e, k) => {
+    const direct = a.reduce((s, c, i) => mod(s + c * pw(PSI, e * i)), 0);
+    if (direct !== A[k]) throw new Error('NTT output ' + k + ' differs from a(ψ^' + e + ')');
+  });
+
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sup = n => String(n).split('').map(d => SUP[d]).join('');
+  const SUB = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇'];
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const stage = ui.choice({ label: 'Stage', options: [{ value: 0, label: '1 (stride 4)' }, { value: 1, label: '2 (stride 2)' }, { value: 2, label: '3 (stride 1)' }], value: 0 });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 468, H = 336, X = [64, 172, 280, 388], Y = j => 52 + j * 37, R = 14;
+  const host = document.querySelector(root + ' .c-net');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Butterfly network of an 8-point NTT modulo 17');
+  svg.style.cssText = 'display:block;width:100%;max-width:540px;height:auto;margin:0 auto;font-family:var(--font)';
+  host.appendChild(svg);
+  const el = (tag, attrs, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  };
+
+  function draw() {
+    const s = +stage.value;
+    svg.textContent = '';
+    const heads = ['input', 'stage 1', 'stage 2', 'stage 3'];
+    heads.forEach((h, c) => el('text', { x: X[c], y: 22, 'text-anchor': 'middle', 'font-size': 14,
+      'font-weight': c === s + 1 ? 650 : 400, fill: c === s + 1 ? 'var(--ink)' : 'var(--ink-muted)' }, h));
+    // wires: the active stage in colour, the others faint
+    flies.forEach((f, si) => {
+      const on = si === s, x0 = X[si] + R, x1 = X[si + 1] - R;
+      for (const b of f.list) {
+        const stroke = on ? 'var(--series-1)' : 'var(--line-strong)', sw = on ? 2 : 1, op = on ? 1 : 0.6;
+        for (const [r0, r1] of [[b.j, b.j], [b.k, b.k], [b.j, b.k], [b.k, b.j]])
+          el('line', { x1: x0, y1: Y(r0), x2: x1, y2: Y(r1), stroke, 'stroke-width': sw, opacity: op });
+      }
+    });
+    // nodes
+    cols.forEach((col, c) => col.forEach((v, j) => {
+      const hot = c === s || c === s + 1;
+      el('circle', { cx: X[c], cy: Y(j), r: R, fill: 'var(--bg)', stroke: hot ? 'var(--series-1)' : 'var(--line-strong)', 'stroke-width': hot ? 1.75 : 1 });
+      el('text', { x: X[c], y: Y(j) + 4.5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': hot ? 650 : 400,
+        fill: hot ? 'var(--ink)' : 'var(--ink-muted)' }, String(v));
+    }));
+    // labels: coefficients on the left, evaluation points on the right
+    a.forEach((v, j) => el('text', { x: X[0] - R - 8, y: Y(j) + 4.5, 'text-anchor': 'end', 'font-size': 14, fill: 'var(--ink-2)' }, 'a' + SUB[j]));
+    expo.forEach((e, k) => el('text', { x: X[3] + R + 8, y: Y(k) + 4.5, 'font-size': 14, fill: 'var(--ink-2)' }, 'a(ψ' + sup(e) + ')'));
+    readout(s);
+  }
+
+  function readout(s) {
+    const f = flies[s], b = f.list[0];
+    const ws = [...new Set(f.list.map(x => x.w))], per = f.list.length / ws.length;
+    DS.stats(root + ' .readout', [
+      { label: 'Partner distance (stride)', value: String(f.stride), note: 'stage ' + (s + 1) + ' of log₂8 = 3' },
+      { label: 'Twiddle factors w', value: ws.join(', '), note: ws.length === 1 ? `one w for all ${per} butterflies` : `one w per group of ${per} butterfl${per === 1 ? 'y' : 'ies'}, top to bottom` },
+      { label: 'First butterfly', value: `(${b.u}, ${b.v}) → (${b.top}, ${b.bot})`,
+        note: `w·v = ${b.w}·${b.v} ≡ ${b.wv}; ${b.u} + ${b.wv} ≡ ${b.top}, ${b.u} − ${b.wv} ≡ ${b.bot} (mod 17)` },
+      { label: 'Modular multiplications', value: String(N / 2 * LG), note: `(N/2)·log₂N, against N² = ${N * N}` },
+    ]);
+  }
+  draw();
+})();
+</script>
 <h3 id="22-measured">2.2 Measured<a class="headerlink" href="#22-measured" title="Link to this section">#</a></h3>
 <p>Multiplying two random polynomials mod a 30-bit <abbr title="number-theoretic transform">NTT</abbr>-friendly prime. Both methods give
 identical results (the script asserts it):</p>
@@ -191,13 +300,13 @@ fewer</strong>. No real <abbr title="fully homomorphic encryption">FHE</abbr> li
 <h3 id="23-what-makes-the-ntt-hard-for-hardware">2.3 What makes the NTT hard for hardware<a class="headerlink" href="#23-what-makes-the-ntt-hard-for-hardware" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Data access, not arithmetic.</strong> Each stage pairs elements at a different stride (<code>N/2</code>,
-  <code>N/4</code>, …, 1). A vector or <abbr title="single instruction, multiple data">SIMD</abbr> unit needs shuffles between stages, and an <abbr title="application-specific integrated circuit">ASIC</abbr> needs a
-  transpose network. The standard fix is the <strong>4-step (Bailey) <abbr title="number-theoretic transform">NTT</abbr></strong>: view the <code>N</code> points as a
-  matrix, do small <abbr title="number-theoretic transform">NTT</abbr>s on the columns, multiply by twiddles, transpose, and do small <abbr title="number-theoretic transform">NTT</abbr>s on
-  the rows. F1 builds a <code>2¹⁴</code>-point <abbr title="number-theoretic transform">NTT</abbr> from 128-wide vector operations this way. BTS splits a
+  <code>N/4</code>, …, 1). A vector or single instruction, multiple data (<abbr title="single instruction, multiple data">SIMD</abbr>) unit needs shuffles
+  between stages, and an <abbr title="application-specific integrated circuit">ASIC</abbr> needs a transpose network. The standard fix is the <strong>4-step
+  (Bailey) <abbr title="number-theoretic transform">NTT</abbr></strong>: view the <code>N</code> points as a matrix, do small <abbr title="number-theoretic transform">NTT</abbr>s on the columns, multiply by
+  twiddles, transpose, and do small <abbr title="number-theoretic transform">NTT</abbr>s on the rows. F1 builds a <code>2¹⁴</code>-point <abbr title="number-theoretic transform">NTT</abbr> from 128-wide vector operations this way. BTS splits a
   <code>2¹⁷</code>-point <abbr title="number-theoretic transform">NTT</abbr> into 64 × 64 × 32 steps across a 2-D array of processing elements.</li>
 <li><strong>Twiddle factors per limb.</strong> Each <abbr title="residue number system">RNS</abbr> prime (§3) needs its own table of <code>ψ</code> powers, which
-  is extra memory that <abbr title="fast Fourier transform">FFT</abbr>s over ℂ don't need (SoK §4.1.2).</li>
+  is extra memory that fast Fourier transforms (<abbr title="fast Fourier transform">FFT</abbr>s) over ℂ don't need (SoK §4.1.2).</li>
 <li><strong>Modular multiplication</strong> of 30–64-bit words (Barrett or Montgomery reduction) costs
   several integer multiplies. Multiplier area grows roughly with the square of the word
   width, which is why designs trend toward <strong>shorter words</strong>: SHARP uses 36-bit words, and the
@@ -273,8 +382,8 @@ of <code>k = α</code> limbs:</p>
 <h3 id="42-a-cost-model-at-bootstrapping-size">4.2 A cost model at bootstrapping size<a class="headerlink" href="#42-a-cost-model-at-bootstrapping-size" title="Link to this section">#</a></h3>
 <p><code>hw_profile.py</code> counts the operations of one key switch at <code>N = 2¹⁶</code> and <code>L = 24</code> limbs of
 64 bits. It then times them on a hypothetical chip with <strong>40 960 modular multipliers at 1 GHz</strong>
-and <strong>3 TB/s of HBM3</strong>, the example machine the <abbr title="fully homomorphic encryption">FHE</abbr> accelerator SoK uses. This is a model,
-not a measurement:</p>
+and <strong>3 TB/s of high-bandwidth memory (HBM3)</strong>, the example machine the <abbr title="fully homomorphic encryption">FHE</abbr> accelerator SoK
+uses. This is a model, not a measurement:</p>
 <div class="highlight"><pre><span></span><code>N = 2^16, 24 limbs of 64 bits; hypothetical chip: 41 T modmul/s, 3 TB/s HBM
 dnum alpha=k  NTTs   modmults  key size mults/byte  compute  load key  bound
    1      24   144      198 M     48 MB        3.9    4.8 us    16.8 us  memory x3.5
@@ -300,6 +409,69 @@ dnum alpha=k  NTTs   modmults  key size mults/byte  compute  load key  bound
   <code>N = 2¹⁶, L = 23, dnum = 4</code> takes <strong>0.18 ms of compute but 2.1 ms to load its data
   (11.7×)</strong>.</li>
 </ul>
+<figure class="widget" id="w-dd-hw-keyswitch-work">
+  <p class="widget-title">Where the multiplications of one key switch go</p>
+  <p class="widget-hint">Compare the dnum = 4 bar with ARK's measured split on the right. Then switch to millions to see the total grow with dnum.</p>
+  <div class="controls"></div>
+  <div class="c-work"></div>
+  <figcaption>Modular multiplications of one hybrid key switch, split by step, from the cost model in <code>hw_profile.py</code> (\(N = 2^{16}\), 24 limbs). NTTs and basis conversion do almost all the arithmetic. At dnum = 4 the model gives 55.6 % and 33.3 %, close to ARK's measured 54.8 % and 34.2 % for a whole bootstrap (§1.2). The inner product with the key, the only step that reads the key, is only 3–17 % of the multiplications: one multiplication per 8-byte key word.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-keyswitch-work';
+  // the cost model of hw_profile.keyswitch_model(), split into its terms
+  const N = 2 ** 16, L = 24, LG = 16;
+  const nttMults = (N / 2) * LG;
+  const rows = [1, 2, 3, 4, 6, 12, 24].map(dnum => {
+    const alpha = Math.ceil(L / dnum), k = alpha;
+    const ntts = dnum * alpha + dnum * (L - alpha + k) + 2 * k + 2 * L;
+    const parts = [
+      ntts * nttMults,                                       // NTTs and inverse NTTs
+      dnum * alpha * (L - alpha + k) * N + 2 * k * L * N,    // basis conversions (ModUp, ModDown)
+      2 * dnum * (L + k) * N,                                // inner product with the key
+      2 * L * N,                                             // ModDown: subtract, multiply by P⁻¹
+    ];
+    return { x: String(dnum), ntts, parts, total: parts.reduce((a, b) => a + b, 0) };
+  });
+  // ARK (via the SoK): bootstrapping workload, NTT 54.8 %, basis conversion 34.2 %, everything else ~11 %
+  const ark = { x: 'ARK', parts: [54.8, 34.2, 11.0] };
+  const names = ['NTT and inverse NTT', 'basis conversion', 'inner product with the key', 'other'];
+  const series = [1, 2, 3, 4];
+
+  const ui = DS.controls(root + ' .controls', () => chart.update());
+  const view = ui.choice({ label: 'Show', options: [{ value: 'share', label: 'Share (%)' }, { value: 'count', label: 'Millions' }], value: 'share' });
+
+  const chart = DS.chart(root + ' .c-work', {
+    x: { type: 'band', domain: rows.map(r => r.x).concat(['ARK']), label: 'dnum (digits of the key-switching key)', padding: 0.35 },
+    y: { domain: [0, 100] },
+    height: 300,
+    draw(c) {
+      const share = view.value === 'share';
+      const cats = rows.map(r => r.x).concat(share ? ['ARK'] : []);
+      c.domain(share ? { x: cats, y: [0, 100], yLabel: 'Share of modmuls (%)' } : { x: cats, y: [0, 500], yLabel: 'Modmuls (millions)' });
+      c.legend(names.map((n, i) => ({ label: n, series: series[i], kind: 'rect' })).concat(share ? [{ label: 'ARK: everything else', series: 'muted', kind: 'rect' }] : []));
+      for (const r of rows) {
+        let base = 0;
+        r.parts.forEach((v, i) => {
+          const y = share ? 100 * v / r.total : v / 1e6;
+          const tip = `dnum = ${r.x}: ${names[i]}\n${DS.fmt(v / 1e6, 1)} M of ${DS.fmt(r.total / 1e6, 0)} M (${DS.fmt(100 * v / r.total, 1)} %)` +
+            (i === 0 ? `\n${r.ntts} NTTs of 2¹⁶ points` : '');
+          c.bars([{ x: r.x, y: base + y, tip }], { base, series: series[i], maxWidth: 34 });
+          base += y;
+        });
+      }
+      if (share) {
+        let base = 0;
+        ark.parts.forEach((v, i) => {
+          const tip = `ARK, measured, whole bootstrap\n${i < 2 ? names[i] : 'everything else'}: ${v.toFixed(1)} %`;
+          c.bars([{ x: 'ARK', y: base + v, tip }], { base, series: i < 2 ? series[i] : 'muted', maxWidth: 34 });
+          base += v;
+        });
+      }
+    },
+  });
+})();
+</script>
 <p>Bootstrapping needs <strong>dozens of distinct rotation keys</strong>. That is gigabytes of key material
 per bootstrap if nothing is cached. Our toys show the same imbalance at miniature scale:</p>
 <div class="highlight"><pre><span></span><code>toy CKKS: 9 switching keys x 2 polys x 16 coeffs x 1829 bits = 64 KB (a ciphertext at level 0: 0.29 KB)
@@ -337,6 +509,92 @@ them:</p>
 </tr>
 </tbody>
 </table></div>
+<figure class="widget" id="w-dd-hw-roofline">
+  <p class="widget-title">Why key switching waits for memory</p>
+  <p class="widget-hint">Drag the key reuse up until the dnum = 3 dot reaches the corner. Then turn on seeded keys: half the reuse gets there.</p>
+  <div class="controls"></div>
+  <div class="c-roof"></div>
+  <div class="readout"></div>
+  <figcaption>A roofline: a chip can run no faster than its compute ceiling (41 T modular multiplications per second) and no faster than memory can feed it (3 TB/s × multiplications per byte). The corner sits at 13.7 multiplications per byte. Each dot is one key switch from the cost model in <code>hw_profile.py</code> (\(N = 2^{16}\), 24 limbs, the SoK's example chip), one per dnum. All of them start on the memory slope, at 0.7–3.9 multiplications per byte. The two tricks from the table move them right: a seeded key halves the bytes, and each extra use of a loaded key divides them again.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-roofline';
+  // the cost model of hw_profile.keyswitch_model(), same formulas and parameters
+  const N = 2 ** 16, L = 24, WORD = 8, LG = 16, PEAK = 40960e9, BW = 3e12;
+  const nttMults = (N / 2) * LG;
+  const model = [1, 2, 3, 4, 6, 12, 24].map(dnum => {
+    const alpha = Math.ceil(L / dnum), k = alpha;
+    const ntts = dnum * alpha + dnum * (L - alpha + k) + 2 * k + 2 * L;
+    const bconv = dnum * alpha * (L - alpha + k) * N + 2 * k * L * N;
+    const inner = 2 * dnum * (L + k) * N;
+    const mults = ntts * nttMults + bconv + inner + 2 * L * N;
+    const keyBytes = 2 * dnum * (L + k) * N * WORD;
+    return { dnum, mults, keyBytes };
+  });
+  const RIDGE = PEAK / BW;                                   // 13.65 multiplications per byte
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const reuse = ui.slider({ label: 'Uses of each key per load', min: 1, max: 16, step: 1, value: 1, format: v => v + '×' });
+  const seeded = ui.toggle({ label: 'Generate the random half of each key on chip', value: false });
+
+  const us = s => (s * 1e6).toFixed(1) + ' µs';
+  function state(m) {
+    const bytes = m.keyBytes * (seeded.value ? 0.5 : 1) / reuse.value;   // key bytes loaded per key switch
+    const tc = m.mults / PEAK, tm = bytes / BW;
+    return { I0: m.mults / m.keyBytes, I: m.mults / bytes, tc, tm, rate: Math.min(PEAK, BW * m.mults / bytes) };
+  }
+  function bound(s) {
+    const r = Math.max(s.tm, s.tc) / Math.min(s.tm, s.tc);
+    if (r < 1.1) return { text: 'balanced', tone: 'good' };
+    return s.tm > s.tc ? { text: 'memory ×' + r.toFixed(1), tone: 'bad' } : { text: 'compute ×' + r.toFixed(1), tone: 'good' };
+  }
+
+  const chart = DS.chart(root + ' .c-roof', {
+    x: { type: 'log', domain: [0.2, 400], label: 'Multiplications per byte of key loaded', format: v => DS.fmt(v) },
+    y: { type: 'log', domain: [0.5, 100], label: 'T modmul/s achieved', format: v => DS.fmt(v) },
+    height: 320,
+    draw(c) {
+      // the roof: bandwidth slope up to the ridge, then the compute ceiling
+      const slope = [[0.2, BW * 0.2 / 1e12], [RIDGE, PEAK / 1e12]];
+      c.area([[0.2, BW * 0.2 / 1e12], [RIDGE, PEAK / 1e12], [400, PEAK / 1e12]], { series: 'muted', y0: 0.5 });
+      c.line(slope, { series: 'ink' });
+      c.line([[RIDGE, PEAK / 1e12], [400, PEAK / 1e12]], { series: 'ink' });
+      c.vline(RIDGE, { dash: true, label: '13.7 per byte', labelPos: 'bottom' });
+      c.text(390, PEAK / 1e12, '41 T modmul/s', { anchor: 'end', dy: -8, cls: 'ink2' });
+      c.text(0.75, BW * 0.75 / 1e12, '3 TB/s', { anchor: 'end', dx: -6, dy: -8, cls: 'ink2' });
+      c.text(0.3, 60, 'memory-bound', { cls: 'ink2' });
+      c.text(350, 2.6, 'compute-bound', { anchor: 'end', cls: 'ink2' });
+      // where dnum = 3 starts without tricks, then the dots
+      if (reuse.value > 1 || seeded.value) {
+        const s = state(model[2]);
+        c.scatter([[s.I0, BW * s.I0 / 1e12]], { series: 'muted', r: 3 });
+        c.text(s.I0, BW * s.I0 / 1e12, 'start', { dx: 8, dy: 14, cls: 'ink2' });
+      }
+      const pts = model.map(m => {
+        const s = state(m), b = bound(s);
+        return { x: s.I, y: s.rate / 1e12, series: m.dnum === 3 ? 1 : 'muted', r: m.dnum === 3 ? 6 : 4,
+          tip: `dnum = ${m.dnum}\n${s.I.toFixed(1)} multiplications per byte\ncompute ${us(s.tc)}, load key ${us(s.tm)}\n${b.text}` };
+      });
+      c.scatter(pts.filter(p => p.series !== 1));
+      c.scatter(pts.filter(p => p.series === 1));
+      const s3 = state(model[2]);
+      c.text(s3.I, s3.rate / 1e12, 'dnum = 3', { dx: 10, dy: 16, cls: 'ink strong' });
+    },
+  });
+
+  function readout() {
+    const s = state(model[2]), b = bound(s);
+    DS.stats(root + ' .readout', [
+      { label: 'Multiplications per byte', value: s.I.toFixed(1), note: 'dnum = 3; the corner is at 13.7' },
+      { label: 'Compute', value: us(s.tc), note: DS.fmt(model[2].mults / 1e6, 0) + ' M modmuls' },
+      { label: 'Load the key', value: us(s.tm), note: 'per key switch' },
+      { label: 'Bound', value: b.text, tone: b.tone },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>The same logic applies to the <strong>plaintext constants</strong> of bootstrapping's linear transforms,
 which can also run to hundreds of MB. ARK's "on-the-fly residue extension" regenerates their
 limbs on chip instead of loading them.</p>
@@ -345,12 +603,12 @@ limbs on chip instead of loading them.</p>
 <ul>
 <li>Libraries (OpenFHE, SEAL, HElib, Lattigo, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs) use <strong>multi-threading across limbs and
   ciphertexts</strong>, plus <abbr title="single instruction, multiple data">SIMD</abbr> for <abbr title="number-theoretic transform">NTT</abbr>s and modular arithmetic.</li>
-<li><strong>Intel HEXL</strong> accelerates <abbr title="number-theoretic transform">NTT</abbr>s and element-wise modular arithmetic with <strong><abbr title="Advanced Vector Extensions with 512-bit registers">AVX-512</abbr></strong>,
-  including the IFMA instructions (52-bit integer multiply-add). Vendor material reports
-  roughly 2–5× on supported hardware.</li>
+<li><strong>Intel HEXL</strong> accelerates <abbr title="number-theoretic transform">NTT</abbr>s and element-wise modular arithmetic with the 512-bit
+  Advanced Vector Extensions (<strong><abbr title="Advanced Vector Extensions with 512-bit registers">AVX-512</abbr></strong>), including the IFMA instructions (52-bit integer
+  multiply-add). Vendor material reports roughly 2–5× on supported hardware.</li>
 <li>A <abbr title="central processing unit">CPU</abbr> core has a few hundred GB/s of memory bandwidth at best, and tens of MB of cache. It is
   far behind on both of §4's axes. Typical <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping takes <strong>seconds</strong> on a multi-core
-  <abbr title="central processing unit">CPU</abbr>, and a <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> <abbr title="programmable bootstrapping">PBS</abbr> takes <strong>milliseconds</strong> per core.</li>
+  <abbr title="central processing unit">CPU</abbr>, and a <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> programmable bootstrapping (<abbr title="programmable bootstrapping">PBS</abbr>) takes <strong>milliseconds</strong> per core.</li>
 </ul>
 <h2 id="6-gpus">6. GPUs<a class="headerlink" href="#6-gpus" title="Link to this section">#</a></h2>
 <p><abbr title="graphics processing unit">GPU</abbr>s are the practical accelerator in 2026. They are available everywhere, with thousands of
@@ -390,7 +648,7 @@ arithmetic, and running thousands of independent <abbr title="Torus fully homomo
 <td>bootstrapping 32 768 complex slots in <strong>22.1 → 15.2 → 12.8 ms</strong>; 1.45–1.83× over Cheddar</td>
 </tr>
 <tr>
-<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs <abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr> (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>)</td>
+<td><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) on NVIDIA's Compute Unified Device Architecture (<abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr>)</td>
 <td><abbr title="programmable bootstrapping">PBS</abbr> <strong>&lt; 1 ms</strong> on an H100; ~189 000 <abbr title="programmable bootstrapping">PBS</abbr>/s on 8 × H100 (vendor figures)</td>
 </tr>
 </tbody>
@@ -457,7 +715,8 @@ modelled. None was fabricated.</p>
 the design target, and <strong>ARK</strong> showed that changing the <em>algorithm</em> to fit the memory system
 beats adding more arithmetic.</p>
 <h2 id="9-intel-heracles-from-simulation-to-silicon">9. Intel Heracles: from simulation to silicon<a class="headerlink" href="#9-intel-heracles-from-simulation-to-silicon" title="Link to this section">#</a></h2>
-<p><strong>Heracles</strong> is Intel's <abbr title="fully homomorphic encryption">FHE</abbr> accelerator from <abbr title="Defense Advanced Research Projects Agency">DARPA</abbr>'s <abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr> program (2021–), presented at
+<p><strong>Heracles</strong> is Intel's <abbr title="fully homomorphic encryption">FHE</abbr> accelerator from the Data Protection in Virtual Environments
+(<abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr>) program (2021–) of the Defense Advanced Research Projects Agency (<abbr title="Defense Advanced Research Projects Agency">DARPA</abbr>), presented at
 <strong>ISSCC in February 2026</strong>. It is the first widely reported <em>fabricated</em> large <abbr title="fully homomorphic encryption">FHE</abbr>
 accelerator. From press coverage (the ISSCC paper itself was not available to me, so treat the
 details as secondary):</p>
@@ -500,6 +759,62 @@ on-chip interconnect (~9.6 TB/s), so performance depends on <strong>keeping keys
 data on chip</strong> and reusing them. That is the CraterLake/ARK lesson, implemented in silicon.
 The 48 GB of <abbr title="high-bandwidth memory">HBM</abbr> is there for <em>capacity</em>, holding the gigabytes of evaluation keys, more than
 for bandwidth.</p>
+<figure class="widget" id="w-dd-hw-memory-sizes">
+  <p class="widget-title">Keys against on-chip memory</p>
+  <p class="widget-hint">Move dnum to 1: one key now fits in the 64 MB on chip, but the full set of rotation keys still needs HBM.</p>
+  <div class="controls"></div>
+  <div class="c-mem"></div>
+  <div class="readout"></div>
+  <figcaption>Sizes at the cost model's parameters (\(N = 2^{16}\), 24 limbs of 64 bits; log scale). A ciphertext is 2 polynomials × 24 limbs × \(2^{16}\) coefficients × 8 bytes = 24 MB. A switching key is the model's key size from <code>hw_profile.py</code>. The chapter says only that bootstrapping needs "dozens" of rotation keys, so the count is yours to set. The lines are the 64 MB on chip in F1 and Heracles, and Heracles' 48 GB of HBM.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-hw-memory-sizes';
+  const N = 2 ** 16, L = 24, WORD = 8, MB = 2 ** 20;
+  const ctMB = 2 * L * N * WORD / MB;                                   // 24 MB
+  const keyMB = dnum => { const k = Math.ceil(L / dnum); return 2 * dnum * (L + k) * N * WORD / MB; };   // as in hw_profile.py
+  const ONCHIP = 64, HBM = 48 * 1024;                                   // MB
+  const size = v => v >= 1024 ? DS.fmt(v / 1024, v >= 10240 ? 0 : 1) + ' GB' : DS.fmt(v, 0) + ' MB';
+  const tick = v => v >= 1000 ? (v / 1000) + ' GB' : v + ' MB';     // axis only: 1000 MB shown as 1 GB
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const dnum = ui.slider({ label: 'dnum', values: [1, 2, 3, 4, 6, 12, 24], value: 3 });
+  const nkeys = ui.slider({ label: 'Rotation keys for one bootstrap', min: 1, max: 60, step: 1, value: 24 });
+
+  const cats = ['ciphertext', 'one key', 'all keys'];
+  const chart = DS.chart(root + ' .c-mem', {
+    x: { type: 'band', domain: cats, padding: 0.4 },
+    y: { type: 'log', domain: [1, 2e5], format: tick },
+    height: 290,
+    margin: { l: 58 },
+    draw(c) {
+      const k = keyMB(dnum.value), all = k * nkeys.value;
+      c.hline(ONCHIP, { dash: true, series: 'ink', label: '64 MB on chip', at: 'left' });
+      c.hline(HBM, { dash: true, series: 'ink', label: '48 GB HBM', at: 'left' });
+      const items = [
+        { x: 'ciphertext', y: ctMB, series: 1, tip: `one ciphertext: ${size(ctMB)}` },
+        { x: 'one key', y: k, series: 2, tip: `one switching key at dnum = ${dnum.value}: ${size(k)}` },
+        { x: 'all keys', y: all, series: 2, tip: `${nkeys.value} rotation keys: ${size(all)}` },
+      ];
+      c.bars(items, { base: 1, maxWidth: 70 });
+      for (const it of items) {                      // a halo in the page colour keeps labels clear of the dashed lines
+        const t = c.text(it.x, it.y, size(it.y), { anchor: 'middle', dy: -6, cls: 'ink strong' });
+        t.style.cssText = 'paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round';
+      }
+    },
+  });
+
+  function readout() {
+    const k = keyMB(dnum.value), all = k * nkeys.value;
+    DS.stats(root + ' .readout', [
+      { label: 'Key ÷ ciphertext', value: DS.fmt(k / ctMB, 0) + '×' },
+      { label: 'One key on chip?', value: k <= ONCHIP ? 'fits' : 'no', tone: k <= ONCHIP ? 'good' : 'bad', note: size(k) + ' vs 64 MB' },
+      { label: 'All keys', value: size(all), note: DS.pct(all / HBM) + ' of 48 GB HBM' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong>Startups and others:</strong> Niobium (a <abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr> spin-out; $23M raised; reported Samsung Foundry
 8 nm deal), Cornami (reconfigurable fabric, working with DESILO on the GL scheme), Optalysys
 (photonic computing for the <abbr title="number-theoretic transform">NTT</abbr>/<abbr title="fast Fourier transform">FFT</abbr>), and Fabric Cryptography
@@ -524,8 +839,8 @@ for bandwidth.</p>
   multi-hop rotations, operation scheduling by compilers.</li>
 <li><strong>Hardware-shaped schemes:</strong> the Gentry–Lee matrix scheme turns encrypted linear algebra into
   plain matrix multiplication, which suits tensor cores and systolic arrays. MRFHE batches the
-  <abbr title="discrete Fourier transform">DFT</abbr> steps of bootstrapping. The CRYPTO 2026 shallow-bootstrapping work targets parallel
-  hardware explicitly (<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1–2</a>).</li>
+  discrete Fourier transform (<abbr title="discrete Fourier transform">DFT</abbr>) steps of bootstrapping. The CRYPTO 2026
+  shallow-bootstrapping work targets parallel hardware explicitly (<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07 §1–2</a>).</li>
 <li><strong>Compilers as the interface:</strong> HEIR and similar compilers lower one program to <abbr title="central processing unit">CPU</abbr>, <abbr title="graphics processing unit">GPU</abbr> or
   accelerator backends. Google's 2026 HEIR demos reportedly involved hardware partners.</li>
 </ul>

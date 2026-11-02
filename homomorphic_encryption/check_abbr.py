@@ -8,13 +8,15 @@ src = open(sys.argv[1], encoding="utf-8").read()
 body = src.split("<article>", 1)[-1].split("</article>", 1)[0]
 abbrs = re.findall(r'<abbr title="([^"]+)">([^<]+)</abbr>', body)
 text = html.unescape(re.sub(r"<[^>]+>", " ", body))
-text = re.sub(r"\s+", " ", text).lower()
+raw = re.sub(r"\s+", " ", text)
+text = raw.lower()
 seen, problems = set(), []
 for title, short in abbrs:
     if short in seen:
         continue
     seen.add(short)
-    first = re.search(r"(?<![a-z])" + re.escape(short.lower()) + r"(?![a-z])", text)
+    # match the abbreviation case-sensitively, as the tooltips do, so "she" is not SHE
+    first = re.search(r"(?<![A-Za-z])" + re.escape(short) + r"(?![A-Za-z])", raw)
     upto = text[: first.end() + 200] if first else text
     # the spelled-out term is the part of the title before any "(" or ":" note
     main = re.split(r"[(:]", html.unescape(title))[0]

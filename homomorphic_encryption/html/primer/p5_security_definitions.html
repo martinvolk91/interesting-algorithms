@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -99,11 +100,13 @@ function renderMath() {
 <h1 id="p5--what-secure-means-attack-models-and-ind-cpa">P5 · What "secure" means: attack models and IND-CPA<a class="headerlink" href="#p5--what-secure-means-attack-models-and-ind-cpa" title="Link to this section">#</a></h1>
 <p><a href="p4_public_key.html">← P4 Public-key cryptography</a> · <a href="../index.html">index</a> · next: <a href="p6_computing_on_ciphertexts.html">P6 Computing on ciphertexts →</a></p>
 <hr />
-<p>Every <abbr title="homomorphic encryption">HE</abbr> paper says its scheme is "<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure under <abbr title="ring learning with errors">RLWE</abbr>". This chapter unpacks both halves
-of that sentence. <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> is a game that no efficient attacker may win noticeably more often
+<p>Every homomorphic encryption paper says "<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure under <abbr title="ring learning with errors">RLWE</abbr>" (indistinguishability under
+chosen-plaintext attack, assuming ring learning with errors is hard). This chapter unpacks both
+halves of that phrase. <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> is a game that no efficient attacker may win noticeably more often
 than a coin flip; "under <abbr title="ring learning with errors">RLWE</abbr>" is a reduction that turns any winning attacker into a solver for
-a lattice problem. On the way you will see why encryption must be randomized, why <abbr title="homomorphic encryption">HE</abbr> can never
-reach the stronger <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> notion, and what the definition leaves out. Chapter 01 has a one-page
+a lattice problem. On the way you will see why encryption must be randomized, why homomorphic
+encryption (<abbr title="homomorphic encryption">HE</abbr>) can never reach the stronger <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> notion (security against adaptive
+chosen-ciphertext attack), and what the definition leaves out. Chapter 01 has a one-page
 summary (<a href="../01_introduction.html#what-ind-cpa-means">01 §2</a>); this is the long, gentle version.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
@@ -112,9 +115,11 @@ summary (<a href="../01_introduction.html#what-ind-cpa-means">01 §2</a>); this 
 <li>play the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game, compute an adversary's advantage, and show that deterministic
   encryption always loses;</li>
 <li>state semantic security and explain why it is equivalent to <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>;</li>
-<li>read "secure under <abbr title="decisional Diffie–Hellman">DDH</abbr>" or "secure under <abbr title="learning with errors">LWE</abbr>" as a proof by reduction, and sketch the one for
+<li>read "secure under <abbr title="decisional Diffie–Hellman">DDH</abbr>" (decisional Diffie–Hellman) or "secure under <abbr title="learning with errors">LWE</abbr>" (learning with
+  errors) as a proof by reduction, and sketch the one for
   ElGamal;</li>
-<li>explain why every homomorphic scheme fails <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr>, and list what <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> does not cover.</li>
+<li>explain why every homomorphic scheme fails <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> (indistinguishability under adaptive
+  chosen-ciphertext attack), and list what <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> does not cover.</li>
 </ul>
 <p><strong>Companion script:</strong> <a href="../../code/primer/p5_ind_cpa_game.py"><code>code/primer/p5_ind_cpa_game.py</code></a>. Run it from
 the <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p5_ind_cpa_game.py</code>. Its output
@@ -166,7 +171,7 @@ chosen-ciphertext attack</em>.</p>
 <tr>
 <td><strong>Chosen-plaintext</strong> (<abbr title="chosen-plaintext attack">CPA</abbr>)</td>
 <td>Encryptions of messages of its choice</td>
-<td>Midway 1942; BEAST against <abbr title="Transport Layer Security">TLS</abbr> 1.0 (2011); every public-key scheme</td>
+<td>Midway 1942; BEAST against Transport Layer Security (<abbr title="Transport Layer Security">TLS</abbr>) 1.0 (2011); every public-key scheme</td>
 </tr>
 <tr>
 <td><strong>Non-adaptive chosen-ciphertext</strong> (<abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr>)</td>
@@ -176,7 +181,7 @@ chosen-ciphertext attack</em>.</p>
 <tr>
 <td><strong>Adaptive chosen-ciphertext</strong> (<abbr title="adaptive chosen-ciphertext attack">CCA2</abbr>)</td>
 <td>Decryptions of anything except the target, before and after seeing it</td>
-<td>Bleichenbacher's attack on <abbr title="Rivest–Shamir–Adleman">RSA</abbr> <abbr title="Public-Key Cryptography Standards">PKCS</abbr> #1 v1.5 in SSL (1998), still found in many servers by ROBOT (2018)</td>
+<td>Bleichenbacher's attack on Rivest–Shamir–Adleman (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>) encryption with Public-Key Cryptography Standards (<abbr title="Public-Key Cryptography Standards">PKCS</abbr>) #1 v1.5 padding in SSL (1998), still found in many servers by ROBOT (2018)</td>
 </tr>
 </tbody>
 </table></div>
@@ -187,7 +192,7 @@ chosen-ciphertext attack</em>.</p>
   down; a decrypted Japanese message soon reported that "AF" was short of water. The
   codebreakers had chosen part of a plaintext and watched it being encrypted. In 2011 the BEAST
   attack had JavaScript in the victim's browser choose plaintexts inside a <abbr title="Transport Layer Security">TLS</abbr> 1.0 connection,
-  whose <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> mode used predictable <abbr title="initialization vector">IV</abbr>s (P3). For <strong>public-key</strong> encryption <abbr title="chosen-plaintext attack">CPA</abbr> is free: the public
+  whose cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) mode used predictable initialization vectors (<abbr title="initialization vector">IV</abbr>s; P3). For <strong>public-key</strong> encryption <abbr title="chosen-plaintext attack">CPA</abbr> is free: the public
   key is an encryption machine anyone can use. So <abbr title="chosen-plaintext attack">CPA</abbr> is the weakest model that even makes sense
   for public-key schemes.</li>
 <li><strong><abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr>, the "lunchtime attack".</strong> The attacker can use a decryption box while its owner is at
@@ -283,26 +288,54 @@ Guessing a 128-bit key on the first try (\(t = 1\), \(\varepsilon = 2^{-128}\)) 
 (\(t = 2^{128}\), \(\varepsilon = 1\)) both cost \(2^{128}\) in this sense. P1 explained what \(2^{128}\)
 operations mean physically.</p>
 <p>In practice λ is set to the target: pick λ = 128 and choose parameters so that the best known
-attacks cost at least \(2^{128}\). That means <abbr title="Advanced Encryption Standard">AES</abbr>-128, <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-3072 or a 256-bit elliptic curve (P4 §8),
+attacks cost at least \(2^{128}\). That means the Advanced Encryption Standard with 128-bit keys (<abbr title="Advanced Encryption Standard">AES</abbr>-128), <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-3072 or a 256-bit elliptic curve (P4 §8),
 and for <abbr title="homomorphic encryption">HE</abbr> the ring dimension and modulus from the HomomorphicEncryption.org tables, checked
 with the Lattice Estimator (<a href="../06_security.html#2-parameter-selection-dont-roll-your-own">06 §2</a>).</p>
 <h2 id="4-security-as-a-game-ind-cpa">4. Security as a game: IND-CPA<a class="headerlink" href="#4-security-as-a-game-ind-cpa" title="Link to this section">#</a></h2>
 <h3 id="the-game">The game<a class="headerlink" href="#the-game" title="Link to this section">#</a></h3>
-<div class="highlight"><pre><span></span><code>        Challenger                                         Adversary A
-        ----------                                         -----------
-  (pk, sk) &lt;- KeyGen(1^λ)
-  b &lt;- {0, 1}   (secret coin)
-                        ---------------- pk --------------&gt;
-                                                            encrypts anything it likes
-                                                            with pk (chosen plaintexts)
-                        &lt;----------- m0, m1 ---------------  any two messages of equal length
-  c* = Enc(pk, m_b)
-                        ---------------- c* --------------&gt;
-                                                            more encryptions, any computation
-                        &lt;--------------- b&#39; ---------------
-  A wins if b&#39; = b
-</code></pre></div>
+<figure class="diagram" id="d-p5-ind-cpa-game">
+  <style>
+    #d-p5-ind-cpa-game svg { max-width: 470px; }
+    #d-p5-ind-cpa-game svg text { font-size: 14px; }
+    #d-p5-ind-cpa-game svg text.h { font-size: 15px; font-weight: 650; }
+    #d-p5-ind-cpa-game svg text.lab { font-weight: 650; }
+    #d-p5-ind-cpa-game svg text.sm { font-size: 13px; fill: var(--muted); }
+  </style>
+  <svg viewBox="0 0 400 356" role="img" aria-label="The IND-CPA game. The challenger makes a key pair and flips a secret coin b, and sends the public key. The adversary encrypts whatever it likes, then sends two messages m0 and m1 of equal length. The challenger returns c* = Enc(pk, m_b). The adversary may compute more and sends a guess b'. It wins if b' = b.">
+    <text class="h" x="8" y="20">Challenger</text>
+    <text class="h" x="392" y="20" text-anchor="end">Adversary <tspan font-style="italic">A</tspan></text>
+    <line x1="4" y1="32" x2="396" y2="32" stroke="var(--line-strong)"/>
 
+    <!-- 1. setup -->
+    <text x="8" y="58">(pk, sk) ← KeyGen(1<tspan dy="-6" font-size="11">λ</tspan><tspan dy="6">)</tspan></text>
+    <text x="8" y="78">b ← {0, 1}: the secret coin</text>
+    <path d="M90,106 H300" stroke="var(--series-1)" stroke-width="2" fill="none"/>
+    <path d="M310,106 l-11,-5.5 v11 z" fill="var(--series-1)"/>
+    <text class="lab" x="200" y="98" text-anchor="middle">pk</text>
+
+    <!-- 2. chosen plaintexts, then the two messages -->
+    <text x="392" y="134" text-anchor="end">encrypts anything it likes</text>
+    <text x="392" y="153" text-anchor="end">with pk (chosen plaintexts)</text>
+    <path d="M100,188 H310" stroke="var(--series-2)" stroke-width="2" fill="none"/>
+    <path d="M90,188 l11,-5.5 v11 z" fill="var(--series-2)"/>
+    <text class="lab" x="200" y="180" text-anchor="middle">m₀, m₁</text>
+    <text class="sm" x="200" y="206" text-anchor="middle">any two messages of equal length</text>
+
+    <!-- 3. the challenge -->
+    <text x="8" y="234">c* = Enc(pk, m<tspan dy="4" font-size="11">b</tspan><tspan dy="-4">)</tspan></text>
+    <path d="M90,260 H300" stroke="var(--series-1)" stroke-width="2" fill="none"/>
+    <path d="M310,260 l-11,-5.5 v11 z" fill="var(--series-1)"/>
+    <text class="lab" x="200" y="252" text-anchor="middle">c*</text>
+    <text x="392" y="288" text-anchor="end">more encryptions, any computation</text>
+
+    <!-- 4. the guess -->
+    <path d="M100,318 H310" stroke="var(--series-2)" stroke-width="2" fill="none"/>
+    <path d="M90,318 l11,-5.5 v11 z" fill="var(--series-2)"/>
+    <text class="lab" x="200" y="310" text-anchor="middle">guess b′</text>
+    <text class="lab" x="8" y="348"><tspan font-style="italic">A</tspan> wins if b′ = b</text>
+  </svg>
+  <figcaption>The IND-CPA game. Blue arrows carry what the challenger gives away: the public key and the challenge \(c^*\). Orange arrows carry the adversary's choices. The adversary gets everything except the coin \(b\). The scheme is secure if no efficient adversary guesses \(b\) noticeably more often than half the time.</figcaption>
+</figure>
 <ol>
 <li>The challenger generates the keys, flips a secret coin \(b\), and gives the adversary <code>pk</code>. For a
    secret-key scheme it gives an <strong>encryption oracle</strong> instead: a box that encrypts any message
@@ -344,12 +377,12 @@ P4 §4): the adversary picks \(m_0 = 2\), \(m_1 = 3\). The challenger flips \(b 
 <p>So <strong>no deterministic public-key scheme is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure</strong>, however hard its underlying problem.
 For secret-key schemes the same adversary uses the encryption oracle. Three consequences:</p>
 <ol>
-<li><strong>Encryption must be randomized</strong>, or at least stateful: nonce-based symmetric encryption
-   (<abbr title="counter mode (a block cipher mode)">CTR</abbr>, <abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr> in <a href="p3_modes_and_integrity.html#6-why-encryption-must-be-randomized">P3 §6</a>) gets its variation from a nonce that must never repeat, and its version of
+<li><strong>Encryption must be randomized</strong>, or at least stateful: nonce-based symmetric encryption,
+   such as counter mode (<abbr title="counter mode (a block cipher mode)">CTR</abbr>) and Galois/counter mode (<abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr>) (<a href="p3_modes_and_integrity.html#6-why-encryption-must-be-randomized">P3 §6</a>), gets its variation from a nonce that must never repeat, and its version of
    the game forbids the adversary from repeating nonces.</li>
 <li><strong>Ciphertexts must expand.</strong> Each message needs many possible ciphertexts, so ciphertexts are
    longer than messages: twice as long for ElGamal, much more for <abbr title="learning with errors">LWE</abbr> (P7).</li>
-<li><strong>Determinism also leaks inside one message.</strong> <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> mode (P3) encrypts equal blocks to equal
+<li><strong>Determinism also leaks inside one message.</strong> Electronic codebook (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>) mode (P3) encrypts equal blocks to equal
    blocks. An adversary that submits \(m_0\) = <code>ABAB</code> (two equal 2-byte blocks) and
    \(m_1\) = <code>ABCD</code> only has to check whether the two halves of \(c^*\) are equal. It does not even
    need the oracle.</li>
@@ -385,6 +418,187 @@ and the pad's symbol is \((-1)^{\text{odd} \cdot \text{odd}} = -1\). Then \(c_2 
 <p>In the subgroup of squares every element has symbol \(+1\), so the same adversary sees nothing: it
 always answers 0 and wins exactly when the coin is 0 (script, part 3: 50.1 %). This is <abbr title="decisional Diffie–Hellman">DDH</abbr> failing in \(\mathbb{Z}_p^*\), and it is why the proof in §6
 needs a group in which <abbr title="decisional Diffie–Hellman">DDH</abbr> is believed hard.</p>
+<figure class="widget" id="w-p5-win-rate">
+  <p class="widget-title">Playing the IND-CPA game 2,000 times</p>
+  <p class="widget-hint">The blue line is randomized ElGamal, the orange one deterministic textbook RSA, both against the same "encrypt \(m_0\) and compare" adversary. Press <b>Play 2,000 new games</b> a few times, then try ElGamal in all of \(\mathbb{Z}_p^*\) or LWE with no noise.</p>
+  <div class="controls"></div>
+  <div class="c-rate"></div>
+  <div class="readout"></div>
+  <figcaption>Each line is the fraction of games won so far. The grey band is \(\tfrac12 \pm 1/\sqrt{n}\): two standard deviations of a fair coin's win rate after \(n\) games, ±0.022 at 2,000. A secure scheme's lines wander inside it; a broken one's climb to 1 within a few games. The first run of each line is the script's own (part 3, seed 5); later runs are new games played in your browser with the same schemes. A line inside the band shows only that this adversary failed.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-win-rate';
+  const GAMES = 2000;
+
+  // ---- the nine IND-CPA rows of the script's part 3; SCRIPT[i] = its 2,000 outcomes (1 bit per game, hex)
+  const SCRIPT = ["ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "4ab4322e3aafe7af88603c4b1032c19313dd3a71fcc62b80fd359593569263c74f4d7e55b846b10f660aac33553290e067678bb5c39e98e693f9680a56b4b9f0ce3919903d3045fc8e42207f40bab2649fa1bc3821a16fcaf697bd5212286eda68a7e601d0bdb22469c05680a5c89d02deeb701bcb78442b9db65097779e87ffb629050051a99f1526eee0ff08c842e4eb13d96117cae59ae3ac2facddc1ae5694d5167ee7b35e7c36d799bbd7e61706ec6f8e3ed72daabb894455c9e6d36c040c2c967cac500c708c7d0bb96d923c60e625eb73243c262d6c6ddd2ae77da558412543a2951823095eca7b6091279025b63523933c3fae8b5768",
+    "1531dcf0e59475bf10370eaf7fc4b4d2965d60a63e4908032d07f23ca8faa06dc997bd3eb71eb4f1d6a8ac3228a2ec6b322a9e3c5c9a8bc0c23ff32766d4c63de66592f375ae3508eca2bfa8c8d1c1943c667668de891f93b3cea51308f919d7e6a90cd9ef453d97ecf465cc6915e59fd35f08361c5035517870c5045b4ac46472cc027a3c19065f78f69241ad39eb30724c236ccf6145aa474afb743e14e23950add4bb29cb2aa47546901962f69cf67a4d8a4792cf46be7143334081a4d7ef80106f6a636f08c38dbdb5e544c372745dc0aa09aab6880b3fe54596ca3da7227faafc683794c3bf9e1ab944823d5d533f65c40f0df1e5467875",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "da27058f042f4a6f74b29376635177b32b31ac8af0c6238d1225249bd9509f8388f3fa96cd7ecd7f9e09a0a6d30b1b7852df83b4abc2271434131c2228b2fe25d630dbfc8249e58bee4078ae73a0e981d52e2c31e7f706461adab12264c800f77ec00d61dac788a0fa9b2e778f75491477e343ca6c5ad12a545ea18d47b6130bfa89e858b3e71058027e312336a5fadc21a52211ce52ce8efe4f275d8078506d600854962a57d1e87da553abac5aed5e0664134449feed857125f23697748f4e31ecb1d4edf7ff6e99d4fd2cadf65139db448925329d527c900eef5de4b15898e17bbab7a3109b8ef367e96bd171a26f7c0eeddf9a7ca13e236b",
+    "8587b5cfc78a47ec97960412936efbb20c25bb03772762a23ea48a52814cd7b3a2194b706047a9020551a3e77b8993e56d46d4d9830bb47b3c1ae38f6d8cff77132a41784ad23644cd91f6ee2d8b909bd83f9ae9bc800af17c9db2964b180b85652a169dcb69fc922e2c626bd78e20fb82ee3a1ab16c5192010ceaaf91bd54133db366bf99ede464cba33afe48d159efcad51e63f6f4c20964a80a0210935202332c7626149a1337310752d70a8e7ed8a25a6d085f3ed3ca4e4e9ba494615031b7aad0b79e16a2b341900e5b1d1e375d33ce5b5d58de4021b8856e8efb4fc6c96af453d248c94fa90fd3af9ba0b8473571686065ab13708bc3b6",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"];
+  const ROWS = [
+    'Textbook RSA · encrypt m₀, compare',
+    'ECB · encrypt m₀, compare',
+    'ECB · look for repeated blocks',
+    'ElGamal, squares · encrypt m₀, compare',
+    'ElGamal, squares · Legendre symbol',
+    'ElGamal, all of ℤp* · Legendre symbol',
+    'LWE, noise ±20 · encrypt m₀, compare',
+    'LWE, noise ±20 · solve linear system',
+    'LWE, no noise · solve linear system',
+  ];
+  function unhex(h) {
+    const out = [];
+    for (const ch of h) { const v = parseInt(ch, 16); for (let k = 3; k >= 0; k--) out.push((v >> k) & 1); }
+    return out.slice(0, GAMES);
+  }
+
+  // ---- the same schemes and adversaries as code/primer/p5_ind_cpa_game.py, for new games
+  const P = 18446744073709550147n, Q = (P - 1n) / 2n;
+  function modpow(b, e, m) { let r = 1n; b %= m; while (e > 0n) { if (e & 1n) r = r * b % m; b = b * b % m; e >>= 1n; } return r; }
+  let R = DS.random(1);
+  const r32 = () => BigInt(Math.floor(R.uniform() * 4294967296));
+  const randBig = (lo, hi) => lo + (((r32() << 32n) | r32()) % (hi - lo));   // lo <= v < hi
+  const same = (c1, c2) => String(c1) === String(c2);
+
+  function isPrime(n) { if (n < 2) return false; for (let d = 2; d * d <= n; d++) if (n % d === 0) return false; return true; }
+  function randomPrime(bits) {
+    for (;;) { const p = (2 ** (bits - 1) + R.int(2 ** (bits - 1))) | 1; if (isPrime(p) && (p - 1) % 65537) return p; }
+  }
+  const RSA = { public: true,
+    keygen() { const p = randomPrime(20); let q = randomPrime(20); while (q === p) q = randomPrime(20); return [BigInt(p) * BigInt(q), 65537n]; },
+    enc(pk, m) { return modpow(BigInt(m), pk[1], pk[0]); } };
+
+  // 16-bit block cipher: a 4-round Feistel network whose round functions are random tables (a fresh key per game)
+  function feistel(T, block) {
+    let L = block >> 8, Rh = block & 255;
+    for (let r = 0; r < 4; r++) [L, Rh] = [Rh, L ^ T[r * 256 + Rh]];
+    return (L << 8) | Rh;
+  }
+  const bytes = s => Array.from(s, ch => ch.charCodeAt(0));
+  const ECB = { public: false,
+    keygen() { return Array.from({ length: 1024 }, () => R.int(256)); },
+    enc(T, msg) { const out = []; for (let i = 0; i < msg.length; i += 2) out.push(feistel(T, (msg[i] << 8) | msg[i + 1])); return out; } };
+
+  const encode = m => modpow(m, Q, P) === 1n ? m : P - m;
+  function elgamal(g, order, encoder) {
+    return { public: true,
+      keygen() { return modpow(g, randBig(1n, order), P); },
+      enc(h, m) { const y = randBig(1n, order); return [modpow(g, y, P), encoder(BigInt(m)) * modpow(h, y, P) % P]; } };
+  }
+  const ELGAMAL = elgamal(4n, Q, encode), ELGAMAL_FULL = elgamal(2n, P - 1n, m => m);
+
+  const N = 16, q = 32749, T = 16, DELTA = Math.floor(q / T);
+  const mod = (v, m) => ((v % m) + m) % m;
+  function inv(a, m) { let [r0, r1, s0, s1] = [mod(a, m), m, 1, 0]; while (r1) { const k = Math.floor(r0 / r1); [r0, r1] = [r1, r0 - k * r1]; [s0, s1] = [s1, s0 - k * s1]; } return mod(s0, m); }
+  const dot = (a, s) => { let t = 0; for (let i = 0; i < N; i++) t += a[i] * s[i]; return t; };
+  function lwe(noise) {
+    return { public: false,
+      keygen() { return Array.from({ length: N }, () => R.int(q)); },
+      enc(s, m) { const a = Array.from({ length: N }, () => R.int(q)); const e = R.int(2 * noise + 1) - noise; return [a, mod(dot(a, s) + DELTA * m + e, q)]; } };
+  }
+  function solveMod(rows, rhs) {
+    const M = rows.map((r, i) => r.concat([rhs[i]]));
+    for (let col = 0; col < N; col++) {
+      let piv = -1; for (let i = col; i < N; i++) if (M[i][col]) { piv = i; break; }
+      if (piv < 0) return null;
+      [M[col], M[piv]] = [M[piv], M[col]];
+      const iv = inv(M[col][col], q); M[col] = M[col].map(v => v * iv % q);
+      for (let i = 0; i < N; i++) if (i !== col && M[i][col]) { const f = M[i][col]; M[i] = M[i].map((v, j) => mod(v - f * M[col][j], q)); }
+    }
+    return M.map(r => r[N]);
+  }
+
+  // adversaries: (pub, enc, challenge) -> guess
+  const compare = (m0, m1) => (pub, enc, challenge) => { const c = challenge(m0, m1); return same(enc(m0), c) ? 0 : 1; };
+  const repeated = (pub, enc, challenge) => { const c = challenge(bytes('ABAB'), bytes('ABCD')); return c[0] === c[1] ? 0 : 1; };
+  const legendre = z => modpow(z, Q, P) === 1n ? 1 : -1;
+  const M1 = legendre(2n) === -1 ? 2 : 5;
+  const legendreAdv = (pub, enc, challenge) => {
+    const [c1, c2] = challenge(4, M1);
+    const pad = (legendre(pub) === -1 && legendre(c1) === -1) ? -1 : 1;
+    return legendre(c2) * pad === 1 ? 0 : 1;
+  };
+  const solver = (pub, enc, challenge) => {
+    const samples = Array.from({ length: N }, () => enc(0));
+    const s = solveMod(samples.map(x => x[0]), samples.map(x => x[1]));
+    const [a, b] = challenge(3, 11);
+    if (!s) return R.int(2);
+    return mod(Math.round(mod(b - dot(a, s), q) / DELTA), T) === 3 ? 0 : 1;
+  };
+  const GAME = [
+    [RSA, compare(5, 9)], [ECB, compare(bytes('ABAB'), bytes('ABCD'))], [ECB, repeated],
+    [ELGAMAL, compare(5, 9)], [ELGAMAL, legendreAdv], [ELGAMAL_FULL, legendreAdv],
+    [lwe(20), compare(3, 11)], [lwe(20), solver], [lwe(0), solver],
+  ];
+  function playOne([scheme, adversary]) {
+    const ek = scheme.keygen(), b = R.int(2);
+    const enc = m => scheme.enc(ek, m);
+    const challenge = (m0, m1) => scheme.enc(ek, b ? m1 : m0);
+    return adversary(scheme.public ? ek : null, enc, challenge) === b ? 1 : 0;
+  }
+  function play(row, seed) {
+    R = DS.random(seed);
+    const out = [];
+    for (let i = 0; i < GAMES; i++) out.push(playOne(GAME[row]));
+    return out;
+  }
+
+  // ---- runs per row: the script's first, then new ones
+  const history = ROWS.map((_, i) => [unhex(SCRIPT[i])]);
+  const running = outs => { const pts = []; let w = 0; outs.forEach((o, i) => { w += o; pts.push([i + 1, w / (i + 1)]); }); return pts; };
+  let seed = 100;
+
+  const opts = ROWS.map((label, i) => ({ value: String(i), label }));
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const blue = ui.select({ label: 'Blue line', options: opts, value: '3' });
+  const orange = ui.select({ label: 'Orange line', options: opts, value: '0' });
+  ui.button({ label: 'Play 2,000 new games', onClick: () => {
+    for (const row of new Set([+blue.value, +orange.value])) history[row].push(play(row, ++seed));
+  } });
+
+  const band = [];
+  for (let k = 0; k <= 120; k++) { const n = Math.pow(GAMES, k / 120); band.push(n); }
+  const chart = DS.chart(root + ' .c-rate', {
+    x: { type: 'log', domain: [1, GAMES], label: 'Games played (log scale)' },
+    y: { domain: [0, 1.04], label: 'Fraction won so far', tickValues: [0, 0.25, 0.5, 0.75, 1], format: v => DS.fmt(v, 2) },
+    height: 300,
+    draw(c) {
+      c.area(band.map(n => [n, Math.min(1, 0.5 + 1 / Math.sqrt(n))]), { lower: band.map(n => [n, Math.max(0, 0.5 - 1 / Math.sqrt(n))]), series: 'muted' });
+      c.hline(0.5, { dash: true });
+      const rows = [[+orange.value, 2, 'Orange'], [+blue.value, 1, 'Blue']];
+      for (const [row, s] of rows) {
+        const runs = history[row];
+        runs.slice(Math.max(0, runs.length - 9), -1).forEach(r => { c.line(running(r), { series: s, thin: true }).style.opacity = 0.35; });
+      }
+      for (const [row, s] of rows) {
+        const runs = history[row];
+        c.line(running(runs[runs.length - 1]), { series: s, label: ROWS[row], format: v => DS.fmt(v, 3) });
+      }
+      c.legend([{ label: 'blue: ' + ROWS[+blue.value], series: 1 }, { label: 'orange: ' + ROWS[+orange.value], series: 2 },
+                { label: 'coin-flip band ½ ± 1/√n', series: 'muted', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const halfBand = 1 / Math.sqrt(GAMES);
+    const rows = [[+blue.value, 'Blue'], [+orange.value, 'Orange']].map(([row, name]) => {
+      const runs = history[row], last = runs[runs.length - 1];
+      const wins = last.reduce((a, b) => a + b, 0), rate = wins / GAMES, adv = Math.abs(rate - 0.5);
+      const which = runs.length === 1 ? 'script, seed 5' : 'new run ' + (runs.length - 1);
+      return [{ text: name, th: true, sub: which }, rate.toFixed(3), adv.toFixed(3),
+              adv > halfBand ? 'adversary wins' : 'coin flip'];
+    });
+    DS.table(root + ' .readout', { cls: 'cm', columns: ['Line', { label: 'Pr[win]', num: true }, { label: 'Advantage', num: true }, 'Verdict'], rows });
+  }
+  readout();
+})();
+</script>
 <h2 id="5-semantic-security">5. Semantic security<a class="headerlink" href="#5-semantic-security" title="Link to this section">#</a></h2>
 <p><em>Optional on a first read.</em> Chapter 01 needs only the conclusion of this section: <strong>semantic
 security and <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> are equivalent</strong>, so "<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>" really means "the ciphertext reveals
@@ -513,8 +727,9 @@ itself, which the reduction does not cover
 except \(c^*\) itself, before and after the challenge, and gets its decryption. (In <abbr title="indistinguishability under non-adaptive chosen-ciphertext attack">IND-CCA1</abbr> the
 oracle closes when the challenge arrives.) The one exclusion is necessary, since decrypting \(c^*\)
 would win trivially. As §2 showed, the oracle models servers that decrypt and react, so this is
-the standard target for ordinary encryption: <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-OAEP, <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> and <abbr title="Advanced Encryption Standard">AES</abbr>-GCM (with unique nonces)
-all aim for it.</p>
+the standard target for ordinary encryption: <abbr title="Rivest–Shamir–Adleman">RSA</abbr> with optimal asymmetric encryption padding
+(<abbr title="Rivest–Shamir–Adleman">RSA</abbr>-OAEP), the Module-Lattice-Based Key-Encapsulation Mechanism (<abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>) and <abbr title="Advanced Encryption Standard">AES</abbr>-GCM (with
+unique nonces) all aim for it.</p>
 <h3 id="malleability-breaks-cca2">Malleability breaks CCA2<a class="headerlink" href="#malleability-breaks-cca2" title="Link to this section">#</a></h3>
 <p>Against ElGamal, the adversary does not need to decrypt \(c^*\); a relative will do:</p>
 <ol>
@@ -531,6 +746,98 @@ and submits
 \(c&#x27; = (16 \cdot 4,\ 6 \cdot 13) = (64, 78) \equiv (18, 9)\). The oracle computes \(18^3 \equiv 13\),
 \(13^{-1} \equiv 16\), \(9 \cdot 16 = 144 \equiv 6\) and returns 6. The adversary computes
 \(6 \cdot 2^{-1} = 6 \cdot 12 = 72 \equiv 3 = m_0\) and answers \(b&#x27; = 0\). It wins every time.</p>
+<figure class="widget" id="w-p5-cca2-maul">
+  <p class="widget-title">Mauling the challenge: the IND-CCA2 attack on ElGamal</p>
+  <p class="widget-hint">Flip the secret coin and change the adversary's \(y'\). The ciphertext \(c'\) it submits changes every time, and the oracle's answer still gives \(m_b\) away.</p>
+  <div class="controls"></div>
+  <div class="c-flow"></div>
+  <div class="readout"></div>
+  <figcaption>The P4 key: \(p = 23\), \(g = 2\), secret \(x = 3\), public \(h = 8\); all arithmetic is mod 23, and the challenger's \(y = 4\) gives the chapter's \(c^* = (16, 6)\) for \(b = 0\). The decryption oracle refuses only \(c^*\) itself. Multiplying by a fresh \(\mathrm{Enc}(2)\) makes a different ciphertext of \(2m_b\), which it must decrypt. Every homomorphic scheme offers such an operation, so none is IND-CCA2 secure.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-cca2-maul';
+  const p = 23, g = 2, x = 3, h = 8, y = 4, M = [3, 4];
+  const pw = (b, e) => { let r = 1; for (let i = 0; i < e; i++) r = r * b % p; return r; };
+  const inv = a => pw(a, p - 2);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+
+  function round(b, yp) {
+    const c1 = pw(g, y), c2 = M[b] * pw(h, y) % p;                 // the challenge c* = Enc(m_b)
+    const d1 = pw(g, yp), d2 = 2 * pw(h, yp) % p;                  // the adversary's own Enc(2)
+    const e1 = c1 * d1 % p, e2 = c2 * d2 % p;                      // c' = c* · Enc(2)
+    const s = pw(e1, x), si = inv(s), z = e2 * si % p;             // the oracle decrypts c'
+    const m = z * inv(2) % p;                                      // the adversary halves
+    return { c1, c2, d1, d2, e1, e2, s, si, z, m, guess: m === M[0] ? 0 : 1, refused: e1 === c1 && e2 === c2 };
+  }
+
+  const ui = DS.controls(root + ' .controls', render);
+  const coin = ui.choice({ label: 'Secret coin b', options: [0, 1], value: 0 });
+  const yp = ui.slider({ label: "Adversary's y′", min: 1, max: 10, step: 1, value: 2 });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const host = document.querySelector(root + ' .c-flow');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 400 464');
+  svg.setAttribute('role', 'img');
+  svg.style.cssText = 'display:block;width:100%;height:auto;max-width:430px;margin:0 auto;font-family:var(--font);';
+  host.appendChild(svg);
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  }
+  function card(top, who, color, lines) {
+    const H = 34 + 21 * lines.length;
+    el('rect', { x: 6, y: top, width: 388, height: H, rx: 8, fill: 'none', stroke: color, 'stroke-width': 1.5 });
+    el('text', { x: 18, y: top + 23, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 650 }, who);
+    lines.forEach((t, i) => el('text', { x: 18, y: top + 46 + 21 * i, fill: 'var(--ink-2)', 'font-size': 15 }, t));
+    return top + H;
+  }
+  function arrow(top, label, color) {
+    el('path', { d: `M60,${top + 4} V${top + 26}`, stroke: color, 'stroke-width': 2, fill: 'none' });
+    el('path', { d: `M60,${top + 34} l-5.5,-10 h11 z`, fill: color });
+    el('text', { x: 76, y: top + 24, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 650 }, label);
+    return top + 38;
+  }
+
+  function render() {
+    const b = coin.value, Y = yp.value, r = round(b, Y);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const blue = 'var(--series-1)', orange = 'var(--series-2)';
+    let t = 2;
+    t = card(t, 'Challenger', blue, [
+      `adversary chose m₀ = ${M[0]}, m₁ = ${M[1]}`,
+      `coin b = ${b}, randomness y = ${y}`,
+      `c* = (2${sup(y)}, ${M[b]}·8${sup(y)}) ≡ (${r.c1}, ${r.c2})`]);
+    t = arrow(t, `c* = (${r.c1}, ${r.c2})`, blue);
+    t = card(t, 'Adversary', orange, [
+      `Enc(2) with its own y′ = ${Y}:`,
+      `(2${sup(Y)}, 2·8${sup(Y)}) ≡ (${r.d1}, ${r.d2})`,
+      `c′ = c*·Enc(2) = (${r.c1}·${r.d1}, ${r.c2}·${r.d2}) ≡ (${r.e1}, ${r.e2})`]);
+    t = arrow(t, `c′ = (${r.e1}, ${r.e2})`, orange);
+    t = card(t, 'Decryption oracle', blue, [
+      r.refused ? 'c′ is c* itself: refused' : 'c′ is not c*, so it must answer:',
+      `${r.e1}³ ≡ ${r.s},  ${r.s}⁻¹ ≡ ${r.si},  ${r.e2}·${r.si} ≡ ${r.z}`]);
+    t = arrow(t, `${r.z} = Dec(c′)`, blue);
+    card(t, 'Adversary', orange, [
+      `${r.z}·2⁻¹ = ${r.z}·${inv(2)} ≡ ${r.m} = m${r.guess ? '₁' : '₀'}`,
+      `guess b′ = ${r.guess}: ${r.guess === b ? 'correct' : 'wrong'}`]);
+    svg.setAttribute('aria-label', `IND-CCA2 attack on ElGamal mod 23 with b = ${b} and y′ = ${Y}: the oracle returns ${r.z} and the adversary guesses b′ = ${r.guess}.`);
+
+    let wins = 0, total = 0;
+    for (const bb of [0, 1]) for (let k = 1; k <= 10; k++) { total++; if (round(bb, k).guess === bb) wins++; }
+    DS.stats(root + ' .readout', [
+      { label: 'Adversary, this round', value: r.guess === b ? 'won' : 'lost' },
+      { label: 'All 20 settings of b and y′', value: `${wins} of ${total} won`, note: 'advantage ½, the maximum' },
+    ]);
+  }
+  render();
+})();
+</script>
 <p>The principle is general. If anyone can turn \(c^*\) into a <strong>different</strong> ciphertext whose plaintext
 is a known, invertible function of \(m\), the scheme is not <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> secure. A homomorphic scheme
 provides exactly such operations, by definition:</p>
@@ -554,7 +861,7 @@ provides exactly such operations, by definition:</p>
 <td>\(2m\), or \(m\) itself</td>
 </tr>
 <tr>
-<td><abbr title="learning with errors">LWE</abbr>, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (P7–P8)</td>
+<td><abbr title="learning with errors">LWE</abbr>, the Brakerski/Fan–Vercauteren scheme (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>), the Cheon–Kim–Kim–Song scheme (<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>) (P7–P8)</td>
 <td>\(c^* + \mathrm{Enc}(1)\), or just \(c^* + \mathrm{Enc}(0)\)</td>
 <td>\(m + 1\), or \(m\) itself</td>
 </tr>
@@ -570,11 +877,13 @@ public keys can compute. Research variants that reserve computing for holders of
 secret evaluation key (keyed-homomorphic encryption, Emura et al., 2013) can be <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> secure
 against everyone else.</p>
 <p>Ordinary encryption reaches <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> by <strong>rejecting</strong> everything that honest encryption did not
-produce: encrypt-then-MAC and <abbr title="authenticated encryption with associated data">AEAD</abbr> (<a href="p3_modes_and_integrity.html#9-encrypt-then-mac">P3 §9</a>),
+produce: encrypt-then-MAC, which tags the ciphertext with a message authentication code (<abbr title="message authentication code">MAC</abbr>),
+and authenticated encryption with associated data (<abbr title="authenticated encryption with associated data">AEAD</abbr>)
+(<a href="p3_modes_and_integrity.html#9-encrypt-then-mac">P3 §9</a>),
 <abbr title="optimal asymmetric encryption padding">OAEP</abbr> for <abbr title="Rivest–Shamir–Adleman">RSA</abbr> and the Fujisaki–Okamoto transform for <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (P4). The last two <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> rows in
 <a href="../../code/primer/p5_ind_cpa_game.py">part 4 of the script</a> show the effect. Hybrid encryption
 (P4 §6) without a <abbr title="message authentication code">MAC</abbr> loses every game to P3's bit flip: flip a bit of the body, ask for the decryption, flip it back.
-With an <abbr title="hash-based message authentication code">HMAC</abbr> tag the modified ciphertext is rejected, and the adversary is back to a coin
+With a hash-based message authentication code (<abbr title="hash-based message authentication code">HMAC</abbr>) tag the modified ciphertext is rejected, and the adversary is back to a coin
 flip (49.8 %).</p>
 <h3 id="cca1-and-homomorphic-encryption">CCA1 and homomorphic encryption<a class="headerlink" href="#cca1-and-homomorphic-encryption" title="Link to this section">#</a></h3>
 <p>In the <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> game the oracle closes before the challenge arrives, so mauling \(c^*\) is impossible.
@@ -632,8 +941,9 @@ game is outside the guarantee:</p>
 </table></div>
 <p>The last row is the most important lesson of recent <abbr title="homomorphic encryption">HE</abbr> research. Li and Micciancio (2021)
 defined <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong>: the attacker may also see decryptions of honestly computed ciphertexts.
-For exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) with negligible decryption-failure probability those
-decryptions contain only the answer, which the attacker could predict, so <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> implies
+For exact schemes with negligible decryption-failure probability, such as <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, the
+Brakerski–Gentry–Vaikuntanathan scheme (<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>) and Torus fully homomorphic encryption (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>),
+those decryptions contain only the answer, which the attacker could predict, so <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> implies
 <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, however, is an approximate scheme: decryption does not round the noise away
 but returns the message <strong>plus the noise</strong>, \(m + e\), treating the noise as a small rounding error
 (<a href="p8_multiplication_and_relinearization.html#93-ckks-rescaling-in-one-paragraph">P8 §9.3</a>).
@@ -745,6 +1055,67 @@ adversary:  divides by 2 -&gt; 5 -&gt; guesses b&#39; = 0
 <li><strong>What the table cannot show</strong> is that <em>no</em> adversary wins against ElGamal or <abbr title="learning with errors">LWE</abbr>. Only the
   reductions in §6 say that, and only under <abbr title="decisional Diffie–Hellman">DDH</abbr> and decision-LWE.</li>
 </ul>
+<figure class="widget" id="w-p5-games-needed">
+  <p class="widget-title">How many games it takes to see an advantage</p>
+  <p class="widget-hint">The blue line is an adversary that wins each game with probability \(\tfrac12 + \varepsilon\). Drag \(\varepsilon\) down: the line leaves the grey band later and later, about \(1/\varepsilon^2\) games in.</p>
+  <div class="controls"></div>
+  <div class="c-games"></div>
+  <div class="readout"></div>
+  <figcaption>The grey band is \(\tfrac12 \pm 1/\sqrt{n}\), the range in which a pure coin flip's win rate stays after \(n\) games (two standard deviations). An advantage \(\varepsilon\) becomes visible once the band is narrower than \(\varepsilon\), at about \(n = 1/\varepsilon^2\). The script's 2,000 games resolve only advantages above 0.022; an advantage of \(2^{-64}\) would take about \(2^{128}\) games. That is why a simulation can expose a large advantage but never rule out a small one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p5-games-needed';
+  const NMAX = 1000000;
+  // one fixed stream of uniforms, so the run changes smoothly as ε moves: game i is won iff U[i] < 1/2 + ε
+  const R = DS.random(7), U = new Float64Array(NMAX);
+  for (let i = 0; i < NMAX; i++) U[i] = R.uniform();
+  const checkpoints = [];
+  for (let k = 0; k <= 300; k++) { const n = Math.round(Math.pow(10, 1 + 5 * k / 300)); if (!checkpoints.length || n > checkpoints[checkpoints.length - 1]) checkpoints.push(n); }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const eps = ui.slider({ label: 'Advantage ε', values: [0.002, 0.003, 0.004, 0.005, 0.007, 0.01, 0.015, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2],
+                          value: 0.01, format: v => String(v) });
+
+  function run(e) {
+    const pts = []; let w = 0, j = 0;
+    for (let i = 0; i < NMAX; i++) {
+      if (U[i] < 0.5 + e) w++;
+      if (i + 1 === checkpoints[j]) { pts.push([i + 1, w / (i + 1)]); j++; }
+    }
+    return pts;
+  }
+  const band = checkpoints;
+  const chart = DS.chart(root + ' .c-games', {
+    x: { type: 'log', domain: [10, NMAX], label: 'Games played (log scale)' },
+    y: { domain: [0.3, 0.75], label: 'Fraction won so far', tickValues: [0.3, 0.4, 0.5, 0.6, 0.7], format: v => DS.fmt(v, 1) },
+    height: 300,
+    draw(c) {
+      const e = eps.value, nStar = 1 / (e * e);
+      c.area(band.map(n => [n, 0.5 + 1 / Math.sqrt(n)]), { lower: band.map(n => [n, 0.5 - 1 / Math.sqrt(n)]), series: 'muted' });
+      c.hline(0.5, { dash: true });
+      c.hline(0.5 + e, { series: 2, dash: true });
+      c.vline(2000);
+      c.text(2000, 0.3, 'script: 2,000', { anchor: 'end', dx: -5, dy: -6 });
+      if (nStar <= NMAX) c.vline(nStar, { series: 'ink', label: '1/ε² = ' + Math.round(nStar).toLocaleString('en-US') });
+      c.line(run(e), { series: 1, label: 'win rate so far', format: v => DS.fmt(v, 4) });
+      c.legend([{ label: 'adversary with advantage ε', series: 1 }, { label: '½ + ε', series: 2, kind: 'dash' },
+                { label: 'coin-flip band ½ ± 1/√n', series: 'muted', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const e = eps.value, nStar = 1 / (e * e), at2000 = 1 / Math.sqrt(2000);
+    DS.stats(root + ' .readout', [
+      { label: 'Games needed, 1/ε²', value: Math.round(nStar).toLocaleString('en-US') },
+      { label: 'Band at 2,000 games', value: '±' + at2000.toFixed(3), note: 'the script\'s sampling noise' },
+      { label: 'Seen in 2,000 games?', value: e > at2000 ? 'yes' : 'no',
+        note: e > at2000 ? 'ε is wider than the band' : 'ε hides inside the band' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h2 id="10-how-this-connects-to-homomorphic-encryption">10. How this connects to homomorphic encryption<a class="headerlink" href="#10-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <ul>
 <li><strong>The <abbr title="homomorphic encryption">HE</abbr> server is the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> adversary.</strong> It holds the public key and the evaluation keys,
@@ -757,7 +1128,7 @@ adversary:  divides by 2 -&gt; 5 -&gt; guesses b&#39; = 0
   noise that grows with every operation (P7–P9).</li>
 <li><strong>Malleability is the price of computing.</strong> It was a bug in P3 and P4; here it is the reason <abbr title="homomorphic encryption">HE</abbr>
   can never be <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr>. <abbr title="homomorphic encryption">HE</abbr> deployments compensate at the protocol level: the key owner does not
-  decrypt untrusted ciphertexts, and integrity comes from elsewhere (proofs, replication, <abbr title="trusted execution environment">TEE</abbr>s).</li>
+  decrypt untrusted ciphertexts, and integrity comes from elsewhere (proofs, replication, trusted execution environments (<abbr title="trusted execution environment">TEE</abbr>s)).</li>
 <li><strong>Know the gaps.</strong> Circular security for bootstrapping (P9), and <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> whenever decrypted
   results are shared (<a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>).</li>
 </ul>
@@ -922,7 +1293,8 @@ adversary:  divides by 2 -&gt; 5 -&gt; guesses b&#39; = 0
   Standard <abbr title="Public-Key Cryptography Standards">PKCS</abbr> #1", CRYPTO 1998. <a href="https://doi.org/10.1007/BFb0055716">https://doi.org/10.1007/BFb0055716</a></li>
 <li>H. Böck, J. Somorovsky, C. Young, "Return Of Bleichenbacher's Oracle Threat (ROBOT)", USENIX
   Security 2018. <a href="https://www.usenix.org/conference/usenixsecurity18/presentation/bock">https://www.usenix.org/conference/usenixsecurity18/presentation/bock</a></li>
-<li>Y. Sheffer, R. Holz, P. Saint-Andre, <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 7457, <em>Summarizing Known Attacks on <abbr title="Transport Layer Security">TLS</abbr> and DTLS</em>,
+<li>Y. Sheffer, R. Holz, P. Saint-Andre, Request for Comments (<abbr title="Request for Comments (an IETF standard)">RFC</abbr>) 7457 of the Internet
+  Engineering Task Force (<abbr title="Internet Engineering Task Force">IETF</abbr>), <em>Summarizing Known Attacks on <abbr title="Transport Layer Security">TLS</abbr> and DTLS</em>,
   2015 (BEAST, CRIME, padding oracles). <a href="https://www.rfc-editor.org/rfc/rfc7457">https://www.rfc-editor.org/rfc/rfc7457</a></li>
 <li>NSA Center for Cryptologic History, <em>The Battle of Midway</em> (the "AF is short of water" ruse).
   <a href="https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF">https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF</a></li>

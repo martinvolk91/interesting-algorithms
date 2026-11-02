@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -109,8 +110,8 @@ function renderMath() {
 <h1 id="p8--multiplying-ciphertexts-relinearization-and-modulus-switching">P8 · Multiplying ciphertexts: relinearization and modulus switching<a class="headerlink" href="#p8--multiplying-ciphertexts-relinearization-and-modulus-switching" title="Link to this section">#</a></h1>
 <p><a href="p7_lattices_and_lwe.html">← P7 Lattices and <abbr title="learning with errors">LWE</abbr></a> · <a href="../index.html">index</a> · next: <a href="p9_bootstrapping.html">P9 Bootstrapping →</a></p>
 <hr />
-<p>P7 ended with an encryption scheme that can add: pads add, messages add, noises add. This
-chapter makes it multiply. Multiplication works, but it has two side effects that shape all of
+<p>P7 ended with an encryption scheme based on learning with errors (<abbr title="learning with errors">LWE</abbr>) that can add: pads add,
+messages add, noises add. This chapter makes it multiply. Multiplication works, but it has two side effects that shape all of
 practical homomorphic encryption: the ciphertext gets <strong>bigger</strong>, and the noise gets <strong>much
 bigger</strong>. The fixes for those two side effects are the words that make chapter 01 hard to
 read: relinearization, key switching, modulus switching, levels and multiplicative depth.</p>
@@ -121,7 +122,7 @@ read: relinearization, key switching, modulus switching, levels and multiplicati
 <li>Say what "relinearization" literally means, build a relinearization key, and see why the
   naive version destroys the message while <strong>digit (gadget) decomposition</strong> saves it.</li>
 <li>Recognise <strong>key switching</strong> as the general tool behind relinearization and slot rotations,
-  and know why it dominates the cost of <abbr title="fully homomorphic encryption">FHE</abbr>.</li>
+  and know why it dominates the cost of fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>).</li>
 <li>Use <strong>modulus switching</strong> to shrink the noise, and explain why that helps even though the
   noise-to-modulus ratio stays the same.</li>
 <li>Count <strong>levels</strong> and <strong>multiplicative depth</strong>, and see why <abbr title="fully homomorphic encryption">FHE</abbr> programmers prefer trees to
@@ -227,8 +228,9 @@ representatives keep later products small.</p>
 <li>Decryption is guaranteed correct while noise &lt; Δ/2.</li>
 <li><strong>noise budget</strong> = \(\log_2\big((\Delta/2)/\text{noise}\big)\) bits: how many more bits the noise
   can grow before decryption breaks. It is essentially the "invariant noise budget" that
-  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>
-  (<code>q = 2^60</code>, <code>Δ = 2^56</code>) has noise about 5 and a budget of about 52.7 bits
+  libraries such as Microsoft SEAL report. A fresh ciphertext of the script's toy <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, the
+  Brakerski/Fan–Vercauteren scheme (<code>q = 2^60</code>, <code>Δ = 2^56</code>), has noise about 5 and a budget of
+  about 52.7 bits
   (<a href="../../code/primer/p8_relinearization.py">part 2 of the script</a>).</li>
 </ul>
 <h2 id="2-multiplying-two-ciphertexts-the-tensor-product">2. Multiplying two ciphertexts: the tensor product<a class="headerlink" href="#2-multiplying-two-ciphertexts-the-tensor-product" title="Link to this section">#</a></h2>
@@ -320,8 +322,8 @@ coefficient, so the wrap count <code>j</code> becomes a polynomial with coeffici
 <code>t · N</code>. In the toy (<code>N = 16</code>, <code>t = 16</code>, so <code>t · N = 256</code>) one multiplication takes the noise
 from 5 to 540 (script, part 2), a factor of 108. That costs about 7 bits of budget, where an
 addition costs at most 1 bit.</p>
-<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, the other exact scheme, puts the message in the <em>low</em> bits: \(c_0 + c_1 s = m + t e\).
-With <code>t = 10</code>, <code>m = 7</code> and <code>e = 3</code> the phase is 7 + 10·3 = 37. Decryption takes the phase in
+<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, the other exact scheme (Brakerski–Gentry–Vaikuntanathan), puts the message in the <em>low</em>
+bits: \(c_0 + c_1 s = m + t e\). With <code>t = 10</code>, <code>m = 7</code> and <code>e = 3</code> the phase is 7 + 10·3 = 37. Decryption takes the phase in
 the centred range and reduces it mod <code>t</code>: 37 mod 10 = 7 (with <code>e = −3</code> the phase is −23, and
 −23 mod 10 = 7 too). This works while \(\lvert m + t e \rvert &lt; q/2\). <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> has no scale problem,
 but the product of two phases is \(m_1 m_2 + t\,(m_1 e_2 + m_2 e_1 + t\, e_1 e_2)\): the noise
@@ -379,8 +381,8 @@ the result is the same, at scale: the noise reaches \(2^{59}\) against a limit o
 <h3 id="54-why-the-key-can-be-public">5.4 Why the key can be public<a class="headerlink" href="#54-why-the-key-can-be-public" title="Link to this section">#</a></h3>
 <p>The relinearization key goes to the server, so it must be safe to publish.</p>
 <ul>
-<li><strong>It looks random.</strong> <code>(−a s + ε, a)</code> is an <abbr title="ring learning with errors">RLWE</abbr> sample, and under the <abbr title="ring learning with errors">RLWE</abbr> assumption (P7) it
-  is indistinguishable from random. Adding \(s^2\) to its first part is like adding a message to
+<li><strong>It looks random.</strong> <code>(−a s + ε, a)</code> is a ring learning with errors (<abbr title="ring learning with errors">RLWE</abbr>) sample, and under
+  the <abbr title="ring learning with errors">RLWE</abbr> assumption (P7) it is indistinguishable from random. Adding \(s^2\) to its first part is like adding a message to
   a one-time pad: the pad hides it.</li>
 <li><strong>It does not let anyone decrypt.</strong> Decryption needs \(c_0 + c_1 s\), so it needs <code>s</code>. The key
   only converts "something times \(s^2\)" into "something linear in <code>s</code>", and the result is
@@ -465,6 +467,91 @@ decrypt: −1129 + 3·(−4289) = −13996 ≡ 6004  →  round(6.004) = 6
 
 <p>The relinearization added 14 to the noise (from −10 to 4), where the naive key added 3488.
 The bound is 4 · 9 · 3 = 108.</p>
+<figure class="diagram" id="d-p8-multiply-pipeline">
+  <svg viewBox="0 0 440 364" style="max-width: 560px" role="img"
+       aria-label="One homomorphic multiplication in the running example. Two ciphertexts of two parts each, (4965, −4321) and (1153, −2718), give a tensor product of three parts, (5 724 645, −18 476 983, 11 744 478). Multiplying by t/q, rounding and reducing mod q gives (−4275, 1523, 1744), which decrypts to 6 with noise −10. Relinearization splits d2 = 1744 into the base-10 digits 4, 4, 7, 1, multiplies them with the relinearization keys and adds the result (3146, 4188) to the first two parts. The result (−1129, −4289) has two parts again and decrypts to 6 with noise 4.">
+    <style>
+      #d-p8-multiply-pipeline text.m { fill: var(--muted); font-size: 12.5px; }
+      #d-p8-multiply-pipeline text.n { font-size: 14px; font-variant-numeric: tabular-nums; }
+      #d-p8-multiply-pipeline text.b { font-weight: 650; }
+      #d-p8-multiply-pipeline .cell { fill: var(--soft); stroke: var(--line-strong); stroke-width: 1.25; }
+      #d-p8-multiply-pipeline .sq { fill: var(--series-2); fill-opacity: .14; stroke: var(--series-2); stroke-width: 1.5; }
+      #d-p8-multiply-pipeline .key { fill: var(--series-3); fill-opacity: .12; stroke: var(--series-3); stroke-width: 1.5; }
+      #d-p8-multiply-pipeline .gone { fill: none; stroke: var(--line-strong); stroke-dasharray: 4 4; }
+    </style>
+    <defs>
+      <marker id="p8mp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+      </marker>
+      <marker id="p8mp-arrow-key" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--series-3)"/>
+      </marker>
+    </defs>
+
+    <!-- the two input ciphertexts -->
+    <text x="105" y="16" text-anchor="middle" class="m">ct₁ = Enc(2), noise 2</text>
+    <text x="335" y="16" text-anchor="middle" class="m">ct₂ = Enc(3), noise −1</text>
+    <rect class="cell" x="10" y="24" width="92" height="30" rx="5"/>
+    <rect class="cell" x="108" y="24" width="92" height="30" rx="5"/>
+    <rect class="cell" x="240" y="24" width="92" height="30" rx="5"/>
+    <rect class="cell" x="338" y="24" width="92" height="30" rx="5"/>
+    <text x="56" y="44" text-anchor="middle" class="n">4965</text>
+    <text x="154" y="44" text-anchor="middle" class="n">−4321</text>
+    <text x="220" y="44" text-anchor="middle" class="n b">×</text>
+    <text x="286" y="44" text-anchor="middle" class="n">1153</text>
+    <text x="384" y="44" text-anchor="middle" class="n">−2718</text>
+
+    <!-- tensor product -->
+    <text x="10" y="82">Tensor product: multiply out (c₀ + c₁s)(c₀′ + c₁′s)</text>
+    <text x="70" y="102" text-anchor="middle" class="m">d₀, times 1</text>
+    <text x="210" y="102" text-anchor="middle" class="m">d₁, times s</text>
+    <text x="370" y="102" text-anchor="middle" class="m">d₂, times s²</text>
+    <rect class="cell" x="10" y="108" width="120" height="30" rx="5"/>
+    <rect class="cell" x="150" y="108" width="120" height="30" rx="5"/>
+    <rect class="sq" x="310" y="108" width="120" height="30" rx="5"/>
+    <text x="70" y="128" text-anchor="middle" class="n">5 724 645</text>
+    <text x="210" y="128" text-anchor="middle" class="n">−18 476 983</text>
+    <text x="370" y="128" text-anchor="middle" class="n">11 744 478</text>
+
+    <!-- scale by t/q -->
+    <text x="10" y="164">Multiply by t/q, round, reduce mod q: Enc(6), noise −10</text>
+    <rect class="cell" x="10" y="172" width="120" height="30" rx="5"/>
+    <rect class="cell" x="150" y="172" width="120" height="30" rx="5"/>
+    <rect class="sq" x="310" y="172" width="120" height="30" rx="5"/>
+    <text x="70" y="192" text-anchor="middle" class="n">−4275</text>
+    <text x="210" y="192" text-anchor="middle" class="n">1523</text>
+    <text x="370" y="192" text-anchor="middle" class="n">1744</text>
+
+    <!-- relinearization -->
+    <path d="M370,203 V230" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#p8mp-arrow)"/>
+    <text x="10" y="232">Relinearize: only d₂ needs the key</text>
+    <rect class="key" x="310" y="233" width="120" height="58" rx="5"/>
+    <text x="370" y="251" text-anchor="middle" class="m">digits of 1744:</text>
+    <text x="370" y="268" text-anchor="middle" class="n">4, 4, 7, 1</text>
+    <text x="370" y="285" text-anchor="middle" class="m">Σ digitᵢ · rlkᵢ</text>
+    <path d="M309,262 H274" stroke="var(--series-3)" stroke-width="1.5" fill="none" marker-end="url(#p8mp-arrow-key)"/>
+    <rect class="key" x="10" y="247" width="120" height="30" rx="5"/>
+    <rect class="key" x="150" y="247" width="120" height="30" rx="5"/>
+    <text x="70" y="267" text-anchor="middle" class="n">+ 3146</text>
+    <text x="210" y="267" text-anchor="middle" class="n">+ 4188</text>
+    <path d="M10,288 H270" stroke="currentColor" stroke-width="1.25"/>
+
+    <!-- the result -->
+    <rect class="cell" x="10" y="296" width="120" height="30" rx="5"/>
+    <rect class="cell" x="150" y="296" width="120" height="30" rx="5"/>
+    <rect class="gone" x="310" y="300" width="120" height="26" rx="5"/>
+    <text x="70" y="316" text-anchor="middle" class="n b">−1129</text>
+    <text x="210" y="316" text-anchor="middle" class="n b">−4289</text>
+    <text x="370" y="317" text-anchor="middle" class="m">no s² part</text>
+    <text x="10" y="352">Two parts again: decrypts with (1, s) to 6, noise 4</text>
+  </svg>
+  <figcaption>One whole multiplication with the chapter's running example (\(q = 10000\),
+    \(t = 10\), \(\Delta = 1000\), \(s = 3\)). The product grows from two parts to three, and the
+    third part \(d_2\) pairs with \(s^2\), which the key vector \((1, s)\) does not have.
+    Relinearization feeds the digits of \(d_2\) into the keys \(\mathrm{rlk}_0, \dots,
+    \mathrm{rlk}_3\) of §6.2 and adds the result to the other two parts. In the second part,
+    1523 + 4188 = 5711 ≡ −4289 (mod 10000).</figcaption>
+</figure>
 <h3 id="63-the-trade-off-key-size-against-noise">6.3 The trade-off: key size against noise<a class="headerlink" href="#63-the-trade-off-key-size-against-noise" title="Link to this section">#</a></h3>
 <p>A smaller base <code>w</code> means more digits. That gives a bigger key and more ring multiplications
 per relinearization, but less noise. <a href="../../code/primer/p8_relinearization.py">Part 5 of the script</a>
@@ -482,6 +569,82 @@ different bases (its noise before relinearization is \(2^{9.1}\)):</p>
 <p>The last row, <code>w = q</code>, is the naive key: one digit, which is \(d_2\) itself. The added noise
 grows roughly in proportion to <code>w</code> (here between about 15·w and 40·w), while the key size
 grows with the number of digits \(\ell = \lceil \log_w q \rceil\).</p>
+<figure class="widget" id="w-p8-gadget-tradeoff">
+  <p class="widget-title">Choosing the base w: key size against noise</p>
+  <p class="widget-hint">Drag w from 2¹⁵ toward 2⁶⁰. The key shrinks only at 2²⁰, 2³⁰ and 2⁶⁰, but the noise grows all the way.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Noise after relinearizing (bits)</p><div class="c-noise"></div></div>
+    <div><p class="panel-title">Relinearization key size (KiB)</p><div class="c-key"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Measured on the script's toy BFV (\(N = 16\), \(q = 2^{60}\), part 5): the same product
+    ciphertext, relinearized with a fresh key for each base. A smaller base means more digits
+    \(\ell = \lceil 60 / \log_2 w \rceil\): a bigger key and more work, but less noise. For each
+    number of digits, the smallest base that gives it is the best choice.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p8-gadget-tradeoff';
+  // [log2 w, digits, key size in KiB, log2(noise after relinearization)], computed with
+  // code/primer/p8_relinearization.py (seed 8, the product x*y of part 2, a fresh key per base)
+  const W = [[1,60,14.06,9.3],[2,30,7.03,9.4],[3,20,4.69,9.5],[4,15,3.52,10.1],[5,12,2.81,10.6],[6,10,2.34,11.3],[7,9,2.11,11.9],[8,8,1.88,12.9],[9,7,1.64,15.1],[10,6,1.41,15.3],[11,6,1.41,16.2],[12,5,1.17,17.2],[13,5,1.17,18.5],[14,5,1.17,19.1],[15,4,0.94,19.7],[16,4,0.94,20.4],[17,4,0.94,21.9],[18,4,0.94,22.5],[19,4,0.94,23.7],[20,3,0.7,23.8],[21,3,0.7,25.6],[22,3,0.7,26.1],[23,3,0.7,28.4],[24,3,0.7,28.3],[25,3,0.7,28.9],[26,3,0.7,30.8],[27,3,0.7,30.8],[28,3,0.7,32.5],[29,3,0.7,33.8],[30,2,0.47,34.4],[31,2,0.47,34.7],[32,2,0.47,35.6],[33,2,0.47,37.1],[34,2,0.47,37.2],[35,2,0.47,38.5],[36,2,0.47,40.4],[37,2,0.47,40.3],[38,2,0.47,41.6],[39,2,0.47,42.6],[40,2,0.47,43.1],[41,2,0.47,44.4],[42,2,0.47,45.6],[43,2,0.47,46.5],[44,2,0.47,48.4],[45,2,0.47,49.3],[46,2,0.47,50.2],[47,2,0.47,50.4],[48,2,0.47,51.6],[49,2,0.47,52.4],[50,2,0.47,54.0],[51,2,0.47,55.3],[52,2,0.47,55.8],[53,2,0.47,57.3],[54,2,0.47,57.4],[55,2,0.47,58.5],[56,2,0.47,58.9],[57,2,0.47,58.9],[58,2,0.47,58.7],[59,2,0.47,59.0],[60,1,0.23,58.9]];
+  const BEFORE = 9.1, LIMIT = 55;            // noise of x*y before relinearizing; Δ/2 = 2^55
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '.': '·' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+  const row = lw => W[lw - 1];
+
+  const ui = DS.controls(root + ' .controls', () => { noise.update(); key.update(); readout(); });
+  const w = ui.slider({ label: 'Base w', min: 1, max: 60, step: 1, value: 15, format: pow2 });
+
+  const noise = DS.chart(root + ' .c-noise', {
+    x: { domain: [0, 60], label: 'log₂ w', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    y: { domain: [0, 62], label: 'log₂ noise', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    height: 260,
+    draw(c) {
+      c.polygon([[0, LIMIT], [60, LIMIT], [60, 62], [0, 62]], { series: 'bad', stroke: false });
+      c.hline(LIMIT, { series: 'bad' });
+      c.text(17, (LIMIT + 62) / 2, 'Δ/2: decryption fails', { baseline: 'middle', cls: 'ink2' });
+      c.hline(BEFORE, { dash: true, label: 'before relinearizing: 2⁹·¹' });
+      c.vline(15, { dash: true, label: 'script: 2¹⁵', labelPos: 'bottom' });
+      c.line(W.map(r => [r[0], r[3]]), { series: 1, label: 'noise after', format: v => pow2(v.toFixed(1)) });
+      const r = row(w.value);
+      c.point(r[0], r[3], { series: r[3] < LIMIT ? 1 : 'bad' });
+    },
+  });
+
+  const KMAX = 4;                            // KiB shown; bases 2¹–2³ need more (clipped)
+  const steps = [];
+  W.forEach(r => steps.push([r[0] - 0.5, r[2]], [r[0] + 0.5, r[2]]));
+  const key = DS.chart(root + ' .c-key', {
+    x: { domain: [0, 61], label: 'log₂ w', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    y: { domain: [0, KMAX], label: 'KiB' },
+    height: 260,
+    draw(c) {
+      c.area(steps, { series: 2 });
+      c.line(steps, { series: 2 });
+      const r = row(w.value), y = Math.min(r[2], KMAX);
+      c.point(r[0], y, { series: 2 });
+      const right = r[0] > 42;
+      c.text(r[0], y, `${r[1]} digit${r[1] > 1 ? 's' : ''}, ${r[2].toFixed(2)} KiB`,
+        { anchor: right ? 'end' : 'start', dx: right ? -8 : 8, dy: y > KMAX * 0.8 ? 16 : -14, cls: 'ink strong' });
+    },
+  });
+
+  function readout() {
+    const r = row(w.value), left = LIMIT - r[3];
+    DS.stats(root + ' .readout', [
+      { label: 'Digits ℓ', value: String(r[1]), note: `⌈60 / ${r[0]}⌉` },
+      { label: 'Key size', value: r[2].toFixed(2) + ' KiB', note: `${r[1]} keys × 2 × 16 × 60 bits` },
+      { label: 'Ring multiplications', value: String(2 * r[1]), note: 'per relinearization (2ℓ)' },
+      { label: 'Noise after', value: pow2(r[3].toFixed(1)), note: 'before: 2⁹·¹' },
+      { label: 'Budget left', value: DS.fmt(left, 1) + ' bits', tone: left > 0 ? 'good' : 'bad',
+        note: left > 0 ? 'decrypts correctly' : 'decryption fails' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong>Names.</strong> Brakerski–Vaikuntanathan decompose into bits (base 2), and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> call the two halves
 <code>BitDecomp</code> (split into bits) and <code>Powersof2</code> (multiply the key by 1, 2, 4, …). Today the
 vector \(g = (1, w, w^2, \dots)\) is called the <strong>gadget</strong>, and splitting into digits is
@@ -500,8 +663,8 @@ noise still −10. The price: the key lives modulo <code>Pq</code>, and a bigger
 (<a href="p7_lattices_and_lwe.html#4-lattices-in-pictures">P7 §4</a>), so \(\log_2(Pq)\) must fit the table
 of <a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>. Modern libraries combine
 both ideas in <strong>hybrid key switching</strong>: split \(d_2\) into a few large digits, aligned with the
-<abbr title="residue number system">RNS</abbr> primes of §9.1, and pick <code>P</code> about the size of one digit. Then (digit × ε) / <code>P</code> stays
-small with a much smaller <code>P</code> (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</p>
+primes of the residue number system (<abbr title="residue number system">RNS</abbr>) of §9.1, and pick <code>P</code> about the size of one digit.
+Then (digit × ε) / <code>P</code> stays small with a much smaller <code>P</code> (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</p>
 <h2 id="7-key-switching-the-general-tool">7. Key switching: the general tool<a class="headerlink" href="#7-key-switching-the-general-tool" title="Link to this section">#</a></h2>
 <p>Relinearization takes a term \(d_2 \cdot s^2\), a piece of ciphertext "under the key \(s^2\)", and
 re-expresses it under the key <code>s</code>. Nothing in §6 used the fact that \(s^2\) is a square. Replace
@@ -524,12 +687,12 @@ it by any other key <code>s'</code> and you get <strong>key switching</strong>.<
   with a <strong>Galois key</strong> (encryptions of \(w^i s(X^k)\) under <code>s</code>) brings it back. Each rotation amount needs its own key, or is composed from
   power-of-two rotations (<a href="../05_core_techniques.html#2-rotations-galois-automorphisms">05 §2</a>).</li>
 <li><strong>Moving to a different key</strong> in general: to a smaller key or dimension, for example at the
-  end of <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping (<a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 §8</a>),
-  or between schemes (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</li>
+  end of bootstrapping in Torus fully homomorphic encryption, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>
+  (<a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 §8</a>), or between schemes (<a href="../03_how_it_works.html#5-relinearization-and-key-switching">03 §5</a>).</li>
 </ul>
-<p><strong>Cost.</strong> One key switch needs about <code>2ℓ</code> ring multiplications (each an <abbr title="number-theoretic transform">NTT</abbr>-based product,
-P7) plus the decomposition. A key-switching key is <code>ℓ</code> ciphertexts. With chapter 02's numbers
-(<code>N = 2^14</code>, <code>log q = 438</code>), one ciphertext is about 1.8 MB
+<p><strong>Cost.</strong> One key switch needs about <code>2ℓ</code> ring multiplications (each computed with the
+number-theoretic transform, <abbr title="number-theoretic transform">NTT</abbr>, as in P7) plus the decomposition. A key-switching key is <code>ℓ</code>
+ciphertexts. With chapter 02's numbers (<code>N = 2^14</code>, <code>log q = 438</code>), one ciphertext is about 1.8 MB
 (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>). A key with <code>ℓ = 3</code>
 digits is then about 5.4 MB, and a set of 30 rotation keys about 160 MB. Key switching is the
 most expensive routine in <abbr title="ring learning with errors">RLWE</abbr>-based <abbr title="fully homomorphic encryption">FHE</abbr> and the main target of hardware acceleration.</p>
@@ -668,6 +831,95 @@ once the noise reaches <code>q</code>.</p>
 <code>q ≈ B^L</code> you get about <code>log₂ L</code> multiplications without switching and about <code>L</code> with it:
 exponentially more.
 The noise stays near its fresh size; the modulus is what gets used up.</p>
+<figure class="widget" id="w-p8-modulus-ladder">
+  <p class="widget-title">The ladder of moduli: why switching buys depth</p>
+  <p class="widget-hint">Slide q up. With switching, every 10 more bits of q buy one more multiplication. Without it, the bit length of q must double to buy one.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Without modulus switching</p><div class="c-off"></div></div>
+    <div><p class="panel-title">Switching down after every multiplication</p><div class="c-on"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The idealized model of §8.3: fresh noise \(2^{10}\), every multiplication squares the
+    noise (doubles its bit length), and decryption fails once the noise reaches \(q\). The shaded
+    gap between modulus and noise is what is left to spend. Without switching the noise eats the
+    gap faster and faster. With switching the noise stays between 10 and 20 bits, and the modulus
+    shrinks by a fixed 10 bits per multiplication.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p8-modulus-ladder';
+  const B = 10;                                  // fresh noise, in bits
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+
+  // Without switching: after k multiplications the noise has B·2^k bits; fine while below log2 q.
+  function plain(Q) {
+    const pts = [[0, B]];
+    let k = 0;
+    while (B * 2 ** (k + 1) < Q) { k++; pts.push([k, B * 2 ** k]); }
+    return { fit: k, pts, fail: [k + 1, B * 2 ** (k + 1)] };
+  }
+  // With switching: multiply (noise B → 2B), then switch down by B bits (noise back to B).
+  function ladder(Q) {
+    const noise = [[0, B]], mod = [[0, Q]];
+    let k = 0;
+    while (2 * B < Q - B * k) {
+      k++;
+      noise.push([k, 2 * B], [k, B]);
+      mod.push([k, Q - B * (k - 1)], [k, Q - B * k]);
+    }
+    return { fit: k, noise, mod, fail: [k + 1, 2 * B], failMod: Q - B * k };
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { off.update(); on.update(); readout(); });
+  const q = ui.slider({ label: 'Modulus q', min: 40, max: 200, step: 10, value: 100, format: pow2 });
+
+  const top = Q => Math.round(Q * 1.15);
+  const xMax = () => Math.max(6, ladder(q.value).fit + 2);
+  const opts = (draw) => ({
+    x: { domain: [0, 10], label: 'multiplications' },
+    y: { domain: [0, 110], label: 'bits' },
+    height: 250,
+    draw(c) {
+      const Q = q.value;
+      c.domain({ x: [0, xMax()], y: [0, top(Q)] });
+      draw(c, Q);
+    },
+  });
+
+  const off = DS.chart(root + ' .c-off', opts((c, Q) => {
+    const p = plain(Q), X = xMax();
+    c.area([[0, Q], [p.fit, Q]], { lower: p.pts, series: 1 });
+    c.line([[0, Q], [X, Q]], { series: 2, label: 'modulus q' });
+    c.line([...p.pts, p.fail], { series: 1, label: 'noise' });
+    c.scatter(p.pts, { series: 1, r: 3.5 });
+    c.vline(p.fail[0], { series: 'bad', dash: true, label: `multiplication ${p.fail[0]} fails` });
+    if (p.fail[1] <= top(Q)) c.point(p.fail[0], p.fail[1], { series: 'bad' });
+    c.legend([{ label: 'modulus q', series: 2 }, { label: 'noise', series: 1 }, { label: 'budget left', series: 1, kind: 'rect' }]);
+  }));
+
+  const on = DS.chart(root + ' .c-on', opts((c, Q) => {
+    const L = ladder(Q);
+    c.area(L.mod, { lower: L.noise, series: 1 });
+    c.line([...L.mod, [L.fit + 1, L.failMod], [xMax(), L.failMod]], { series: 2, label: 'modulus q' });
+    c.line([...L.noise, L.fail], { series: 1, label: 'noise' });
+    c.vline(L.fail[0], { series: 'bad', dash: true, label: `multiplication ${L.fail[0]} fails` });
+    c.point(L.fail[0], L.fail[1], { series: 'bad' });
+    c.legend([{ label: 'modulus q', series: 2 }, { label: 'noise', series: 1 }, { label: 'budget left', series: 1, kind: 'rect' }]);
+  }));
+
+  function readout() {
+    const Q = q.value, a = plain(Q).fit, b = ladder(Q).fit;
+    DS.stats(root + ' .readout', [
+      { label: 'Multiplications without switching', value: String(a), note: `noise ${pow2(B * 2 ** a)} after the last` },
+      { label: 'Multiplications with switching', value: String(b), note: `ends at modulus ${pow2(Q - B * b)}` },
+      { label: 'q = (fresh noise)ᴸ', value: `L = ${Q / B}`, note: `about log₂ L = ${Math.log2(Q / B).toFixed(1)} without, L with` },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="84-bgv-and-bfv">8.4 BGV and BFV<a class="headerlink" href="#84-bgv-and-bfv" title="Link to this section">#</a></h3>
 <p>In <strong><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr></strong> the message sits in the low bits, so plain rounding would disturb it; <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> rounds to
 the nearest values that keep the ciphertext unchanged mod <code>t</code>
@@ -679,8 +931,8 @@ per multiplication instead of squaring. <abbr title="the Brakerski/Fan–Vercaut
 mainly to shrink a result ciphertext before sending it back.</p>
 <h2 id="9-levels-leveled-he-and-multiplicative-depth">9. Levels, leveled HE and multiplicative depth<a class="headerlink" href="#9-levels-leveled-he-and-multiplicative-depth" title="Link to this section">#</a></h2>
 <h3 id="91-levels-and-leveled-he">9.1 Levels and leveled HE<a class="headerlink" href="#91-levels-and-leveled-he" title="Link to this section">#</a></h3>
-<p>In <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the parameters fix a <strong>modulus chain</strong> \(q_L &gt; q_{L-1} &gt; \dots &gt; q_0\). A fresh
-ciphertext starts at the top, <strong>level</strong> <code>L</code>. Each multiplication is followed by one switch down,
+<p>In <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme, §9.3), the parameters fix a <strong>modulus chain</strong>
+\(q_L &gt; q_{L-1} &gt; \dots &gt; q_0\). A fresh ciphertext starts at the top, <strong>level</strong> <code>L</code>. Each multiplication is followed by one switch down,
 which uses up one level. In real libraries the modulus is a product of primes of 30–60 bits,
 \(q_\ell = p_0 p_1 \cdots p_\ell\), and each number mod \(q_\ell\) is stored as its residues mod
 each prime. This <strong>residue number system</strong> (<abbr title="residue number system">RNS</abbr>) is the Chinese Remainder Theorem put to work:
@@ -731,6 +983,64 @@ tree  ((x1*x2)*(x3*x4))*((x5*x6)*(x7*x8))  depth 3  budget  20.8 bits   correct:
   tree finishes with 20.8 bits to spare. <abbr title="fully homomorphic encryption">FHE</abbr> compilers rebalance expression trees for exactly
   this reason. Computing \(x^{16}\) by repeated squaring costs depth 4, not 15.</li>
 </ul>
+<figure class="widget" id="w-p8-depth-budget">
+  <p class="widget-title">Seven multiplications, two shapes: the budget follows depth</p>
+  <p class="widget-hint">Pick the base w of the relinearization key. At 2¹⁵ the chain runs out at depth 7. Try 2⁴ (the chain survives) and 2³⁰ (it fails at depth 5).</p>
+  <div class="controls"></div>
+  <div class="c-depth"></div>
+  <div class="readout"></div>
+  <figcaption>The script's toy BFV, part 6: eight fresh ciphertexts multiplied together as a chain
+    \(((x_1 x_2) x_3) \cdots x_8\) and as a balanced tree, seven multiplications each. Every point
+    is the noise budget after that level (for the tree, its worst ciphertext). The first
+    multiplication costs the most because relinearization adds its noise once, and w sets how
+    much. After that each level costs about 6–7 bits.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p8-depth-budget';
+  // Budgets in bits at depth 0..7 (chain) and 0..3 (tree), and whether each decrypts correctly,
+  // computed with code/primer/p8_relinearization.py (seed 8) with LOG_W set to each base.
+  const D = {"4":{"chain":[51.8,45.0,39.2,32.4,27.1,20.5,14.0,7.1],"chainOk":[1,1,1,1,1,1,1,1],"tree":[51.8,44.6,38.5,31.2],"treeOk":[1,1,1,1]},"10":{"chain":[52.0,40.4,34.1,27.3,21.4,14.9,9.5,3.9],"chainOk":[1,1,1,1,1,1,1,1],"tree":[52.0,39.9,34.3,27.6],"treeOk":[1,1,1,1]},"15":{"chain":[52.0,35.2,28.3,22.2,16.4,9.9,5.1,-1.6],"chainOk":[1,1,1,1,1,1,1,0],"tree":[52.0,35.2,27.7,20.8],"treeOk":[1,1,1,1]},"20":{"chain":[51.8,30.5,24.5,18.4,12.5,5.8,-2.0,-3.8],"chainOk":[1,1,1,1,1,1,0,0],"tree":[51.8,30.3,24.1,18.6],"treeOk":[1,1,1,1]},"30":{"chain":[52.0,20.6,14.1,8.4,1.9,-3.8,-4.0,-3.8],"chainOk":[1,1,1,1,1,0,0,0],"tree":[52.0,20.4,13.3,6.8],"treeOk":[1,1,1,1]}};
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const w = ui.choice({ label: 'Base w of the relinearization key', value: 15,
+    options: [4, 10, 15, 20, 30].map(v => ({ value: v, label: pow2(v) })) });
+
+  const chart = DS.chart(root + ' .c-depth', {
+    x: { domain: [-0.3, 7.6], label: 'multiplicative depth', tickValues: [0, 1, 2, 3, 4, 5, 6, 7] },
+    y: { domain: [-10, 56], label: 'noise budget (bits)', tickValues: [0, 10, 20, 30, 40, 50] },
+    height: 300,
+    draw(c) {
+      const d = D[w.value];
+      c.polygon([[-0.3, 0], [7.6, 0], [7.6, -10], [-0.3, -10]], { series: 'bad', stroke: false });
+      c.hline(0, { series: 'bad', label: 'below 0: decryption fails', at: 'left' });
+      const pts = (ys, ok, s) => ys.map((y, i) => ({ x: i, y, series: ok[i] ? s : 'bad',
+        tip: `depth ${i}: ${DS.fmt(y, 1)} bits, ${ok[i] ? 'decrypts correctly' : 'wrong result'}` }));
+      c.line(d.chain.map((y, i) => [i, y]), { series: 2, label: 'chain', format: v => DS.fmt(v, 1) + ' bits' });
+      c.line(d.tree.map((y, i) => [i, y]), { series: 1, label: 'tree', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(pts(d.chain, d.chainOk, 2), { r: 4.5 });
+      c.scatter(pts(d.tree, d.treeOk, 1), { r: 4.5 });
+      c.text(3, d.tree[3], `tree done: ${DS.fmt(d.tree[3], 1)} bits left`, { anchor: 'start', dx: 8, dy: -16, cls: 'ink strong' });
+      c.legend([{ label: 'chain ((((((x₁x₂)x₃)x₄)x₅)x₆)x₇)x₈, depth 7', series: 2 },
+                { label: 'tree ((x₁x₂)(x₃x₄))((x₅x₆)(x₇x₈)), depth 3', series: 1 },
+                { label: 'wrong result', series: 'bad', kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const d = D[w.value], cOk = d.chainOk[7], tOk = d.treeOk[3];
+    DS.stats(root + ' .readout', [
+      { label: 'First multiplication costs', value: `${DS.fmt(d.tree[0] - d.tree[1], 1)} bits`, note: 'includes the relinearization noise' },
+      { label: 'Each later level costs', value: `${DS.fmt((d.tree[1] - d.tree[3]) / 2, 1)} bits`, note: 'tree, depth 1 to 3, on average' },
+      { label: 'Tree, depth 3', value: `${DS.fmt(d.tree[3], 1)} bits`, tone: tOk ? 'good' : 'bad', note: tOk ? 'decrypts correctly' : 'wrong result' },
+      { label: 'Chain, depth 7', value: `${DS.fmt(d.chain[7], 1)} bits`, tone: cOk ? 'good' : 'bad', note: cOk ? 'decrypts correctly' : 'wrong result' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="93-ckks-rescaling-in-one-paragraph">9.3 CKKS rescaling, in one paragraph<a class="headerlink" href="#93-ckks-rescaling-in-one-paragraph" title="Link to this section">#</a></h3>
 <p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song, 2017) encrypts real or complex numbers scaled by a large Δ such as
 \(2^{40}\), and accepts the noise as a small rounding error. One ciphertext holds \(N/2\) complex
@@ -738,8 +1048,8 @@ values, not \(N\): the slots are the values of the message polynomial at the com
 \(X^N + 1\), and since the polynomial has real coefficients those values come in conjugate
 pairs, so only half of them are free. Decryption and decoding return \(z + e/\Delta\) for the
 encoded values \(z\): the noise is never rounded away, it becomes part of the result. That is
-why sharing a <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption can leak <code>e</code>, and with it the key (<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>,
-<a href="p5_security_definitions.html#8-what-ind-cpa-does-not-cover">P5 §8</a> and the
+why sharing a <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption can leak <code>e</code>, and with it the key (<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>, where the
+attacker also sees decryptions: <a href="p5_security_definitions.html#8-what-ind-cpa-does-not-cover">P5 §8</a> and the
 <a href="../deep_dives/ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>).</p>
 <p>After a multiplication the scale is Δ², exactly the problem of §3.1. Instead of <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>'s <code>t/q</code>
 trick, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> <strong>rescales</strong>: it divides the ciphertext by the last prime of the chain,
@@ -1041,7 +1351,8 @@ version of this chapter, read <a href="../03_how_it_works.html#4-homomorphic-mul
   and notes why <abbr title="the Brakerski–Vaikuntanathan scheme">BV</abbr>'s relinearization used different keys per level.
   <a href="https://eprint.iacr.org/2011/277">https://eprint.iacr.org/2011/277</a></li>
 <li>Z. Brakerski, <em>Fully Homomorphic Encryption without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em>,
-  CRYPTO 2012. The scale-invariant scheme: the same modulus throughout.
+  CRYPTO 2012. The scale-invariant scheme: the same modulus throughout. <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr> is the gap
+  shortest vector problem.
   <a href="https://eprint.iacr.org/2012/078">https://eprint.iacr.org/2012/078</a></li>
 <li>J. Fan, F. Vercauteren, <em>Somewhat Practical Fully Homomorphic Encryption</em>, 2012. Brakerski's
   scheme over rings (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>), with two optimised relinearization variants.

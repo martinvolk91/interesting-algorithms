@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -79,19 +80,22 @@ function renderMath() {
 <h1 id="p3--using-aes-safely-modes-nonces-and-integrity">P3 · Using AES safely: modes, nonces and integrity<a class="headerlink" href="#p3--using-aes-safely-modes-nonces-and-integrity" title="Link to this section">#</a></h1>
 <p><a href="p2_aes.html">← P2 Block ciphers and <abbr title="Advanced Encryption Standard">AES</abbr></a> · <a href="../index.html">index</a> · next: <a href="p4_public_key.html">P4 Public-key cryptography →</a></p>
 <hr />
-<p><abbr title="Advanced Encryption Standard">AES</abbr> encrypts exactly one 16-byte block, and always the same way. Turning it into encryption of
-real messages brings out two ideas that are central to homomorphic encryption. First,
-encryption must be <strong>randomized</strong>: encrypting the same message twice must give different
-ciphertexts. Second, ciphertexts can be <strong>malleable</strong>: changed in a way that changes the
-plaintext predictably. For ordinary encryption malleability is an attack, stopped with a <abbr title="message authentication code">MAC</abbr>.
-For <abbr title="homomorphic encryption">HE</abbr> it is the whole point.</p>
+<p>The Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>) encrypts exactly one 16-byte block, and always the same
+way. Turning it into encryption of real messages brings out two ideas that are central to
+homomorphic encryption. First, encryption must be <strong>randomized</strong>: encrypting the same message
+twice must give different ciphertexts. Second, ciphertexts can be <strong>malleable</strong>: changed in a
+way that changes the plaintext predictably. For ordinary encryption malleability is an attack,
+stopped with a message authentication code (<abbr title="message authentication code">MAC</abbr>). For <abbr title="homomorphic encryption">HE</abbr> it is the whole point.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
-<li>explain why encrypting block by block (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>) leaks, and see the leak in a picture;</li>
-<li>use <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr> correctly, and say what an <abbr title="initialization vector">IV</abbr> and a nonce must each satisfy;</li>
+<li>explain why encrypting block by block (electronic codebook, <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>) leaks, and see the leak in a
+  picture;</li>
+<li>use cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) and counter mode (<abbr title="counter mode (a block cipher mode)">CTR</abbr>) correctly, and say what an
+  initialization vector (<abbr title="initialization vector">IV</abbr>) and a nonce must each satisfy;</li>
 <li>recover a secret message when a <abbr title="counter mode (a block cipher mode)">CTR</abbr> nonce is reused;</li>
 <li>turn "pay $100 to Bob" into "pay $900 to Bob" without the key;</li>
-<li>build encrypt-then-MAC with <abbr title="hash-based message authentication code">HMAC</abbr>, and say what <abbr title="Advanced Encryption Standard">AES</abbr>-GCM and ChaCha20-Poly1305 provide;</li>
+<li>build encrypt-then-MAC with <abbr title="hash-based message authentication code">HMAC</abbr> (hash-based message authentication code), and say what
+  <abbr title="Advanced Encryption Standard">AES</abbr>-GCM (<abbr title="Advanced Encryption Standard">AES</abbr> in Galois/counter mode) and ChaCha20-Poly1305 provide;</li>
 <li>explain why <abbr title="homomorphic encryption">HE</abbr> ciphertexts must be malleable, and why that rules out this kind of integrity.</li>
 </ul>
 <p><strong>Companion script:</strong> <a href="../../code/primer/p3_modes.py"><code>code/primer/p3_modes.py</code></a>. Run it from the
@@ -107,14 +111,15 @@ missing before it can encrypt messages:</p>
   ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat.
   Think of a "yes"/"no" vote, a status field, or a file header.</li>
 </ul>
-<p>A <strong>mode of operation</strong> fixes both. <abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38A (2001) standardizes five confidentiality
-modes: <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, <abbr title="cipher feedback (a block cipher mode)">CFB</abbr>, <abbr title="output feedback (a block cipher mode)">OFB</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. This chapter covers <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> (what not to do), <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. <abbr title="cipher feedback (a block cipher mode)">CFB</abbr>
-and <abbr title="output feedback (a block cipher mode)">OFB</abbr> are close relatives of <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>.</p>
-<p><strong>Padding.</strong> Modes that work on whole blocks (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) need padding. The usual rule,
-<strong><abbr title="Public-Key Cryptography Standards">PKCS</abbr>#7</strong>, appends \(n\) bytes each of value \(n\), where \(1 \le n \le 16\) is the number needed
-to reach a multiple of 16. "attack at dawn" has 14 bytes, so it gets <code>02 02</code>. A message that
-already fills whole blocks gets a full extra block of sixteen <code>10</code> bytes (hex 10 = 16), so the
-receiver can always remove the padding unambiguously.</p>
+<p>A <strong>mode of operation</strong> fixes both. The National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>)
+standardizes five confidentiality modes in its Special Publication (<abbr title="Special Publication (a NIST document series)">SP</abbr>) 800-38A (2001): <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>,
+<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, cipher feedback (<abbr title="cipher feedback (a block cipher mode)">CFB</abbr>), output feedback (<abbr title="output feedback (a block cipher mode)">OFB</abbr>) and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. This chapter covers <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> (what not to
+do), <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. <abbr title="cipher feedback (a block cipher mode)">CFB</abbr> and <abbr title="output feedback (a block cipher mode)">OFB</abbr> are close relatives of <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>.</p>
+<p><strong>Padding.</strong> Modes that work on whole blocks (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) need padding. The usual rule, <strong><abbr title="Public-Key Cryptography Standards">PKCS</abbr>#7</strong>
+(from the Public-Key Cryptography Standards), appends \(n\) bytes each of value \(n\), where
+\(1 \le n \le 16\) is the number needed to reach a multiple of 16. "attack at dawn" has 14 bytes,
+so it gets <code>02 02</code>. A message that already fills whole blocks gets a full extra block of sixteen
+<code>10</code> bytes (hex 10 = 16), so the receiver can always remove the padding unambiguously.</p>
 <h2 id="2-ecb-and-the-penguin">2. ECB and the penguin<a class="headerlink" href="#2-ecb-and-the-penguin" title="Link to this section">#</a></h2>
 <p>The obvious mode is <strong>electronic codebook (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>)</strong>: encrypt each block on its own.</p>
 <div class="highlight"><pre><span></span><code>     P1          P2          P3
@@ -150,10 +155,141 @@ distinct ciphertext blocks: ECB 2 of 234, CBC 234 of 234
 plaintext block. The leak is in the <em>pattern</em> of equal blocks, which <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> passes through
 untouched. In 2023 <abbr title="National Institute of Standards and Technology">NIST</abbr> announced that the revision of <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38A will restrict <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> to the few
 uses other <abbr title="National Institute of Standards and Technology">NIST</abbr> standards explicitly allow.</p>
+<figure class="widget" id="w-p3-ecb-penguin">
+  <style>
+    #w-p3-ecb-penguin .p3-imgs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+    #w-p3-ecb-penguin canvas { display: block; width: 100%; height: auto; image-rendering: pixelated;
+                               border: 1px solid var(--line); border-radius: 4px; }
+    @media (max-width: 640px) { #w-p3-ecb-penguin .p3-imgs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <p class="widget-title">One picture, three modes</p>
+  <p class="widget-hint">Press Encrypt again. CBC and CTR take a fresh IV or nonce and look different every time; ECB gives the same picture again.</p>
+  <div class="controls"></div>
+  <div class="p3-imgs">
+    <div><p class="panel-title">Plaintext</p><canvas class="c-plain" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">ECB</p><canvas class="c-ecb" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">CBC, random IV</p><canvas class="c-cbc" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">CTR, fresh nonce</p><canvas class="c-ctr" width="96" height="64"></canvas></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Real AES-128 (written out in this figure's script and checked against the test vector of the AES standard), one fixed key. The picture is 96 × 64 pixels of 4 bytes each (red, green, blue and an unused byte), as in a 32-bit bitmap, so one 16-byte block holds 4 neighbouring pixels. The ciphertext bytes are drawn back as colours. In ECB every block of 4 background pixels becomes the same ciphertext block, so the outline survives even though each block on its own is unreadable.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-ecb-penguin';
+  // AES-128, as in the AES standard: encryption of one 16-byte block.
+  const SB = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; }
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  if (hex(encBlock(expandKey(hexb('000102030405060708090a0b0c0d0e0f')), hexb('00112233445566778899aabbccddeeff')))
+      !== '69c4e0d86a7b0430d8cdb78070b4c55a') throw new Error('AES self-test failed');
+
+  // The padlock: 96 x 64 pixels, 4 bytes per pixel.
+  const W = 96, H = 64, N = W * H * 4, NB = N / 16;
+  const COL = { bg: [0xf6, 0xf8, 0xfa], shackle: [0x8c, 0x95, 0x9f], body: [0x2a, 0x78, 0xd6], hole: [0x1f, 0x23, 0x28] };
+  function pixel(x, y) {
+    const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 48, py - 29);
+    const inBody = px > 22 && px < 74 && py > 29 && py < 60;
+    if (inBody) {
+      if (Math.hypot(px - 48, py - 40) < 5 || (Math.abs(px - 48) < 2.2 + (py - 40) * 0.12 && py > 40 && py < 53)) return 'hole';
+      return 'body';
+    }
+    if (py <= 29 && d >= 12 && d <= 20) return 'shackle';
+    return 'bg';
+  }
+  const plain = new Uint8Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = COL[pixel(x, y)], o = 4 * (y * W + x);
+    plain[o] = c[0]; plain[o + 1] = c[1]; plain[o + 2] = c[2]; plain[o + 3] = 0xff;
+  }
+
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  const block = (a, i) => a.subarray(16 * i, 16 * i + 16);
+  function ecb() {
+    const out = new Uint8Array(N);
+    for (let i = 0; i < NB; i++) out.set(encBlock(key, block(plain, i)), 16 * i);
+    return out;
+  }
+  function cbc(iv) {
+    const out = new Uint8Array(N); let prev = iv;
+    for (let i = 0; i < NB; i++) { prev = encBlock(key, block(plain, i).map((x, j) => x ^ prev[j])); out.set(prev, 16 * i); }
+    return out;
+  }
+  function ctr(nonce) {
+    const out = new Uint8Array(N), ctrBlock = new Uint8Array(16); ctrBlock.set(nonce);
+    for (let i = 0; i < NB; i++) {
+      for (let j = 0, v = i; j < 8; j++, v = Math.floor(v / 256)) ctrBlock[15 - j] = v & 0xff;   // 8-byte nonce || 8-byte counter
+      const s = encBlock(key, ctrBlock), p = block(plain, i);
+      for (let j = 0; j < 16; j++) out[16 * i + j] = p[j] ^ s[j];
+    }
+    return out;
+  }
+  const distinct = a => { const s = new Set(); for (let i = 0; i < NB; i++) s.add(hex(block(a, i))); return s.size; };
+  const same = (a, b) => a.every((x, i) => x === b[i]);
+
+  function paint(sel, bytes) {
+    const cv = document.querySelector(root + ' ' + sel), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      img.data[4 * i] = bytes[4 * i]; img.data[4 * i + 1] = bytes[4 * i + 1]; img.data[4 * i + 2] = bytes[4 * i + 2]; img.data[4 * i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  const R = DS.random(3);
+  const fresh = n => Uint8Array.from({ length: n }, () => R.int(256));
+  let count = 0, prev = null, cur = null;
+  function encrypt() {
+    prev = cur;
+    cur = { ecb: ecb(), cbc: cbc(fresh(16)), ctr: ctr(fresh(8)) };
+    count++;
+  }
+  encrypt(); encrypt();          // an earlier encryption to compare with
+
+  function render() {
+    paint('.c-plain', plain); paint('.c-ecb', cur.ecb); paint('.c-cbc', cur.cbc); paint('.c-ctr', cur.ctr);
+    const note = m => same(cur[m], prev[m]) ? 'identical to the previous encryption' : 'differs from the previous encryption';
+    DS.stats(root + ' .readout', [
+      { label: 'Distinct blocks, plaintext', value: `${distinct(plain)} of ${NB}` },
+      { label: 'Distinct blocks, ECB', value: `${distinct(cur.ecb)} of ${NB}`, note: note('ecb'), tone: 'bad' },
+      { label: 'Distinct blocks, CBC', value: `${distinct(cur.cbc)} of ${NB}`, note: note('cbc'), tone: 'good' },
+      { label: 'Distinct blocks, CTR', value: `${distinct(cur.ctr)} of ${NB}`, note: note('ctr'), tone: 'good' },
+    ]);
+  }
+  DS.controls(root + ' .controls', render).button({ label: 'Encrypt again', onClick: encrypt });
+  render();
+})();
+</script>
 <h2 id="3-cbc-chaining-with-a-random-iv">3. CBC: chaining with a random IV<a class="headerlink" href="#3-cbc-chaining-with-a-random-iv" title="Link to this section">#</a></h2>
-<p><strong>Cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>)</strong> <abbr title="exclusive or">XOR</abbr>s each plaintext block with the previous ciphertext block
-before encrypting it. The first block is XORed with an <strong>initialization vector (<abbr title="initialization vector">IV</abbr>)</strong>, a fresh
-random block for every message:</p>
+<p><strong>Cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>)</strong> combines each plaintext block with the previous ciphertext block
+by exclusive or (<abbr title="exclusive or">XOR</abbr>, \(\oplus\)) before encrypting it. The first block is XORed with an
+<strong>initialization vector (<abbr title="initialization vector">IV</abbr>)</strong>, a fresh random block for every message:</p>
 <div class="highlight"><pre><span></span><code>           P1              P2              P3
            |               |               |
   IV ----&gt;(+)     +------&gt;(+)     +------&gt;(+)
@@ -171,8 +307,9 @@ all 234 <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> blo
 <p>What <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> needs and what it costs:</p>
 <ul>
 <li><strong>The <abbr title="initialization vector">IV</abbr> must be unpredictable</strong> (<abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38A, Appendix C): not secret, but impossible to guess
-  before it is used. <abbr title="Transport Layer Security">TLS</abbr> 1.0 used the last ciphertext block of the previous record as the next
-  <abbr title="initialization vector">IV</abbr>, which an attacker could predict; the BEAST attack (2011) exploited exactly that.</li>
+  before it is used. Transport Layer Security (<abbr title="Transport Layer Security">TLS</abbr>) 1.0 used the last ciphertext block of the
+  previous record as the next <abbr title="initialization vector">IV</abbr>, which an attacker could predict; the BEAST attack (2011)
+  exploited exactly that.</li>
 <li><strong>Encryption is sequential</strong> (each block waits for the previous one); decryption can run in
   parallel.</li>
 <li><strong>Padding is needed, and padding errors leak.</strong> Vaudenay (2002) showed that if a receiver
@@ -275,6 +412,136 @@ attacker knows P1 (a public notice) and recovers P2 without the key:
    b&#39;New vault code is 7341; tell no one!!!&#39;
 </code></pre></div>
 
+<figure class="widget" id="w-p3-nonce-reuse">
+  <style>
+    #w-p3-nonce-reuse .p3-imgs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+    #w-p3-nonce-reuse canvas { display: block; width: 100%; height: auto; image-rendering: pixelated;
+                               border: 1px solid var(--line); border-radius: 4px; }
+    @media (max-width: 640px) { #w-p3-nonce-reuse .p3-imgs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <p class="widget-title">Two pictures under one keystream</p>
+  <p class="widget-hint">Switch the second picture to a fresh nonce: the XOR of the ciphertexts turns back into noise.</p>
+  <div class="controls"></div>
+  <div class="p3-imgs">
+    <div><p class="panel-title">C₁ (public notice)</p><canvas class="c-c1" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₂ (secret)</p><canvas class="c-c2" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₁ ⊕ C₂</p><canvas class="c-x" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₁ ⊕ C₂ ⊕ P₁</p><canvas class="c-r" width="96" height="64"></canvas></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both pictures are encrypted with real AES-128 in CTR mode under one key, 4 bytes per pixel. With the same nonce the keystream cancels: \(C_1 \oplus C_2 = P_1 \oplus P_2\), which shows both pictures on top of each other (black where they agree, since the XOR is zero there). An attacker who knows the public notice \(P_1\) removes it and reads the secret, without the key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-nonce-reuse';
+  // AES-128, as in the AES standard: encryption of one 16-byte block.
+  const SB = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; }
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  if (hex(encBlock(expandKey(hexb('000102030405060708090a0b0c0d0e0f')), hexb('00112233445566778899aabbccddeeff')))
+      !== '69c4e0d86a7b0430d8cdb78070b4c55a') throw new Error('AES self-test failed');
+
+  // Two 96 x 64 pictures, 4 bytes per pixel: the padlock (public) and the vault code 7341 (secret).
+  const W = 96, H = 64, N = W * H * 4;
+  const COL = { bg: [0xf6, 0xf8, 0xfa], shackle: [0x8c, 0x95, 0x9f], body: [0x2a, 0x78, 0xd6], ink: [0x1f, 0x23, 0x28], code: [0xe3, 0x49, 0x48] };
+  function padlock(x, y) {
+    const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 48, py - 29);
+    if (px > 22 && px < 74 && py > 29 && py < 60) {
+      if (Math.hypot(px - 48, py - 40) < 5 || (Math.abs(px - 48) < 2.2 + (py - 40) * 0.12 && py > 40 && py < 53)) return 'ink';
+      return 'body';
+    }
+    return py <= 29 && d >= 12 && d <= 20 ? 'shackle' : 'bg';
+  }
+  const GLYPH = {
+    7: ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+    3: ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+    4: ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+    1: ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  };
+  function code(x, y) {                        // "7341", 5 x 7 glyphs scaled by 4, centred
+    const gx = x - 2, gy = y - 18;
+    if (gx < 0 || gy < 0 || gy >= 28) return 'bg';
+    const k = Math.floor(gx / 24), cx = Math.floor((gx % 24) / 4);
+    if (k > 3 || cx > 4) return 'bg';
+    return GLYPH['7341'[k]][Math.floor(gy / 4)][cx] === '1' ? 'code' : 'bg';
+  }
+  function picture(f) {
+    const out = new Uint8Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = COL[f(x, y)], o = 4 * (y * W + x);
+      out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; out[o + 3] = 0xff;
+    }
+    return out;
+  }
+  const P1 = picture(padlock), P2 = picture(code);
+
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  function keystream(nonce) {                  // CTR: E_K(8-byte nonce || 8-byte block counter)
+    const out = new Uint8Array(N), cb = new Uint8Array(16); cb.set(nonce);
+    for (let i = 0; i < N / 16; i++) {
+      for (let j = 0, v = i; j < 8; j++, v = Math.floor(v / 256)) cb[15 - j] = v & 0xff;
+      out.set(encBlock(key, cb), 16 * i);
+    }
+    return out;
+  }
+  const xor = (a, b) => a.map((x, i) => x ^ b[i]);
+  const nonce1 = hexb('6a4d5297d238f40a'), nonce2 = hexb('c31f0b7e5a90d264');
+  const S1 = keystream(nonce1), S2 = keystream(nonce2);
+  const C1 = xor(P1, S1);
+
+  function paint(sel, bytes) {
+    const cv = document.querySelector(root + ' ' + sel), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      img.data[4 * i] = bytes[4 * i]; img.data[4 * i + 1] = bytes[4 * i + 1]; img.data[4 * i + 2] = bytes[4 * i + 2]; img.data[4 * i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  // compare only the 3 colour bytes of each pixel (the fourth byte is not drawn)
+  const share = (a, b) => { let n = 0, m = 0; for (let i = 0; i < N; i++) if (i % 4 !== 3) { m++; if (a[i] === b[i]) n++; } return n / m; };
+
+  const ui = DS.controls(root + ' .controls', render);
+  const mode = ui.choice({ label: 'Nonce of the secret picture', options: [{ value: 'same', label: 'Same as C₁ (reused)' }, { value: 'fresh', label: 'Fresh' }], value: 'same' });
+  function render() {
+    const reused = mode.value === 'same';
+    const C2 = xor(P2, reused ? S1 : S2), X = xor(C1, C2), Rec = xor(X, P1);
+    paint('.c-c1', C1); paint('.c-c2', C2); paint('.c-x', X); paint('.c-r', Rec);
+    const a = share(X, xor(P1, P2)), b = share(Rec, P2);
+    DS.stats(root + ' .readout', [
+      { label: 'Nonces', value: reused ? 'equal' : 'different', note: `${hex(nonce1)} and ${hex(reused ? nonce1 : nonce2)}` },
+      { label: 'C₁ ⊕ C₂ agrees with P₁ ⊕ P₂', value: DS.pct(a), note: 'of the colour bytes', tone: reused ? 'bad' : 'good' },
+      { label: 'Secret bytes recovered', value: DS.pct(b), note: reused ? 'the whole picture' : 'about 1 in 256, by chance', tone: reused ? 'bad' : 'good' },
+    ]);
+  }
+  render();
+})();
+</script>
 <p>This is not hypothetical. The KRACK attacks on WPA2 Wi-Fi (Vanhoef and Piessens, 2017) tricked
 devices into reinstalling a key and resetting their nonces. For <abbr title="Advanced Encryption Standard">AES</abbr>-GCM, nonce reuse is worse
 still: it also destroys authentication (§10).</p>
@@ -326,10 +593,341 @@ CBC is malleable too (flip IV byte 5): b&#39;pay $900 to Bob&#39;
 
 <p>(The first 8 bytes of each ciphertext are the nonce.) The attacker needed no key and broke no
 cryptography, only knowledge of the message format, which is rarely secret.</p>
+<figure class="widget" id="w-p3-ctr-bitflip">
+  <style>
+    #w-p3-ctr-bitflip .p3-msg { display: grid; grid-template-columns: 8.5rem repeat(15, minmax(0, 1fr)); gap: 3px 2px;
+      font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 4px 0 14px; }
+    #w-p3-ctr-bitflip .lab { font: 600 13px/1.3 var(--font); color: var(--ink-2); align-self: center; }
+    #w-p3-ctr-bitflip .cell { text-align: center; padding: 3px 0; border-radius: 4px; cursor: pointer; white-space: pre; }
+    #w-p3-ctr-bitflip .idx { color: var(--muted); font-size: 11px; }
+    #w-p3-ctr-bitflip .sel { outline: 1.5px solid var(--ink-muted); outline-offset: -1.5px; }
+    #w-p3-ctr-bitflip .hot { background: color-mix(in srgb, var(--series-2) 24%, transparent); }
+    #w-p3-ctr-bitflip .reject { grid-column: span 15; text-align: center; padding: 3px 0; border-radius: 4px; font-family: var(--font);
+      background: color-mix(in srgb, var(--series-6) 16%, transparent); }
+    #w-p3-ctr-bitflip table.bits { border-collapse: collapse; font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0; }
+    #w-p3-ctr-bitflip table.bits td, #w-p3-ctr-bitflip table.bits th { padding: 3px 4px; text-align: center; border: 0; }
+    #w-p3-ctr-bitflip table.bits th { font: 600 13px/1.3 var(--font); color: var(--ink-2); text-align: left; padding-right: 10px; white-space: nowrap; background: none; }
+    #w-p3-ctr-bitflip table.bits th .desc { font-weight: 400; color: var(--fg-2); }
+    #w-p3-ctr-bitflip table.bits td.b { width: 1.6em; }
+    #w-p3-ctr-bitflip table.bits td.gap { padding-left: 10px; }
+    #w-p3-ctr-bitflip table.bits tr.head td { color: var(--muted); font-size: 11px; }
+    #w-p3-ctr-bitflip table.bits tr.secret td { color: var(--muted); }
+    #w-p3-ctr-bitflip table.bits button { font: inherit; width: 1.6em; padding: 1px 0; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); }
+    #w-p3-ctr-bitflip table.bits button[aria-pressed="true"] { background: var(--series-2); border-color: var(--series-2); color: #fff; font-weight: 700; }
+    #w-p3-ctr-bitflip .bitwrap { overflow-x: auto; }
+    @media (max-width: 640px) {
+      #w-p3-ctr-bitflip .p3-msg { grid-template-columns: repeat(15, minmax(0, 1fr)); font-size: 12px; }
+      #w-p3-ctr-bitflip .lab { grid-column: 1 / -1; margin-top: 4px; }
+      #w-p3-ctr-bitflip .lab.idxlab { display: none; }
+      #w-p3-ctr-bitflip table.bits { font-size: 12px; }
+      #w-p3-ctr-bitflip table.bits td, #w-p3-ctr-bitflip table.bits th { padding: 3px 2px; }
+      #w-p3-ctr-bitflip table.bits th { padding-right: 6px; }
+      #w-p3-ctr-bitflip table.bits th .desc { display: none; }
+      #w-p3-ctr-bitflip table.bits td.gap { padding-left: 6px; }
+      #w-p3-ctr-bitflip table.bits td.b, #w-p3-ctr-bitflip table.bits button { width: 1.45em; }
+    }
+  </style>
+  <p class="widget-title">The bit-flipping attack, one bit at a time</p>
+  <p class="widget-hint">Click the bits of δ: each one flips the same bit of the byte the bank decrypts. Click another byte of the message to attack it. Then turn on the tag check.</p>
+  <div class="controls"></div>
+  <div class="p3-msg"></div>
+  <div class="bitwrap"><table class="bits"></table></div>
+  <div class="readout"></div>
+  <figcaption>The ciphertext is the one of part 5 of the script <code>p3_modes.py</code>: nonce <code>2af899a3e1f16bdc</code>, then 15 bytes. The attacker never sees the keystream row; it is shown, greyed out, only to make the arithmetic visible. With the tag check on, the bank first recomputes the HMAC tag over nonce and ciphertext with its MAC key and compares it with the tag the sender attached. Any change to the ciphertext fails that check, so nothing is decrypted.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-ctr-bitflip';
+  // The 256-bit secure hash function and HMAC, checked below against a published test vector.
+  const K256 = [], H0 = [];
+  { const fr = x => ((x - Math.floor(x)) * 2 ** 32) >>> 0; let n = 2;
+    while (K256.length < 64) { let pr = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) pr = false;
+      if (pr) { if (H0.length < 8) H0.push(fr(Math.sqrt(n))); K256.push(fr(Math.cbrt(n))); } n++; } }
+  function hash256(msg) {
+    const L = msg.length, n = ((L + 9 + 63) >> 6) << 6, m = new Uint8Array(n);
+    m.set(msg); m[L] = 0x80;
+    for (let i = 0; i < 8; i++) m[n - 1 - i] = Math.floor(L * 8 / 2 ** (8 * i)) & 0xff;
+    const h = H0.slice(), w = new Array(64), ro = (x, s) => (x >>> s) | (x << (32 - s));
+    for (let o = 0; o < n; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = (m[o + 4 * i] << 24 | m[o + 4 * i + 1] << 16 | m[o + 4 * i + 2] << 8 | m[o + 4 * i + 3]) >>> 0;
+      for (let i = 16; i < 64; i++) {
+        const s0 = ro(w[i - 15], 7) ^ ro(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = ro(w[i - 2], 17) ^ ro(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (hh + (ro(e, 6) ^ ro(e, 11) ^ ro(e, 25)) + ((e & f) ^ (~e & g)) + K256[i] + w[i]) >>> 0;
+        const t2 = ((ro(a, 2) ^ ro(a, 13) ^ ro(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      [a, b, c, d, e, f, g, hh].forEach((v, i) => { h[i] = (h[i] + v) >>> 0; });
+    }
+    const out = new Uint8Array(32);
+    h.forEach((v, i) => { for (let j = 0; j < 4; j++) out[4 * i + j] = (v >>> (24 - 8 * j)) & 0xff; });
+    return out;
+  }
+  const cat = (a, b) => { const r = new Uint8Array(a.length + b.length); r.set(a); r.set(b, a.length); return r; };
+  function hmac(key, msg) {
+    const k = new Uint8Array(64); k.set(key.length > 64 ? hash256(key) : key);
+    return hash256(cat(k.map(x => x ^ 0x5c), hash256(cat(k.map(x => x ^ 0x36), msg))));
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  const enc = s => new TextEncoder().encode(s);
+  if (hex(hmac(enc('Jefe'), enc('what do ya want for nothing?')))
+      !== '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843') throw new Error('HMAC self-test failed');
+
+  // Part 5 of p3_modes.py: "pay $100 to Bob" under AES-CTR.
+  const nonce = hexb('2af899a3e1f16bdc'), C = hexb('e8fafcc617d4be8b6de5dbb4370708');
+  const P = enc('pay $100 to Bob'), S = C.map((c, i) => c ^ P[i]);       // keystream: only the key holder knows it
+  const macKey = hexb('99aec2bd13a8e003589fe1ab3edaf8c6515d6410246fce2892601bc222871ef5');
+  const tagSent = hmac(macKey, cat(nonce, C));
+  const n = C.length;
+
+  const delta = new Uint8Array(n); delta[5] = 0x08;                       // '1' xor '9'
+  let sel = 5;
+  const h2 = v => v.toString(16).padStart(2, '0');
+  const ch = v => v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : '·';
+  const bits = v => Array.from({ length: 8 }, (_, k) => (v >> (7 - k)) & 1);
+
+  const ui = DS.controls(root + ' .controls', render);
+  const mac = ui.toggle({ label: 'Bank checks an HMAC tag before decrypting', value: false });
+  ui.button({ label: 'Reset δ', onClick: () => delta.fill(0) });
+
+  const msg = document.querySelector(root + ' .p3-msg'), tbl = document.querySelector(root + ' table.bits');
+  function el(tag, cls, parent, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; parent.appendChild(e); return e; }
+
+  function render() {
+    const sent = C.map((c, i) => c ^ delta[i]), dec = sent.map((c, i) => c ^ S[i]);
+    const changed = Array.from(delta, d => d !== 0), anyChange = changed.some(Boolean);
+    const tagNow = hmac(macKey, cat(nonce, sent)), tagOk = hex(tagNow) === hex(tagSent);
+    const rejected = mac.value && !tagOk;
+
+    msg.textContent = '';
+    const row = (label, f, cls) => {
+      el('div', 'lab' + (cls ? ' ' + cls : ''), msg, label);
+      for (let i = 0; i < n; i++) {
+        const c = el('div', 'cell' + (i === sel ? ' sel' : '') + (f.hot && changed[i] ? ' hot' : '') + (f.idx ? ' idx' : ''), msg, f.text(i));
+        c.addEventListener('click', () => { sel = i; render(); });
+      }
+    };
+    row('byte', { text: i => String(i), idx: true }, 'idxlab');
+    row("bank's order P", { text: i => ch(P[i]) });
+    row('sent C ⊕ δ', { text: i => h2(sent[i]), hot: true });
+    el('div', 'lab', msg, 'bank reads');
+    if (rejected) el('div', 'reject', msg, 'rejected: the tag does not match, nothing is decrypted');
+    else for (let i = 0; i < n; i++) {
+      const c = el('div', 'cell' + (i === sel ? ' sel' : '') + (changed[i] ? ' hot' : ''), msg, ch(dec[i]));
+      c.addEventListener('click', () => { sel = i; render(); });
+    }
+
+    tbl.textContent = '';
+    const d = delta[sel];
+    const head = el('tr', 'head', tbl);
+    el('th', null, head, `byte ${sel}`); el('td', null, head, 'hex');
+    for (let k = 7; k >= 0; k--) el('td', 'b' + (k === 3 ? ' gap' : ''), head, String(k));
+    el('td', null, head, '');
+    const line = (sym, desc, v, opts = {}) => {
+      const tr = el('tr', opts.cls || null, tbl);
+      el('span', 'desc', el('th', null, tr, sym), ' ' + desc); el('td', null, tr, h2(v));
+      bits(v).forEach((b, k) => {
+        const td = el('td', 'b' + (k === 4 ? ' gap' : '') + (opts.mark && (d >> (7 - k)) & 1 ? ' hot' : ''), tr);
+        if (opts.buttons) {
+          const btn = el('button', null, td, String(b)); btn.type = 'button';
+          btn.setAttribute('aria-pressed', String(!!b)); btn.setAttribute('aria-label', `flip bit ${7 - k} of byte ${sel}`);
+          btn.addEventListener('click', () => { delta[sel] ^= 1 << (7 - k); render(); });
+        } else td.textContent = String(b);
+      });
+      el('td', null, tr, opts.char ? `'${ch(v)}'` : '');
+    };
+    line('P', "bank's order", P[sel], { char: true, mark: true });
+    line('S', 'keystream (secret)', S[sel], { cls: 'secret' });
+    line('C = P ⊕ S', 'ciphertext', C[sel], { mark: true });
+    line('δ', "attacker's mask", d, { buttons: true });
+    line('C ⊕ δ', 'sent', sent[sel], { mark: true });
+    if (rejected) { const tr = el('tr', null, tbl); el('th', null, tr, 'decrypted'); const td = el('td', null, tr, 'nothing: the tag check failed'); td.colSpan = 10; td.style.textAlign = 'left'; td.style.fontFamily = 'var(--font)'; }
+    else line('C ⊕ δ ⊕ S', 'decrypted', dec[sel], { char: true, mark: true });
+
+    const text = Array.from(dec, ch).join('');
+    if (!mac.value) DS.stats(root + ' .readout', [
+      { label: 'Bank decrypts', value: text, note: anyChange ? 'the attacker used no key' : 'what the sender wrote', tone: anyChange ? 'bad' : undefined },
+      { label: 'Bytes changed by the attacker', value: String(changed.filter(Boolean).length),
+        note: anyChange ? Array.from(delta).map((v, i) => v ? `byte ${i} ⊕ ${h2(v)}` : '').filter(Boolean).join(', ') : 'δ is all zero' },
+    ]);
+    else DS.stats(root + ' .readout', [
+      { label: 'Tag attached by the sender', value: hex(tagSent).slice(0, 8) + '…', note: 'HMAC of nonce ‖ C' },
+      { label: 'Tag the bank computes', value: hex(tagNow).slice(0, 8) + '…', note: 'HMAC of nonce ‖ (C ⊕ δ)', tone: tagOk ? 'good' : 'bad' },
+      { label: 'Bank', value: tagOk ? 'accepts' : 'rejects', note: tagOk ? text : 'the attacker cannot make a valid tag without the MAC key', tone: 'good' },
+    ]);
+  }
+  render();
+})();
+</script>
 <p><abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> is malleable too. Flipping a bit of \(C_{i-1}\) flips the same bit of \(P_i\), at the price of
 turning \(P_{i-1}\) into garbage; flipping a bit of the <abbr title="initialization vector">IV</abbr> flips the same bit of \(P_1\) cleanly, as
 the last line of part 5 shows. <abbr title="National Institute of Standards and Technology">NIST</abbr> says the same in plain words: <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38D, Appendix A, calls
 <abbr title="counter mode (a block cipher mode)">CTR</abbr> ciphertext "malleable" and gives this as the reason to combine it with authentication.</p>
+<figure class="widget" id="w-p3-cbc-flip">
+  <style>
+    #w-p3-cbc-flip svg { display: block; width: 100%; max-width: 600px; height: auto; margin: 0 auto 6px; font-family: var(--font); }
+    #w-p3-cbc-flip svg text { fill: var(--ink); font-size: 17px; }
+    #w-p3-cbc-flip svg text.note { fill: var(--ink-2); font-size: 15px; }
+    #w-p3-cbc-flip .rows { display: grid; grid-template-columns: 2.5rem repeat(16, minmax(0, 1fr)); gap: 3px 2px;
+      font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 8px auto 4px; max-width: 600px; }
+    #w-p3-cbc-flip .lab { font: 600 13px/1.3 var(--font); color: var(--ink-2); align-self: center; }
+    #w-p3-cbc-flip .cell { text-align: center; padding: 3px 0; border-radius: 4px; white-space: pre; }
+    #w-p3-cbc-flip .bad { background: color-mix(in srgb, var(--series-8) 22%, transparent); }
+    #w-p3-cbc-flip .hot { background: color-mix(in srgb, var(--series-2) 30%, transparent); }
+    @media (max-width: 640px) { #w-p3-cbc-flip .rows { grid-template-columns: 1.6rem repeat(16, minmax(0, 1fr)); font-size: 12px; } }
+  </style>
+  <p class="widget-title">Flipping one bit in CBC</p>
+  <p class="widget-hint">Choose which block the attacker changes. The flipped block decrypts to garbage; the block after it gets exactly the flipped bit.</p>
+  <div class="controls"></div>
+  <svg viewBox="0 0 488 252" role="img" aria-label="CBC decryption: each ciphertext block goes through the AES decryption D_K and is then XORed with the previous ciphertext block (the IV for the first block)."></svg>
+  <div class="rows"></div>
+  <div class="readout"></div>
+  <figcaption>CBC decryption, \(P_i = D_K(C_i) \oplus C_{i-1}\), with real AES-128 on a three-block message (the padding block is left out). The attacker XORs byte 5 of one block with {08}. That block passes through \(D_K\), which turns one changed input bit into about half of the 128 output bits changed. The same block also enters the next XOR unchanged by any cipher, so the next plaintext block gets exactly the flipped bit: with \(C_1\) changed, the '1' of $100 in \(P_2\) becomes a '9'.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-cbc-flip';
+  // AES-128, as in the AES standard: encryption and decryption of one 16-byte block.
+  const SB = new Uint8Array(256), SI = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; for (let i = 0; i < 256; i++) SI[SB[i]] = i; }
+  const gmul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xt(a); b >>= 1; } return r; };
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  function decBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[160 + i]);
+    for (let r = 9; r >= 0; r--) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * ((c + j) % 4)] = SI[s[j + 4 * c]];
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+      if (r > 0) for (let c = 0; c < 16; c += 4) {
+        const a0 = s[c], a1 = s[c + 1], a2 = s[c + 2], a3 = s[c + 3];
+        s[c] = gmul(a0, 14) ^ gmul(a1, 11) ^ gmul(a2, 13) ^ gmul(a3, 9); s[c + 1] = gmul(a0, 9) ^ gmul(a1, 14) ^ gmul(a2, 11) ^ gmul(a3, 13);
+        s[c + 2] = gmul(a0, 13) ^ gmul(a1, 9) ^ gmul(a2, 14) ^ gmul(a3, 11); s[c + 3] = gmul(a0, 11) ^ gmul(a1, 13) ^ gmul(a2, 9) ^ gmul(a3, 14);
+      }
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  { const w = expandKey(hexb('000102030405060708090a0b0c0d0e0f')), c = encBlock(w, hexb('00112233445566778899aabbccddeeff'));
+    if (hex(c) !== '69c4e0d86a7b0430d8cdb78070b4c55a' || hex(decBlock(w, c)) !== '00112233445566778899aabbccddeeff') throw new Error('AES self-test failed'); }
+
+  // Encrypt a three-block message once; the attacker then changes the ciphertext.
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  const plain = ['date: 2026-11-02', 'pay $100 to Bob ', 'ref: rent, Nov. '].map(s => new TextEncoder().encode(s));
+  const R = DS.random(5), iv = Uint8Array.from({ length: 16 }, () => R.int(256));
+  const ct = [iv];                                             // ct[0] = IV, ct[i] = C_i
+  plain.forEach((p, i) => ct.push(encBlock(key, p.map((x, j) => x ^ ct[i][j]))));
+  const BYTE = 5, DELTA = 0x08;
+
+  // ---------------------------------------------------------------- diagram
+  const NS = 'http://www.w3.org/2000/svg', svg = document.querySelector(root + ' svg');
+  const X = [42, 174, 306, 438], SUB = ['', '₁', '₂', '₃'];
+  function add(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  const COLOR = { idle: 'var(--line-strong)', bad: 'var(--series-8)', hot: 'var(--series-2)' };
+  function wire(pts, tone, head) {
+    const c = COLOR[tone], w = tone === 'idle' ? 1.5 : 2.5;
+    add('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'round' });
+    if (head) {
+      const [x0, y0] = pts[pts.length - 2], [x1, y1] = pts[pts.length - 1], a = Math.atan2(y1 - y0, x1 - x0), L = 8;
+      const p1 = [x1 - L * Math.cos(a - 0.45), y1 - L * Math.sin(a - 0.45)], p2 = [x1 - L * Math.cos(a + 0.45), y1 - L * Math.sin(a + 0.45)];
+      add('polygon', { points: [[x1, y1], p1, p2].map(p => p.join(',')).join(' '), fill: c });
+    }
+  }
+  function box(x, y, w, h, label, tone, sub) {
+    const fill = tone === 'idle' ? 'var(--bg)' : `color-mix(in srgb, ${COLOR[tone]} 22%, var(--bg))`;
+    add('rect', { x: x - w / 2, y, width: w, height: h, rx: 6, fill, stroke: tone === 'idle' ? 'var(--line-strong)' : COLOR[tone], 'stroke-width': tone === 'idle' ? 1.5 : 2.5 });
+    const t = add('text', { x, y: y + h / 2 + 6, 'text-anchor': 'middle' }, label);
+    if (sub) { const s = document.createElementNS(NS, 'tspan'); s.setAttribute('font-size', '12'); s.setAttribute('dy', '3'); s.textContent = sub; t.appendChild(s); }
+  }
+  function draw(k, status) {                                   // k: flipped block (0 = IV), or -1
+    svg.textContent = '';
+    for (let i = 1; i <= 3; i++) {
+      const own = k === i ? 'bad' : 'idle', prevTone = k === i - 1 ? 'hot' : 'idle';
+      const out = status[i - 1] === 'garbled' ? 'bad' : status[i - 1] === 'flipped' ? 'hot' : 'idle';
+      wire([[X[i], 46], [X[i], 78]], own, true);
+      wire([[X[i], 108], [X[i], 139]], own, true);
+      wire([[X[i - 1], 46], [X[i - 1], 60], [X[i - 1] + 62, 60], [X[i - 1] + 62, 150], [X[i] - 11, 150]], prevTone, true);
+      wire([[X[i], 161], [X[i], 186]], out, true);
+      box(X[i], 78, 60, 30, 'D', 'idle', 'K');
+      add('circle', { cx: X[i], cy: 150, r: 11, fill: 'var(--bg)', stroke: out === 'idle' ? 'var(--line-strong)' : COLOR[out], 'stroke-width': out === 'idle' ? 1.5 : 2.5 });
+      add('path', { d: `M${X[i] - 6},150h12M${X[i]},144v12`, stroke: 'var(--ink)', 'stroke-width': 1.5 });
+      box(X[i], 186, 76, 30, 'P' + SUB[i], out);
+      add('text', { x: X[i], y: 240, 'text-anchor': 'middle', class: 'note' },
+        status[i - 1] === 'garbled' ? 'garbled' : status[i - 1] === 'flipped' ? 'one bit flipped' : 'intact');
+    }
+    for (let i = 0; i <= 3; i++) box(X[i], 14, 76, 32, i ? 'C' + SUB[i] : 'IV', k === i ? 'hot' : 'idle');
+  }
+
+  // ---------------------------------------------------------------- decryption and readout
+  const rows = document.querySelector(root + ' .rows');
+  const ch = v => v >= 0x20 && v < 0x7f ? String.fromCharCode(v) : '·';
+  const ui = DS.controls(root + ' .controls', render);
+  const which = ui.choice({ label: 'Attacker flips bit 3 of byte 5 in', value: 1,
+    options: [{ value: -1, label: 'nothing' }, { value: 0, label: 'IV' }, { value: 1, label: 'C₁' }, { value: 2, label: 'C₂' }, { value: 3, label: 'C₃' }] });
+  function render() {
+    const k = which.value;
+    const sent = ct.map((b, i) => i === k ? b.map((x, j) => j === BYTE ? x ^ DELTA : x) : b);
+    const dec = [1, 2, 3].map(i => decBlock(key, sent[i]).map((x, j) => x ^ sent[i - 1][j]));
+    const status = dec.map((d, i) => {
+      const diff = d.map((x, j) => x ^ plain[i][j]), n = diff.filter(Boolean).length;
+      return n === 0 ? 'intact' : n === 1 && diff[BYTE] === DELTA ? 'flipped' : 'garbled';
+    });
+    draw(k, status);
+    rows.textContent = '';
+    dec.forEach((d, i) => {
+      const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'P' + SUB[i + 1]; rows.appendChild(lab);
+      d.forEach((x, j) => {
+        const c = document.createElement('div');
+        c.className = 'cell' + (x === plain[i][j] ? '' : status[i] === 'flipped' ? ' hot' : ' bad');
+        c.textContent = ch(x); rows.appendChild(c);
+      });
+    });
+    DS.stats(root + ' .readout', dec.map((d, i) => {
+      const n = d.filter((x, j) => x !== plain[i][j]).length;
+      let bits = 0; d.forEach((x, j) => { let v = x ^ plain[i][j]; while (v) { bits += v & 1; v >>= 1; } });
+      return { label: `P${SUB[i + 1]} after decryption`, value: status[i] === 'intact' ? 'intact' : `${bits} bit${bits > 1 ? 's' : ''} changed`,
+               note: status[i] === 'garbled' ? `${n} of 16 bytes differ` : status[i] === 'flipped' ? `byte ${BYTE} ⊕ 08: '${ch(plain[i][BYTE])}' → '${ch(d[BYTE])}'` : 'as sent',
+               tone: status[i] === 'garbled' ? 'bad' : undefined };
+    }));
+  }
+  render();
+})();
+</script>
 <p>Look at the attack from the other side: \(\mathrm{Dec}(C \oplus \delta) = \mathrm{Dec}(C) \oplus \delta\).
 That is a <strong>homomorphism</strong>: an operation on ciphertexts that performs a known operation on the
 hidden plaintexts. <abbr title="counter mode (a block cipher mode)">CTR</abbr> has only this one (<abbr title="exclusive or">XOR</abbr> with a public constant), and here it is a weapon.
@@ -341,13 +939,14 @@ and rejects the message if it differs. The security goal (<strong>unforgeability
 valid tags on many messages of its choice, an attacker cannot produce a valid tag for any new
 message. A <abbr title="message authentication code">MAC</abbr> gives integrity and authenticity, since only key holders can make valid tags. It
 gives no confidentiality.</p>
-<p><strong>Why not just \(\mathrm{SHA\text{-}256}(K \,\|\, m)\)?</strong> <abbr title="Secure Hash Algorithm">SHA</abbr>-256 processes its input block by
-block and outputs its internal state. Given \(H(K \,\|\, m)\), anyone can continue hashing and
-compute \(H(K \,\|\, m \,\|\, \text{pad} \,\|\, m&#x27;)\) for a chosen \(m&#x27;\) without knowing \(K\): a
-<strong>length-extension</strong> forgery. (Here "pad" is <abbr title="Secure Hash Algorithm">SHA</abbr>-256's own fixed length padding, which the
-attacker can compute from the length of \(K \,\|\, m\); it has nothing to do with a one-time
-pad.)</p>
-<p><strong><abbr title="hash-based message authentication code">HMAC</abbr></strong> (Bellare, Canetti and Krawczyk, 1996; <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 2104, 1997) hashes twice with two derived
+<p><strong>Why not just \(\mathrm{SHA\text{-}256}(K \,\|\, m)\)?</strong> <abbr title="Secure Hash Algorithm">SHA</abbr>-256 (from the Secure Hash Algorithm
+family) processes its input block by block and outputs its internal state. Given
+\(H(K \,\|\, m)\), anyone can continue hashing and compute \(H(K \,\|\, m \,\|\, \text{pad} \,\|\, m&#x27;)\)
+for a chosen \(m&#x27;\) without knowing \(K\): a <strong>length-extension</strong> forgery. (Here "pad" is <abbr title="Secure Hash Algorithm">SHA</abbr>-256's own
+fixed length padding, which the attacker can compute from the length of \(K \,\|\, m\); it has
+nothing to do with a one-time pad.)</p>
+<p><strong><abbr title="hash-based message authentication code">HMAC</abbr></strong> (Bellare, Canetti and Krawczyk, 1996; standardized by the Internet Engineering Task
+Force (<abbr title="Internet Engineering Task Force">IETF</abbr>) as Request for Comments (<abbr title="Request for Comments (an IETF standard)">RFC</abbr>) 2104, 1997) hashes twice with two derived
 keys:</p>
 <div class="math-display">\[\mathrm{HMAC}(K, m) = H\big((K&#x27; \oplus \mathit{opad}) \,\|\, H((K&#x27; \oplus \mathit{ipad}) \,\|\, m)\big)\]</div>
 <ul>
@@ -423,14 +1022,15 @@ encryption with associated data (<abbr title="authenticated encryption with asso
 <p>The <strong>associated data</strong> AD (say, a packet header) is authenticated but not encrypted. Decryption
 either returns the message or fails; it never returns a tampered plaintext.</p>
 <ul>
-<li><strong><abbr title="Advanced Encryption Standard">AES</abbr>-GCM</strong> (Galois/Counter Mode, <abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38D, 2007) is <abbr title="counter mode (a block cipher mode)">CTR</abbr> mode plus <strong><abbr title="Galois hash (the authenticator inside GCM)">GHASH</abbr></strong>, a
-  keyed hash that treats the associated data and ciphertext blocks as the coefficients of a
-  polynomial and evaluates it at a secret point \(H = E_K(0)\) in the field
-  \(\mathrm{GF}(2^{128})\), the 128-bit cousin of the field in <a href="p2_aes.html">P2</a>. The result,
-  masked with one more <abbr title="Advanced Encryption Standard">AES</abbr> output, is the tag. With <abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr> and the <abbr title="central processing unit">CPU</abbr>'s carry-less
-  multiplication instruction it runs at gigabytes per second. Its weak spot is the nonce (96
-  bits recommended): if a nonce is ever repeated under a key, an attacker can usually recover
-  \(H\) and then forge tags for any ciphertext (Joux, 2006; <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38D, Appendix A).</li>
+<li><strong><abbr title="Advanced Encryption Standard">AES</abbr>-GCM</strong> (Galois/Counter Mode, <abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38D, 2007) is <abbr title="counter mode (a block cipher mode)">CTR</abbr> mode plus an authenticator,
+  <strong><abbr title="Galois hash (the authenticator inside GCM)">GHASH</abbr></strong> (Galois hash): a keyed hash that treats the associated data and ciphertext blocks as
+  the coefficients of a polynomial and evaluates it at a secret point \(H = E_K(0)\) in the field
+  \(\mathrm{GF}(2^{128})\), the 128-bit cousin of the field in <a href="p2_aes.html">P2</a>. The result, masked
+  with one more <abbr title="Advanced Encryption Standard">AES</abbr> output, is the tag. With Intel's <abbr title="Advanced Encryption Standard">AES</abbr> New Instructions (<abbr title="AES New Instructions (Intel&#x27;s CPU instructions for AES)">AES-NI</abbr>) and the
+  processor's carry-less multiplication instruction it runs at gigabytes per second. Its weak
+  spot is the nonce (96 bits recommended): if a nonce is ever repeated under a key, an attacker
+  can usually recover \(H\) and then forge tags for any ciphertext (Joux, 2006; <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38D,
+  Appendix A).</li>
 <li><strong>ChaCha20-Poly1305</strong> (<abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8439, 2018, which replaced <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 7539) combines Bernstein's ChaCha20
   stream cipher with the Poly1305 <abbr title="message authentication code">MAC</abbr>. It needs no special hardware; <abbr title="Request for Comments (an IETF standard)">RFC</abbr> 8439 estimates it at
   about three times the speed of <abbr title="Advanced Encryption Standard">AES</abbr> on platforms without <abbr title="Advanced Encryption Standard">AES</abbr> instructions. It also uses a
@@ -520,11 +1120,11 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
 <h2 id="12-how-this-connects-to-homomorphic-encryption">12. How this connects to homomorphic encryption<a class="headerlink" href="#12-how-this-connects-to-homomorphic-encryption" title="Link to this section">#</a></h2>
 <ul>
 <li><strong><abbr title="homomorphic encryption">HE</abbr> encryption is randomized, for the same reason as <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>.</strong> Every <abbr title="homomorphic encryption">HE</abbr> scheme in these
-  notes is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure, so it cannot be deterministic. In <abbr title="learning with errors">LWE</abbr> (<a href="p7_lattices_and_lwe.html">P7</a>)
-  each encryption draws a fresh random mask <code>a</code> and fresh noise <code>e</code>, which play the role of the
-  <abbr title="initialization vector">IV</abbr> or nonce: encrypting 0 twice gives two completely different ciphertexts. <abbr title="homomorphic encryption">HE</abbr> ciphertexts
-  are also much larger than their plaintexts, partly for the same reason: the random mask
-  travels with the ciphertext.</li>
+  notes is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure, so it cannot be deterministic. In learning with errors (<abbr title="learning with errors">LWE</abbr>)
+  (<a href="p7_lattices_and_lwe.html">P7</a>) each encryption draws a fresh random mask <code>a</code> and fresh noise
+  <code>e</code>, which play the role of the <abbr title="initialization vector">IV</abbr> or nonce: encrypting 0 twice gives two completely different
+  ciphertexts. <abbr title="homomorphic encryption">HE</abbr> ciphertexts are also much larger than their plaintexts, partly for the same
+  reason: the random mask travels with the ciphertext.</li>
 <li><strong>Malleability is the feature.</strong> This chapter treated malleability as an attack: the
   attacker turned \(\mathrm{Enc}(m)\) into \(\mathrm{Enc}(m \oplus \delta)\). Homomorphic encryption
   is malleability made rich and controllable: anyone holding \(\mathrm{Enc}(a)\) and
@@ -546,13 +1146,14 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
   accepts only if they agree;</li>
 <li>a <strong>trusted execution environment (<abbr title="trusted execution environment">TEE</abbr>)</strong>: a hardware enclave that computes on plaintext
   in protected memory; running the <abbr title="homomorphic encryption">HE</abbr> evaluator inside one adds a second line of defence;</li>
-<li><strong>secure multi-party computation (<abbr title="secure multiparty computation">MPC</abbr>)</strong>: several parties compute jointly on secret
+<li><strong>secure multiparty computation (<abbr title="secure multiparty computation">MPC</abbr>)</strong>: several parties compute jointly on secret
   shares of the data; versions secure against cheating parties detect a wrong result
   unless too many of them collude.</li>
 </ul>
 </li>
-<li><strong>And <abbr title="homomorphic encryption">HE</abbr> can never be <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr></strong>, the stronger notion in which the attacker may also ask for
-  decryptions: it would maul the challenge and ask for the decryption of the result.
+<li><strong>And <abbr title="homomorphic encryption">HE</abbr> can never be <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr></strong> (indistinguishability under adaptive chosen-ciphertext
+  attack), the stronger notion in which the attacker may also ask for decryptions: it would maul
+  the challenge and ask for the decryption of the result.
   <a href="p5_security_definitions.html#malleability-breaks-cca2">P5 §7</a> gives the argument.</li>
 <li><strong><abbr title="authenticated encryption with associated data">AEAD</abbr> still has a place around <abbr title="homomorphic encryption">HE</abbr>.</strong> <abbr title="homomorphic encryption">HE</abbr> ciphertexts travel over <abbr title="Transport Layer Security">TLS</abbr> like any other data, and
   the transport layer's <abbr title="authenticated encryption with associated data">AEAD</abbr> protects them in transit. What no <abbr title="message authentication code">MAC</abbr> can cover is the computation
@@ -706,7 +1307,7 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
 </tr>
 <tr>
 <td><abbr title="secure multiparty computation">MPC</abbr></td>
-<td>Secure multi-party computation: several parties compute jointly on secret shares</td>
+<td>Secure multiparty computation: several parties compute jointly on secret shares</td>
 </tr>
 </tbody>
 </table></div>
