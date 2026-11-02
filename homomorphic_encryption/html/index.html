@@ -188,12 +188,12 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <tr>
 <td>06</td>
 <td><a href="06_security.html">Security</a></td>
-<td>Parameter selection, <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> vs <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>, the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> key-recovery attacks, circuit privacy, integrity, quantum</td>
+<td>Parameter selection, <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> vs <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> with decryptions), the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> key-recovery attacks, circuit privacy, integrity, quantum</td>
 </tr>
 <tr>
 <td>07</td>
 <td><a href="07_state_of_the_art_2026.html">State of the art (2026)</a></td>
-<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted large language models (<abbr title="large language model">LLM</abbr>s), hardware (Intel Heracles), standards (<abbr title="International Organization for Standardization">ISO</abbr>/<abbr title="International Electrotechnical Commission">IEC</abbr> 28033), compilers</td>
+<td>Current research frontiers with sources: bootstrapping, new schemes, encrypted large language models (<abbr title="large language model">LLM</abbr>s), hardware (Intel Heracles), standards (<abbr title="International Organization for Standardization">ISO</abbr>/<abbr title="International Electrotechnical Commission">IEC</abbr> 28033, from the International Organization for Standardization and the International Electrotechnical Commission), compilers</td>
 </tr>
 <tr>
 <td>08</td>
@@ -233,12 +233,12 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <td>Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's key management service (<abbr title="key management service">KMS</abbr>) mapped onto the toy</td>
 </tr>
 <tr>
-<td><a href="deep_dives/hardware.html">Hardware: <abbr title="number-theoretic transform">NTT</abbr>, key switching, <abbr title="graphics processing unit">GPU</abbr>s and <abbr title="application-specific integrated circuit">ASIC</abbr>s</a></td>
+<td><a href="deep_dives/hardware.html">Hardware: <abbr title="number-theoretic transform">NTT</abbr>, key switching and accelerators</a></td>
 <td>Profiles of our toys, a real <abbr title="number-theoretic transform">NTT</abbr> (63× over schoolbook at N=2048), <abbr title="residue number system">RNS</abbr> limbs, a key-switching cost model showing why <abbr title="fully homomorphic encryption">FHE</abbr> is memory-bound, then central processing units (<abbr title="central processing unit">CPU</abbr>s), graphics processing units (<abbr title="graphics processing unit">GPU</abbr>s), field-programmable gate arrays (<abbr title="field-programmable gate array">FPGA</abbr>s), F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles</td>
 </tr>
 <tr>
 <td><a href="deep_dives/tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: programmable bootstrapping</a></td>
-<td>Torus encoding and the padding bit, <abbr title="learning with errors">LWE</abbr> / <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> / <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, gadget decomposition, external product and <abbr title="controlled multiplexer">CMux</abbr>, the five <abbr title="programmable bootstrapping">PBS</abbr> steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input <abbr title="lookup table">LUT</abbr>s</td>
+<td>Torus encoding and the padding bit, <abbr title="learning with errors">LWE</abbr> / <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> / <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> (the general ring or module forms of <abbr title="learning with errors">LWE</abbr> and <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>), gadget decomposition, external product and <abbr title="controlled multiplexer">CMux</abbr> (controlled multiplexer), the five <abbr title="programmable bootstrapping">PBS</abbr> steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input <abbr title="lookup table">LUT</abbr>s</td>
 </tr>
 </tbody>
 </table></div>
@@ -278,7 +278,7 @@ P5 §4 and §6–7, and then P6–P9 in full.</p>
 <li><strong>Performance is the whole story.</strong> In 2011 the first implementation needed about 30 minutes
    for a single bootstrap. Today a <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrap takes milliseconds on a <abbr title="central processing unit">CPU</abbr> core and under
    1 ms on a <abbr title="graphics processing unit">GPU</abbr>. End-to-end workloads are still about 10²–10⁴× slower than plaintext,
-   depending heavily on the workload and hardware. Prototype <abbr title="application-specific integrated circuit">ASIC</abbr>s (Intel Heracles,
+   depending heavily on the workload and hardware. Prototype application-specific integrated circuits (<abbr title="application-specific integrated circuit">ASIC</abbr>s) (Intel Heracles,
    ISSCC 2026) report a further ~1000–5000× over a Xeon on core operations.</li>
 <li><strong>It is in production, narrowly.</strong> Apple (Live Caller ID Lookup, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>-based <abbr title="private information retrieval">PIR</abbr>), Microsoft
    Edge (Password Monitor) and Zama's confidential-token protocol on Ethereum all use it.

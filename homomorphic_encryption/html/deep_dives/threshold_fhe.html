@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -97,9 +98,9 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol">Deep dive: threshold and multiparty FHE (and the Zama Protocol)<a class="headerlink" href="#deep-dive-threshold-and-multiparty-fhe-and-the-zama-protocol" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../05_core_techniques.html#8-multi-party-variants">05 Core techniques §8</a>, <a href="bfv_pir.html"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> deep dive</a>, <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a></p>
+<p><a href="../index.html">index</a> · background: <a href="../05_core_techniques.html#8-multi-party-variants">05 Core techniques §8</a> (multiparty variants of fully homomorphic encryption), <a href="bfv_pir.html"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> deep dive</a> (the Brakerski/Fan–Vercauteren scheme), <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a> (indistinguishability with decryptions: what an attacker learns from seeing decryptions)</p>
 <hr />
-<p>Plain <abbr title="fully homomorphic encryption">FHE</abbr> has <strong>one key owner</strong>. That breaks down when:</p>
+<p>Plain fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) has <strong>one key owner</strong>. That breaks down when:</p>
 <ul>
 <li><strong>several parties contribute data</strong> (hospitals, banks) and none of them should be able to
   decrypt the others' data alone; or</li>
@@ -193,7 +194,7 @@ a research field rather than a one-liner:</p>
 <td>Asharov et al. 2012; Boneh et al. 2018 ("universal thresholdizer")</td>
 </tr>
 <tr>
-<td><strong>Multiparty <abbr title="homomorphic encryption">HE</abbr> (<abbr title="multiparty homomorphic encryption">MHE</abbr>)</strong> (n-of-n)</td>
+<td><strong>Multiparty homomorphic encryption (<abbr title="multiparty homomorphic encryption">MHE</abbr>)</strong> (n-of-n)</td>
 <td>collective keys from additive contributions</td>
 <td>all <code>n</code> parties</td>
 <td>Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021; implemented in Lattigo</td>
@@ -206,9 +207,9 @@ a research field rather than a one-liner:</p>
 </tr>
 <tr>
 <td><strong><abbr title="fully homomorphic encryption">FHE</abbr> + generic <abbr title="secure multiparty computation">MPC</abbr></strong></td>
-<td>keys generated and used inside a general <abbr title="secure multiparty computation">MPC</abbr> protocol</td>
+<td>keys generated and used inside a general secure multiparty computation (<abbr title="secure multiparty computation">MPC</abbr>) protocol</td>
 <td><code>t</code> parties via <abbr title="secure multiparty computation">MPC</abbr></td>
-<td>the Zama Protocol's <abbr title="key management service">KMS</abbr> (§7)</td>
+<td>the Zama Protocol's key management service (<abbr title="key management service">KMS</abbr>, §7)</td>
 </tr>
 </tbody>
 </table></div>
@@ -218,7 +219,7 @@ Shamir sharing for t-of-n decryption.</p>
 <h2 id="2-distributed-key-generation">2. Distributed key generation<a class="headerlink" href="#2-distributed-key-generation" title="Link to this section">#</a></h2>
 <h3 id="21-the-collective-public-key">2.1 The collective public key<a class="headerlink" href="#21-the-collective-public-key" title="Link to this section">#</a></h3>
 <p>All parties agree on a common random polynomial <code>a</code>, a <strong>common reference string</strong>. Each party
-<code>i</code> samples its own small \(s_i\) and publishes \(-a\,s_i + e_i\). The sum is a valid <abbr title="ring learning with errors">RLWE</abbr> public
+<code>i</code> samples its own small \(s_i\) and publishes \(-a\,s_i + e_i\). The sum is a valid ring learning with errors (<abbr title="ring learning with errors">RLWE</abbr>) public
 key for \(s = \sum_i s_i\):</p>
 <div class="math-display">\[pk = \Big(\sum_i (-a\,s_i + e_i),\ a\Big) = (-a\,s + e,\ a), \qquad e = \sum_i e_i\]</div>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">collective_public_key</span><span class="p">(</span><span class="n">contribs</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
@@ -247,11 +248,89 @@ values it receives:</p>
 
 <p>Any single share is <strong>uniformly random</strong>: <code>S_1[0] = −1.384e+35</code>, against a key with
 coefficients in −3..3. That is information-theoretic hiding.</p>
+<figure class="widget" id="w-dd-threshold-shamir">
+  <p class="widget-title">2-of-3 Shamir sharing of one key coefficient</p>
+  <p class="widget-hint">Pick any two parties: the line through their shares hits the secret at \(x = 0\). Pick party 2 alone: a line through one point can hit any secret.</p>
+  <div class="controls"></div>
+  <div class="c-shamir"></div>
+  <div class="readout"></div>
+  <div class="lagrange"></div>
+  <figcaption>The line is \(f(x) = s + r\,x\), the sum of the three parties' dealing polynomials, so \(f(0) = s = \sum_i s_i\) is one coefficient of the joint key (−3 to 3). Here the random slope \(r\) is a small integer so the picture fits. In the toy it is uniform mod \(Q\), so one share is a uniformly random number and every secret stays equally likely. Multiplying each share by its Lagrange coefficient \(\lambda_j\) turns the shares into additive shares that sum to \(s\): this is the step each party takes before a partial decryption (§4.1). With parties 1 and 3, \(\lambda_1 = 3/2\) needs the inverse of 2, which exists modulo a prime but not modulo \(2^{120}\) (§2.2).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-threshold-shamir';
+  const SETS = [[1, 2], [1, 3], [2, 3], [2], [1, 2, 3]];
+  let s = 2, r = 3, seed = 0;
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const active = ui.choice({ label: 'Parties that cooperate', options: SETS.map((a, i) => ({ value: i, label: a.length === 1 ? a[0] + ' alone' : a.length === 3 ? 'all 3' : a.join(', ') })), value: 0 });
+  ui.button({ label: 'Deal again', onClick: () => {
+    const R = DS.random(++seed * 7919);
+    s = R.int(7) - 3;
+    r = (1 + R.int(3)) * (R.uniform() < 0.5 ? -1 : 1);
+  } });
+  const f = x => s + r * x;
+
+  // exact fractions for the Lagrange coefficients
+  const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+  const frac = (n, d) => { if (d < 0) { n = -n; d = -d; } const g = gcd(n, d); return [n / g, d / g]; };
+  const fstr = ([n, d]) => (d === 1 ? String(n) : n + '/' + d).replace('-', '−');
+  const lagrange = (j, A) => { let n = 1, d = 1; for (const k of A) if (k !== j) { n *= k; d *= k - j; } return frac(n, d); };
+
+  const chart = DS.chart(root + ' .c-shamir', {
+    x: { domain: [-0.35, 3.5], label: 'party id = evaluation point x', tickValues: [0, 1, 2, 3] },
+    y: { domain: [-13, 13], label: 'share value' },
+    height: 300,
+    draw(c) {
+      const A = SETS[active.value];
+      c.vline(0, { series: 'muted' });
+      c.text(0, 12, 'f(0) = secret', { dx: 6, cls: 'ink2' });
+      if (A.length >= 2) {
+        c.fn(f, { series: 1, n: 2 });
+        c.point(0, s, { series: 'good', r: 6 });
+        c.text(0, s, 's = ' + DS.fmt(s), { dx: 8, dy: r > 0 ? 20 : -12, cls: 'ink strong' });
+      } else {
+        const j = A[0], y = f(j);
+        for (let cand = -3; cand <= 3; cand++) {
+          c.fn(x => cand + (y - cand) * x / j, { series: 'muted', dash: true, thin: true, n: 2 });
+          c.point(0, cand, { series: 'muted', r: 3.5 });
+        }
+        c.text(0, -3, 'every secret from −3 to 3 fits', { dx: 8, dy: 18, cls: 'ink2' });
+      }
+      for (const j of [1, 2, 3]) {
+        const on = A.includes(j);
+        c.point(j, f(j), { series: on ? 1 : 'muted', r: on ? 6 : 4.5 });
+        c.text(j, f(j), 'S' + '₀₁₂₃'[j] + ' = ' + DS.fmt(f(j)), { anchor: 'middle', dy: r > 0 ? 20 : -12, cls: on ? 'ink strong' : 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    const A = SETS[active.value];
+    const lam = A.map(j => lagrange(j, A));
+    const parts = A.map((j, i) => frac(lam[i][0] * f(j), lam[i][1]));
+    let num = 0, den = 1;
+    for (const [n, d] of parts) { num = num * d + n * den; den *= d; [num, den] = frac(num, den); }
+    const got = num / den;
+    DS.stats(root + ' .readout', A.length >= 2
+      ? [{ label: 'Secret recovered', value: fstr([num, den]), note: 'Σ λⱼ·Sⱼ = f(0)', tone: got === s ? 'good' : 'bad' },
+         { label: 'Shares used', value: A.length + ' of 3', note: 'any 2 points fix the line' }]
+      : [{ label: 'Party ' + A[0] + ' alone computes', value: fstr([num, den]), note: 'its own share, not the secret (' + DS.fmt(s) + ')', tone: 'bad' },
+         { label: 'Shares used', value: '1 of 3', note: 'a line through 1 point can have any intercept' }]);
+    DS.table(root + ' .lagrange', {
+      columns: ['Party j', 'share Sⱼ = f(j)', 'λⱼ', 'additive share λⱼ·Sⱼ'],
+      rows: A.map((j, i) => [{ text: String(j), th: true }, DS.fmt(f(j)), fstr(lam[i]), fstr(parts[i])])
+        .concat([[{ text: 'sum', th: true }, '', '', fstr([num, den])]]),
+    });
+  }
+  readout();
+})();
+</script>
 <p><strong>Why the toy switches to a prime modulus.</strong> Lagrange coefficients
 \(\lambda_j = \prod_{k \ne j} \frac{k}{k - j}\) need inverses of differences like <code>2 − 1</code> and
 <code>3 − 1</code>. Modulo a power of two, even numbers have no inverse, and among any three party ids
 two differ by an even number. So the threshold demo sets <code>Q = 2¹²⁰ − 119</code>, the largest prime
-below 2¹²⁰. Real libraries use a product of large primes (<abbr title="residue number system">RNS</abbr>), where every small difference
+below 2¹²⁰. Real libraries use a product of large primes (a residue number system, <abbr title="residue number system">RNS</abbr>), where every small difference
 is invertible. (The alternative is Shoup's trick of clearing denominators with <code>n!</code>, which
 costs noise.)</p>
 <p>Production DKGs add <strong>verifiable secret sharing</strong> (commitments that let parties detect a
@@ -300,8 +379,10 @@ ciphertext multiplication leaves <strong>69.9</strong> bits of budget with the j
 with a single-party key, i.e. about 5.6 bits.</p>
 <p><strong>Galois keys</strong> are easier: \(\sigma_k(s) = \sum_i \sigma_k(s_i)\) is linear in the
 contributions, so one round like §2.1 suffices.</p>
-<p><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping keys</strong> are the hardest. They are <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> encryptions of the individual
-<strong>bits</strong> of <code>s</code>, and extracting bits of a secret-shared value needs a general <abbr title="secure multiparty computation">MPC</abbr> protocol.
+<p><strong>Bootstrapping keys for <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong> (Torus fully homomorphic encryption) are the hardest. They
+are <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> encryptions (general ciphertexts in the ring version of the Gentry–Sahai–Waters
+scheme) of the individual <strong>bits</strong> of <code>s</code>, and extracting bits of a secret-shared value needs
+a general <abbr title="secure multiparty computation">MPC</abbr> protocol.
 This is the most expensive part of setting up threshold <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, and it is what the Zama <abbr title="key management service">KMS</abbr>'s
 distributed key generation does (§7).</p>
 <hr />
@@ -374,8 +455,8 @@ over <code>t</code> shares, i.e. <strong>the key</strong>:</p>
 <p>In single-key <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, decryption <strong>rounds</strong> the noise away, which is why exact schemes are
 <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> secure (<a href="bfv_pir.html#21-encrypt-and-decrypt"><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> §2.1</a>). In threshold decryption the
 <strong>unrounded</strong> value \(c_0 + \sum h_j = \Delta m + e\) is computed in the open, by whoever
-combines the partials. The noise <code>e</code> depends on the secret key, so <strong>threshold <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> and
-<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> face the same problem as <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong> in the
+combines the partials. The noise <code>e</code> depends on the secret key, so <strong>threshold <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan) and
+<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> face the same problem as <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song)</strong> in the
 <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>: the noise must be statistically hidden.</p>
 <h3 id="53-how-much-smudging">5.3 How much smudging<a class="headerlink" href="#53-how-much-smudging" title="Link to this section">#</a></h3>
 <ul>
@@ -401,6 +482,103 @@ combines the partials. The noise <code>e</code> depends on the secret key, so <s
 <p>Over 20 trials each, 2¹⁰⁸ still decrypted correctly every time and 2¹¹⁰ never did
 (\(\Delta \approx 2^{112}\)). So the modulus has to hold the message, plus the computation noise,
 plus <strong>about λ extra bits</strong> for smudging. This is the "flooding tax" of threshold <abbr title="fully homomorphic encryption">FHE</abbr>.</p>
+<figure class="widget" id="w-dd-threshold-smudging">
+  <p class="widget-title">How much smudging noise fits</p>
+  <p class="widget-hint">Slide the smudging noise down to "none", then up past \(2^{109}\). Switch to the summed counts: they have less noise to hide, so less smudging is enough.</p>
+  <div class="controls"></div>
+  <p class="panel-title">Where the 120 bits of one decrypted coefficient go</p>
+  <div class="c-bar"></div>
+  <p class="panel-title">Hiding against budget, for every smudging level</p>
+  <div class="c-sweep"></div>
+  <div class="readout"></div>
+  <figcaption>Parties 1 and 2 decrypt a ciphertext from <code>code/threshold_bfv.py</code>, each adding smudging noise with standard deviation \(\sigma_{sm}\) (one fixed draw, scaled). The hiding margin is \(\lambda \approx \log_2 \sigma_{sm} - \log_2 |e|\), where \(|e|\) is the noise already in the ciphertext: \(2^{8.7}\) for the summed counts and \(2^{40.9}\) after one multiplication. The modulus has to hold the message, the computation noise and about \(\lambda\) extra bits. Decryption fails once the noise reaches \(\Delta/2 \approx 2^{111}\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-threshold-smudging';
+  // Budget left (bits) after combining the two partial decryptions, computed with the toy
+  // (seed 21, as in code/threshold_bfv.py) for no smudging, then sigma = 2^0 … 2^112.
+  // Decryption fails from 2^110 on.
+  const RUNS = {
+    sum: { none: 102.27, name: 'summed counts', budget: [102.28,102.28,102.27,102.24,102.19,102.08,101.9,101.6,101.13,100.43,99.35,98.26,97.22,96.2,95.19,94.19,93.18,92.18,91.18,90.18,89.18,88.18,87.18,86.18,85.18,84.18,83.18,82.18,81.18,80.18,79.18,78.18,77.18,76.18,75.18,74.18,73.18,72.18,71.18,70.18,69.18,68.18,67.18,66.18,65.18,64.18,63.18,62.18,61.18,60.18,59.18,58.18,57.18,56.18,55.18,54.18,53.18,52.18,51.18,50.18,49.18,48.18,47.18,46.18,45.18,44.18,43.18,42.18,41.18,40.18,39.18,38.18,37.18,36.18,35.18,34.18,33.18,32.18,31.18,30.18,29.18,28.18,27.18,26.18,25.18,24.18,23.18,22.18,21.18,20.18,19.18,18.18,17.18,16.18,15.18,14.18,13.18,12.18,11.18,10.18,9.18,8.18,7.18,6.18,5.18,4.18,3.18,2.18,1.18,0.18,0,0,0] },
+    sq: { none: 70.09, name: 'squared totals', budget: [70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.09,70.1,70.1,70.1,70.1,70.1,70.11,70.12,70.14,70.09,69.89,69.55,69.05,68.35,67.37,66.27,65.23,64.2,63.19,62.19,61.18,60.18,59.18,58.18,57.18,56.18,55.18,54.18,53.18,52.18,51.18,50.18,49.18,48.18,47.18,46.18,45.18,44.18,43.18,42.18,41.18,40.18,39.18,38.18,37.18,36.18,35.18,34.18,33.18,32.18,31.18,30.18,29.18,28.18,27.18,26.18,25.18,24.18,23.18,22.18,21.18,20.18,19.18,18.18,17.18,16.18,15.18,14.18,13.18,12.18,11.18,10.18,9.18,8.18,7.18,6.18,5.18,4.18,3.18,2.18,1.18,0.18,0,0,0] },
+  };
+  const FAIL = 110, LOG_T = Math.log2(257), TOP = 120 - 1 - LOG_T;   // noise must stay below Δ/2 ≈ 2^111
+  const LAMBDA = 40;
+  // |e| from the unsmudged budget: budget = log2(Q / (2·T·|e|))
+  for (const k in RUNS) RUNS[k].logE = TOP - RUNS[k].none;
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow2 = k => '2' + String(k).split('').map(c => SUP[+c]).join('');
+
+  const ui = DS.controls(root + ' .controls', () => { bar.update(); sweep.update(); readout(); });
+  const sigma = ui.slider({ label: 'Smudging noise σ_sm', values: [-1].concat(DS.math.range(113)), value: 86, format: v => v < 0 ? 'none' : pow2(v) });
+  const which = ui.choice({ label: 'Decrypting', options: [{ value: 'sq', label: 'squared totals' }, { value: 'sum', label: 'summed counts' }], value: 'sq' });
+
+  const state = () => {
+    const run = RUNS[which.value], k = sigma.value;
+    const ok = k < FAIL;
+    const budget = k < 0 ? run.none : run.budget[k];
+    const margin = k < 0 ? null : k - run.logE;
+    return { run, k, ok, budget, margin, noiseTop: ok ? TOP - budget : TOP };
+  };
+
+  const bar = DS.chart(root + ' .c-bar', {
+    x: { domain: [0, 120], label: 'bits', tickValues: [0, 20, 40, 60, 80, 100, 120] },
+    y: { domain: [0, 1], hidden: true },
+    height: 96, margin: { l: 12, r: 12 },
+    draw(c) {
+      const { run, k, ok, noiseTop } = state();
+      const box = (x0, x1, series) => { if (x1 > x0) c.polygon([[x0, 0.2], [x1, 0.2], [x1, 0.9], [x0, 0.9]], { series, strong: true }); };
+      c.legend([{ label: 'noise e from the computation', series: 'muted', kind: 'rect' }, { label: 'smudging noise', series: 2, kind: 'rect' },
+                { label: 'budget left', series: 1, kind: 'rect' }, { label: 'message Δ·m', series: 'ink', kind: 'rect' }]);
+      box(0, run.logE, 'muted');
+      if (k >= 0 && noiseTop > run.logE) box(run.logE, Math.min(noiseTop, 120), ok ? 2 : 'bad');
+      if (ok) box(noiseTop, TOP, 1);
+      box(TOP + 1, 120, 'ink');
+      const tag = (x0, x1, txt) => { if (c.x(x1) - c.x(x0) > 7.2 * txt.length) c.text((x0 + x1) / 2, 0.55, txt, { anchor: 'middle', baseline: 'middle', cls: 'ink' }); };
+      if (ok) {
+        if (k >= 0 && noiseTop > run.logE) tag(run.logE, noiseTop, 'λ ≈ ' + DS.fmt(k - run.logE, 0) + ' bits');
+        tag(noiseTop, TOP, DS.fmt(state().budget, 0) + ' bits left');
+      }
+      if (!ok) c.text(60, 0.55, 'noise reaches the message: decryption fails', { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+    },
+  });
+
+  const sweep = DS.chart(root + ' .c-sweep', {
+    x: { domain: [0, 112], label: 'log₂ σ_sm', tickValues: [0, 20, 40, 60, 80, 100] },
+    y: { domain: [0, 110], label: 'bits' },
+    height: 260,
+    draw(c) {
+      const { run, k } = state();
+      const lo = run.logE + LAMBDA, hi = FAIL - 1;
+      c.polygon([[lo, 0], [hi, 0], [hi, 110], [lo, 110]], { series: 'good', stroke: false });
+      c.text(hi, 104, 'λ ≥ 40 and decrypts', { anchor: 'end', dx: -4, cls: 'ink2' });
+      c.polygon([[FAIL - 0.5, 0], [112, 0], [112, 110], [FAIL - 0.5, 110]], { series: 'bad', stroke: false });
+      c.hline(LAMBDA, { dash: true, label: 'λ = 40', at: 'left' });
+      c.line(run.budget.map((b, i) => [i, i < FAIL ? b : 0]), { series: 1, label: 'budget left', format: v => DS.fmt(v, 1) + ' bits' });
+      c.line(run.budget.map((b, i) => [i, Math.max(0, i - run.logE)]), { series: 2, label: 'hiding margin λ', format: v => DS.fmt(v, 1) + ' bits' });
+      c.legend([{ label: 'budget left', series: 1 }, { label: 'hiding margin λ = log₂σ_sm − log₂|e|', series: 2 }]);
+      if (k >= 0) {
+        c.vline(k, { series: 'ink' });
+        c.point(k, k < FAIL ? run.budget[k] : 0, { series: 1 });
+        c.point(k, Math.max(0, k - run.logE), { series: 2 });
+      }
+    },
+  });
+
+  function readout() {
+    const { run, k, ok, budget, margin } = state();
+    DS.stats(root + ' .readout', [
+      { label: 'Hiding margin λ', value: margin === null ? 'none' : DS.fmt(Math.max(0, margin), 1) + ' bits',
+        note: margin === null ? 'one decryption reveals the key shares (§5.1)' : margin < 0 ? 'smaller than the noise it should hide' : margin < LAMBDA ? 'blocks the linear solve, not averaging attacks' : 'hides e statistically',
+        tone: margin !== null && margin >= LAMBDA ? 'good' : 'bad' },
+      { label: 'Budget left', value: ok ? DS.fmt(budget, 1) + ' bits' : '0 bits', note: 'computation noise: log₂|e| ≈ ' + DS.fmt(run.logE, 1), tone: ok ? undefined : 'bad' },
+      { label: 'Decrypts the ' + run.name, value: ok ? 'yes' : 'no', tone: ok ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="54-tfhe-has-no-room-noahs-ark">5.4 TFHE has no room: Noah's Ark<a class="headerlink" href="#54-tfhe-has-no-room-noahs-ark" title="Link to this section">#</a></h3>
 <p><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> uses a small modulus (2⁶⁴) packed tightly with message and noise, so there are no 40 spare
 bits for smudging. Zama's <strong>"Noah's Ark"</strong> paper (Dahl et al., WAHC 2023,
@@ -495,7 +673,7 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 </tr>
 <tr>
 <td>re-encryption to a user's key (§6)</td>
-<td><strong>user decryption</strong>: the <abbr title="key management service">KMS</abbr> delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>), not an <abbr title="fully homomorphic encryption">FHE</abbr> key switch</td>
+<td><strong>user decryption</strong>: the <abbr title="key management service">KMS</abbr> delivers the result so that only the requesting user can read it. Per Zama's docs this goes through the user's own ordinary (non-FHE) key pair, described as a NaCl key in some doc versions (a community SDK's docs mention <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>, the Module-Lattice-Based Key-Encapsulation Mechanism), not an <abbr title="fully homomorphic encryption">FHE</abbr> key switch</td>
 </tr>
 <tr>
 <td>no access control</td>
@@ -503,7 +681,7 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 </tr>
 <tr>
 <td>semi-honest, no proofs</td>
-<td>robust <abbr title="secure multiparty computation">MPC</abbr>, enclave attestation, <abbr title="zero knowledge">ZK</abbr> proofs of input encryption</td>
+<td>robust <abbr title="secure multiparty computation">MPC</abbr>, enclave attestation, zero-knowledge (<abbr title="zero knowledge">ZK</abbr>) proofs of input encryption</td>
 </tr>
 </tbody>
 </table></div>
@@ -524,7 +702,7 @@ KMS (13 MPC nodes): MPC protocols for key generation, CRS generation and thresho
 <hr />
 <h2 id="8-other-uses-of-threshold-and-multiparty-fhe">8. Other uses of threshold and multiparty FHE<a class="headerlink" href="#8-other-uses-of-threshold-and-multiparty-fhe" title="Link to this section">#</a></h2>
 <ul>
-<li><strong>Medical and financial consortia:</strong> joint statistics, <abbr title="genome-wide association study">GWAS</abbr> and survival analysis without
+<li><strong>Medical and financial consortia:</strong> joint statistics, genome-wide association studies (<abbr title="genome-wide association study">GWAS</abbr>) and survival analysis without
   pooling data (Lattigo's <abbr title="multiparty homomorphic encryption">MHE</abbr>, Tune Insight).</li>
 <li><strong>Federated learning:</strong> encrypted model aggregation with no central key holder.</li>
 <li><strong>Voting and sealed-bid auctions:</strong> tally or compare, then threshold-decrypt only the result.</li>

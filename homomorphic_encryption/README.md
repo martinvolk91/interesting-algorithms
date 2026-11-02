@@ -58,8 +58,8 @@ P5 §4 and §6–7, and then P6–P9 in full.
 | 03 | [How it works](03_how_it_works.md) | Encryption from LWE, adding and multiplying ciphertexts, noise, relinearization, modulus switching, bootstrapping. Includes a runnable toy |
 | 04 | [The schemes](04_schemes.md) | The "generations": Gentry, BGV (Brakerski–Gentry–Vaikuntanathan), BFV (Brakerski/Fan–Vercauteren), GSW (Gentry–Sahai–Waters), FHEW / TFHE (Ducas–Micciancio, Torus FHE), CKKS (Cheon–Kim–Kim–Song), and the new matrix scheme (Gentry–Lee). Comparison table |
 | 05 | [Core techniques](05_core_techniques.md) | Batching (single instruction, multiple data: SIMD), rotations, the residue number system (RNS), programmable bootstrapping, polynomial approximation, scheme switching, threshold / multi-key FHE, compilers |
-| 06 | [Security](06_security.md) | Parameter selection, IND-CPA vs IND-CPA-D, the CKKS key-recovery attacks, circuit privacy, integrity, quantum |
-| 07 | [State of the art (2026)](07_state_of_the_art_2026.md) | Current research frontiers with sources: bootstrapping, new schemes, encrypted large language models (LLMs), hardware (Intel Heracles), standards (ISO/IEC 28033), compilers |
+| 06 | [Security](06_security.md) | Parameter selection, IND-CPA vs IND-CPA-D (IND-CPA with decryptions), the CKKS key-recovery attacks, circuit privacy, integrity, quantum |
+| 07 | [State of the art (2026)](07_state_of_the_art_2026.md) | Current research frontiers with sources: bootstrapping, new schemes, encrypted large language models (LLMs), hardware (Intel Heracles), standards (ISO/IEC 28033, from the International Organization for Standardization and the International Electrotechnical Commission), compilers |
 | 08 | [Ecosystem and applications](08_ecosystem_and_applications.md) | Libraries, real deployments (Apple, Microsoft, Zama…), where HE fits vs secure multiparty computation (MPC), trusted execution environments (TEEs) and zero-knowledge (ZK) proofs |
 | 09 | [Glossary and reading list](09_glossary_and_reading_list.md) | Terms, foundational papers, surveys, courses, sources |
 
@@ -71,8 +71,8 @@ Deep dives:
 | [BFV and private information retrieval](deep_dives/bfv_pir.md) | Batching over Z_t, the noise budget, BFV multiplication (tensor, scale, round), the key-switching digit trade-off, rotations, then a working keyword-PIR caller-ID lookup and how Apple's Live Caller ID differs |
 | [Breaking CKKS: the IND-CPA-D attack](deep_dives/ckks_ind_cpa_d.md) | Key recovery from one shared decryption (reproduced on the toy), noise flooding and its precision cost, the averaging attack on weak flooding, and the same problem in BFV / TFHE / threshold FHE |
 | [Threshold and multiparty FHE (and Zama)](deep_dives/threshold_fhe.md) | Distributed key generation (collective public and relinearization keys), Shamir sharing, 2-of-3 threshold decryption, why smudging is mandatory (one unsmudged decryption leaks the key), re-encryption to a user's key, and the Zama Protocol's key management service (KMS) mapped onto the toy |
-| [Hardware: NTT, key switching, GPUs and ASICs](deep_dives/hardware.md) | Profiles of our toys, a real NTT (63× over schoolbook at N=2048), RNS limbs, a key-switching cost model showing why FHE is memory-bound, then central processing units (CPUs), graphics processing units (GPUs), field-programmable gate arrays (FPGAs), F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles |
-| [TFHE: programmable bootstrapping](deep_dives/tfhe.md) | Torus encoding and the padding bit, LWE / GLWE / GGSW, gadget decomposition, external product and CMux, the five PBS steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input LUTs |
+| [Hardware: NTT, key switching and accelerators](deep_dives/hardware.md) | Profiles of our toys, a real NTT (63× over schoolbook at N=2048), RNS limbs, a key-switching cost model showing why FHE is memory-bound, then central processing units (CPUs), graphics processing units (GPUs), field-programmable gate arrays (FPGAs), F1 / BTS / CraterLake / ARK / SHARP and Intel Heracles |
+| [TFHE: programmable bootstrapping](deep_dives/tfhe.md) | Torus encoding and the padding bit, LWE / GLWE / GGSW (the general ring or module forms of LWE and GSW), gadget decomposition, external product and CMux (controlled multiplexer), the five PBS steps (mod switch → blind rotation → sample extract → key switch), measured precision limits and parameter trade-offs, gates and multi-input LUTs |
 
 Code (pure Python, no dependencies, **not secure**):
 
@@ -109,7 +109,7 @@ Code (pure Python, no dependencies, **not secure**):
 5. **Performance is the whole story.** In 2011 the first implementation needed about 30 minutes
    for a single bootstrap. Today a TFHE bootstrap takes milliseconds on a CPU core and under
    1 ms on a GPU. End-to-end workloads are still about 10²–10⁴× slower than plaintext,
-   depending heavily on the workload and hardware. Prototype ASICs (Intel Heracles,
+   depending heavily on the workload and hardware. Prototype application-specific integrated circuits (ASICs) (Intel Heracles,
    ISSCC 2026) report a further ~1000–5000× over a Xeon on core operations.
 6. **It is in production, narrowly.** Apple (Live Caller ID Lookup, BFV-based PIR), Microsoft
    Edge (Password Monitor) and Zama's confidential-token protocol on Ethereum all use it.

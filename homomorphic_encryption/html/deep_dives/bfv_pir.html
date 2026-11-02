@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -106,10 +107,10 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-bfv-and-private-information-retrieval-caller-id">Deep dive: BFV and private information retrieval (caller ID)<a class="headerlink" href="#deep-dive-bfv-and-private-information-retrieval-caller-id" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">04 Schemes</a>, <a href="../08_ecosystem_and_applications.html#3-application-areas">08 Applications</a> · siblings: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></a>, <a href="tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></a>, <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></a></p>
+<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-2-bgv-and-bfv-exact-arithmetic-over-z_t">04 Schemes</a> (the Brakerski/Fan–Vercauteren scheme), <a href="../08_ecosystem_and_applications.html#3-application-areas">08 Applications</a> · siblings: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></a> (the Cheon–Kim–Kim–Song scheme), <a href="tfhe.html"><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></a> (Torus fully homomorphic encryption), <a href="ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></a> (indistinguishability under chosen-plaintext attack with decryptions: what an attacker learns from seeing decryptions)</p>
 <hr />
 <p><abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski 2012, Fan–Vercauteren 2012) does <strong>exact arithmetic on vectors of integers
-mod <code>t</code></strong>. It is the scheme behind the two best-known <abbr title="fully homomorphic encryption">FHE</abbr> deployments: Apple's <strong>Live Caller
+mod <code>t</code></strong>. It is the scheme behind the two best-known fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) deployments: Apple's <strong>Live Caller
 ID Lookup</strong> and Microsoft Edge's <strong>Password Monitor</strong>. Both are <em>private lookups</em>: the client
 learns something from a server's database, and the server doesn't learn what was looked up.</p>
 <p>This document has two parts:</p>
@@ -162,7 +163,7 @@ every slot is used: a perfect fit for <abbr title="the Brakerski/Fan–Vercauter
 <td><code>q</code></td>
 <td>ciphertext modulus</td>
 <td>2¹²⁰</td>
-<td>~100–800 bits, as an <abbr title="residue number system">RNS</abbr> product of primes</td>
+<td>~100–800 bits, as a product of primes (residue number system, <abbr title="residue number system">RNS</abbr>)</td>
 </tr>
 <tr>
 <td><code>Δ</code></td>
@@ -190,7 +191,7 @@ every slot is used: a perfect fit for <abbr title="the Brakerski/Fan–Vercauter
 <h3 id="11-the-plaintext-ring-splits-into-slots">1.1 The plaintext ring splits into slots<a class="headerlink" href="#11-the-plaintext-ring-splits-into-slots" title="Link to this section">#</a></h3>
 <p>Plaintexts are polynomials in \(R_t = \mathbb{Z}_t[X]/(X^N+1)\). If <code>t</code> is a prime with
 \(t \equiv 1 \pmod{2N}\), then \(\mathbb{Z}_t\) contains a primitive <code>2N</code>-th root of unity <code>ψ</code>,
-and \(X^N + 1\) splits into <code>N</code> linear factors \((X - \psi^{2i+1})\). By the <abbr title="Chinese remainder theorem">CRT</abbr>:</p>
+and \(X^N + 1\) splits into <code>N</code> linear factors \((X - \psi^{2i+1})\). By the Chinese remainder theorem (<abbr title="Chinese remainder theorem">CRT</abbr>):</p>
 <div class="math-display">\[\mathbb{Z}_t[X]/(X^N+1) \;\cong\; \underbrace{\mathbb{Z}_t \times \cdots \times \mathbb{Z}_t}_{N \text{ slots}}, \qquad m \mapsto \big(m(\psi), m(\psi^3), \dots\big)\]</div>
 <p>This is the same structure as the <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> encoding (<a href="ckks.html#1-encoding"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> §1</a>), but over a
 finite field instead of \(\mathbb{C}\). Nothing is approximated, and all <code>N</code> slots are
@@ -215,7 +216,7 @@ coefficients[:8]   [231, 247, 103, 13, 242, 251, 229, 53]  (scrambled by the CRT
 decode(encode(x)) == x: True
 </code></pre></div>
 
-<p>Real libraries compute both directions with an <abbr title="number-theoretic transform">NTT</abbr> in \(O(N \log N)\).</p>
+<p>Real libraries compute both directions with a number-theoretic transform (<abbr title="number-theoretic transform">NTT</abbr>) in \(O(N \log N)\).</p>
 <h3 id="12-rows-and-rotations">1.2 Rows and rotations<a class="headerlink" href="#12-rows-and-rotations" title="Link to this section">#</a></h3>
 <p>The slots are ordered by the roots \(\psi^{5^j}\) (row 0) and \(\psi^{-5^j}\) (row 1), giving a
 <strong>2 × N/2</strong> grid. As in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, the automorphism \(X \mapsto X^5\) maps the root of slot <code>j</code> to the
@@ -240,7 +241,7 @@ simplest one.)</p>
 <hr />
 <h2 id="2-encryption-decryption-and-the-noise-budget">2. Encryption, decryption and the noise budget<a class="headerlink" href="#2-encryption-decryption-and-the-noise-budget" title="Link to this section">#</a></h2>
 <h3 id="21-encrypt-and-decrypt">2.1 Encrypt and decrypt<a class="headerlink" href="#21-encrypt-and-decrypt" title="Link to this section">#</a></h3>
-<p>Keys and encryption are the standard <abbr title="ring learning with errors">RLWE</abbr> ones (<a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>):</p>
+<p>Keys and encryption are the standard ring learning with errors (<abbr title="ring learning with errors">RLWE</abbr>) ones (<a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>):</p>
 <ul>
 <li>secret <code>s</code> ternary; public key <code>pk = (−a·s + e, a)</code>;</li>
 <li><code>Enc(m) = (pk₀·u + e₁ + Δ·m,  pk₁·u + e₂)</code>;</li>
@@ -349,7 +350,7 @@ there are no big integers. The two standard <abbr title="residue number system">
 step with <strong>base extensions</strong>: <strong>BEHZ</strong> (Bajard–Eynard–Hasan–Zucca 2016) and <strong>HPS</strong>
 (Halevi–Polyakov–Shoup 2019).</p>
 <h3 id="33-bfv-vs-bgv">3.3 BFV vs BGV<a class="headerlink" href="#33-bfv-vs-bgv" title="Link to this section">#</a></h3>
-<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> puts the message in the <strong>low</strong> bits (<code>c₀ + c₁s = m + t·e</code>) and controls noise with
+<p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (the Brakerski–Gentry–Vaikuntanathan scheme) puts the message in the <strong>low</strong> bits (<code>c₀ + c₁s = m + t·e</code>) and controls noise with
 <strong>modulus switching</strong> after each multiplication. <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> is "scale-invariant": it needs no modulus
 switching, at the price of the scaling step. With modern <abbr title="residue number system">RNS</abbr> implementations their performance
 is similar. Kim–Polyakov–Zucca (2021) found <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> better for small <code>t</code> and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> for large <code>t</code>.
@@ -471,7 +472,7 @@ from a provider's database <strong>without telling the provider who is calling</
 <td>the whole database, re-synced as it changes (spam lists change constantly)</td>
 </tr>
 <tr>
-<td><strong>Single-server <abbr title="private information retrieval">PIR</abbr> with <abbr title="homomorphic encryption">HE</abbr></strong></td>
+<td><strong>Single-server <abbr title="private information retrieval">PIR</abbr> with homomorphic encryption (<abbr title="homomorphic encryption">HE</abbr>)</strong></td>
 <td>the server learns nothing about the number (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>)</td>
 <td>one query plus one response, and server work proportional to the database</td>
 </tr>
@@ -552,6 +553,166 @@ full keyword.</p>
 <li><strong>The server's work is identical for every query:</strong> 8 plaintext multiplications and 7
   rotations, touching every bucket.</li>
 </ul>
+<figure class="widget" id="w-dd-pir-lookup">
+  <p class="widget-title">One private lookup, slot by slot</p>
+  <p class="widget-hint">Pick a number and watch which cells survive. Then switch on the server's view and pick another number: nothing the server sees changes.</p>
+  <div class="controls"></div>
+  <p class="legend-line" style="font-size:13px;margin:0 0 6px;color:var(--fg-2)">
+    <span class="legend-swatch sw1"></span>tag
+    <span class="legend-swatch sw2" style="margin-left:12px"></span>label
+    <span class="legend-swatch" style="margin-left:12px;background:var(--grid);outline:1px solid var(--line)"></span>0 (empty)
+    <span class="legend-swatch" style="margin-left:12px;background:var(--ink)"></span>1 in the query
+  </p>
+  <div class="c-grid"></div>
+  <div class="readout"></div>
+  <div class="bucket-table"></div>
+  <figcaption>The toy database from <code>code/pir_caller_id.py</code>: 60 numbers in 64 buckets, word \(w\) of every bucket in plaintext \(P_w\). The two halves of each row are the two slot rows, and rotations wrap within a half. Multiplying by the one-hot query zeroes every bucket but one, the shifts lay its 8 words side by side, and the sum is one ciphertext. The server runs the same 8 plaintext products and 7 rotations for every number, and every row it touches after the first block is encrypted.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-pir-lookup';
+  // Computed by code/pir_caller_id.py (random.seed(11)): table[b] = the (tag, label) pairs of bucket b.
+  const TABLE = [[[207,1]],[[69,4],[26,3]],[[198,1],[35,6]],[[129,6]],[[74,3]],[],[[201,6]],[[73,4]],[],[],[[203,2]],[],[[102,3]],[[76,1],[47,5]],[[128,5],[107,2]],[],[],[[37,1]],[],[],[],[[219,4]],[],[[84,2]],[[128,1]],[],[[231,6],[35,2]],[[202,2]],[],[[166,2]],[[14,2],[125,1]],[[1,4],[185,4],[226,3]],[],[[256,2],[194,1],[93,4],[205,6]],[],[[219,6]],[],[],[[141,1],[168,4],[81,4],[98,5]],[[163,3]],[[111,4]],[[67,3],[20,5]],[[192,1],[93,1]],[[200,4]],[[116,6]],[[187,2]],[],[[112,4]],[[103,1],[78,4]],[],[[17,3]],[[188,1]],[[23,1]],[[157,1]],[[54,4]],[[180,2]],[[240,6],[42,2],[197,4]],[],[[63,2]],[[27,1]],[],[],[],[]];
+  // The four lookups printed by the script: number, bucket, tag.
+  const LOOKUPS = [['+1-202-555-0157', 38, 141], ['+1-202-555-0171', 12, 102], ['+1-202-555-0159', 38, 168], ['+1-202-555-0102', 28, 5]];
+  const LABELS = { 1: 'Spam', 2: 'Telemarketer', 3: 'Pizza Napoli', 4: "Dr. Weber's practice", 5: 'City Library', 6: 'Bike repair shop' };
+  const N = 64, ROW = 32, WORDS = 8;
+  const slotOf = (b, off) => Math.floor(b / ROW) * ROW + ((b % ROW) + off) % ROW;
+  // plaintext w, slot i -> value (tag for even w, label for odd w)
+  const P = [];
+  for (let w = 0; w < WORDS; w++) {
+    const row = new Array(N).fill(0);
+    TABLE.forEach((bucket, b) => { if ((w >> 1) < bucket.length) row[slotOf(b, 0)] = bucket[w >> 1][w & 1]; });
+    P.push(row);
+  }
+
+  const ui = DS.controls(root + ' .controls', render);
+  const pick = ui.select({ label: 'Incoming call from', options: LOOKUPS.map((l, i) => ({ value: String(i), label: l[0] })), value: '0' });
+  const server = ui.toggle({ label: "Server's view", value: false });
+
+  const host = document.querySelector(root + ' .c-grid');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  let lookups = 0;                       // fresh randomness per query, as a real encryption has
+
+  function render() {
+    lookups++;
+    const [number, b, tag] = LOOKUPS[+pick.value];
+    const hide = server.value;
+    const W = Math.max(300, host.clientWidth || 640);
+    const narrow = W < 520;
+    const labW = narrow ? 26 : 34, gap = 6;
+    const cw = (W - labW - gap) / N, ch = narrow ? 11 : 13, rg = 2;
+    const X = i => labW + i * cw + (i >= ROW ? gap : 0);
+    let y = 0;
+    host.textContent = '';
+    const svg = el('svg', { class: 'ds-svg', role: 'img', 'aria-label': 'Database, query, masked rows and response of one PIR lookup' }, host);
+    const R = DS.random(1000 + 7 * lookups);
+    const fillCell = (g, i, yy, v, kind) => {
+      const r = el('rect', { x: X(i) + 0.5, y: yy, width: Math.max(1, cw - 1), height: ch }, g);
+      if (kind === 'enc') { r.setAttribute('fill', 'var(--ink-muted)'); r.setAttribute('fill-opacity', (0.12 + 0.6 * R.uniform()).toFixed(2)); }
+      else if (!v) r.setAttribute('fill', 'var(--grid)');
+      else r.setAttribute('class', kind);
+    };
+    const heading = (txt, note) => {
+      y += 16;
+      const t = el('text', { x: 0, y, class: 'ink2 strong' }, svg); t.textContent = txt;
+      if (note) { const n = el('tspan', { class: 'ink2', 'font-weight': 400 }, t); n.textContent = '  ' + note; }
+      y += 6;
+    };
+    const rowLabel = (txt, yy) => { const t = el('text', { x: 0, y: yy + ch - 2, class: 'ink2' }, svg); t.textContent = txt; if (narrow) t.style.fontSize = '10.5px'; };
+    const outline = (i, yy, h) => el('rect', { x: X(i) - 0.5, y: yy - 1.5, width: cw + 1, height: h + 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    const sub = w => 'P' + '₀₁₂₃₄₅₆₇'[w];
+
+    // 1. the database (plaintext, the server's own)
+    heading('Database', narrow ? '' : '8 plaintexts: P₀ = tags of entry 1, P₁ = their labels, …');
+    const g1 = el('g', {}, svg);
+    for (let w = 0; w < WORDS; w++) {
+      rowLabel(sub(w), y);
+      for (let i = 0; i < N; i++) fillCell(g1, i, y, P[w][i], w % 2 ? 'f2' : 'f1');
+      y += ch + rg;
+    }
+    if (!hide) outline(slotOf(b, 0), y - WORDS * (ch + rg), WORDS * (ch + rg) - rg);
+    const bt = el('text', { x: X(slotOf(b, 0)) + cw / 2, y: y + 12, 'text-anchor': 'middle', class: 'ink' }, svg);
+    bt.textContent = hide ? '' : 'bucket ' + b;
+    y += hide ? 0 : 12;
+
+    // 2. the query
+    heading('Query', hide ? 'one ciphertext: looks random' : 'Enc(1 in slot ' + b + ', 0 elsewhere)');
+    const g2 = el('g', {}, svg);
+    rowLabel('q', y);
+    for (let i = 0; i < N; i++) {
+      if (hide) fillCell(g2, i, y, 1, 'enc');
+      else fillCell(g2, i, y, i === slotOf(b, 0) ? 1 : 0, 'fink');
+    }
+    y += ch + rg;
+
+    // 3. masked and shifted rows
+    heading('q ⊙ P_w, shifted right by w', hide ? 'encrypted' : 'only bucket ' + b + ' survives');
+    const g3 = el('g', {}, svg);
+    const resp = new Array(N).fill(0);
+    for (let w = 0; w < WORDS; w++) {
+      rowLabel(sub(w), y);
+      const target = slotOf(b, w), v = P[w][slotOf(b, 0)];
+      resp[target] = v;
+      for (let i = 0; i < N; i++) {
+        if (hide) fillCell(g3, i, y, 1, 'enc');
+        else fillCell(g3, i, y, i === target ? v : 0, w % 2 ? 'f2' : 'f1');
+      }
+      if (!hide) outline(target, y, ch);
+      y += ch + rg;
+    }
+
+    // 4. the response
+    heading('Response = sum of the 8 rows', hide ? 'one ciphertext, sent back' : 'slots ' + slotOf(b, 0) + '…' + slotOf(b, 7));
+    const g4 = el('g', {}, svg);
+    rowLabel('r', y);
+    for (let i = 0; i < N; i++) {
+      if (hide) fillCell(g4, i, y, 1, 'enc');
+      else { let w = -1; for (let k = 0; k < WORDS; k++) if (slotOf(b, k) === i) w = k; fillCell(g4, i, y, w >= 0 ? resp[i] : 0, w % 2 ? 'f2' : 'f1'); }
+    }
+    y += ch + 4;
+    svg.setAttribute('viewBox', `0 0 ${W} ${y}`);
+    svg.setAttribute('width', W); svg.setAttribute('height', y);
+
+    // readouts
+    const words = [];
+    for (let w = 0; w < WORDS; w++) words.push(resp[slotOf(b, w)]);
+    const pairs = [0, 1, 2, 3].map(e => [words[2 * e], words[2 * e + 1]]);
+    const hit = pairs.find(p => p[0] === tag);
+    const tableHost = document.querySelector(root + ' .bucket-table');
+    if (hide) {
+      DS.stats(root + ' .readout', [
+        { label: 'Server receives', value: '1 ciphertext', note: '1920 bytes, the same size for every number' },
+        { label: 'Server work', value: '8 + 7', note: 'plaintext products + rotations, every query' },
+        { label: 'Server learns', value: 'nothing', note: 'which bucket survived is encrypted', tone: 'good' },
+      ]);
+      tableHost.style.display = 'none';
+    } else {
+      DS.stats(root + ' .readout', [
+        { label: 'Bucket = H₁(number) mod 64', value: String(b) },
+        { label: 'Tag = H₂(number) mod 256 + 1', value: String(tag) },
+        { label: 'Client reads', value: hit ? LABELS[hit[1]] : 'unknown', note: hit ? 'the entry whose tag matches' : 'no entry has this tag', tone: hit ? 'good' : undefined },
+      ]);
+      tableHost.style.display = '';
+      DS.table(root + ' .bucket-table', {
+        columns: ['Decrypted', 'tag', 'label', ''],
+        rows: pairs.map((p, e) => [
+          { text: 'entry ' + (e + 1), th: true },
+          p[0] ? String(p[0]) : '0',
+          p[0] ? p[1] + ' (' + LABELS[p[1]] + ')' : '0 (empty)',
+          p[0] === tag ? '← your tag' : p[0] ? 'not yours' : '',
+        ]),
+      });
+    }
+  }
+  render();
+  if ('ResizeObserver' in window) {
+    let lastW = host.clientWidth;
+    new ResizeObserver(() => { if (Math.abs(host.clientWidth - lastW) > 2) { lastW = host.clientWidth; lookups--; render(); } }).observe(host);
+  }
+})();
+</script>
 <h3 id="74-client-decrypt-and-match">7.4 Client: decrypt and match<a class="headerlink" href="#74-client-decrypt-and-match" title="Link to this section">#</a></h3>
 <div class="highlight"><pre><span></span><code>== lookups
 +1-202-555-0157: bucket 38 -&gt; Spam                  (truth: Spam                  ) response budget 73.4 bits
@@ -570,7 +731,7 @@ matching tag.</p>
 are 8-bit hashes, and phone numbers come from a small space, so a client could brute-force
 which numbers they belong to. This is <abbr title="private information retrieval">PIR</abbr>'s asymmetry, and Apple's library documentation
 states it plainly: the client may learn keyword–value pairs it didn't request. Fixes include
-deriving keywords with a server-keyed function (an <abbr title="oblivious pseudorandom function">OPRF</abbr>) so that other tags can't be inverted,
+deriving keywords with a server-keyed function (an oblivious pseudorandom function, <abbr title="oblivious pseudorandom function">OPRF</abbr>) so that other tags can't be inverted,
 or full symmetric <abbr title="private information retrieval">PIR</abbr>.</p>
 <h3 id="76-costs-and-why-pir-only-wins-at-scale">7.6 Costs, and why PIR only wins at scale<a class="headerlink" href="#76-costs-and-why-pir-only-wins-at-scale" title="Link to this section">#</a></h3>
 <div class="highlight"><pre><span></span><code>database: 60 numbers in 64 buckets of 4, 8 plaintexts of 64 slots
@@ -581,6 +742,68 @@ query 1920 B, response 1920 B, Galois keys (sent once) 52 KB
 bytes). That is expected: <abbr title="private information retrieval">PIR</abbr> pays off only when the database is large, because query and
 response sizes grow much more slowly than the database does (§8.1). The server's cost per
 query, though, always grows linearly with the database.</p>
+<figure class="widget" id="w-dd-pir-cost">
+  <p class="widget-title">Bytes per lookup: PIR against downloading everything</p>
+  <p class="widget-hint">Drag the database size down to the toy's 60 entries, where downloading everything is cheapest. Then drag it up and find where the 2-D layout starts to win.</p>
+  <div class="controls"></div>
+  <div class="c-cost"></div>
+  <div class="readout"></div>
+  <figcaption>A model built from the toy's sizes: 2 bytes per entry, a 1920-byte ciphertext, and 60 entries per group of 64 slots. The toy's one-hot query needs one ciphertext per group, so it grows as fast as the database and never wins. Arranging the groups in a square grid (§8.1) needs about \(2\sqrt{\text{groups}} + 1\) selector ciphertexts, and the response stays one ciphertext. Real systems shrink the query further with oblivious expansion. In every layout the server still touches every entry for every query.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-pir-cost';
+  const CT = 1920, PER_GROUP = 60, ENTRY = 2;        // bytes per ciphertext, entries per group, bytes per entry (§7.6)
+  const groups = d => Math.ceil(d / PER_GROUP);
+  const download = d => ENTRY * d;
+  const oneHot = d => (groups(d) + 1) * CT;                         // k selectors + 1 response
+  const grid = d => (2 * Math.ceil(Math.sqrt(groups(d))) + 1 + 1) * CT;   // 2·√k + 1 selectors + 1 response
+  const bytes = v => {
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+    while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+    return (v >= 100 || i === 0 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '')) + ' ' + u[i];
+  };
+  const count = d => d >= 1e9 ? DS.fmt(d / 1e9, 1).replace(/\.0$/, '') + ' billion' : d >= 1e6 ? DS.fmt(d / 1e6, 1).replace(/\.0$/, '') + ' million' : Math.round(d).toLocaleString('en-US');
+  // the smallest database where the grid layout beats downloading
+  let cross = 60;
+  while (grid(cross) >= download(cross)) cross++;
+
+  const xs = []; for (let e = Math.log10(60); e <= 9.0001; e += 0.02) xs.push(Math.pow(10, e));
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const SIZES = [60];
+  for (let e = 2; e <= 9; e++) for (const m of [1, 2, 5]) if (m * 10 ** e <= 1e9) SIZES.push(m * 10 ** e);
+  const size = ui.slider({ label: 'Entries in the database', values: SIZES, value: 1e6, format: count });
+
+  const chart = DS.chart(root + ' .c-cost', {
+    x: { type: 'log', domain: [60, 1e9], label: 'Entries in the database', tipFormat: count },
+    y: { type: 'log', domain: [100, 1e11], format: v => bytes(v) },
+    height: 300,
+    draw(c) {
+      c.legend([{ label: 'Download everything', series: 2 }, { label: 'One-hot query (the toy, §7)', series: 3 }, { label: '2-D grid (§8.1)', series: 1 }]);
+      c.vline(cross, { dash: true });
+      c.text(cross, 3e10, 'grid wins →', { dx: 6, cls: 'ink2' });
+      c.line(xs.map(d => [d, download(d)]), { series: 2, label: 'Download', format: bytes });
+      c.line(xs.map(d => [d, oneHot(d)]), { series: 3, label: 'One-hot', format: bytes });
+      c.line(xs.map(d => [d, grid(d)]), { series: 1, label: '2-D grid', format: bytes });
+      const d = size.value;
+      c.vline(d, { series: 'ink' });
+      c.point(d, download(d), { series: 2 });
+      c.point(d, oneHot(d), { series: 3 });
+      c.point(d, grid(d), { series: 1 });
+    },
+  });
+  function readout() {
+    const d = size.value, best = Math.min(download(d), oneHot(d), grid(d));
+    DS.stats(root + ' .readout', [
+      { label: 'Download everything', value: bytes(download(d)), tone: download(d) === best ? 'good' : undefined },
+      { label: 'One-hot query + response', value: bytes(oneHot(d)), note: groups(d).toLocaleString('en-US') + ' query ciphertexts', tone: oneHot(d) === best ? 'good' : undefined },
+      { label: '2-D grid query + response', value: bytes(grid(d)), note: (2 * Math.ceil(Math.sqrt(groups(d))) + 1).toLocaleString('en-US') + ' query ciphertexts', tone: grid(d) === best ? 'good' : undefined },
+      { label: 'Server work per query', value: count(d), note: 'entries touched, in every layout' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>The response still has <strong>~74 bits of noise budget</strong> after the whole computation. <abbr title="private information retrieval">PIR</abbr> barely
 uses the budget, so real deployments pick small parameters and <strong>modulus-switch the response
 down</strong> to shrink it before sending.</p>
@@ -644,7 +867,7 @@ search. Same shape: shallow, exact, batched lookups against a big server-side da
 <li><code>N = 64</code> with <code>q = 2¹²⁰</code> is nowhere near secure. The <abbr title="homomorphic encryption">HE</abbr> standard allows only ~27 bits of <code>q</code>
   at <code>N = 1024</code> (<a href="../02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>). Real
   <abbr title="private information retrieval">PIR</abbr> uses <code>N</code> in the thousands with a <code>q</code> matched to it.</li>
-<li>The hashes are <abbr title="Secure Hash Algorithm">SHA</abbr>-256-based but un-keyed, so the client can invert other tags (§7.5).</li>
+<li>The hashes are based on <abbr title="Secure Hash Algorithm">SHA</abbr>-256 (Secure Hash Algorithm) but un-keyed, so the client can invert other tags (§7.5).</li>
 <li>No rate limiting or authentication: that's §8.3's job.</li>
 </ul>
 <h2 id="10-exercises">10. Exercises<a class="headerlink" href="#10-exercises" title="Link to this section">#</a></h2>
@@ -666,10 +889,10 @@ search. Same shape: shallow, exact, batched lookups against a big server-side da
 <hr />
 <h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
 <ul>
-<li>Brakerski. <em>Fully Homomorphic Encryption without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></li>
+<li>Brakerski. <em>Fully Homomorphic Encryption without Modulus Switching from Classical <abbr title="gap shortest vector problem (the decision version of approximate SVP)">GapSVP</abbr></em> (gap shortest vector problem). CRYPTO 2012. <a href="https://eprint.iacr.org/2012/078">ePrint 2012/078</a></li>
 <li>Fan, Vercauteren. <em>Somewhat Practical Fully Homomorphic Encryption</em>. <a href="https://eprint.iacr.org/2012/144">ePrint 2012/144</a></li>
-<li>Smart, Vercauteren. <em>Fully Homomorphic <abbr title="single instruction, multiple data">SIMD</abbr> Operations</em>. Designs, Codes and Cryptography 2014. <a href="https://eprint.iacr.org/2011/133">ePrint 2011/133</a></li>
-<li>Gentry, Halevi, Smart. <em>Homomorphic Evaluation of the <abbr title="Advanced Encryption Standard">AES</abbr> Circuit</em>. CRYPTO 2012. <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (slots, automorphisms, the hypercube)</li>
+<li>Smart, Vercauteren. <em>Fully Homomorphic <abbr title="single instruction, multiple data">SIMD</abbr> Operations</em> (single instruction, multiple data). Designs, Codes and Cryptography 2014. <a href="https://eprint.iacr.org/2011/133">ePrint 2011/133</a></li>
+<li>Gentry, Halevi, Smart. <em>Homomorphic Evaluation of the <abbr title="Advanced Encryption Standard">AES</abbr> Circuit</em> (Advanced Encryption Standard). CRYPTO 2012. <a href="https://eprint.iacr.org/2012/099">ePrint 2012/099</a> (slots, automorphisms, the hypercube)</li>
 <li>Bajard, Eynard, Hasan, Zucca. <em>A Full <abbr title="residue number system">RNS</abbr> Variant of FV-like Somewhat Homomorphic Encryption Schemes</em>. SAC 2016. <a href="https://eprint.iacr.org/2016/510">ePrint 2016/510</a></li>
 <li>Halevi, Polyakov, Shoup. <em>An Improved <abbr title="residue number system">RNS</abbr> Variant of the <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> Homomorphic Encryption Scheme</em>. CT-RSA 2019. <a href="https://eprint.iacr.org/2018/117">ePrint 2018/117</a></li>
 <li>Kim, Polyakov, Zucca. <em>Revisiting Homomorphic Encryption Schemes for Finite Fields</em>. Asiacrypt 2021. <a href="https://eprint.iacr.org/2021/204">ePrint 2021/204</a></li>
