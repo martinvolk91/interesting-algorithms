@@ -248,7 +248,7 @@ These schemes, the Ducas–Micciancio scheme FHEW and its successor TFHE, bootst
 1. Mod-switch the LWE ciphertext `(a, b)` from `q` to `2N`, giving `(ã, b̃)`.
 2. **Blind rotation**: start with an accumulator `ACC = X^(−b̃) · v(X)`, where `v` is a
    **test polynomial**. For each secret-key coordinate `sᵢ`, multiply by `X^(ãᵢ·sᵢ)` using a
-   **CMux** with the bootstrapping-key ciphertext `GGSW(sᵢ)`, without learning `sᵢ`. At the end
+   **CMux** (controlled multiplexer) with the bootstrapping-key ciphertext `GGSW(sᵢ)`, without learning `sᵢ`. At the end
    `ACC = X^(−phase) · v(X)`.
 3. **Sample extract**: the constant coefficient is now `v[phase] ≈ f(m)`. Pull it out as an LWE ciphertext.
 4. **Key switch** back to the original LWE key.

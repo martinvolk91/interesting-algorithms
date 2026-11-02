@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -79,9 +80,9 @@ function renderMath() {
 <hr />
 <blockquote>
 <p><strong>Gentle version:</strong> primer <a href="primer/p7_lattices_and_lwe.html">P7 Lattices and <abbr title="learning with errors">LWE</abbr></a> builds up
-<abbr title="learning with errors">LWE</abbr> and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.</p>
+learning with errors (<abbr title="learning with errors">LWE</abbr>) and Ring-LWE from noisy linear equations, with hand-worked numbers and runnable code.</p>
 </blockquote>
-<p>Every practical <abbr title="fully homomorphic encryption">FHE</abbr> scheme today rests on one hard problem, <strong>Learning With Errors</strong>, usually
+<p>Every practical fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) scheme today rests on one hard problem, <strong>Learning With Errors</strong>, usually
 in its ring form. This chapter builds up the minimum mathematics needed to read the scheme
 descriptions.</p>
 <h2 id="1-lattices-in-one-page">1. Lattices in one page<a class="headerlink" href="#1-lattices-in-one-page" title="Link to this section">#</a></h2>
@@ -102,7 +103,7 @@ parallel ones.</p>
 </ul>
 <p>With a good basis, <abbr title="closest vector problem">CVP</abbr> is easy: round off coordinates (Babai's algorithm). With a bad basis in
 high dimensions it is believed to be infeasible, <strong>even for quantum computers</strong>. The best
-known algorithms (lattice sieving, enumeration, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> reduction) run in time exponential in the
+known algorithms (lattice sieving, enumeration, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> (block Korkine–Zolotarev) reduction) run in time exponential in the
 dimension.</p>
 <h2 id="2-learning-with-errors-lwe">2. Learning With Errors (LWE)<a class="headerlink" href="#2-learning-with-errors-lwe" title="Link to this section">#</a></h2>
 <p>Introduced by <strong>Oded Regev (2005)</strong>, who won the 2018 Gödel Prize for it.</p>
@@ -120,7 +121,7 @@ little noise to each equation turns an easy linear-algebra problem into a lattic
 <p><strong>Worst-case hardness.</strong> Regev proved that solving <abbr title="learning with errors">LWE</abbr> <em>on average</em> (random instances) is at
 least as hard as solving approximate <abbr title="shortest vector problem">SVP</abbr> / <abbr title="shortest independent vectors problem">SIVP</abbr> <em>in the worst case</em> on any lattice, via a
 quantum reduction. Peikert (2009) and Brakerski et al. (2013) later gave classical reductions.
-This is a much stronger guarantee than <abbr title="Rivest–Shamir–Adleman">RSA</abbr> has: there, average-case hardness of factoring is
+This is a much stronger guarantee than <abbr title="Rivest–Shamir–Adleman">RSA</abbr> (Rivest–Shamir–Adleman) has: there, average-case hardness of factoring is
 simply assumed.</p>
 <p><strong>Tiny example</strong> (<code>n = 3</code>, <code>q = 17</code>, secret <code>s = (2, 5, 11)</code>):</p>
 <div class="highlight"><pre><span></span><code>a = (1, 4, 9)    &lt;a,s&gt; = 2 + 20 + 99 = 121 ≡ 2 (mod 17)    e = +1   → b = 3
@@ -157,16 +158,19 @@ polynomial, and this choice gives both nice algebra and fast arithmetic.</p>
 with small coefficients. One <abbr title="ring learning with errors">RLWE</abbr> sample "contains" <code>N</code> correlated <abbr title="learning with errors">LWE</abbr> samples, so:</p>
 <ul>
 <li>keys and ciphertexts shrink from \(O(N^2)\) to \(O(N)\) numbers;</li>
-<li>multiplication costs \(O(N \log N)\) with the <abbr title="number-theoretic transform">NTT</abbr> (below);</li>
-<li>the ring structure enables <strong>packing many values into one ciphertext</strong> (<abbr title="single instruction, multiple data">SIMD</abbr> batching, ch. 05).</li>
+<li>multiplication costs \(O(N \log N)\) with the number-theoretic transform (<abbr title="number-theoretic transform">NTT</abbr>, below);</li>
+<li>the ring structure enables <strong>packing many values into one ciphertext</strong>, so one operation acts
+  on all of them (single instruction, multiple data: <abbr title="single instruction, multiple data">SIMD</abbr> batching, ch. 05).</li>
 </ul>
 <p>The cost is extra algebraic structure that an attacker might exploit. No such attack is known
 for the power-of-two cyclotomics used in <abbr title="fully homomorphic encryption">FHE</abbr>: the best attacks on <abbr title="ring learning with errors">RLWE</abbr> are the same as on <abbr title="learning with errors">LWE</abbr>.</p>
-<p><strong>Module-LWE</strong> sits in between (small matrices of ring elements). It is the basis of <abbr title="National Institute of Standards and Technology">NIST</abbr>'s
-post-quantum standards <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (Kyber) and <abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr> (Dilithium), but <abbr title="fully homomorphic encryption">FHE</abbr> schemes mostly use
+<p><strong>Module-LWE</strong> sits in between (small matrices of ring elements). It is the basis of the post-quantum
+standards of <abbr title="National Institute of Standards and Technology">NIST</abbr> (the National Institute of Standards and Technology): <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (Kyber, a
+module-lattice-based key-encapsulation mechanism) and <abbr title="Module-Lattice-Based Digital Signature Algorithm (FIPS 204)">ML-DSA</abbr> (Dilithium, a module-lattice-based
+digital signature algorithm), but <abbr title="fully homomorphic encryption">FHE</abbr> schemes mostly use
 <abbr title="ring learning with errors">RLWE</abbr> or plain <abbr title="learning with errors">LWE</abbr>. <abbr title="fully homomorphic encryption">FHE</abbr> and post-quantum cryptography share the same hardness foundation.</p>
 <h2 id="4-the-number-theoretic-transform-ntt">4. The Number Theoretic Transform (NTT)<a class="headerlink" href="#4-the-number-theoretic-transform-ntt" title="Link to this section">#</a></h2>
-<p>The <abbr title="number-theoretic transform">NTT</abbr> is the <strong><abbr title="fast Fourier transform">FFT</abbr> over a finite field</strong>, and it is <em>the</em> computational kernel of <abbr title="fully homomorphic encryption">FHE</abbr>.</p>
+<p>The <abbr title="number-theoretic transform">NTT</abbr> is the <strong>fast Fourier transform (<abbr title="fast Fourier transform">FFT</abbr>) over a finite field</strong>, and it is <em>the</em> computational kernel of <abbr title="fully homomorphic encryption">FHE</abbr>.</p>
 <p>If <code>q</code> is prime with \(q \equiv 1 \pmod{2N}\), then \(\mathbb{Z}_q\) contains a primitive
 \(2N\)-th root of unity <code>ψ</code>. The <code>N</code> roots of \(X^N + 1\) are then \(\psi, \psi^3, \psi^5, \dots,
 \psi^{2N-1}\), and by the Chinese Remainder Theorem</p>
@@ -174,14 +178,109 @@ post-quantum standards <abbr title="Module-Lattice-Based Key-Encapsulation Mecha
 <p>In this "evaluation form", polynomial multiplication becomes <strong>pointwise</strong> multiplication. The
 <abbr title="number-theoretic transform">NTT</abbr> and its inverse take \(O(N \log N)\), so a ring multiplication costs \(O(N \log N)\) instead
 of \(O(N^2)\).</p>
+<figure class="widget" id="w-n02-ntt-butterfly">
+  <p class="widget-title">The NTT splits \(X^4 + 1\) one factor at a time</p>
+  <p class="widget-hint">Send a, then b, then a·b down the tree. The leaves of a·b are the leaves of a times the leaves of b, mod 17.</p>
+  <div class="controls"></div>
+  <svg class="ntt-tree" viewBox="0 0 400 262" role="img" aria-label="Remainder tree of the number-theoretic transform for N = 4, q = 17" style="display:block;width:100%;max-width:500px;height:auto;margin:0 auto;font-family:var(--font)"></svg>
+  <div class="readout"></div>
+  <figcaption>Mod 17, \(X^4 + 1 = (X^2 - 4)(X^2 + 4)\), \(X^2 - 4 = (X - 2)(X + 2)\) and \(X^2 + 4 = (X - 8)(X + 8)\). Taking the remainder mod a factor \(X^2 - c\) means replacing \(X^2\) by \(c\), so each node is computed from its parent with one multiplication per coefficient pair, shared by both children (once added, once subtracted): a butterfly. The leaves are the values at the four roots \(\psi, \psi^5, \psi^3, \psi^7\) with \(\psi = 2\), in the bit-reversed order real NTT code produces. With \(N/2\) butterflies per level and \(\log_2 N\) levels, a transform costs \(\tfrac{N}{2}\log_2 N\) multiplications.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n02-ntt-butterfly';
+  const Q = 17, SUP = ['', '', '²', '³'];
+  const mod = v => ((v % Q) + Q) % Q;
+  const A = [1, 2, 0, 1], B = [3, 0, 1, 0];
+  const AB = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const k = i + j;
+    if (k < 4) AB[k] += A[i] * B[j]; else AB[k - 4] -= A[i] * B[j];       // X^4 = −1
+  }
+  for (let k = 0; k < 4; k++) AB[k] = mod(AB[k]);
+  const polyStr = p => p.map((c, k) => !c ? '' : k === 0 ? String(c) : (c === 1 ? '' : c) + 'X' + SUP[k]).filter(Boolean).join(' + ') || '0';
+  // the tree: replace X² by ±4, then X by ±2 or ±8
+  function tree(p) {
+    const c = [mod(p[0] + 4 * p[2]), mod(p[1] + 4 * p[3])], d = [mod(p[0] - 4 * p[2]), mod(p[1] - 4 * p[3])];
+    return { c, d, leaves: [mod(c[0] + 2 * c[1]), mod(c[0] - 2 * c[1]), mod(d[0] + 8 * d[1]), mod(d[0] - 8 * d[1])] };
+  }
+  const POLYS = { a: A, b: B, ab: AB };
+
+  const ui = DS.controls(root + ' .controls', draw);
+  const which = ui.choice({ label: 'Polynomial', options: [{ value: 'a', label: 'a' }, { value: 'b', label: 'b' }, { value: 'ab', label: 'a·b' }], value: 'a' });
+
+  const svg = document.querySelector(root + ' svg.ntt-tree');
+  const NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  }
+  function box(cx, cy, w, title, value, big, series) {
+    el('rect', { x: cx - w / 2, y: cy - 24, width: w, height: 48, rx: 8, fill: series ? `color-mix(in srgb, var(--series-${series}) 14%, transparent)` : 'var(--soft)',
+      stroke: series ? `var(--series-${series})` : 'var(--line-strong)', 'stroke-width': 1.25 });
+    el('text', { x: cx, y: cy - 6, 'text-anchor': 'middle', fill: 'var(--fg-2)', 'font-size': 12.5 }, title);
+    el('text', { x: cx, y: cy + 15, 'text-anchor': 'middle', fill: 'currentColor', 'font-size': big ? 18 : 15, 'font-weight': 650 }, value);
+  }
+  function edge(x0, y0, x1, y1, label, anchor) {
+    el('line', { x1: x0, y1: y0, x2: x1, y2: y1, stroke: 'var(--line-strong)', 'stroke-width': 1.5 });
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    el('text', { x: mx + (anchor === 'end' ? -13 : 13), y: my + 4, 'text-anchor': anchor, fill: 'var(--fg-2)', 'font-size': 12.5 }, label);
+  }
+
+  function draw() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.style.color = 'var(--fg)';
+    const p = POLYS[which.value], t = tree(p);
+    const name = { a: 'a', b: 'b', ab: 'a·b' }[which.value];
+    edge(200, 50, 100, 104, 'X² → 4', 'end');
+    edge(200, 50, 300, 104, 'X² → −4', 'start');
+    edge(100, 152, 50, 206, 'X → 2', 'end');
+    edge(100, 152, 150, 206, 'X → −2', 'start');
+    edge(300, 152, 250, 206, 'X → 8', 'end');
+    edge(300, 152, 350, 206, 'X → −8', 'start');
+    box(200, 26, 250, 'mod X⁴ + 1', name + ' = ' + polyStr(p));
+    box(100, 128, 170, 'mod X² − 4', polyStr(t.c));
+    box(300, 128, 170, 'mod X² + 4', polyStr(t.d));
+    const roots = [['2', 'ψ'], ['15', 'ψ⁵'], ['8', 'ψ³'], ['9', 'ψ⁷']];
+    [50, 150, 250, 350].forEach((x, i) => box(x, 230, 92, `X = ${roots[i][0]} (${roots[i][1]})`, String(t.leaves[i]), true, 1));
+    table();
+  }
+
+  function table() {
+    const la = tree(A).leaves, lb = tree(B).leaves, lab = tree(AB).leaves;
+    const prod = la.map((v, i) => mod(v * lb[i]));
+    DS.table(root + ' .readout', {
+      columns: ['', { label: 'X = 2', num: true }, { label: 'X = 15', num: true }, { label: 'X = 8', num: true }, { label: 'X = 9', num: true }],
+      rows: [
+        [{ text: 'a', th: true }, ...la.map(String)],
+        [{ text: 'b', th: true }, ...lb.map(String)],
+        [{ text: 'a × b, slot by slot', th: true }, ...la.map((v, i) => `${v}·${lb[i]} ≡ ${prod[i]}`)],
+        [{ text: 'a·b, from its tree', th: true }, ...lab.map(String)],
+      ],
+    });
+    const N = 16384, lg = 14;
+    const ntt = 3 * (N / 2) * lg + N, school = N * N;
+    DS.stats(root + ' .readout', [
+      { label: 'Butterflies in this tree', value: '4', note: 'N/2 = 2 per level, log₂ N = 2 levels' },
+      { label: 'One product at N = 2¹⁴ via the NTT', value: ntt.toLocaleString('en-US'), note: '3 transforms + N slot products' },
+      { label: 'Schoolbook at N = 2¹⁴', value: school.toLocaleString('en-US'), note: 'N² products, ' + Math.round(school / ntt) + '× more' },
+    ]);
+  }
+  draw();
+})();
+</script>
 <p>Profiles of <abbr title="fully homomorphic encryption">FHE</abbr> libraries are dominated by <abbr title="number-theoretic transform">NTT</abbr>s and by <strong>key switching</strong>, which is built on
 <abbr title="number-theoretic transform">NTT</abbr>s. This is why <abbr title="fully homomorphic encryption">FHE</abbr> hardware accelerators (ch. 07) are mostly <abbr title="number-theoretic transform">NTT</abbr> engines plus a lot of
 memory bandwidth. A runnable <abbr title="number-theoretic transform">NTT</abbr>, measured against schoolbook multiplication, is in the
 <a href="deep_dives/hardware.html">hardware deep dive §2</a>.</p>
-<p>The same <abbr title="Chinese remainder theorem">CRT</abbr> idea over \(\mathbb{Z}_t\) (the <em>plaintext</em> modulus) gives <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>/<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> <strong>batching</strong>.
-Over \(\mathbb{C}\) it gives <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>'s <strong>canonical embedding</strong>. One isomorphism appears three times.</p>
+<p>The same <abbr title="Chinese remainder theorem">CRT</abbr> idea over \(\mathbb{Z}_t\) (the <em>plaintext</em> modulus) gives <strong>batching</strong> in <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>
+(the Brakerski/Fan–Vercauteren and Brakerski–Gentry–Vaikuntanathan schemes). Over \(\mathbb{C}\)
+it gives the <strong>canonical embedding</strong> of <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme). One isomorphism appears three times.</p>
 <h2 id="5-rns-making-1000-bit-moduli-fast">5. RNS: making 1000-bit moduli fast<a class="headerlink" href="#5-rns-making-1000-bit-moduli-fast" title="Link to this section">#</a></h2>
-<p>Practical ciphertext moduli are huge. With \(N = 2^{16}\), \(\log_2 q\) can be over 1500 bits,
+<p>Ciphertext moduli are huge. With \(N = 2^{16}\), \(\log_2 q\) can be over 1500 bits,
 and arithmetic on 1500-bit integers is slow. The fix is the <strong>Residue Number System</strong>:</p>
 <div class="math-display">\[q = q_1 \cdot q_2 \cdots q_L, \qquad q_i \text{ distinct NTT-friendly primes of } 30\text{–}60 \text{ bits}\]</div>
 <p>A polynomial mod <code>q</code> is stored as <code>L</code> polynomials mod \(q_i\) (<abbr title="Chinese remainder theorem">CRT</abbr> again). All arithmetic then
@@ -252,7 +351,8 @@ them through memory is a major bottleneck.</p>
 <p><strong>Secret distributions.</strong> Libraries use ternary secrets (\(\{-1, 0, 1\}\) coefficients), and
 sometimes <strong>sparse</strong> secrets (few non-zeros) because they make bootstrapping cheaper. Sparse
 secrets enable hybrid attacks, so parameters must account for them. The CRYPTO 2026 paper by
-Jain–Lin–Liu–Saha exploits sparse secrets to speed up <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping (ch. 07).</p>
+Jain–Lin–Liu–Saha exploits sparse secrets to speed up <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping (the Ducas–Micciancio scheme and Torus <abbr title="fully homomorphic encryption">FHE</abbr>;
+ch. 07).</p>
 <h2 id="7-why-this-is-post-quantum">7. Why this is post-quantum<a class="headerlink" href="#7-why-this-is-post-quantum" title="Link to this section">#</a></h2>
 <ul>
 <li>Shor's algorithm breaks factoring and discrete log, and with them <abbr title="Rivest–Shamir–Adleman">RSA</abbr>, ElGamal, Paillier and
@@ -274,7 +374,7 @@ use a single key, though, so their relinearization and rotation keys (encryption
 <h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>
 <ul>
 <li>Implement the negacyclic <abbr title="number-theoretic transform">NTT</abbr> in Python and verify it against schoolbook multiplication.</li>
-<li>How the Lattice Estimator works: primal uSVP attack, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> cost models, dual and hybrid attacks.</li>
+<li>How the Lattice Estimator works: primal unique shortest vector problem (<abbr title="unique shortest vector problem">uSVP</abbr>) attack, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr> cost models, dual and hybrid attacks.</li>
 <li>The canonical embedding and why <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> slots are complex numbers.</li>
 <li>Regev's reduction: what "worst-case to average-case" actually buys you.</li>
 </ul>

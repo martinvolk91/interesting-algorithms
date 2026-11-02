@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -103,10 +104,11 @@ function renderMath() {
 </details>
 <article>
 <h1 id="deep-dive-tfhe-and-programmable-bootstrapping">Deep dive: TFHE and programmable bootstrapping<a class="headerlink" href="#deep-dive-tfhe-and-programmable-bootstrapping" title="Link to this section">#</a></h1>
-<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 How it works §8</a>, <a href="../04_schemes.html#generation-3-gsw-fhew-tfhe-cggi">04 Schemes</a> · sibling: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive</a></p>
+<p><a href="../index.html">index</a> · background: <a href="../03_how_it_works.html#8-bootstrapping-gentrys-big-idea">03 How it works §8</a>, <a href="../04_schemes.html#generation-3-gsw-fhew-tfhe-cggi">04 Schemes</a> · sibling: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive</a> (the Cheon–Kim–Kim–Song scheme)</p>
 <hr />
-<p><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (Chillotti–Gama–Georgieva–Izabachène, 2016; also called <strong><abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr></strong>) is the <abbr title="fully homomorphic encryption">FHE</abbr> scheme built
-around <strong>fast bootstrapping</strong>. It sits at the opposite end of the design space from <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>:</p>
+<p><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (torus fully homomorphic encryption; Chillotti–Gama–Georgieva–Izabachène, 2016; also
+called <strong><abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr></strong>) is the <abbr title="fully homomorphic encryption">FHE</abbr> scheme built around <strong>fast bootstrapping</strong>. It sits at the opposite
+end of the design space from <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -118,7 +120,7 @@ around <strong>fast bootstrapping</strong>. It sits at the opposite end of the d
 <tbody>
 <tr>
 <td>Values per ciphertext</td>
-<td>thousands (<abbr title="single instruction, multiple data">SIMD</abbr> slots)</td>
+<td>thousands (<abbr title="single instruction, multiple data">SIMD</abbr> slots: single instruction, multiple data)</td>
 <td><strong>one</strong> small integer (1–8 bits)</td>
 </tr>
 <tr>
@@ -150,10 +152,11 @@ utterly insecure. They are sized so that each step is visible and Python stays f
 <hr />
 <h2 id="0-the-one-idea">0. The one idea<a class="headerlink" href="#0-the-one-idea" title="Link to this section">#</a></h2>
 <blockquote>
-<p>Put the message in the <strong>phase</strong> of an <abbr title="learning with errors">LWE</abbr> ciphertext. Bootstrapping turns that phase into
-an <strong>exponent of <code>X</code></strong>, rotates a polynomial that holds a <strong>lookup table</strong> by that much, and
-reads off the entry that lands in position 0. The output is computed from the
-(low-noise) <strong>bootstrapping key</strong>, not from the input, so its noise is fresh.</p>
+<p>Put the message in the <strong>phase</strong> of an <abbr title="learning with errors">LWE</abbr> (learning with errors) ciphertext. Bootstrapping
+turns that phase into an <strong>exponent of <code>X</code></strong>, rotates a polynomial that holds a <strong>lookup
+table</strong> by that much, and reads off the entry that lands in position 0. The output is
+computed from the (low-noise) <strong>bootstrapping key</strong>, not from the input, so its noise is
+fresh.</p>
 </blockquote>
 <p>The rest of the document is that sentence, one step at a time.</p>
 <h3 id="notation">Notation<a class="headerlink" href="#notation" title="Link to this section">#</a></h3>
@@ -187,7 +190,7 @@ reads off the entry that lands in position 0. The output is computed from the
 </tr>
 <tr>
 <td><code>N</code></td>
-<td><abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> polynomial size, ring \(\mathbb{Z}_Q[X]/(X^N+1)\)</td>
+<td><abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> (general learning with errors) polynomial size, ring \(\mathbb{Z}_Q[X]/(X^N+1)\)</td>
 <td>128</td>
 <td>1024–4096 (often 2048)</td>
 </tr>
@@ -286,10 +289,10 @@ is no ciphertext × ciphertext product. <strong>Everything non-linear happens in
 <td><strong><abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr></strong></td>
 <td>\((A, B)\) polynomials, \(B = A\cdot S + M + E\)</td>
 <td>\(B - A\cdot S = M + E\)</td>
-<td>the <strong>accumulator</strong> in blind rotation. With <code>k = 1</code> it is just <abbr title="ring learning with errors">RLWE</abbr></td>
+<td>the <strong>accumulator</strong> in blind rotation. With <code>k = 1</code> it is just <abbr title="ring learning with errors">RLWE</abbr> (ring learning with errors)</td>
 </tr>
 <tr>
-<td><strong><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr></strong></td>
+<td><strong><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr></strong> (general <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>, after Gentry–Sahai–Waters)</td>
 <td>\(2\ell\) <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> rows (for <code>k = 1</code>)</td>
 <td>"μ times the gadget"</td>
 <td>the <strong>bootstrapping key</strong>: one <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> per bit of <code>s</code></td>
@@ -344,6 +347,8 @@ added to the <code>A</code> part. In the last <code>ℓ</code> rows, it is added
 with \(g_t = Q/\beta^t\). That structure is exactly what the next section needs.</p>
 <hr />
 <h2 id="3-external-product-and-cmux">3. External product and CMux<a class="headerlink" href="#3-external-product-and-cmux" title="Link to this section">#</a></h2>
+<p>This section builds the <abbr title="controlled multiplexer">CMux</abbr> (controlled multiplexer), an encrypted if-then-else, from the
+external product.</p>
 <h3 id="31-external-product-ggsw--glwe--glwe">3.1 External product: GGSW × GLWE → GLWE<a class="headerlink" href="#31-external-product-ggsw--glwe--glwe" title="Link to this section">#</a></h3>
 <p>To multiply a <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> ciphertext <code>(A, B)</code> by the bit μ hidden in a <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, decompose <code>A</code> and <code>B</code>
 into digit polynomials and take that combination of the <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> rows:</p>
@@ -358,8 +363,9 @@ phase</strong>, plus noise. The noise has three parts:</p>
 <li>μ × (input noise): the input noise is multiplied only by μ ∈ {0, 1}, <strong>never amplified</strong>.</li>
 </ul>
 <p>That last point is <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>'s <strong>asymmetric noise growth</strong> (<a href="../04_schemes.html#gsw-gentrysahaiwaters-2013-the-approximate-eigenvector-scheme">04</a>).
-A chain of external products grows noise <strong>additively</strong>: variances add. Compare <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>,
-where products of two noisy ciphertexts multiply their noise.</p>
+A chain of external products grows noise <strong>additively</strong>: variances add. Compare <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>
+(Brakerski–Gentry–Vaikuntanathan) or <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, where products of two noisy ciphertexts multiply
+their noise.</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">external_product</span><span class="p">(</span><span class="n">ggsw</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
     <span class="n">A</span><span class="p">,</span> <span class="n">B</span> <span class="o">=</span> <span class="n">ct</span>
     <span class="n">digit_polys</span> <span class="o">=</span> <span class="p">[]</span>
@@ -374,33 +380,88 @@ where products of two noisy ciphertexts multiply their noise.</p>
 </code></pre></div>
 
 <p>Cost: \(2\ell\) decompositions and \(4\ell\) polynomial multiplications (for <code>k = 1</code>). Real
-libraries do the multiplications with an <abbr title="fast Fourier transform">FFT</abbr> or <abbr title="number-theoretic transform">NTT</abbr>. <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs uses a 64-bit-float <abbr title="fast Fourier transform">FFT</abbr>.</p>
+libraries do the multiplications with a fast Fourier transform (<abbr title="fast Fourier transform">FFT</abbr>) or a number-theoretic
+transform (<abbr title="number-theoretic transform">NTT</abbr>). <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs uses a 64-bit-float <abbr title="fast Fourier transform">FFT</abbr>.</p>
 <h3 id="32-cmux-an-encrypted-if-then-else">3.2 CMux: an encrypted if-then-else<a class="headerlink" href="#32-cmux-an-encrypted-if-then-else" title="Link to this section">#</a></h3>
 <div class="math-display">\[\mathrm{CMux}(\mathrm{GGSW}(b),\ c_0,\ c_1) = c_0 + \mathrm{GGSW}(b) \boxdot (c_1 - c_0) = \begin{cases} c_0 &amp; b = 0 \\ c_1 &amp; b = 1\end{cases}\]</div>
 <p>The server selects between two ciphertexts <strong>without learning which one it picked</strong>.</p>
 <hr />
 <h2 id="4-programmable-bootstrapping-step-by-step">4. Programmable bootstrapping, step by step<a class="headerlink" href="#4-programmable-bootstrapping-step-by-step" title="Link to this section">#</a></h2>
-<div class="highlight"><pre><span></span><code> LWE_s(Δm + e)           dimension n, noise e (anything below Δ/2)
-   │ ① modulus switch Q → 2N          phase becomes an integer exponent φ̃ ∈ [0, 2N)
-   ▼
- (ã, b̃)
-   │ ② + ③ blind rotation             n CMuxes with the bootstrapping key GGSW(s_i)
-   ▼          starting from the test polynomial v (the lookup table)
- GLWE_S(X^(−φ̃) · v)
-   │ ④ sample extraction              free: read coefficient 0 as an LWE ciphertext
-   ▼
- LWE_S(v[φ̃])            dimension N
-   │ ⑤ key switching                   back to the original key s
-   ▼
- LWE_s(Δ f(m) + e&#39;)      dimension n, fresh noise e&#39; (independent of e)
-</code></pre></div>
-
+<figure class="diagram" id="d-dd-tfhe-pipeline">
+  <svg viewBox="0 0 500 556" role="img" style="max-width: 600px" aria-label="The five steps of a programmable bootstrap, with the ciphertext type and size after each step and the two keys they use">
+    <style>
+      #d-dd-tfhe-pipeline text.b { font-weight: 650; font-size: 14px; }
+      #d-dd-tfhe-pipeline text.s { font-size: 13px; }
+      #d-dd-tfhe-pipeline text.m { fill: var(--muted); }
+      #d-dd-tfhe-pipeline text.hd { font-size: 11.5px; fill: var(--muted); letter-spacing: .02em; }
+    </style>
+    <text x="316" y="18" class="hd">toy · real</text>
+    <rect x="10" y="30" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-1)" stroke-width="1.6"/>
+    <text x="22" y="50" class="b">LWE ciphertext, key s, dimension n</text>
+    <text x="22" y="68" class="s">phase Δ·m + e, any |e| below Δ/2</text>
+    <text x="316" y="50" class="s">17 words</text>
+    <text x="316" y="68" class="s m">≈ 801 words</text>
+    <line x1="34" y1="78" x2="34" y2="113" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,111 L34,120 L39,111 Z" fill="currentColor"/>
+    <text x="48" y="104.0" class="b">① modulus switch Q → 2N</text>
+    <rect x="10" y="120" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--ink-muted)" stroke-width="1.6" stroke-dasharray="5 4"/>
+    <text x="22" y="140" class="b">Rounded LWE, entries mod 2N</text>
+    <text x="22" y="158" class="s">phase φ̃ in [0, 2N): an exponent of X</text>
+    <text x="316" y="140" class="s">17 numbers < 256</text>
+    <text x="316" y="158" class="s m">≈ 801 numbers < 4096</text>
+    <line x1="34" y1="168" x2="34" y2="245" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,243 L34,252 L39,243 Z" fill="currentColor"/>
+    <text x="48" y="190" class="b">②③ blind rotation</text>
+    <text x="48" y="208" class="s">n CMuxes, one after another</text>
+    <rect x="312" y="178" width="180" height="64" rx="6" fill="none" stroke="var(--series-2)" stroke-width="1.6"/>
+    <text x="322" y="196" class="b">bootstrapping key</text>
+    <text x="322" y="214" class="s">n GGSW(sᵢ), one per bit</text>
+    <text x="322" y="232" class="s m">toy 64 KB · real ≈ 52 MB</text>
+    <line x1="312" y1="226" x2="43" y2="226" stroke="var(--series-2)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <path d="M45,221.5 L36,226 L45,230.5 Z" fill="var(--series-2)"/>
+    <rect x="10" y="252" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-3)" stroke-width="1.6"/>
+    <text x="22" y="272" class="b">GLWE accumulator, key S</text>
+    <text x="22" y="290" class="s">phase X^(−φ̃)·v: the table, rotated</text>
+    <text x="316" y="272" class="s">2 × 128 words</text>
+    <text x="316" y="290" class="s m">2 × 2048 words</text>
+    <line x1="34" y1="300" x2="34" y2="335" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,333 L34,342 L39,333 Z" fill="currentColor"/>
+    <text x="48" y="326.0" class="b">④ sample extraction: free, no key</text>
+    <rect x="10" y="342" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-3)" stroke-width="1.6"/>
+    <text x="22" y="362" class="b">LWE ciphertext, key S, dimension N</text>
+    <text x="22" y="380" class="s">phase v_φ̃ = Δ·f(m) + fresh noise</text>
+    <text x="316" y="362" class="s">129 words</text>
+    <text x="316" y="380" class="s m">2049 words</text>
+    <line x1="34" y1="390" x2="34" y2="467" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,465 L34,474 L39,465 Z" fill="currentColor"/>
+    <text x="48" y="412" class="b">⑤ key switching</text>
+    <text x="48" y="430" class="s">back to the small key s</text>
+    <rect x="312" y="400" width="180" height="64" rx="6" fill="none" stroke="var(--series-2)" stroke-width="1.6"/>
+    <text x="322" y="418" class="b">key-switching key</text>
+    <text x="322" y="436" class="s">N × ℓ_ks LWEs under s</text>
+    <text x="322" y="454" class="s m">toy 43 KB · real ≈ 66 MB</text>
+    <line x1="312" y1="448" x2="43" y2="448" stroke="var(--series-2)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <path d="M45,443.5 L36,448 L45,452.5 Z" fill="var(--series-2)"/>
+    <rect x="10" y="474" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-1)" stroke-width="1.6"/>
+    <text x="22" y="494" class="b">LWE ciphertext, key s, dimension n</text>
+    <text x="22" y="512" class="s">phase Δ·f(m) + e′, e′ independent of e</text>
+    <text x="316" y="494" class="s">17 words</text>
+    <text x="316" y="512" class="s m">≈ 801 words</text>
+    <rect x="10" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-1)" stroke-width="1.8"/>
+    <text x="27" y="542" class="s">under key s</text>
+    <rect x="115.8" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-3)" stroke-width="1.8"/>
+    <text x="132.8" y="542" class="s">under GLWE key S</text>
+    <rect x="255.60000000000002" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-2)" stroke-width="1.8"/>
+    <text x="272.6" y="542" class="s">public evaluation key</text>
+  </svg>
+  <figcaption>One programmable bootstrap, and what each step holds. Sizes count numbers mod \(Q\) ("words"): the toy (\(n = 16\), \(N = 128\), \(Q = 2^{32}\)) first, then a typical real parameter set (\(n \approx 800\), \(N = 2048\), \(Q = 2^{64}\)). Only the two key-dependent steps do real work; the input noise \(e\) leaves no trace in the output, whose noise comes from the two keys.</figcaption>
+</figure>
 <div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">pbs</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">lut</span><span class="p">,</span> <span class="n">bsk</span><span class="p">,</span> <span class="n">ksk</span><span class="p">,</span> <span class="n">bits</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Programmable bootstrapping: returns a fresh, low-noise encryption of f(m).&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">key_switch</span><span class="p">(</span><span class="n">sample_extract</span><span class="p">(</span><span class="n">blind_rotate</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">lut</span><span class="p">,</span> <span class="n">bsk</span><span class="p">,</span> <span class="n">bits</span><span class="p">)),</span> <span class="n">ksk</span><span class="p">)</span>
 </code></pre></div>
 
-<p>Toy output for one <abbr title="programmable bootstrapping">PBS</abbr> (<code>p = 2</code>, <code>m = 3</code>, <abbr title="lookup table">LUT</abbr> <code>f(m) = m² mod 4</code>):</p>
+<p>Toy output for one <abbr title="programmable bootstrapping">PBS</abbr> (<code>p = 2</code>, <code>m = 3</code>, lookup table (<abbr title="lookup table">LUT</abbr>) <code>f(m) = m² mod 4</code>):</p>
 <div class="highlight"><pre><span></span><code>== one PBS, step by step (2-bit messages, LUT f(m) = m^2 mod 4)
 fresh LWE(m=3)           |noise| = 2^ 11.6
 mod switch to 2N=256      phase 112 (exact 112.00); sector for m=3 is [96, 128)
@@ -494,6 +555,96 @@ has to double to keep the same failure rate. That is why real <abbr title="Torus
 ciphertext</strong> with <code>N = 2048</code>, and builds bigger integers out of several ciphertexts (§5.3).
 With a realistic <code>n ≈ 800</code>, the mod-switch error alone has std \(\sqrt{401/12} \approx 5.8\)
 units, and the input ciphertext's own noise adds to it.</p>
+<figure class="widget" id="w-dd-tfhe-modswitch">
+  <p class="widget-title">Mod-switch rounding error against the width of a sector</p>
+  <p class="widget-hint">At p = 5 the error already spills over the sector edge. Double N: the sector doubles, the error does not. Then raise p again.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>The x-axis always spans two sector widths, so the shaded sector keeps its size on screen and the error distribution shrinks or grows against it. In steps of \(1/2N\) the rounding error never changes; only the sector width \(w = N/2^p\) does. Bars: the exact error for the toy key (\(n = 16\), Hamming weight \(h = 7\)), which can never exceed 4 steps. Curve: a realistic key (\(n = 800\), \(h \approx 400\), standard deviation 5.8 steps).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-tfhe-modswitch';
+  const H_TOY = 7, H_REAL = 400, TARGET = Math.pow(2, -64);
+  const SD_REAL = Math.sqrt(H_REAL / 12);                 // sum of h rounding errors, each uniform in ±1/2
+  const SD_REAL_INT = Math.sqrt((H_REAL + 1) / 12);       // after the final rounding to an integer: 5.8 steps
+  const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+
+  // CDF of the sum of h independent Uniform(-1/2, 1/2) (Irwin–Hall, shifted), exact for small h
+  const fact = n => (n <= 1 ? 1 : n * fact(n - 1));
+  const binom = (n, k) => fact(n) / (fact(k) * fact(n - k));
+  function ihCdf(x, h) {
+    const y = x + h / 2;
+    if (y <= 0) return 0;
+    if (y >= h) return 1;
+    let s = 0;
+    for (let k = 0; k <= Math.floor(y); k++) s += (k % 2 ? -1 : 1) * binom(h, k) * Math.pow(y - k, h);
+    return s / fact(h);
+  }
+  // The mod-switched phase is off by round(sum of h rounding errors): an integer k with this probability
+  const toyPmf = [];
+  for (let k = -4; k <= 4; k++) toyPmf.push([k, ihCdf(k + 0.5, H_TOY) - ihCdf(k - 0.5, H_TOY)]);
+  // Gaussian upper tail with good relative accuracy far out (Numerical Recipes erfcc)
+  function erfc(x) {
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  const upperTail = (x, sd) => 0.5 * erfc(x / (sd * Math.SQRT2));
+
+  // the sector holds offsets -w/2 .. w/2 - 1 (integers), so the edges sit at -w/2 - 1/2 and w/2 - 1/2
+  const failToy = w => ihCdf(-w / 2 - 0.5, H_TOY) + (1 - ihCdf(w / 2 - 0.5, H_TOY));
+  const failReal = w => upperTail(w / 2 - 0.5, SD_REAL) + upperTail(w / 2 + 0.5, SD_REAL);
+
+  function prob(p) {
+    if (p === 0) return '0';
+    if (p >= 0.001) return DS.pct(p, p >= 0.1 ? 0 : 1);
+    if (p < 1e-300) return '< 10⁻³⁰⁰';
+    const e = Math.floor(Math.log10(p)), m = p / Math.pow(10, e);
+    return m.toFixed(1).replace(/\.0$/, '') + '·10' + String(e).split('').map(ch => SUP[ch]).join('');
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const bits = ui.slider({ label: 'Message bits p', min: 1, max: 6, step: 1, value: 5 });
+  const nPoly = ui.slider({ label: 'Polynomial size N', values: [128, 256, 512, 1024, 2048, 4096], value: 128 });
+
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [-8, 8], label: 'φ̃ minus the sector centre (steps of 1/2N)' },
+    y: { domain: [0, 0.55], label: 'Probability', format: v => v.toFixed(1) },
+    height: 280,
+    draw(c) {
+      const w = nPoly.value >> bits.value;
+      const lo = -w / 2 - 0.5, hi = w / 2 - 0.5;
+      c.domain({ x: [-w, w] });
+      c.polygon([[lo, 0], [hi, 0], [hi, 0.55], [lo, 0.55]], { series: 1, stroke: false });
+      c.vline(lo, { series: 'muted', dash: true });
+      c.vline(hi, { series: 'muted', dash: true, label: 'sector edge' });
+      c.text((lo + hi) / 2, 0.5, `sector of m (w = ${w})`, { anchor: 'middle', cls: 'ink2' });
+      c.bars(toyPmf.filter(([k, q]) => q > 0 && k >= -w && k <= w).map(([k, q]) => ({
+        x: k, y: q, width: 1, series: k >= -w / 2 && k < w / 2 ? 1 : 'bad',
+        tip: `offset ${DS.fmt(k)}: ${prob(q)}${k >= -w / 2 && k < w / 2 ? '' : ' (wrong sector)'}`,
+      })), { gap: w > 16 ? 0 : 2 });
+      const span = Math.min(w, 6 * SD_REAL_INT);
+      c.fn(x => DS.math.normalPdf(x, 0, SD_REAL_INT), { series: 2, from: -span, to: span, n: 240 });
+      c.legend([{ label: 'toy key, n = 16 (exact)', series: 1, kind: 'rect' }, { label: 'realistic key, n = 800', series: 2 },
+        { label: 'lands in the wrong sector', series: 'bad', kind: 'rect' }]);
+    },
+  });
+
+  function readout() {
+    const N = nPoly.value, p = bits.value, w = N >> p;
+    const ft = failToy(w), fr = failReal(w);
+    DS.stats(root + ' .readout', [
+      { label: 'Sector width w = N/2^p', value: `${w} steps`, note: `half-width ${w / 2}` },
+      { label: 'Wrong sector, toy key', value: prob(ft), note: ft === 0 ? 'error never exceeds 4 steps' : 'n = 16, h = 7', tone: ft > TARGET ? 'bad' : 'good' },
+      { label: 'Wrong sector, n = 800', value: prob(fr), note: 'h ≈ 400; target: below 2⁻⁶⁴', tone: fr > TARGET ? 'bad' : 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="42-step-②-the-test-polynomial-the-lookup-table">4.2 Step ②: the test polynomial (the lookup table)<a class="headerlink" href="#42-step-②-the-test-polynomial-the-lookup-table" title="Link to this section">#</a></h3>
 <p>The <strong>test polynomial</strong> <code>v</code> stores the function. Coefficient <code>j</code> holds the encoded output for
 the sector that <code>j</code> belongs to:</p>
@@ -610,9 +761,9 @@ single samples):</p>
 key-switching keys alone, and the input only needs to be <em>decodable</em> (phase in the right
 sector). The demo makes this concrete: 300 noisy additions push the noise to 2^25.0, and one
 identity <abbr title="programmable bootstrapping">PBS</abbr> brings it back to 2^16.5.</p>
-<p><strong>Where the output noise comes from.</strong> Blind rotation adds, per CMux, two independent terms.
+<p><strong>Where the output noise comes from.</strong> Blind rotation adds, per <abbr title="controlled multiplexer">CMux</abbr>, two independent terms.
 Over <code>n</code> CMuxes the variances add:</p>
-<div class="math-display">\[\sigma^2_{\text{BR}} \;\approx\; n\Big[\underbrace{2\ell N \tfrac{\beta^2}{12}\,\sigma^2_{\text{bsk}}}_{\text{key noise × digits}} \;+\; \underbrace{\tfrac{N}{2}\cdot\tfrac{1}{12}\big(\tfrac{Q}{\beta^\ell}\big)^2}_{\text{decomposition rounding × } S}\Big]\]</div>
+<div class="math-display">\[\sigma^2_{\text{BR}} \;\approx\; n\Big[\underbrace{2\ell N \tfrac{\beta^2}{12}\,\sigma^2_{\text{bsk}}}_{\text{key noise} \times \text{digits}} \;+\; \underbrace{\tfrac{N}{2}\cdot\tfrac{1}{12}\big(\tfrac{Q}{\beta^\ell}\big)^2}_{\text{decomposition rounding} \times S}\Big]\]</div>
 <p>Measured in the toy (rms over 4 runs, <code>n = 16</code>, <code>N = 128</code>):</p>
 <div class="table-wrap"><table>
 <thead>
@@ -692,6 +843,79 @@ Over <code>n</code> CMuxes the variances add:</p>
 <li><strong><code>σ_bsk</code>:</strong> fixed by <em>security</em> (the lattice estimator), not by choice. Real parameter
   selection minimises <code>ℓ</code> (often to 1) subject to the target failure probability.</li>
 </ul>
+<figure class="widget" id="w-dd-tfhe-gadget">
+  <p class="widget-title">The gadget trade-off: base \(\beta\) against levels \(\ell\)</p>
+  <p class="widget-hint">Slide the base left and right: the noise is lowest where the two dashed terms cross. Then switch to ℓ = 3 for a lower minimum at a higher cost.</p>
+  <div class="controls"></div>
+  <div class="c-chart"></div>
+  <div class="readout"></div>
+  <figcaption>The two terms of the blind-rotation noise formula above, for the toy (\(n = 16\), \(N = 128\), \(Q = 2^{32}\), \(\sigma_{\text{bsk}} = 2^4\)). A bigger base makes every digit, and so the key noise it multiplies, bigger. A smaller \(\beta^\ell\) keeps fewer bits of each coefficient, and the dropped bits come back as rounding noise. More levels push the rounding term down faster, but every level adds polynomial products to each CMux and rows to the key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-tfhe-gadget';
+  const n = 16, N = 128, LOG_Q = 32, LOG_SIGMA = 4;
+  const TIME = { 1: '0.09 s', 2: '0.17 s', 3: '0.26 s' };          // measured in the toy (table above)
+  const SUP = { '.': '·', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+
+  // log2 of the standard deviation of each term (variances in units of (1/Q)^2)
+  const keyTerm = (B, l) => 0.5 * (Math.log2(n * 2 * l * N / 12) + 2 * B + 2 * LOG_SIGMA);
+  const roundTerm = (B, l) => 0.5 * (Math.log2(n * (N / 2) / 12) + 2 * (LOG_Q - B * l));
+  const total = (B, l) => {
+    const a = keyTerm(B, l), b = roundTerm(B, l), m = Math.max(a, b);
+    return m + 0.5 * Math.log2(Math.pow(2, 2 * (a - m)) + Math.pow(2, 2 * (b - m)));
+  };
+  const maxB = l => Math.floor(LOG_Q / l);                            // beta^l cannot exceed Q
+
+  const ui = DS.controls(root + ' .controls', () => {
+    if (base.value > maxB(levels.value)) base.set(maxB(levels.value));
+    chart.update(); readout();
+  });
+  const base = ui.slider({ label: 'Base β', min: 1, max: 16, step: 1, value: 10, format: v => pow2(v) });
+  const levels = ui.choice({ label: 'Levels ℓ', options: [1, 2, 3], value: 2 });
+
+  function best(l) {
+    let b = 1;
+    for (let B = 1; B <= Math.min(16, maxB(l)); B++) if (total(B, l) < total(b, l)) b = B;
+    return b;
+  }
+
+  const chart = DS.chart(root + ' .c-chart', {
+    x: { domain: [1, 16], label: 'log₂ β (bits per digit)', tipLabel: 'log₂ β =' },
+    y: { domain: [10, 34], label: 'Noise sd, log₂ (units of 1/Q)' },
+    height: 300,
+    draw(c) {
+      const l = levels.value, top = Math.min(16, maxB(l));
+      const xs = DS.math.linspace(1, top, 121);
+      c.hline(28, { dash: true, label: 'Δ/2 for p = 2', at: 'left' });
+      c.line(xs.map(B => [B, keyTerm(B, l)]), { series: 2, dash: true, label: 'key noise × digits', format: v => '2^' + v.toFixed(1) });
+      c.line(xs.map(B => [B, roundTerm(B, l)]), { series: 3, dash: true, label: 'rounding × S', format: v => '2^' + v.toFixed(1) });
+      c.line(xs.map(B => [B, total(B, l)]), { series: 1, thick: true, label: 'total', format: v => '2^' + v.toFixed(1) });
+      if (top < 16) c.vline(top, { dash: true, label: `β^${l} = Q`, labelPos: 'bottom' });
+      const b = best(l);
+      c.point(b, total(b, l), { series: 'muted', r: 4.5 });
+      c.text(b, total(b, l), 'lowest', { anchor: 'middle', dy: 18, cls: 'ink2' });
+      const B = base.value;
+      c.point(B, total(B, l), { series: 1, label: `β = ${pow2(B)}` });
+      c.legend([{ label: 'total', series: 1 }, { label: 'key noise × digits', series: 2, kind: 'dash' },
+        { label: 'rounding × S', series: 3, kind: 'dash' }]);
+    },
+  });
+
+  function readout() {
+    const l = levels.value, B = base.value, t = total(B, l), b = best(l);
+    const keyBig = keyTerm(B, l) > roundTerm(B, l);
+    DS.stats(root + ' .readout', [
+      { label: 'Blind-rotation noise', value: '2^' + t.toFixed(1), note: t > 26 ? 'close to Δ/2: decryption fails often' : `margin to Δ/2: ${(28 - t).toFixed(1)} bits`, tone: t > 26 ? 'bad' : undefined },
+      { label: 'Larger term', value: keyBig ? 'key × digits' : 'rounding', note: keyBig ? 'base too big' : 'β^ℓ too small' },
+      { label: `Lowest for ℓ = ${l}`, value: '2^' + total(b, l).toFixed(1), note: `at β = ${pow2(b)}` },
+      { label: 'Toy PBS time, key size', value: `${TIME[l]} · ${32 * l} KB`, note: 'both grow with ℓ' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong>The noise budget between two <abbr title="programmable bootstrapping">PBS</abbr></strong> is the real design constraint. For the next <abbr title="programmable bootstrapping">PBS</abbr> to
 decode correctly with failure probability <code>p_fail</code>:</p>
 <div class="math-display">\[\text{(output noise)}^2 \cdot \sum_i c_i^2 \;+\; \sigma^2_{\text{KS}} \;+\; \sigma^2_{\text{mod switch}} \;\lesssim\; \Big(\frac{\Delta/2}{z(p_{\text{fail}})}\Big)^2\]</div>
@@ -710,7 +934,8 @@ f(m) = m &gt;= 2     on m = 0..3 -&gt; [0, 0, 1, 1]
 <p>Comparisons, ReLU, sign, max, rounding, <code>x²</code>, or an S-box all cost <strong>one <abbr title="programmable bootstrapping">PBS</abbr> each</strong>,
 regardless of how non-linear they are.</p>
 <h3 id="52-gate-bootstrapping-tfhes-original-use">5.2 Gate bootstrapping: TFHE's original use<a class="headerlink" href="#52-gate-bootstrapping-tfhes-original-use" title="Link to this section">#</a></h3>
-<p>Encode bits as 0/1, add two ciphertexts (giving 0, 1 or 2), and look up the gate:</p>
+<p>Encode bits as 0/1, add two ciphertexts (giving 0, 1 or 2), and look up the logic gate, here
+<abbr title="not-and (a logic gate)">NAND</abbr> (not-and):</p>
 <div class="highlight"><pre><span></span><code>NAND(0, 0) = 1
 NAND(0, 1) = 1
 NAND(1, 0) = 1
@@ -718,8 +943,9 @@ NAND(1, 1) = 0
 </code></pre></div>
 
 <p>One addition plus one <abbr title="programmable bootstrapping">PBS</abbr> makes a bootstrapped <abbr title="not-and (a logic gate)">NAND</abbr>. <abbr title="not-and (a logic gate)">NAND</abbr> is universal, so this already gives
-<abbr title="fully homomorphic encryption">FHE</abbr> for any Boolean circuit. AND, OR, <abbr title="exclusive or">XOR</abbr> and the other gates are the same with a different
-table. The 2016 paper used an equivalent encoding (bits as ±1/8 with a "sign" test polynomial).</p>
+<abbr title="fully homomorphic encryption">FHE</abbr> for any Boolean circuit. AND, OR, <abbr title="exclusive or">XOR</abbr> (exclusive or) and the other gates are the same with
+a different table. The 2016 paper used an equivalent encoding (bits as ±1/8 with a "sign" test
+polynomial).</p>
 <h3 id="53-multi-input-functions-and-bigger-integers">5.3 Multi-input functions and bigger integers<a class="headerlink" href="#53-multi-input-functions-and-bigger-integers" title="Link to this section">#</a></h3>
 <p><strong>Packing two inputs into one message.</strong> With \(p_x + p_y\) bits available, compute
 \(2^{p_y} x + y\) (a linear operation) and apply a table indexed by both. Toy, with two 2-bit
@@ -737,8 +963,9 @@ numbers in a 4-bit message:</p>
   few <strong>carry</strong> bits. Additions run on the blocks directly until the carry space fills up,
   then <abbr title="programmable bootstrapping">PBS</abbr>s propagate the carries. A 64-bit addition is dozens of <abbr title="programmable bootstrapping">PBS</abbr>; a 64-bit multiplication
   is hundreds to thousands.</li>
-<li><strong><abbr title="Chinese remainder theorem">CRT</abbr></strong>: residues modulo small coprime moduli. Additions and multiplications never carry
-  between blocks, which makes them very parallel, but comparisons are awkward.</li>
+<li><strong><abbr title="Chinese remainder theorem">CRT</abbr></strong> (Chinese remainder theorem): residues modulo small coprime moduli. Additions and
+  multiplications never carry between blocks, which makes them very parallel, but comparisons
+  are awkward.</li>
 </ul>
 <h3 id="54-more-tricks">5.4 More tricks<a class="headerlink" href="#54-more-tricks" title="Link to this section">#</a></h3>
 <ul>
@@ -748,9 +975,9 @@ numbers in a 4-bit message:</p>
   (Chillotti–Ligier–Orfila–Tap 2021) get around the padding bit and handle more bits at
   higher cost.</li>
 <li><strong>Circuit bootstrapping</strong> (<abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr> 2017): turn an <abbr title="learning with errors">LWE</abbr> ciphertext into a <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, which enables
-  <em>leveled</em> CMux trees and look-ups into large encrypted tables.</li>
-<li><strong>Encrypted <abbr title="machine learning">ML</abbr></strong>: Concrete <abbr title="machine learning">ML</abbr> quantizes a neural network to a few bits per activation and
-  runs every activation as a <abbr title="programmable bootstrapping">PBS</abbr>.</li>
+  <em>leveled</em> <abbr title="controlled multiplexer">CMux</abbr> trees and look-ups into large encrypted tables.</li>
+<li><strong>Encrypted <abbr title="machine learning">ML</abbr></strong> (machine learning): Concrete <abbr title="machine learning">ML</abbr> quantizes a neural network to a few bits per
+  activation and runs every activation as a <abbr title="programmable bootstrapping">PBS</abbr>.</li>
 </ul>
 <hr />
 <h2 id="6-real-parameters-and-performance">6. Real parameters and performance<a class="headerlink" href="#6-real-parameters-and-performance" title="Link to this section">#</a></h2>
@@ -798,24 +1025,25 @@ subject to 128-bit security and a target failure probability. Orders of magnitud
 <tr>
 <td><abbr title="programmable bootstrapping">PBS</abbr> time</td>
 <td>0.17 s (pure Python)</td>
-<td><strong>milliseconds</strong> per <abbr title="central processing unit">CPU</abbr> core, <strong>&lt; 1 ms</strong> on a <abbr title="graphics processing unit">GPU</abbr></td>
+<td><strong>milliseconds</strong> per <abbr title="central processing unit">CPU</abbr> (central processing unit) core, <strong>&lt; 1 ms</strong> on a <abbr title="graphics processing unit">GPU</abbr> (graphics processing unit)</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>Seeded compression:</strong> the random masks <code>a</code> of key material can be regenerated from a <abbr title="pseudorandom number generator">PRNG</abbr>
-seed, so only the <code>b</code> parts need storing or sending. This shrinks the key-switching key
-dramatically, and the bootstrapping key by about <code>(k+1)×</code>.</p>
-<p><strong>Speed history</strong> (order of magnitude): <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> 2015 under 1 s → <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> 2016 under 0.1 s →
-~13 ms (2017) → a few ms on <abbr title="central processing unit">CPU</abbr> today → &lt; 1 ms per <abbr title="programmable bootstrapping">PBS</abbr> on an H100. Zama reports about
-<strong>189 000 <abbr title="programmable bootstrapping">PBS</abbr>/s across 8 H100s</strong> (vendor figure, <a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07</a>).
-<abbr title="graphics processing unit">GPU</abbr>s win on <em>throughput</em> by running thousands of independent <abbr title="programmable bootstrapping">PBS</abbr> at once. A <em>single</em> <abbr title="programmable bootstrapping">PBS</abbr>
-stays latency-bound by the <code>n</code>-step sequential chain.</p>
+<p><strong>Seeded compression:</strong> the random masks <code>a</code> of key material can be regenerated from a
+pseudorandom number generator (<abbr title="pseudorandom number generator">PRNG</abbr>) seed, so only the <code>b</code> parts need storing or sending. This
+shrinks the key-switching key dramatically, and the bootstrapping key by about <code>(k+1)×</code>.</p>
+<p><strong>Speed history</strong> (order of magnitude): <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> (the Ducas–Micciancio scheme) 2015 under 1 s →
+<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> 2016 under 0.1 s → ~13 ms (2017) → a few ms on <abbr title="central processing unit">CPU</abbr> today → &lt; 1 ms per <abbr title="programmable bootstrapping">PBS</abbr> on an H100. Zama
+reports about <strong>189 000 <abbr title="programmable bootstrapping">PBS</abbr>/s across 8 H100s</strong> (vendor figure,
+<a href="../07_state_of_the_art_2026.html#1-bootstrapping-research">07</a>). <abbr title="graphics processing unit">GPU</abbr>s win on <em>throughput</em> by
+running thousands of independent <abbr title="programmable bootstrapping">PBS</abbr> at once. A <em>single</em> <abbr title="programmable bootstrapping">PBS</abbr> stays latency-bound by the
+<code>n</code>-step sequential chain.</p>
 <hr />
 <h2 id="7-variants-and-the-research-frontier">7. Variants and the research frontier<a class="headerlink" href="#7-variants-and-the-research-frontier" title="Link to this section">#</a></h2>
 <ul>
 <li><strong>Blind-rotation flavours</strong> (all three are in OpenFHE):<ul>
 <li><strong>AP / <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong> (Alperin-Sheriff–Peikert): larger keys, supports more secret distributions.</li>
-<li><strong>GINX / <abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr></strong> (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>'s CMux on binary secret bits): the one in this document.</li>
+<li><strong>GINX / <abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr></strong> (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>'s <abbr title="controlled multiplexer">CMux</abbr> on binary secret bits): the one in this document.</li>
 <li><strong>LMKCDEY</strong> (Lee–Micciancio–Kim–Choi–Deryabin–Eom–Yoo, Eurocrypt 2023): blind rotation
 via ring <strong>automorphisms</strong>, which gives small keys and works with ternary and Gaussian
 secrets.</li>
@@ -834,11 +1062,15 @@ expect cryptanalysis.</li>
   thousands of small integers per bootstrap (≈ 3.75 ms amortized per 8-bit <abbr title="lookup table">LUT</abbr>), competing
   with <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> on throughput (<a href="ckks.html#58-variants-and-the-research-frontier"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive §5.8</a>).</li>
 <li><strong>Scheme switching</strong> between <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> and <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, with the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> caveats of
-  <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06</a>.</li>
-<li><strong>Threshold <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong>: the secret key is shared among several parties, and decryption is an
-  <abbr title="secure multiparty computation">MPC</abbr> protocol. This is the basis of the Zama Protocol on Ethereum.</li>
-<li><strong>Hardware</strong>: <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs <abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr> backend, <abbr title="field-programmable gate array">FPGA</abbr> and <abbr title="application-specific integrated circuit">ASIC</abbr> efforts. <abbr title="programmable bootstrapping">PBS</abbr> is regular and
-  embarrassingly parallel <em>across</em> ciphertexts, which suits all of them.</li>
+  <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06</a> (security when the attacker
+  also sees decryptions of honestly computed ciphertexts).</li>
+<li><strong>Threshold <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong>: the secret key is shared among several parties, and decryption is a
+  secure multiparty computation (<abbr title="secure multiparty computation">MPC</abbr>) protocol. This is the basis of the Zama Protocol on
+  Ethereum.</li>
+<li><strong>Hardware</strong>: the <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs <abbr title="Compute Unified Device Architecture (NVIDIA&#x27;s GPU programming platform)">CUDA</abbr> (Compute Unified Device Architecture) backend for NVIDIA <abbr title="graphics processing unit">GPU</abbr>s,
+  and field-programmable gate array (<abbr title="field-programmable gate array">FPGA</abbr>) and application-specific integrated circuit (<abbr title="application-specific integrated circuit">ASIC</abbr>)
+  efforts. <abbr title="programmable bootstrapping">PBS</abbr> is regular and embarrassingly parallel <em>across</em> ciphertexts, which suits all of
+  them.</li>
 </ul>
 <hr />
 <h2 id="8-security-notes">8. Security notes<a class="headerlink" href="#8-security-notes" title="Link to this section">#</a></h2>

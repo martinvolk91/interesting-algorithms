@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -81,8 +82,10 @@ function renderMath() {
 <p><a href="05_core_techniques.html">← 05 Core techniques</a> · <a href="index.html">index</a> · next: <a href="07_state_of_the_art_2026.html">07 State of the art →</a></p>
 <hr />
 <h2 id="1-the-baseline-guarantee-ind-cpa">1. The baseline guarantee: IND-CPA<a class="headerlink" href="#1-the-baseline-guarantee-ind-cpa" title="Link to this section">#</a></h2>
-<p>All the lattice schemes are <strong><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure</strong> under (R)<abbr title="learning with errors">LWE</abbr>: an attacker who sees ciphertexts,
-public keys and evaluation keys learns nothing about the plaintexts. For <abbr title="fully homomorphic encryption">FHE</abbr> (with
+<p>All the lattice-based homomorphic encryption schemes are <strong><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure</strong>
+(indistinguishability under chosen-plaintext attack), assuming (ring) learning with errors,
+(R)<abbr title="learning with errors">LWE</abbr>, is hard: an attacker who sees ciphertexts, public keys and evaluation keys learns
+nothing about the plaintexts. For fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>, with
 bootstrapping) this additionally assumes <strong>circular security</strong> (ch. 02 §7). The game behind
 the definition is spelled out in <a href="01_introduction.html#what-ind-cpa-means">01 §2</a>.</p>
 <p>What <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> does <strong>not</strong> cover:</p>
@@ -96,11 +99,11 @@ the definition is spelled out in <a href="01_introduction.html#what-ind-cpa-mean
 <tbody>
 <tr>
 <td><strong>Chosen-ciphertext attacks (<abbr title="chosen-ciphertext attack">CCA</abbr>)</strong></td>
-<td><abbr title="fully homomorphic encryption">FHE</abbr> is malleable <em>by design</em>, so <abbr title="adaptive chosen-ciphertext attack">CCA2</abbr> is impossible. Even <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> (decryption queries before the challenge) breaks the standard lattice schemes: each decryption query leaks a little about the key, and key-recovery attacks need only a modest (polynomial) number of queries (Chenal–Tang 2014). <strong>The key owner must never act as a decryption oracle</strong> for ciphertexts it didn't produce or check.</td>
+<td><abbr title="fully homomorphic encryption">FHE</abbr> is malleable <em>by design</em>, so security against adaptive chosen-ciphertext attacks (<abbr title="adaptive chosen-ciphertext attack">CCA2</abbr>) is impossible. Even non-adaptive <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> (decryption queries only before the challenge) breaks the standard lattice schemes: each decryption query leaks a little about the key, and key-recovery attacks need only a modest (polynomial) number of queries (Chenal–Tang 2014). <strong>The key owner must never act as a decryption oracle</strong> for ciphertexts it didn't produce or check.</td>
 </tr>
 <tr>
 <td><strong>Leakage through decrypted results</strong></td>
-<td>The <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> problem (§3)</td>
+<td>The <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> problem (§3): security when the attacker also sees decryptions</td>
 </tr>
 <tr>
 <td><strong>Function privacy</strong></td>
@@ -124,25 +127,149 @@ Gaussian with σ ≈ 3.2) and the secret distribution (ternary, or sparse).</p>
   per <code>N</code> for 128-, 192- and 256-bit security (ch. 02 §6). SEAL, OpenFHE and Lattigo enforce
   these by default.</li>
 <li>Security is estimated with the <strong>Lattice Estimator</strong> (Albrecht et al.), which models the
-  best known attacks: primal (uSVP via <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr>), dual, and hybrid / meet-in-the-middle (relevant
+  best known attacks: primal (unique shortest vector problem, <abbr title="unique shortest vector problem">uSVP</abbr>, via block Korkine–Zolotarev reduction, <abbr title="block Korkine–Zolotarev lattice reduction">BKZ</abbr>), dual, and hybrid / meet-in-the-middle (relevant
   for sparse secrets).</li>
 <li><strong>Sparse secrets</strong> make bootstrapping cheaper but lower security for a given <code>(N, q)</code>. They
   need their own parameter analysis.</li>
 <li>Libraries let you switch security checks off ("HEStd_NotSet"). Benchmarks sometimes do this,
   which makes the reported numbers meaningless.</li>
 </ul>
+<p>For 128-bit security with a ternary secret, the standard allows \(\log_2 q\) up to 27 at
+<code>N = 1024</code>, and the bound roughly doubles with each doubling of <code>N</code>: 54, 109, 218, 438, and
+881 at <code>N = 32768</code> (ch. 02 §6).</p>
+<figure class="widget" id="w-n06-max-logq">
+  <p class="widget-title">How large \(q\) may be at 128-bit security</p>
+  <p class="widget-hint">Raise log₂ q above 438 at N = 16 384: the point turns red. Then move N up one step.</p>
+  <div class="controls"></div>
+  <div class="c-bars"></div>
+  <div class="readout"></div>
+  <figcaption>Bars: the largest \(\log_2 q\) the HomomorphicEncryption.org standard allows for 128-bit
+    security with a ternary secret (the table in ch. 02 §6). The dashed line is the \(\log_2 q\) you need;
+    every bar that reaches above it is a ring dimension you may use. Each doubling of \(N\) roughly doubles
+    the allowed \(\log_2 q\), so more multiplications (a larger \(q\)) force a larger \(N\), and the
+    ciphertext, \(2N\log_2 q\) bits, grows with both.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n06-max-logq';
+  const TABLE = [[1024, 27], [2048, 54], [4096, 109], [8192, 218], [16384, 438], [32768, 881]];
+  const NS = TABLE.map(r => r[0]), MAX = new Map(TABLE);
+  const big = v => v.toLocaleString('en-US').replace(/,/g, ' ');
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const nn = ui.slider({ label: 'Ring dimension N', values: NS, value: 16384, format: big });
+  const lq = ui.slider({ label: 'log₂ q you need', min: 10, max: 950, step: 1, value: 438, format: v => String(Math.round(v)) });
+  const chart = DS.chart(root + ' .c-bars', {
+    x: { type: 'band', domain: NS, label: 'ring dimension N', format: big },
+    y: { domain: [0, 950], label: 'max log₂ q', tickValues: [0, 200, 400, 600, 800] },
+    height: 290,
+    draw(c) {
+      const N = nn.value, q = lq.value;
+      c.bars(TABLE.map(([n, m]) => ({ x: n, y: m, series: 1, opacity: n === N ? 1 : 0.35,
+        tip: `N = ${big(n)}: log₂ q ≤ ${m}` })), { maxWidth: 46 });
+      TABLE.forEach(([n, m]) => c.text(n, m, String(m), { anchor: 'middle', dy: -12, cls: 'ink2' }));
+      c.hline(q, { dash: true, series: 'ink', label: `you need ${Math.round(q)}`, at: 'left' });
+      c.point(N, q, { series: q <= MAX.get(N) ? 'good' : 'bad' });
+    },
+  });
+  function readout() {
+    const N = nn.value, q = Math.round(lq.value), m = MAX.get(N), ok = q <= m;
+    const least = TABLE.find(([, mm]) => q <= mm);
+    const mb = 2 * N * q / 8 / 1e6;
+    DS.stats(root + ' .readout', [
+      { label: `Max log₂ q at N = ${big(N)}`, value: String(m) },
+      { label: `log₂ q = ${q} at this N`, value: ok ? '128-bit' : 'too weak', note: ok ? 'within the standard' : 'below 128-bit security', tone: ok ? 'good' : 'bad' },
+      { label: 'Smallest N that allows it', value: least ? big(least[0]) : '> 32 768' },
+      { label: 'Fresh ciphertext', value: (mb < 1 ? (mb * 1000).toFixed(0) + ' KB' : mb.toFixed(1) + ' MB'), note: '2 · N · log₂ q bits' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h2 id="3-ind-cpa-d-when-decryption-leaks-the-key">3. IND-CPA-D: when decryption leaks the key<a class="headerlink" href="#3-ind-cpa-d-when-decryption-leaks-the-key" title="Link to this section">#</a></h2>
 <h3 id="the-attack-limicciancio-eurocrypt-2021">The attack (Li–Micciancio, Eurocrypt 2021)<a class="headerlink" href="#the-attack-limicciancio-eurocrypt-2021" title="Link to this section">#</a></h3>
 <p><abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> assumes the attacker never sees decryptions. In real applications <strong>decrypted
 results are often shared</strong>: the client sends a result back to the server, publishes it, or
 acts on it. The new notion <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> gives the attacker access to decryptions of
 <em>honestly evaluated</em> ciphertexts.</p>
-<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> fails it badly. Decryption outputs <code>m' = c₀ + c₁·s mod q</code>, <strong>including the noise</strong>,
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme) fails it badly. Decryption outputs <code>m' = c₀ + c₁·s mod q</code>, <strong>including the noise</strong>,
 because in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> the noise is part of the approximate result. Anyone who learns <code>m'</code> and saw
 the ciphertext <code>(c₀, c₁)</code> knows</p>
 <div class="math-display">\[c_1 \cdot s = m&#x27; - c_0 \pmod q\]</div>
 <p>This is a linear equation over the ring, and solving it gives the <strong>secret key</strong> from a
 single decryption: a passive key recovery against a scheme that is provably <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure.</p>
+<figure class="diagram" id="d-n06-ind-cpa-d">
+  <style>
+    #d-n06-ind-cpa-d .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 14px 18px; }
+    #d-n06-ind-cpa-d .m { fill: color-mix(in srgb, var(--series-1) 24%, var(--bg)); stroke: var(--series-1); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .e { fill: color-mix(in srgb, var(--series-2) 30%, transparent); stroke: var(--series-2); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .E { fill: color-mix(in srgb, var(--series-2) 55%, transparent); stroke: var(--series-2); stroke-width: 1.2; }
+    #d-n06-ind-cpa-d .box { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+    #d-n06-ind-cpa-d .arr { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+    #d-n06-ind-cpa-d .head { fill: var(--ink-2); }
+    #d-n06-ind-cpa-d .ok { fill: var(--good); } #d-n06-ind-cpa-d .no { fill: var(--bad); }
+    #d-n06-ind-cpa-d svg text.t { font-size: 14px; font-weight: 650; }
+    #d-n06-ind-cpa-d svg text.s { font-size: 12px; fill: var(--ink-2); }
+    #d-n06-ind-cpa-d svg text.w { font-size: 12.5px; }
+    #d-n06-ind-cpa-d svg text.mark { fill: var(--bg); font-size: 12px; font-weight: 700; }
+  </style>
+  <div class="panels">
+    <svg viewBox="0 0 270 240" role="img" aria-label="Exact scheme: the decrypted coefficient holds Delta times m in the high bits and noise e in the low bits; decryption rounds e away and releases only m, so an attacker learns nothing new.">
+      <text class="t" x="6" y="18">Exact schemes</text>
+      <text class="s" x="6" y="36">decryption rounds the noise away</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="74" height="26" rx="4"/><text x="43" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="216" y="66" width="48" height="26" rx="4"/><text x="240" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">round, then share</text>
+      <rect class="m" x="6" y="126" width="74" height="26" rx="4"/><text x="43" y="144" text-anchor="middle">m</text>
+      <text class="s" x="90" y="144">e is gone</text>
+      <text class="w" x="6" y="180">Attacker learns m, which it</text>
+      <text class="w" x="6" y="197">already expected.</text>
+      <circle class="ok" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✓</text>
+      <text class="w" x="28" y="226">safe, unless decryption fails</text>
+    </svg>
+    <svg viewBox="0 0 270 240" role="img" aria-label="CKKS: the decrypted coefficient is Delta m plus e with the noise inside the low bits; it is shared as is, so c1 times s equals m prime minus c0, a linear equation that gives the secret key.">
+      <text class="t" x="6" y="18">CKKS</text>
+      <text class="s" x="6" y="36">the noise is part of the result</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="234" height="26" rx="4"/><text x="110" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="200" y="66" width="64" height="26" rx="4"/><text x="232" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">share as is</text>
+      <rect class="box" x="6" y="126" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="126" width="234" height="26" rx="4"/><text x="110" y="144" text-anchor="middle">m′ = Δm + e</text>
+      <rect class="e" x="200" y="126" width="64" height="26" rx="4"/><text x="232" y="144" text-anchor="middle">e</text>
+      <text class="w" x="6" y="180">c₁·s = m′ − c₀ (mod q)</text>
+      <text class="w" x="6" y="197">c₀, c₁, m′ known: linear in s.</text>
+      <circle class="no" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✗</text>
+      <text class="w" x="28" y="226">one result gives the secret key</text>
+    </svg>
+    <svg viewBox="0 0 270 240" role="img" aria-label="CKKS with noise flooding: before sharing, fresh noise E much larger than e is added; the attacker gets c1 times s plus an unknown E, which is a learning-with-errors problem again.">
+      <text class="t" x="6" y="18">CKKS + noise flooding</text>
+      <text class="s" x="6" y="36">fresh noise E ≫ e added before release</text>
+      <text class="s" x="6" y="60">c₀ + c₁·s (mod q)</text>
+      <rect class="box" x="6" y="66" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="66" width="234" height="26" rx="4"/><text x="110" y="84" text-anchor="middle">Δm</text>
+      <rect class="e" x="200" y="66" width="64" height="26" rx="4"/><text x="232" y="84" text-anchor="middle">e</text>
+      <path class="arr" d="M43,96V116"/><path class="head" d="M38,114L43,122L48,114Z"/>
+      <text class="s" x="56" y="112">add E, then share</text>
+      <rect class="box" x="6" y="126" width="258" height="26" rx="4"/>
+      <rect class="m" x="6" y="126" width="234" height="26" rx="4"/><text x="66" y="144" text-anchor="middle">m″</text>
+      <rect class="E" x="126" y="126" width="138" height="26" rx="4"/><text x="195" y="144" text-anchor="middle">E hides e</text>
+      <text class="w" x="6" y="180">c₁·s + E = m″ − c₀ (mod q)</text>
+      <text class="w" x="6" y="197">E unknown: learning with errors.</text>
+      <circle class="ok" cx="14" cy="222" r="8"/><text class="mark" x="14" y="226" text-anchor="middle">✓</text>
+      <text class="w" x="28" y="226">safe; costs 30–60 extra bits</text>
+    </svg>
+  </div>
+  <figcaption>IND-CPA lets the attacker see ciphertexts only; IND-CPA-D also shows it the decrypted
+    results of honest computations. An exact scheme releases only the message. CKKS releases
+    \(m' = \Delta m + e\), and with the public \((c_0, c_1)\) that is one linear equation in the secret key.
+    Noise flooding adds fresh noise \(E\) much larger than \(e\) before release, which turns the equation
+    back into a learning-with-errors problem.</figcaption>
+</figure>
 <blockquote>
 <p><strong>Deep dive:</strong> <a href="deep_dives/ckks_ind_cpa_d.html">deep_dives/ckks_ind_cpa_d.md</a> reproduces the
 attack on the toy <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, then shows noise flooding fixing it and an averaging attack
@@ -164,11 +291,12 @@ precision that flooding needs.</p>
   running a different circuit than the one the parameters were estimated for. They proposed
   an <strong>application-aware</strong> security model. OpenFHE now offers a two-phase noise-flooding mode
   for provable <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> security.</li>
-<li><strong>Cheon–Choe–Passelègue–Stehlé–Suvanto (CCS 2024):</strong> <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attacks on <strong>exact</strong> schemes
-  (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>). The trigger is <strong>decryption failures</strong>: if the failure probability is not
+<li><strong>Cheon–Choe–Passelègue–Stehlé–Suvanto (CCS 2024):</strong> <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attacks on <strong>exact</strong> schemes:
+  <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski/Fan–Vercauteren), <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan) and <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (torus fully
+  homomorphic encryption). The trigger is <strong>decryption failures</strong>: if the failure probability is not
   negligible (e.g. 2⁻³² rather than 2⁻¹²⁸), observed failures leak information about the key.</li>
 <li><strong>Bergamaschi et al. (PKC 2025):</strong> revisited the security of noise-flooding countermeasures.</li>
-<li><strong>Santato–Zanotto (ePrint 2026/285):</strong> <strong>scheme switching</strong> (PEGASUS-style <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> ↔ <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>) is
+<li><strong>Santato–Zanotto (ePrint 2026/285):</strong> <strong>scheme switching</strong> (PEGASUS-style <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> ↔ <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>, the Ducas–Micciancio scheme) is
   not <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> secure, with a proof-of-concept key recovery against OpenFHE's <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>→<abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> path.</li>
 <li><strong>ePrint 2026/2546:</strong> new attacks on <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, one of which fully recovers the secret key in
   OpenFHE in minutes to hours depending on parameters.</li>
@@ -189,21 +317,23 @@ is the best starting point.</p>
 something about the server's <strong>function</strong>, for example a proprietary model's weights. To
 hide the function, the server <strong>sanitizes</strong> the result: it bootstraps and then floods with
 noise, or re-randomizes (Ducas–Stehlé 2016, "Sanitization of <abbr title="fully homomorphic encryption">FHE</abbr> ciphertexts"). This matters
-whenever the server's model or algorithm is itself secret, as in <abbr title="machine learning">ML</abbr>-as-a-service.</p>
+whenever the server's model or algorithm is itself secret, as in machine learning (<abbr title="machine learning">ML</abbr>) as a service.</p>
 <h2 id="5-implementation-attacks">5. Implementation attacks<a class="headerlink" href="#5-implementation-attacks" title="Link to this section">#</a></h2>
 <ul>
 <li><strong>Side channels on encryption:</strong> RevEAL (2022) recovered messages from a <strong>single power
   trace</strong> of Microsoft SEAL's Gaussian sampler. Client-side sampling must be constant time.</li>
-<li><strong>Floating-point pitfalls</strong> in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> encoding/decoding (<abbr title="fast Fourier transform">FFT</abbr> precision) and non-constant-time
+<li><strong>Floating-point pitfalls</strong> in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> encoding/decoding (precision of the fast Fourier transform, <abbr title="fast Fourier transform">FFT</abbr>) and non-constant-time
   modular reduction.</li>
-<li><strong>Bad randomness</strong> destroys <abbr title="learning with errors">LWE</abbr> security immediately: reused <code>a</code> or <code>e</code>, or a weak <abbr title="pseudorandom number generator">PRNG</abbr> for
+<li><strong>Bad randomness</strong> destroys <abbr title="learning with errors">LWE</abbr> security immediately: reused <code>a</code> or <code>e</code>, or a weak pseudorandom number generator (<abbr title="pseudorandom number generator">PRNG</abbr>) for
   seeded ciphertexts.</li>
 <li><strong>Reaction attacks:</strong> if the client visibly <em>behaves</em> differently depending on a decrypted
   value (retries, errors), that is a decryption oracle.</li>
 </ul>
 <h2 id="6-quantum-security">6. Quantum security<a class="headerlink" href="#6-quantum-security" title="Link to this section">#</a></h2>
-<p><abbr title="learning with errors">LWE</abbr>/<abbr title="ring learning with errors">RLWE</abbr> are believed quantum-hard. They are the same family as <abbr title="National Institute of Standards and Technology">NIST</abbr>'s <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (<abbr title="Federal Information Processing Standard">FIPS</abbr> 203).
-Partially homomorphic schemes based on factoring or discrete log (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>, Paillier, ElGamal) are
+<p><abbr title="learning with errors">LWE</abbr>/<abbr title="ring learning with errors">RLWE</abbr> are believed quantum-hard. They are the same family as <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (Module-Lattice-Based
+Key-Encapsulation Mechanism), which the National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>)
+standardized as Federal Information Processing Standard (<abbr title="Federal Information Processing Standard">FIPS</abbr>) 203.
+Partially homomorphic schemes based on factoring or discrete log (Rivest–Shamir–Adleman (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>), Paillier, ElGamal) are
 <strong>broken by Shor's algorithm</strong>. Lattice <abbr title="fully homomorphic encryption">FHE</abbr> is therefore the only <abbr title="homomorphic encryption">HE</abbr> family with a credible
 post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 02 §7).</p>
 <h2 id="7-threat-model-summary">7. Threat model summary<a class="headerlink" href="#7-threat-model-summary" title="Link to this section">#</a></h2>
@@ -239,7 +369,7 @@ post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 0
 <tr>
 <td>Server computes the wrong thing</td>
 <td>❌</td>
-<td>verifiable <abbr title="fully homomorphic encryption">FHE</abbr>, replication, <abbr title="trusted execution environment">TEE</abbr></td>
+<td>verifiable <abbr title="fully homomorphic encryption">FHE</abbr>, replication, trusted execution environment (<abbr title="trusted execution environment">TEE</abbr>)</td>
 </tr>
 <tr>
 <td>Client learns the server's function</td>
@@ -249,12 +379,12 @@ post-quantum story. The April 2024 quantum-LWE scare (Chen) was retracted (ch. 0
 <tr>
 <td>Key owner decrypts arbitrary ciphertexts</td>
 <td>❌ (<abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> key recovery)</td>
-<td>never be a decryption oracle; <abbr title="zero knowledge">ZK</abbr> proofs of well-formedness</td>
+<td>never be a decryption oracle; zero-knowledge (<abbr title="zero knowledge">ZK</abbr>) proofs of well-formedness</td>
 </tr>
 <tr>
 <td>Access patterns / sizes / timing of queries</td>
 <td>❌ partly</td>
-<td>fixed-size, oblivious protocols (e.g. <abbr title="private information retrieval">PIR</abbr> scans the whole DB)</td>
+<td>fixed-size, oblivious protocols (e.g. private information retrieval, <abbr title="private information retrieval">PIR</abbr>, scans the whole DB)</td>
 </tr>
 <tr>
 <td>Quantum adversary</td>

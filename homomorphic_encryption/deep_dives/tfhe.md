@@ -172,6 +172,9 @@ with $g_t = Q/\beta^t$. That structure is exactly what the next section needs.
 
 ## 3. External product and CMux
 
+This section builds the CMux (controlled multiplexer), an encrypted if-then-else, from the
+external product.
+
 ### 3.1 External product: GGSW × GLWE → GLWE
 
 To multiply a GLWE ciphertext `(A, B)` by the bit μ hidden in a GGSW, decompose `A` and `B`

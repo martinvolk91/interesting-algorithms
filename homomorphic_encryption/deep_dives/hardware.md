@@ -63,7 +63,7 @@ share drops, and data movement and basis conversion move to the front.
 
 The ARK paper measured the computational workload of bootstrapping at practical parameters:
 **NTT 54.8 %**, **basis conversion 34.2 %**, everything else ~11 % (as summarized by the FHE
-accelerator SoK, arXiv 2212.01713). Recent CKKS bootstrapping implementations spend
+accelerator systematization of knowledge (SoK), arXiv 2212.01713). Recent CKKS bootstrapping implementations spend
 **55–72 %** of their *time* in the CoeffToSlot/SlotToCoeff linear transforms, which are
 rotations, i.e. key switches ([CKKS deep dive §5.7](ckks.md#57-where-the-time-goes)).
 

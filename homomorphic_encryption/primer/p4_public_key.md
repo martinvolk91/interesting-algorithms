@@ -477,7 +477,7 @@ promised an explanation of why this is less dramatic than it sounds:
 NIST's post-quantum FAQ concludes that AES-128 "will remain secure for decades", and NIST defines
 its lowest post-quantum security category (category 1) by the cost of key search on AES-128. The
 conservative choice for secrets that must stay secret for a very long time is AES-256, which is
-what NSA's CNSA 2.0 suite requires. Symmetric ciphers and hash functions survive by choosing
+what the National Security Agency's (NSA) CNSA 2.0 suite requires. Symmetric ciphers and hash functions survive by choosing
 larger parameters. Public-key cryptography needs new mathematics.
 
 ### NIST's post-quantum standards

@@ -66,7 +66,7 @@ From weakest to strongest attacker:
 | **Known-plaintext** (KPA) | Some plaintext–ciphertext pairs it did not choose | Bletchley Park's "cribs" (predictable phrases such as weather reports) against Enigma; the two-time pad (P1) |
 | **Chosen-plaintext** (CPA) | Encryptions of messages of its choice | Midway 1942; BEAST against Transport Layer Security (TLS) 1.0 (2011); every public-key scheme |
 | **Non-adaptive chosen-ciphertext** (CCA1) | Decryptions of ciphertexts of its choice, but only before it sees the target | "Lunchtime" access to a decryption device; key recovery on lattice-based homomorphic schemes (§7) |
-| **Adaptive chosen-ciphertext** (CCA2) | Decryptions of anything except the target, before and after seeing it | Bleichenbacher's attack on Rivest–Shamir–Adleman (RSA) encryption with Public-Key Cryptography Standards (PKCS) #1 v1.5 padding in SSL (1998), still found in many servers by ROBOT (2018) |
+| **Adaptive chosen-ciphertext** (CCA2) | Decryptions of anything except the target, before and after seeing it | Bleichenbacher's attack on Rivest–Shamir–Adleman (RSA) encryption with Public-Key Cryptography Standards (PKCS) #1 v1.5 padding in the Secure Sockets Layer (SSL) protocol (1998), still found in many servers by ROBOT (2018) |
 
 Some detail on the stronger three:
 
@@ -710,7 +710,7 @@ What to look for:
 - Y. Sheffer, R. Holz, P. Saint-Andre, Request for Comments (RFC) 7457 of the Internet
   Engineering Task Force (IETF), *Summarizing Known Attacks on TLS and DTLS*,
   2015 (BEAST, CRIME, padding oracles). <https://www.rfc-editor.org/rfc/rfc7457>
-- NSA Center for Cryptologic History, *The Battle of Midway* (the "AF is short of water" ruse).
+- National Security Agency (NSA) Center for Cryptologic History, *The Battle of Midway* (the "AF is short of water" ruse).
   <https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF>
 - J. Loftus, A. May, N. P. Smart, F. Vercauteren, "On CCA-Secure Somewhat Homomorphic
   Encryption", SAC 2011. <https://eprint.iacr.org/2010/560>

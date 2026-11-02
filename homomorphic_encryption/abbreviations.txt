@@ -119,3 +119,17 @@ TFHE = Torus fully homomorphic encryption (the CGGI scheme)
 TLS = Transport Layer Security
 XOR = exclusive or
 ZK = zero knowledge
+
+# Added after the figure pass, from the chapter agents' reports
+CMux = controlled multiplexer
+DEM = data encapsulation mechanism
+EFF = Electronic Frontier Foundation
+HPKE = Hybrid Public Key Encryption
+IEC = International Electrotechnical Commission
+LSTM = long short-term memory (a recurrent neural network)
+MLWE = module learning with errors
+NSA = National Security Agency
+SoK = systematization of knowledge (a survey paper)
+SSL = Secure Sockets Layer
+uSVP = unique shortest vector problem
+WEP = Wired Equivalent Privacy

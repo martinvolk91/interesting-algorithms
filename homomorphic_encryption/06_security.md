@@ -32,7 +32,7 @@ Gaussian with σ ≈ 3.2) and the secret distribution (ternary, or sparse).
   per `N` for 128-, 192- and 256-bit security (ch. 02 §6). SEAL, OpenFHE and Lattigo enforce
   these by default.
 - Security is estimated with the **Lattice Estimator** (Albrecht et al.), which models the
-  best known attacks: primal (uSVP via block Korkine–Zolotarev reduction, BKZ), dual, and hybrid / meet-in-the-middle (relevant
+  best known attacks: primal (unique shortest vector problem, uSVP, via block Korkine–Zolotarev reduction, BKZ), dual, and hybrid / meet-in-the-middle (relevant
   for sparse secrets).
 - **Sparse secrets** make bootstrapping cheaper but lower security for a given `(N, q)`. They
   need their own parameter analysis.

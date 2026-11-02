@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -107,7 +108,7 @@ function renderMath() {
 <h1 id="deep-dive-ckks-encoding-rescaling-bootstrapping">Deep dive: CKKS (encoding, rescaling, bootstrapping)<a class="headerlink" href="#deep-dive-ckks-encoding-rescaling-bootstrapping" title="Link to this section">#</a></h1>
 <p><a href="../index.html">index</a> · background: <a href="../02_math_foundations.html">02 Math foundations</a>, <a href="../03_how_it_works.html">03 How it works</a>, <a href="../04_schemes.html#generation-4-ckks-cheonkimkimsong-2017">04 Schemes</a></p>
 <hr />
-<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the <abbr title="fully homomorphic encryption">FHE</abbr> scheme for <strong>approximate arithmetic on
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song, Asiacrypt 2017) is the fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) scheme for <strong>approximate arithmetic on
 real and complex numbers</strong>. It is the workhorse of encrypted machine learning. This document
 goes through its three distinctive pieces in depth:</p>
 <ol>
@@ -131,7 +132,7 @@ wildly insecure; it exists to make each step visible.</p>
 <p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> is <strong>fixed-point arithmetic in which the encryption noise lives in the
 least-significant bits.</strong></p>
 </blockquote>
-<p>Every scheme decrypts to "message + noise". <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> puts the message in the top bits, far above the
+<p>Every scheme decrypts to "message + noise". <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (the Brakerski/Fan–Vercauteren scheme) puts the message in the top bits, far above the
 noise, and rounds the noise away. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> doesn't bother separating them. It multiplies the
 message by a big <strong>scale</strong> <code>Δ</code> (say 2⁴⁰) and accepts that decryption returns</p>
 <div class="math-display">\[\Delta \cdot z + e \quad\longrightarrow\quad z + e/\Delta\]</div>
@@ -200,7 +201,7 @@ exchange you get native real-number arithmetic and up to <code>N/2</code> values
 </tbody>
 </table></div>
 <p>The toy uses the <strong>original</strong> <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> modulus chain \(Q_\ell = q_0\Delta^\ell\) with powers of two,
-so each rescale divides by <em>exactly</em> Δ. Real libraries use a chain of primes (<abbr title="residue number system">RNS</abbr>), which
+so each rescale divides by <em>exactly</em> Δ. Real libraries use a chain of primes in residue number system (<abbr title="residue number system">RNS</abbr>) form, which
 brings complications covered in §4.5–4.6.</p>
 <hr />
 <h2 id="1-encoding">1. Encoding<a class="headerlink" href="#1-encoding" title="Link to this section">#</a></h2>
@@ -212,7 +213,7 @@ brings complications covered in §4.5–4.6.</p>
 so reducing a product modulo \(X^N+1\) doesn't change its value at <code>ω</code>:</p>
 <div class="math-display">\[\sigma(a \cdot b) = \sigma(a) \odot \sigma(b), \qquad \sigma(a + b) = \sigma(a) + \sigma(b)\]</div>
 <p><strong>Multiplying polynomials in <code>R</code> multiplies their evaluations slot by slot.</strong> This is the
-entire basis of <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>'s <abbr title="single instruction, multiple data">SIMD</abbr> behaviour. Put your data in the evaluations, and polynomial
+entire basis of <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>'s single instruction, multiple data (<abbr title="single instruction, multiple data">SIMD</abbr>) behaviour. Put your data in the evaluations, and polynomial
 arithmetic becomes vector arithmetic.</p>
 <h3 id="12-why-only-n2-slots">1.2 Why only N/2 slots<a class="headerlink" href="#12-why-only-n2-slots" title="Link to this section">#</a></h3>
 <p>Plaintext polynomials have <strong>real</strong> (integer) coefficients, so the value at a conjugate root is
@@ -228,7 +229,8 @@ the <code>ρ_j</code> together with their conjugates \(\zeta^{-5^j}\) are all <c
 <p><strong>Encode</strong> inverts it. The evaluation matrix \(V_{\omega,k} = \omega^k\) over all <code>N</code> roots
 satisfies \(V^H V = N \cdot I\): its columns are orthogonal because
 \(\sum_\omega \omega^d = 0\) for \(0 &lt; |d| &lt; N\). Inverting is therefore "conjugate transpose,
-divide by <code>N</code>". Including the conjugate half of the vector explicitly:</p>
+divide by <code>N</code>", which libraries compute with a variant of the fast Fourier transform (<abbr title="fast Fourier transform">FFT</abbr>).
+Including the conjugate half of the vector explicitly:</p>
 <div class="math-display">\[m_k = \Big\lfloor \Delta \cdot \tfrac{2}{N} \cdot \mathrm{Re} \sum_{j} z_j\, \rho_j^{-k} \Big\rceil\]</div>
 <div class="highlight"><pre><span></span><code>z ∈ C^(N/2) ──expand with conjugates──▶ C^N ──σ⁻¹ (inverse &quot;special FFT&quot;)──▶ R[X] ──×Δ, round──▶ Z[X]
 </code></pre></div>
@@ -287,6 +289,127 @@ divide by <code>N</code>". Including the conjugate half of the vector explicitly
 <p>The whole scheme is in that table. <strong>Squaring the polynomial squared both slots.</strong> The scale
 went from Δ to Δ², and dividing by Δ brought it back. The small errors come from rounding
 the coefficients to integers, exactly as noise would.</p>
+<figure class="widget" id="w-dd-ckks-encode">
+  <p class="widget-title">Encoding two slots into one polynomial (N = 4)</p>
+  <p class="widget-hint">Drag \(z_0\) or \(z_1\) and watch the four coefficients change. Then lower Δ until the decoded values (small black dots) drift away from where you put them.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Complex plane: the roots of \(X^4+1\) and the values there</p><div class="c-plane"></div></div>
+    <div><p class="panel-title">Coefficients of \(m(X)\)</p><div class="c-coef"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Each slot is the value of \(m(X)/\Delta\) at one root. The conjugate root always gets the conjugate value (faded), which is what keeps the four coefficients real, so they can be rounded to integers. Rounding moves each coefficient by at most ½, so the slots come back with an error of at most \(N/(2\Delta)\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-encode';
+  const N = 4, R = 5.6;
+  const cis = t => [Math.cos(t), Math.sin(t)];
+  const zpow = k => cis(Math.PI * k / N);                     // zeta^k, zeta = e^(i pi / N)
+  const EXP = [1, 5];                                          // slot j <-> root zeta^(5^j mod 2N)
+  const ROOTS = EXP.map(zpow);
+  const z = [[3, 4], [2, -1]];                                 // the chapter's example z = (3+4i, 2-i)
+  const sub = ['₀', '₁', '₂', '₃'];
+
+  function encode(D) {
+    const exact = [], m = [];
+    for (let k = 0; k < N; k++) {
+      let re = 0;
+      for (let j = 0; j < 2; j++) {
+        const r = zpow(-EXP[j] * k);
+        re += z[j][0] * r[0] - z[j][1] * r[1];
+      }
+      exact.push(D * 2 / N * re);
+      m.push(Math.round(D * 2 / N * re));
+    }
+    return { exact, m };
+  }
+  function decode(m, D) {
+    return EXP.map(e => {
+      let re = 0, im = 0;
+      for (let k = 0; k < N; k++) { const r = zpow(e * k); re += m[k] * r[0]; im += m[k] * r[1]; }
+      return [re / D, im / D];
+    });
+  }
+  const cfmt = v => `${v[0].toFixed(4)} ${v[1] < 0 ? '−' : '+'} ${Math.abs(v[1]).toFixed(4)}i`.replace(/^-/, '−');
+
+  const ui = DS.controls(root + ' .controls', () => { plane.update(); coef.update(); readout(); });
+  const delta = ui.slider({ label: 'Scale Δ', values: [2, 4, 8, 16, 32, 64, 128, 256, 1024, 4096], value: 64,
+    format: v => `${v} = 2${[...String(Math.log2(v))].map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('')}` });
+
+  let st = encode(delta.value);
+  const circle = DS.math.linspace(0, 2 * Math.PI, 97).map(t => cis(t));
+
+  const plane = DS.chart(root + ' .c-plane', {
+    x: { domain: [-6, 6], label: 'real part' },
+    y: { domain: [-6, 6], label: 'imaginary part' },
+    equal: true, maxHeight: 380,
+    draw(c) {
+      st = encode(delta.value);
+      const dec = decode(st.m, delta.value);
+      c.line(circle, { series: 'muted', thin: true });
+      c.segment(-6, 0, 6, 0, { series: 'muted', thin: true });
+      for (let j = 0; j < 2; j++) {
+        const r = ROOTS[j], v = z[j], s = j + 1;
+        c.segment(r[0], -r[1], v[0], -v[1], { series: s, dash: true, thin: true });
+        c.segment(r[0], r[1], v[0], v[1], { series: s, dash: true, thin: true });
+        c.scatter([[r[0], -r[1]]], { series: s, r: 4, opacity: 0.4 });
+        c.scatter([[r[0], r[1]]], { series: s, r: 4 });
+        c.scatter([{ x: v[0], y: -v[1], tip: `value at the conjugate root: ${cfmt([v[0], -v[1]])}` }], { series: s, r: 6, opacity: 0.4 });
+        c.scatter([{ x: v[0], y: v[1], tip: `z${sub[j]} = ${cfmt(v)}` }], { series: s, r: 8 });
+        c.text(v[0], v[1], 'z' + sub[j], { dx: 11, dy: -9, cls: 'ink strong' });
+        const lr = 1.9, ang = Math.atan2(r[1], r[0]);
+        c.text(lr * Math.cos(ang), lr * Math.sin(ang), 'ρ' + sub[j], { anchor: 'middle', baseline: 'middle', cls: 'ink' });
+      }
+      c.scatter(dec, { series: 'ink', r: 2.5 });
+    },
+  });
+  let active = null;
+  plane.onPointer({
+    drag(x, y) {
+      if (active === null) {
+        let best = 1e9;
+        z.forEach((v, j) => [1, -1].forEach(sg => {
+          const d = Math.hypot(v[0] - x, sg * v[1] - y);
+          if (d < best) { best = d; active = { j, sg }; }
+        }));
+      }
+      const r = Math.hypot(x, y), k = r > R ? R / r : 1;
+      z[active.j] = [x * k, active.sg * y * k];
+      plane.update(); coef.update(); readout();
+    },
+  });
+  plane.svg.addEventListener('pointerup', () => { active = null; });
+  plane.svg.addEventListener('pointercancel', () => { active = null; });
+
+  const coef = DS.chart(root + ' .c-coef', {
+    x: { type: 'band', domain: ['m₀', 'm₁', 'm₂', 'm₃'] },
+    y: { domain: [-1, 1], label: 'integer coefficient' },
+    height: 300,
+    draw(c) {
+      const top = Math.max(1, ...st.exact.map(Math.abs)) * 1.25;
+      c.domain({ y: [-top, top] });
+      c.bars(st.m.map((v, k) => ({ x: 'm' + sub[k], y: v, tip: `m${sub[k]} = round(${DS.fmt(st.exact[k], 2)}) = ${DS.fmt(v, 0)}` })), { series: 7, maxWidth: 40 });
+      c.scatter(st.exact.map((v, k) => ({ x: 'm' + sub[k], y: v, tip: `before rounding: ${DS.fmt(v, 3)}` })), { series: 'ink', r: 3 });
+      st.m.forEach((v, k) => {
+        c.text('m' + sub[k], v, DS.fmt(v, 0), { anchor: 'middle', dy: v >= 0 ? -8 : 16, cls: 'ink strong' });
+      });
+      c.legend([{ label: 'mₖ = round(Δ · σ⁻¹(z)ₖ)', series: 7, kind: 'rect' }, { label: 'before rounding', series: 'ink', kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const D = delta.value, dec = decode(st.m, D);
+    const err = Math.max(...dec.map((d, j) => Math.hypot(d[0] - z[j][0], d[1] - z[j][1])));
+    DS.stats(root + ' .readout', [
+      { label: 'm(X)', value: st.m.map((v, k) => (k === 0 ? DS.fmt(v, 0) : (v < 0 ? ' − ' : ' + ') + Math.abs(v)) + ['', 'X', 'X²', 'X³'][k]).join('') },
+      { label: 'Decoded z₀', value: cfmt(dec[0]) },
+      { label: 'Decode error (worst slot)', value: err < 1e-12 ? '0' : DS.fmt(err, err < 0.001 ? 6 : 4), note: `bound N/(2Δ) = ${DS.fmt(N / (2 * D), 4)}` },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="15-encoding-precision">1.5 Encoding precision<a class="headerlink" href="#15-encoding-precision" title="Link to this section">#</a></h3>
 <p>Rounding each coefficient moves it by at most ½. Each slot is a sum of <code>N</code> coefficients times
 unit-modulus roots, so the slot error is at most \(N/(2\Delta)\), and typically about
@@ -329,6 +452,62 @@ which is one reason scales above about 2⁵⁰ need extended-precision encoders.
 <p>The first two are ring <strong>automorphisms</strong>. Applied to a ciphertext, they change the secret key
 from <code>s(X)</code> to <code>s(X^k)</code>, so they need a <strong>key switch</strong> and a Galois key. The last two are
 completely free: no key, no noise, no level.</p>
+<figure class="widget" id="w-dd-ckks-slot-roots">
+  <p class="widget-title">Where the eight slots live (N = 16)</p>
+  <p class="widget-hint">Switch between the maps. Under \(X \mapsto X^5\) the slot roots form one cycle, which is a rotation of the slots. Under \(X \mapsto X^{-1}\) every root jumps to its mirror image.</p>
+  <div class="controls"></div>
+  <div class="c-roots"></div>
+  <div class="readout"></div>
+  <figcaption>The 16 roots of \(X^{16}+1\) are the odd powers of \(\zeta = e^{i\pi/16}\). The slot roots \(\rho_j = \zeta^{5^j}\) take exactly one root from each conjugate pair; the other one (faded) carries the conjugate value. Raising to the 5th power sends \(\rho_j\) to \(\rho_{j+1}\), so \(m(X^5)\) holds the old slot \(j+1\) in slot \(j\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-slot-roots';
+  const N = 16, n = N / 2, M = 2 * N;
+  const sub = d => [...String(d)].map(c => '₀₁₂₃₄₅₆₇₈₉'[c]).join('');
+  const pt = k => [Math.cos(Math.PI * k / N), Math.sin(Math.PI * k / N)];   // zeta^k
+  const exps = [];
+  for (let j = 0, e = 1; j < n; j++, e = e * 5 % M) exps.push(e);            // 5^j mod 2N
+  const conj = exps.map(e => (M - e) % M);
+  const circle = DS.math.linspace(0, 2 * Math.PI, 129).map(t => [Math.cos(t), Math.sin(t)]);
+
+  const ui = DS.controls(root + ' .controls', () => chart.update());
+  const map = ui.choice({ label: 'Apply to m(X)', options: [
+    { value: 'none', label: 'nothing' }, { value: 'rot', label: 'X ↦ X⁵ (rotate)' }, { value: 'conj', label: 'X ↦ X⁻¹ (conjugate)' }], value: 'rot' });
+
+  function chord(c, a, b, o) {         // arrow between two roots, shortened so the head clears the dots
+    const [x0, y0] = a, [x1, y1] = b, L = Math.hypot(x1 - x0, y1 - y0), g = 0.09 / L;
+    return c.arrow(x0 + (x1 - x0) * g, y0 + (y1 - y0) * g, x1 - (x1 - x0) * g, y1 - (y1 - y0) * g, o);
+  }
+
+  const chart = DS.chart(root + ' .c-roots', {
+    x: { domain: [-1.45, 1.45], hidden: true },
+    y: { domain: [-1.45, 1.45], hidden: true },
+    equal: true, maxHeight: 420, minHeight: 300,
+    draw(c) {
+      c.line(circle, { series: 'muted', thin: true });
+      if (map.value === 'rot') {
+        for (let j = 0; j < n; j++) chord(c, pt(exps[j]), pt(exps[(j + 1) % n]), { series: 1, head: 9 });
+      }
+      if (map.value === 'conj') for (let j = 0; j < n; j++) chord(c, pt(exps[j]), pt(conj[j]), { series: 2, head: 9 });
+      c.scatter(conj.map((e, j) => ({ x: pt(e)[0], y: pt(e)[1], tip: `ζ^${e} = conjugate of ρ${sub(j)}` })), { series: 1, r: 6, opacity: 0.45 });
+      c.scatter(exps.map((e, j) => ({ x: pt(e)[0], y: pt(e)[1], tip: `ρ${sub(j)} = ζ^${e}` })), { series: 1, r: 6 });
+      exps.forEach((e, j) => {
+        const [x, y] = pt(e);
+        c.text(1.2 * x, 1.2 * y, 'ρ' + sub(j), { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+      });
+      conj.forEach((e, j) => {
+        const [x, y] = pt(e);
+        c.text(1.2 * x, 1.2 * y, 'ρ̄' + sub(j), { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+      });
+    },
+  });
+  DS.stats(root + ' .readout', [
+    { label: 'Slot roots ρ₀ … ρ₇: ζ to the power 5ʲ mod 32', value: exps.join(', ') },
+    { label: 'Their conjugates: ζ to the power −5ʲ mod 32', value: conj.join(', ') },
+  ]);
+})();
+</script>
 <hr />
 <h2 id="2-encryption-and-decryption">2. Encryption and decryption<a class="headerlink" href="#2-encryption-and-decryption" title="Link to this section">#</a></h2>
 <p>Standard <abbr title="ring learning with errors">RLWE</abbr> (see <a href="../03_how_it_works.html#2-moving-to-rings-and-public-keys">03 §2</a>), with one
@@ -342,7 +521,7 @@ time, because the encoder already scaled the message.</p>
 </ul>
 <p>That last point is a design feature for precision and a security liability. Anyone who sees
 the exact decryption <code>m + e</code> together with the ciphertext can solve
-<code>c₁·s = (m + e) − c₀</code> for <code>s</code>. This is the <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> attack of
+<code>c₁·s = (m + e) − c₀</code> for <code>s</code>. This is the attack on <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> security (security even with an attacker who sees decryptions of honestly computed ciphertexts) of
 <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 §3</a>. Never reveal raw <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>
 decryptions without noise flooding.</p>
 <hr />
@@ -478,6 +657,86 @@ z^16384  [ 0] max error 2^ -33.7
 
 <p>That is one bit per squaring, exactly as numerical analysis predicts. The 2⁻⁴⁸ starting error
 comes from the encoder's floats (§1.5), not from the encryption.</p>
+<figure class="widget" id="w-dd-ckks-levels">
+  <p class="widget-title">Squaring 14 times: the bits of each result</p>
+  <p class="widget-hint">Switch rescaling off. The scale doubles in bits with every squaring and passes the modulus at the fourth one. With rescaling on, the message stays at Δ = 2⁶⁰ and each squaring costs one level.</p>
+  <div class="controls"></div>
+  <div class="c-bits"></div>
+  <div class="readout"></div>
+  <figcaption>Each row is one ciphertext of the toy's squaring chain, drawn as a ruler of bits: the decryption \(\Delta z + e\) has its error in the low bits and the message above it, inside the modulus \(Q_\ell\). With rescaling, the modulus shrinks by \(\log_2\Delta = 60\) bits per squaring and the error creeps up by one bit. Without it, the error grows just as slowly relative to the scale, but the scale itself squares. (Precision with rescaling is measured by <code>toy_ckks.py</code>; the rows without it use the same relative error.)</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-levels';
+  const NS = 'http://www.w3.org/2000/svg';
+  const LOG_D = 60, LOG_Q0 = 74, L = 14, logQ = l => LOG_Q0 + LOG_D * l;
+  // max error of z^(2^d) is 2^-PREC[d] (toy_ckks.py, seed 1); d = 0 is the fresh ciphertext
+  const PREC = [48.18, 47.06, 46.06, 44.74, 43.7, 42.7, 41.7, 40.69, 39.69, 38.68, 37.68, 36.68, 35.68, 34.68, 33.68];
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = v => [...String(v)].map(c => SUP[c]).join('');
+  const rowLabel = d => d === 0 ? 'fresh z' : 'z' + sup(2 ** d);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const mode = ui.choice({ label: 'After each multiplication', options: [
+    { value: 'on', label: 'rescale by Δ' }, { value: 'off', label: 'don’t rescale' }], value: 'on' });
+
+  function rect(c, b0, b1, d, cls) {       // a horizontal bar from bit b0 to bit b1 in row d
+    const x0 = c.x(b0), x1 = c.x(Math.min(b1, c.x.domain[1])), y0 = c.y(d - 0.34), y1 = c.y(d + 0.34);
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', x0); r.setAttribute('width', Math.max(0, x1 - x0));
+    r.setAttribute('y', Math.min(y0, y1)); r.setAttribute('height', Math.abs(y1 - y0));
+    r.setAttribute('class', cls);
+    c.gData.appendChild(r);
+    return r;
+  }
+
+  const chart = DS.chart(root + ' .c-bits', {
+    x: { domain: [0, 920], label: 'bits' },
+    y: { domain: [L + 0.6, -0.6], tickValues: DS.math.range(L + 1), format: rowLabel, grid: false },
+    height: 390, margin: { l: 58, r: 58, t: 26 },
+    draw(c) {
+      c.legend([{ label: 'error e', series: 2, kind: 'rect' }, { label: 'message bits', series: 1, kind: 'rect' },
+        { label: 'modulus at this level', series: 'muted', kind: 'rect' }]);
+      const on = mode.value === 'on';
+      c.text(920, -1.25, on ? 'precision' : 'scale', { dx: 6, cls: 'ink2' });
+      for (let d = 0; d <= L; d++) {
+        const q = on ? logQ(L - d) : logQ(L);
+        const scale = on ? LOG_D : LOG_D * 2 ** d;
+        const err = scale - PREC[d];
+        const over = !on && scale > q;
+        if (!on && d > 4) {
+          if (d === 9) c.text(460, d, 'nothing left to square', { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+          continue;
+        }
+        const m = rect(c, 0, q, d, 'wash fmuted'); m.setAttribute('stroke', 'var(--axis)');
+        if (over) {
+          rect(c, 0, 920, d, 'bar fbad').setAttribute('fill-opacity', 0.55);
+          c.text(460, d, `scale 2${sup(scale)} > Q: wraps around`, { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+          c.text(920, d, '—', { dx: 6, baseline: 'middle', cls: 'ink2' });
+          continue;
+        }
+        rect(c, 0, err, d, 'bar f2');
+        rect(c, err, scale, d, 'bar f1');
+        c.text(920, d, on ? PREC[d].toFixed(1) : '2' + sup(scale), { dx: 6, baseline: 'middle', cls: 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    if (mode.value === 'on') DS.stats(root + ' .readout', [
+      { label: 'Squarings done', value: String(L) },
+      { label: 'Levels left', value: '0', note: `modulus 2${sup(logQ(L))} → q₀ = 2${sup(LOG_Q0)}` },
+      { label: 'Precision left', value: PREC[L].toFixed(1) + ' bits', note: `from ${PREC[0].toFixed(1)} bits fresh` },
+    ]);
+    else DS.stats(root + ' .readout', [
+      { label: 'Squarings done', value: '3', note: 'the 4th overflows' },
+      { label: 'Scale after 4 squarings', value: `2${sup(LOG_D * 16)}`, note: `modulus Q = 2${sup(logQ(L))}`, tone: 'bad' },
+      { label: 'Precision left', value: 'none', note: 'the message wraps mod Q', tone: 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="44-designing-the-modulus-chain">4.4 Designing the modulus chain<a class="headerlink" href="#44-designing-the-modulus-chain" title="Link to this section">#</a></h3>
 <div class="highlight"><pre><span></span><code>Q_L = q₀ · p₁ · p₂ · … · p_L        (+ special modulus P for key switching)
       │     └────────┬────────┘
@@ -497,7 +756,7 @@ comes from the encoder's floats (§1.5), not from the encryption.</p>
 bits and scale 2⁴⁰. That is 200 bits in total (the limit is 218), giving 2 multiplications.
 The outer 60-bit primes are <code>q₀</code> and the special prime <code>P</code>.</p>
 <h3 id="45-rns-rescaling-is-drop-a-limb">4.5 RNS: rescaling is "drop a limb"<a class="headerlink" href="#45-rns-rescaling-is-drop-a-limb" title="Link to this section">#</a></h3>
-<p>In real libraries \(Q_\ell = q_0 p_1 \cdots p_\ell\) is a product of <abbr title="number-theoretic transform">NTT</abbr>-friendly primes
+<p>In real libraries \(Q_\ell = q_0 p_1 \cdots p_\ell\) is a product of primes that suit the number-theoretic transform (<abbr title="number-theoretic transform">NTT</abbr>-friendly primes)
 (\(p \equiv 1 \bmod 2N\)), each stored as its own residue polynomial (an "<abbr title="residue number system">RNS</abbr> limb",
 <a href="../02_math_foundations.html#5-rns-making-1000-bit-moduli-fast">02 §5</a>). Dividing by the last
 prime then needs no big-integer arithmetic:</p>
@@ -590,7 +849,7 @@ costs one level.</p>
 <p>With <code>n = 2¹⁵</code> slots that would be 32 767 rotations, which is impossible. Real implementations:</p>
 <ul>
 <li>use <strong>baby-step giant-step</strong>, which needs about \(2\sqrt{n}\) rotations;</li>
-<li>exploit the fact that <code>W</code> is a (twisted) <abbr title="discrete Fourier transform">DFT</abbr>, so it <strong>factors like an <abbr title="fast Fourier transform">FFT</abbr></strong> into
+<li>exploit the fact that <code>W</code> is a (twisted) discrete Fourier transform (<abbr title="discrete Fourier transform">DFT</abbr>), so it <strong>factors like an <abbr title="fast Fourier transform">FFT</abbr></strong> into
   \(\log_2 n\) sparse "butterfly" matrices with only 2–3 non-zero diagonals each;</li>
 <li><strong>merge</strong> those layers into 2–4 groups, each costing one level. More levels means fewer
   rotations per level. OpenFHE exposes this trade-off as the <strong>level budget</strong>, e.g. <code>[4, 4]</code>
@@ -745,6 +1004,64 @@ and the precision dropped from ~34 bits to ~23 bits. Both effects are characteri
 bits of precision. Real parameter sets solve the same optimization. They get further with
 larger CoeffToSlot scales, arcsine correction, and <strong>Meta-BTS</strong> (Bae et al., CCS 2022), which
 bootstraps the <em>error</em> a second time to reach 40+ bits.</p>
+<figure class="widget" id="w-dd-ckks-headroom">
+  <p class="widget-title">How much headroom should \(q_0\) leave?</p>
+  <p class="widget-hint">Start at the toy’s 14 bits. Slide down and the sine approximation’s error takes over; slide up and the error amplified by the linear transforms takes over.</p>
+  <div class="controls"></div>
+  <div class="c-head"></div>
+  <div class="readout"></div>
+  <figcaption>Each point is the worst of four bootstraps in <code>toy_ckks.py</code> with \(q_0 = \Delta \cdot 2^b\) and Δ = 2⁶⁰. Below 12 bits the precision rises by 2 bits per bit of headroom, as §5.3 predicts for the sine. Above 14 it falls by about 2 bits per bit, because CoeffToSlot sees larger inputs and SlotToCoeff multiplies the error by \(q_0/(2\pi\Delta)\). The dashed lines are straight-line fits to the two sides.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-headroom';
+  // bootstrap precision in bits, worst of 4 runs (seeds 0-3), headroom b = 4 .. 26 (toy_ckks.py with Q0 = 2^(60+b))
+  const B0 = 4;
+  const PREC = [7.0, 9.0, 11.0, 13.0, 15.0, 17.0, 19.0, 21.0, 22.8, 24.4, 22.5, 20.7, 18.6, 16.3, 15.2, 12.8, 11.0,
+    9.1, 6.8, 4.5, 2.6, 0.2, -1.0];
+  const sup = v => [...String(v)].map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join('');
+  const pts = PREC.map((p, i) => [B0 + i, p]);
+  function fit(sel) {                       // least-squares line through the chosen points
+    const xs = sel.map(p => p[0]), ys = sel.map(p => p[1]), mx = DS.math.mean(xs), my = DS.math.mean(ys);
+    let sxy = 0, sxx = 0;
+    sel.forEach(p => { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) ** 2; });
+    const k = sxy / sxx;
+    return x => my + k * (x - mx);
+  }
+  const sine = fit(pts.filter(p => p[0] <= 11));
+  const lin = fit(pts.filter(p => p[0] >= 15));
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const b = ui.slider({ label: 'Headroom b = log₂(q₀/Δ)', min: 4, max: 26, step: 1, value: 14, format: v => v + ' bits' });
+
+  const chart = DS.chart(root + ' .c-head', {
+    x: { domain: [4, 26], label: 'headroom b (bits)' },
+    y: { domain: [-2, 28], label: 'bootstrap precision (bits)' },
+    height: 300,
+    draw(c) {
+      c.legend([{ label: 'measured', series: 1, kind: 'dot' }, { label: 'sine approximation error', series: 2, kind: 'dash' },
+        { label: 'linear-transform error', series: 3, kind: 'dash' }]);
+      c.fn(sine, { series: 2, dash: true, from: 4, to: 17 });
+      c.fn(lin, { series: 3, dash: true, from: 11, to: 26 });
+      c.line(pts, { series: 1, label: 'precision', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(pts, { series: 1, r: 3 });
+      c.vline(b.value, { series: 'ink', dash: true });
+      c.point(b.value, PREC[b.value - B0], { series: 1, r: 6.5 });
+    },
+  });
+
+  function readout() {
+    const v = b.value, p = PREC[v - B0];
+    const which = sine(v) < lin(v) ? 'the sine approximation' : 'the linear transforms';
+    DS.stats(root + ' .readout', [
+      { label: 'q₀', value: '2' + sup(60 + v), note: 'Δ · 2' + sup(v) },
+      { label: 'Precision after bootstrapping', value: DS.fmt(p, 1) + ' bits', tone: p <= 0 ? 'bad' : undefined },
+      { label: 'Limited by', value: which },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="57-where-the-time-goes">5.7 Where the time goes<a class="headerlink" href="#57-where-the-time-goes" title="Link to this section">#</a></h3>
 <p>Key switches per toy bootstrap (measured):</p>
 <div class="table-wrap"><table>
@@ -787,14 +1104,14 @@ CoeffToSlot and SlotToCoeff at <strong>54.9–71.7 %</strong> of prior <abbr tit
 <li><strong>Parameters:</strong> <code>N = 2¹⁶</code>, \(\log_2(PQ) \approx\) 1500–1750 bits, about 20–30 levels in total.</li>
 <li><strong>Levels consumed:</strong> about 12–18 by bootstrapping, leaving about 8–12 for computation.</li>
 <li><strong>Precision:</strong> 20–30 bits, or 40+ with Meta-BTS or arcsine tricks.</li>
-<li><strong>Latency:</strong> seconds on a multi-core <abbr title="central processing unit">CPU</abbr>, and about tens to hundreds of milliseconds on a
-  modern <abbr title="graphics processing unit">GPU</abbr> (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.</li>
+<li><strong>Latency:</strong> seconds on a multi-core central processing unit (<abbr title="central processing unit">CPU</abbr>), and about tens to hundreds of
+  milliseconds on a modern graphics processing unit (<abbr title="graphics processing unit">GPU</abbr>) (FIDESlib, Cheddar, Phantom), for up to 32 768 values at once.</li>
 </ul>
 <h3 id="58-variants-and-the-research-frontier">5.8 Variants and the research frontier<a class="headerlink" href="#58-variants-and-the-research-frontier" title="Link to this section">#</a></h3>
 <ul>
 <li><strong>Sparse packing:</strong> bootstrapping only <code>n ≪ N/2</code> slots shrinks the linear transforms.</li>
 <li><strong>Bootstrapping discrete data</strong> (2024–2025): replace EvalMod with functions that output
-  bits or small integers, getting <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-style lookup tables with <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> batching. See
+  bits or small integers, getting lookup tables in the style of <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (Torus fully homomorphic encryption) with <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> batching. See
   <a href="../07_state_of_the_art_2026.html#ckks">07 §1</a>.</li>
 <li><strong>MRFHE</strong> (Cheon et al., ePrint 2026/853): recasts the <abbr title="discrete Fourier transform">DFT</abbr> steps as batched matrix
   multiplications, with a constant number of key switches per ciphertext.</li>

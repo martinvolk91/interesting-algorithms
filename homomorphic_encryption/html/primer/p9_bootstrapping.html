@@ -102,7 +102,7 @@ most <abbr title="fully homomorphic encryption">FHE</abbr> running time and most
   jewelry-store analogy onto them.</li>
 <li>Run a blind rotation of Torus fully homomorphic encryption (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) by hand on a 4-coefficient
   polynomial, and say what Gentry–Sahai–Waters (<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>) ciphertexts, their ring version general <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>
-  (<abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>) and a CMux contribute.</li>
+  (<abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>) and a controlled multiplexer (<abbr title="controlled multiplexer">CMux</abbr>) contribute.</li>
 <li>Describe how <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme) and <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (the
   Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes) bootstrap, and roughly
   what it costs.</li>
@@ -534,7 +534,7 @@ every key bit replaced by its encryption.</p>
 </tr>
 <tr>
 <td><code>acc = acc - a[i] * bk[i]</code></td>
-<td><strong>blind rotation</strong>: a CMux with <code>GGSW(s_i)</code> multiplies by \(X^{\tilde a_i s_i}\); the subtraction happens in the exponent</td>
+<td><strong>blind rotation</strong>: a <abbr title="controlled multiplexer">CMux</abbr> with <code>GGSW(s_i)</code> multiplies by \(X^{\tilde a_i s_i}\); the subtraction happens in the exponent</td>
 </tr>
 <tr>
 <td><code>hom_round(acc)</code></td>
@@ -587,7 +587,7 @@ multiplying by \(X^{\tilde a_i s_i}\), so after all <code>n</code> steps the exp
 <p><strong>Each step is a select.</strong> A key bit is 0 or 1, so multiplying by \(X^{\tilde a_i s_i}\) means
 "rotate by \(\tilde a_i\) if \(s_i = 1\), else leave it":</p>
 <div class="math-display">\[\mathrm{ACC} \leftarrow \mathrm{ACC} + s_i \cdot \big(X^{\tilde a_i} \cdot \mathrm{ACC} - \mathrm{ACC}\big)\]</div>
-<p>That is P6's select \(y + c\,(x - y)\) with an encrypted condition \(s_i\): the <strong>CMux</strong>. The
+<p>That is P6's select \(y + c\,(x - y)\) with an encrypted condition \(s_i\): the <strong><abbr title="controlled multiplexer">CMux</abbr></strong>. The
 product of \(s_i\), given as a <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr> ciphertext in the bootstrapping key, with the <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr> ciphertext
 \(X^{\tilde a_i} \mathrm{ACC} - \mathrm{ACC}\) is an external product, so over the <code>n</code> steps the
 noise only adds up.</p>
@@ -1206,7 +1206,7 @@ sits.</p>
 <td><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>(bit) × <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr>(M) → <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr>(bit · M), with additive noise growth</td>
 </tr>
 <tr>
-<td>CMux</td>
+<td><abbr title="controlled multiplexer">CMux</abbr></td>
 <td>Encrypted select: <code>ACC + s·(X^a·ACC − ACC)</code>, one external product</td>
 </tr>
 <tr>
@@ -1517,7 +1517,7 @@ sits.</p>
 <td><a href="#gsw-and-ggsw-multiplying-by-an-encrypted-bit">P9 §5</a></td>
 </tr>
 <tr>
-<td><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr>, <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, external product, CMux</td>
+<td><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> / <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>: <abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr>, <abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr>, external product, <abbr title="controlled multiplexer">CMux</abbr></td>
 <td>01 §4, 03 §8</td>
 <td><a href="#gsw-and-ggsw-multiplying-by-an-encrypted-bit">P9 §5</a></td>
 </tr>

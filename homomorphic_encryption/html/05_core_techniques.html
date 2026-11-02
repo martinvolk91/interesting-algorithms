@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -79,14 +80,16 @@ function renderMath() {
 <p><a href="04_schemes.html">← 04 Schemes</a> · <a href="index.html">index</a> · next: <a href="06_security.html">06 Security →</a></p>
 <hr />
 <p>The schemes in <a href="04_schemes.html">04</a> are the engines. This chapter covers the techniques that
-took <abbr title="fully homomorphic encryption">FHE</abbr> from "a billion times slower" to "deployed in iOS". Most performance wins come from
+took fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) from "a billion times slower" to "deployed in iOS". Most performance wins come from
 <strong>data layout</strong> and <strong>algorithm choice</strong>, not from faster primitives.</p>
 <h2 id="1-batching--simd-packing">1. Batching / SIMD packing<a class="headerlink" href="#1-batching--simd-packing" title="Link to this section">#</a></h2>
-<p>By the <abbr title="Chinese remainder theorem">CRT</abbr> (ch. 02 §4), one plaintext polynomial holds many independent values ("<strong>slots</strong>"):</p>
+<p>By the Chinese remainder theorem (<abbr title="Chinese remainder theorem">CRT</abbr>, ch. 02 §4), one plaintext polynomial holds many
+independent values ("<strong>slots</strong>"), processed together in single instruction, multiple data
+(<abbr title="single instruction, multiple data">SIMD</abbr>) style:</p>
 <ul>
-<li><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> with prime \(t \equiv 1 \pmod{2N}\): <strong>N slots</strong> of integers mod <code>t</code>
+<li><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (the Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes) with prime \(t \equiv 1 \pmod{2N}\): <strong>N slots</strong> of integers mod <code>t</code>
   (Smart–Vercauteren 2010/2014).</li>
-<li><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>: <strong>N/2 complex slots</strong>.</li>
+<li><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme): <strong>N/2 complex slots</strong>.</li>
 </ul>
 <p>Homomorphic <code>+</code> and <code>×</code> then act <strong>slot-wise</strong>, like <abbr title="single instruction, multiple data">SIMD</abbr> vector instructions. One
 ciphertext multiplication performs 16 384 or 32 768 multiplications at once, which amortizes
@@ -100,12 +103,110 @@ rows, and for <abbr title="the Cheon–Kim–Kim–Song scheme for approximate a
 brings it back. Each rotation amount needs its own <strong>Galois key</strong>, or you compose
 power-of-two rotations.</p>
 <p><strong>Example: sum of all slots</strong> in \(\log_2(\#\text{slots})\) rotate-and-add steps:</p>
-<div class="highlight"><pre><span></span><code>[a b c d e f g h]
-+ rot 4 → [a+e b+f c+g d+h  e+a ...]
-+ rot 2 → [a+c+e+g  b+d+f+h ...]
-+ rot 1 → [Σ Σ Σ Σ Σ Σ Σ Σ]            (every slot now holds the total)
-</code></pre></div>
+<figure class="widget" id="w-n05-rotate-sum">
+  <p class="widget-title">Summing 8 slots with 3 rotations</p>
+  <p class="widget-hint">Move the slider back to 0 and step forward. Click any slot in the newest row to trace which inputs reach it.</p>
+  <div class="controls"></div>
+  <div class="ladder"></div>
+  <div class="readout"></div>
+  <figcaption>Each step adds to the vector a copy of itself rotated by \(j\): slot \(i\) gets slot \(i + j\),
+    wrapping around. With \(j = 4, 2, 1\), after step \(s\) every slot holds the sum of \(2^s\) neighbouring
+    inputs, so \(\log_2 8 = 3\) steps put the total, 31, in every slot. Blue lines bring the slot's own
+    value down, orange lines the value from the rotated copy. Each rotation costs one key switch.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n05-rotate-sum';
+  const NS = 'http://www.w3.org/2000/svg';
+  const V0 = [3, 1, 4, 1, 5, 9, 2, 6], n = V0.length, L = Math.log2(n);
+  const JS = [];                                               // rotation amount of each step: 4, 2, 1
+  for (let j = n / 2; j >= 1; j /= 2) JS.push(j);
+  const rows = [V0];                                           // rows[s] = vector after s steps
+  JS.forEach(j => { const v = rows[rows.length - 1]; rows.push(v.map((x, i) => x + v[(i + j) % n])); });
+  let follow = 0;
+  const ui = DS.controls(root + ' .controls', () => { draw(); readout(); });
+  const steps = ui.slider({ label: 'Rotate-and-add steps done', min: 0, max: L, step: 1, value: L, format: v => String(v) });
 
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // the slots of row r that feed slot i of row s (r <= s)
+  function sources(s, i) {
+    let set = new Set([i]);
+    const out = [set];
+    for (let r = s; r >= 1; r--) {
+      const j = JS[r - 1], next = new Set();
+      set.forEach(k => { next.add(k); next.add((k + j) % n); });
+      set = next; out.unshift(set);
+    }
+    return out;                                                // out[r] for r = 0..s
+  }
+  const host = document.querySelector(root + ' .ladder');
+  let lastW = -1;
+  function draw() {
+    const W = host.clientWidth || 640;
+    lastW = W;
+    host.textContent = '';
+    const s = steps.value, gap = W < 420 ? 5 : 8, bw = (W - gap * (n - 1)) / n, bh = 32, pitch = bh + 52, top = 22;
+    const H = top + L * pitch + bh + 4;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': 'Four rows of eight slots. Each row adds the previous row rotated by 4, then 2, then 1; the last row holds the total 31 in every slot.' }, host);
+    svg.style.display = 'block'; svg.style.fontFamily = 'var(--font)';
+    const tree = sources(s, follow);
+    const x = i => i * (bw + gap), cx = i => x(i) + bw / 2, y = r => top + r * pitch;
+    const labels = [];
+    for (let r = 0; r <= L; r++) {
+      const label = r === 0 ? 'input slots' : `step ${r}: add the row above, rotated by ${JS[r - 1]}`;
+      labels.push([r, label]);
+      if (r >= 1 && r <= s) {                                    // lines from the two parents of each followed slot
+        const j = JS[r - 1];
+        tree[r].forEach(i => {
+          [i, (i + j) % n].forEach((p, k) => {
+            const ln = sv('line', { x1: cx(p), y1: y(r - 1) + bh, x2: cx(i), y2: y(r) - 1 }, svg);
+            ln.setAttribute('style', `stroke:var(--series-${k ? 2 : 1});stroke-width:1.6;fill:none`);
+          });
+        });
+      }
+      for (let i = 0; i < n; i++) {
+        const done = r <= s, on = done && tree[r] && tree[r].has(i);
+        const g = sv('g', {}, svg);
+        const rect = sv('rect', { x: x(i) + 0.5, y: y(r), width: bw - 1, height: bh, rx: 6 }, g);
+        rect.setAttribute('style', on
+          ? 'fill:color-mix(in srgb, var(--series-1) 20%, var(--bg));stroke:var(--series-1);stroke-width:1.6'
+          : done ? 'fill:var(--soft);stroke:var(--line-strong);stroke-width:1'
+                 : 'fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:3 3');
+        if (done) {
+          const t = sv('text', { x: cx(i), y: y(r) + bh / 2 + 4.5, 'text-anchor': 'middle' }, g, String(rows[r][i]));
+          t.setAttribute('style', `fill:var(--ink);font-size:${bw < 34 ? 12 : 14}px;font-weight:${on ? 650 : 400}`);
+        }
+        if (r === s) {                                           // the newest row is clickable
+          g.style.cursor = 'pointer';
+          g.addEventListener('click', () => { follow = i; draw(); readout(); });
+        }
+      }
+    }
+    labels.forEach(([r, label]) => {                           // on top of the lines, with a halo
+      sv('text', { x: 0, y: y(r) - 8 }, svg, label).setAttribute('style',
+        `fill:var(--ink-2);font-size:12.5px;paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round;${r <= steps.value ? '' : 'opacity:.45'}`);
+    });
+  }
+  function readout() {
+    const s = steps.value, tree = sources(s, follow);
+    const inputs = [...tree[0]].sort((a, b) => a - b).map(i => V0[i]);
+    DS.stats(root + ' .readout', [
+      { label: 'Rotations used', value: String(s), note: `of ${L} = log₂ ${n}` },
+      { label: `Slot ${follow} holds`, value: String(rows[s][follow]), note: inputs.length === n ? 'the total of all 8 inputs' : `${inputs.length} of the 8 inputs` },
+      { label: 'With 16 384 slots', value: '14 rotations', note: 'instead of 16 383' },
+    ]);
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (Math.abs((host.clientWidth || 640) - lastW) > 2) draw(); }).observe(host);
+  draw(); readout();
+})();
+</script>
 <p>Dot product = slot-wise multiplication + sum of slots. Rotations cost a key switch each,
 so <strong>minimizing rotations</strong> is a big part of <abbr title="fully homomorphic encryption">FHE</abbr> algorithm design.</p>
 <h2 id="3-packing-strategies-for-linear-algebra">3. Packing strategies for linear algebra<a class="headerlink" href="#3-packing-strategies-for-linear-algebra" title="Link to this section">#</a></h2>
@@ -122,6 +223,106 @@ so <strong>minimizing rotations</strong> is a big part of <abbr title="fully hom
 <li><strong>Column vs row vs "replicated" layouts</strong>, and layout <em>conversion</em> between layers, which is
   a major job of <abbr title="fully homomorphic encryption">FHE</abbr> compilers (§9).</li>
 </ul>
+<figure class="widget" id="w-n05-bsgs">
+  <p class="widget-title">Baby-step giant-step: about \(2\sqrt{d}\) rotations instead of \(d\)</p>
+  <p class="widget-hint">Raise the number of diagonals d and compare the two counts. Click a cell to see how its rotation splits into a baby step and a giant step.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Diagonal \(i = n_1 g + b\): column \(b\) is its baby step, row \(g\) its giant step</p><div class="grid-host"></div></div>
+    <div><p class="panel-title">Ciphertext rotations needed</p><div class="c-cost"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The diagonal method needs the vector rotated by every \(i\) from 1 to \(d - 1\). Write
+    \(i = n_1 g + b\) with \(n_1 = \lceil\sqrt{d}\,\rceil\). The server rotates the vector once by each baby step
+    \(b < n_1\), multiplies by diagonals that were rotated back by \(n_1 g\) in advance (plaintexts, so
+    those rotations are free), sums each row, and rotates each row sum once by its giant step \(n_1 g\).
+    That is \((n_1 - 1) + (n_2 - 1)\) rotations, where \(n_2 = \lceil d/n_1 \rceil\) is the number of rows.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n05-bsgs';
+  const NS = 'http://www.w3.org/2000/svg';
+  const split = d => { const n1 = Math.ceil(Math.sqrt(d)), n2 = Math.ceil(d / n1); return { n1, n2, rot: n1 - 1 + n2 - 1 }; };
+  let pick = null;
+  const ui = DS.controls(root + ' .controls', () => { pick = null; drawGrid(); cost.update(); readout(); });
+  const dd = ui.slider({ label: 'Diagonals d', values: [4, 8, 16, 32, 64, 128, 256], value: 64, format: v => String(v) });
+
+  function sv(tag, attrs, parent, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const host = document.querySelector(root + ' .grid-host');
+  let lastW = -1;
+  function drawGrid() {
+    const W = Math.min(host.clientWidth || 360, 420);
+    lastW = host.clientWidth;
+    host.textContent = '';
+    const d = dd.value, { n1, n2 } = split(d), sel = pick === null ? d - 1 : pick;
+    const head = 38, cell = Math.min(44, (W - head) / n1), H = head + n2 * cell + 2;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img',
+      'aria-label': `A grid of ${n2} rows and ${n1} columns holding the ${d} diagonals.` }, host);
+    svg.style.display = 'block'; svg.style.fontFamily = 'var(--font)'; svg.style.maxWidth = W + 'px';
+    const fs = Math.max(9, Math.min(13, cell * 0.36));
+    const sg = Math.floor(sel / n1), sb = sel % n1;
+    const cellStyle = (fill, stroke) => `fill:${fill};stroke:${stroke};stroke-width:1`;
+    for (let b = 0; b < n1; b++) {                             // column headers: baby steps
+      const r = sv('rect', { x: head + b * cell + 1, y: 1, width: cell - 2, height: head - 6, rx: 4 }, svg);
+      r.setAttribute('style', b === 0 ? cellStyle('none', 'var(--line-strong)')
+        : cellStyle(`color-mix(in srgb, var(--series-1) ${b === sb ? 45 : 18}%, var(--bg))`, 'var(--series-1)'));
+      if (cell >= 15) sv('text', { x: head + (b + 0.5) * cell, y: head / 2 + 2, 'text-anchor': 'middle' }, svg, String(b))
+        .setAttribute('style', `fill:var(--ink);font-size:${fs}px`);
+    }
+    for (let g = 0; g < n2; g++) {                             // row headers: giant steps
+      const r = sv('rect', { x: 1, y: head + g * cell + 1, width: head - 6, height: cell - 2, rx: 4 }, svg);
+      r.setAttribute('style', g === 0 ? cellStyle('none', 'var(--line-strong)')
+        : cellStyle(`color-mix(in srgb, var(--series-2) ${g === sg ? 45 : 18}%, var(--bg))`, 'var(--series-2)'));
+      if (cell >= 11) sv('text', { x: (head - 6) / 2 + 1, y: head + (g + 0.5) * cell + fs * 0.35, 'text-anchor': 'middle' }, svg, String(n1 * g))
+        .setAttribute('style', `fill:var(--ink);font-size:${Math.min(fs, 12)}px`);
+      for (let b = 0; b < n1; b++) {
+        const i = n1 * g + b;
+        if (i >= d) continue;
+        const on = i === sel;
+        const c = sv('rect', { x: head + b * cell + 1, y: head + g * cell + 1, width: cell - 2, height: cell - 2, rx: 3 }, svg);
+        c.setAttribute('style', on ? cellStyle('var(--ink)', 'var(--ink)') : cellStyle('var(--soft)', 'var(--line-strong)'));
+        c.style.cursor = 'pointer';
+        c.addEventListener('click', () => { pick = i; drawGrid(); readout(); });
+        if (cell >= 22) {
+          const t = sv('text', { x: head + (b + 0.5) * cell, y: head + (g + 0.5) * cell + fs * 0.35, 'text-anchor': 'middle' }, svg, String(i));
+          t.setAttribute('style', `fill:${on ? 'var(--bg)' : 'var(--ink-2)'};font-size:${fs}px;pointer-events:none`);
+        }
+      }
+    }
+  }
+  const DS_ = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
+  const cost = DS.chart(root + ' .c-cost', {
+    x: { type: 'log', domain: [4, 4096], label: 'diagonals d (log scale)' },
+    y: { type: 'log', domain: [1, 10000], label: 'rotations (log scale)' },
+    height: 260,
+    draw(c) {
+      c.line(DS_.map(d => [d, d - 1]), { series: 'muted', label: 'one rotation per diagonal', format: v => String(Math.round(v)) });
+      c.line(DS_.map(d => [d, split(d).rot]), { series: 1, label: 'baby-step giant-step', format: v => String(Math.round(v)) });
+      const d = dd.value;
+      c.point(d, d - 1, { series: 'muted' });
+      c.point(d, split(d).rot, { series: 1 });
+      c.legend([{ label: 'one per diagonal: d − 1', series: 'muted' }, { label: 'baby-step giant-step', series: 1 }]);
+    },
+  });
+  function readout() {
+    const d = dd.value, { n1, n2, rot } = split(d), sel = pick === null ? d - 1 : pick;
+    const g = Math.floor(sel / n1), b = sel % n1;
+    DS.stats(root + ' .readout', [
+      { label: 'One per diagonal', value: String(d - 1), note: 'rotations' },
+      { label: 'Baby-step giant-step', value: String(rot), note: `${n1 - 1} baby + ${n2 - 1} giant`, tone: 'good' },
+      { label: `Diagonal ${sel}`, value: `${n1 * g} + ${b}`, note: `giant step ${n1 * g}, baby step ${b}` },
+    ]);
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (Math.abs((host.clientWidth || 360) - lastW) > 2) drawGrid(); }).observe(host);
+  drawGrid(); readout();
+})();
+</script>
 <h2 id="4-polynomial-approximation-of-non-linear-functions-ckks--bfv">4. Polynomial approximation of non-linear functions (CKKS / BFV)<a class="headerlink" href="#4-polynomial-approximation-of-non-linear-functions-ckks--bfv" title="Link to this section">#</a></h2>
 <p><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>/<abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> natively compute only <strong>polynomials</strong>. Everything else is approximated on a
 <strong>known, bounded input range</strong>:</p>
@@ -155,11 +356,11 @@ so <strong>minimizing rotations</strong> is a big part of <abbr title="fully hom
 non-scalar multiplications at depth \(\lceil \log_2 d \rceil\). The cost is set by <strong>depth</strong>:
 higher degree means better accuracy but more levels, and therefore more bootstrapping.</p>
 <p>The alternative is to <strong>change the model</strong>: train with <abbr title="fully homomorphic encryption">FHE</abbr>-friendly activations such as
-\(x^2\) or low-degree polynomials, or quantize. The 2026 SoK on encrypted <abbr title="large language model">LLM</abbr>s calls frameworks
+\(x^2\) or low-degree polynomials, or quantize. The 2026 systematization of knowledge (<abbr title="systematization of knowledge (a survey paper)">SoK</abbr>) on encrypted large language models (<abbr title="large language model">LLM</abbr>s) calls frameworks
 that do <em>not</em> change the model "<strong>model-preserving</strong>". Only 5 of 21 surveyed frameworks are
 (ch. 07).</p>
 <h2 id="5-programmable-bootstrapping-and-luts-tfhe">5. Programmable bootstrapping and LUTs (TFHE)<a class="headerlink" href="#5-programmable-bootstrapping-and-luts-tfhe" title="Link to this section">#</a></h2>
-<p>In <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> every bootstrap evaluates a lookup table on an encrypted small integer (ch. 03 §8):</p>
+<p>In <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (torus fully homomorphic encryption) every bootstrap evaluates a lookup table on an encrypted small integer (ch. 03 §8):</p>
 <ul>
 <li>Any function on 1–8 bit inputs costs <strong>one <abbr title="programmable bootstrapping">PBS</abbr></strong>, regardless of how non-linear it is.</li>
 <li>Bigger integers: <strong>radix decomposition</strong> (blocks plus carry propagation) or <strong><abbr title="Chinese remainder theorem">CRT</abbr>
@@ -169,7 +370,7 @@ that do <em>not</em> change the model "<strong>model-preserving</strong>". Only 
   the negacyclic ring.</li>
 </ul>
 <p>Zama's <strong>Concrete</strong> compiler turns Python/NumPy into <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> circuits by choosing bit widths and
-placing <abbr title="programmable bootstrapping">PBS</abbr> automatically. <strong>Concrete <abbr title="machine learning">ML</abbr></strong> applies this to quantized <abbr title="machine learning">ML</abbr> models (trees, linear
+placing <abbr title="programmable bootstrapping">PBS</abbr> automatically. <strong>Concrete <abbr title="machine learning">ML</abbr></strong> applies this to quantized machine learning (<abbr title="machine learning">ML</abbr>) models (trees, linear
 models, small NNs).</p>
 <h2 id="6-functional-bootstrapping-in-ckks">6. Functional bootstrapping in CKKS<a class="headerlink" href="#6-functional-bootstrapping-in-ckks" title="Link to this section">#</a></h2>
 <p>The "discrete <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>" line (2024–2026) evaluates <abbr title="lookup table">LUT</abbr>s on <em>many</em> values at once inside <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>
@@ -178,9 +379,10 @@ bits (Eurocrypt 2024), small integers / SI-BTS (Asiacrypt 2024), general functio
 bootstrapping (Alexandru–Kim–Polyakov), modular reduction, and high-precision discrete <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>
 for noise flooding (2025). See ch. 07 for details.</p>
 <h2 id="7-scheme-switching">7. Scheme switching<a class="headerlink" href="#7-scheme-switching" title="Link to this section">#</a></h2>
-<p>Convert between <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (batched linear algebra) and <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (cheap non-linear <abbr title="lookup table">LUT</abbr>s) as
-needed (ch. 04). It is powerful, but the switching itself is expensive, and its <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>
-security has recently been shown to be subtle (ch. 06).</p>
+<p>Convert between <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (batched linear algebra) and <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> (the Ducas–Micciancio scheme) or
+<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (cheap non-linear <abbr title="lookup table">LUT</abbr>s) as needed (ch. 04). It is powerful, but the switching itself is
+expensive, and its <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> security (security when the attacker also sees decryptions) has
+recently been shown to be subtle (ch. 06).</p>
 <h2 id="8-multi-party-variants">8. Multi-party variants<a class="headerlink" href="#8-multi-party-variants" title="Link to this section">#</a></h2>
 <p>Plain <abbr title="fully homomorphic encryption">FHE</abbr> has <strong>one</strong> key owner. For data from several parties:</p>
 <div class="table-wrap"><table>
@@ -194,11 +396,11 @@ security has recently been shown to be subtle (ch. 06).</p>
 <tbody>
 <tr>
 <td><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
-<td>The secret key is secret-shared among <code>n</code> parties. Decryption needs <code>t</code> of them (a small <abbr title="secure multiparty computation">MPC</abbr> protocol)</td>
+<td>The secret key is secret-shared among <code>n</code> parties. Decryption needs <code>t</code> of them (a small protocol of secure multiparty computation, <abbr title="secure multiparty computation">MPC</abbr>)</td>
 <td>Zama Protocol (threshold decryption network), Lattigo multiparty, OpenFHE</td>
 </tr>
 <tr>
-<td><strong>Multiparty <abbr title="homomorphic encryption">HE</abbr> (<abbr title="multiparty homomorphic encryption">MHE</abbr>)</strong></td>
+<td><strong>Multiparty homomorphic encryption (<abbr title="multiparty homomorphic encryption">MHE</abbr>)</strong></td>
 <td>Parties jointly generate one collective public key. Each keeps a share of the secret key (Mouchet–Troncoso-Pastoriza–Bossuat–Hubaux 2021)</td>
 <td>federated analytics, medical consortia (Tune Insight)</td>
 </tr>
@@ -230,7 +432,7 @@ bootstraps, designing slot layouts and approximating functions. Compilers automa
 <tbody>
 <tr>
 <td><strong>HEIR</strong> (Google)</td>
-<td>multi-scheme, <abbr title="Multi-Level Intermediate Representation (a compiler framework)">MLIR</abbr>-based</td>
+<td>multi-scheme, built on <abbr title="Multi-Level Intermediate Representation (a compiler framework)">MLIR</abbr> (Multi-Level Intermediate Representation)</td>
 <td>General-purpose <abbr title="homomorphic encryption">HE</abbr> compiler. Packing, parameter selection, arithmetization. Backends include OpenFHE and Lattigo. Paper: arXiv <a href="https://arxiv.org/abs/2508.11095">2508.11095</a>. Promoted by Google for encrypted AI inference in 2026</td>
 </tr>
 <tr>
@@ -266,19 +468,20 @@ front ends (PyTorch, Python) and both software libraries and hardware accelerato
 <h2 id="10-bandwidth-tricks">10. Bandwidth tricks<a class="headerlink" href="#10-bandwidth-tricks" title="Link to this section">#</a></h2>
 <ul>
 <li><strong>Seeded ciphertexts:</strong> for symmetric encryption, the uniform part <code>a</code> can be regenerated
-  from a <abbr title="pseudorandom number generator">PRNG</abbr> seed, which halves upload size.</li>
-<li><strong>Transciphering / hybrid <abbr title="homomorphic encryption">HE</abbr>:</strong> the client encrypts with a cheap <strong>symmetric cipher</strong> (<abbr title="Advanced Encryption Standard">AES</abbr>,
-  or <abbr title="homomorphic encryption">HE</abbr>-friendly ciphers such as Rasta, Pasta, Kreyvium, Elisabeth). The server holds an <abbr title="fully homomorphic encryption">FHE</abbr>
+  from a pseudorandom number generator (<abbr title="pseudorandom number generator">PRNG</abbr>) seed, which halves upload size.</li>
+<li><strong>Transciphering / hybrid <abbr title="homomorphic encryption">HE</abbr>:</strong> the client encrypts with a cheap <strong>symmetric cipher</strong> (the
+  Advanced Encryption Standard, <abbr title="Advanced Encryption Standard">AES</abbr>, or <abbr title="homomorphic encryption">HE</abbr>-friendly ciphers such as Rasta, Pasta, Kreyvium, Elisabeth). The server holds an <abbr title="fully homomorphic encryption">FHE</abbr>
   encryption of the symmetric key and <em>homomorphically decrypts</em> to obtain <abbr title="fully homomorphic encryption">FHE</abbr> ciphertexts. It
   gives a tiny upload at the cost of server work.</li>
-<li><strong>Ciphertext compression / packing <abbr title="learning with errors">LWE</abbr> → <abbr title="ring learning with errors">RLWE</abbr></strong> for responses (common in <abbr title="private information retrieval">PIR</abbr>).</li>
+<li><strong>Ciphertext compression / packing <abbr title="learning with errors">LWE</abbr> → <abbr title="ring learning with errors">RLWE</abbr></strong> (learning with errors → ring learning with
+  errors) for responses (common in private information retrieval, <abbr title="private information retrieval">PIR</abbr>).</li>
 </ul>
 <h2 id="11-integrity-and-verifiability">11. Integrity and verifiability<a class="headerlink" href="#11-integrity-and-verifiability" title="Link to this section">#</a></h2>
 <p><abbr title="fully homomorphic encryption">FHE</abbr> gives confidentiality, <strong>not</strong> correctness. Approaches to verifiable <abbr title="fully homomorphic encryption">FHE</abbr> include
 SNARK/STARK proofs of correct homomorphic evaluation (an active 2023–2026 research area; the
 proofs are heavy because <abbr title="fully homomorphic encryption">FHE</abbr> arithmetic is large), redundancy or replication across servers,
-and running the <abbr title="fully homomorphic encryption">FHE</abbr> evaluator inside a <abbr title="trusted execution environment">TEE</abbr> for "belt and braces". Zama's protocol, for
-example, combines <abbr title="zero knowledge">ZK</abbr> proofs that inputs were encrypted correctly with several independent
+and running the <abbr title="fully homomorphic encryption">FHE</abbr> evaluator inside a trusted execution environment (<abbr title="trusted execution environment">TEE</abbr>) for "belt and braces". Zama's protocol, for
+example, combines zero-knowledge (<abbr title="zero knowledge">ZK</abbr>) proofs that inputs were encrypted correctly with several independent
 coprocessors that recompute results and must agree.</p>
 <hr />
 <h3 id="deep-dive-candidates">Deep-dive candidates<a class="headerlink" href="#deep-dive-candidates" title="Link to this section">#</a></h3>

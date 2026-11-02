@@ -19,7 +19,7 @@ most FHE running time and most FHE research go.
   jewelry-store analogy onto them.
 - Run a blind rotation of Torus fully homomorphic encryption (TFHE) by hand on a 4-coefficient
   polynomial, and say what Gentry–Sahai–Waters (GSW) ciphertexts, their ring version general GSW
-  (GGSW) and a CMux contribute.
+  (GGSW) and a controlled multiplexer (CMux) contribute.
 - Describe how TFHE, CKKS (the Cheon–Kim–Kim–Song scheme) and BGV/BFV (the
   Brakerski–Gentry–Vaikuntanathan and Brakerski/Fan–Vercauteren schemes) bootstrap, and roughly
   what it costs.

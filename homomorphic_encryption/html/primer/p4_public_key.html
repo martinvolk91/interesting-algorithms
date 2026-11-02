@@ -716,10 +716,10 @@ private-key operation took about 0.19 ms; in that time <abbr title="Advanced Enc
 systems use public-key cryptography only to agree on a fresh symmetric key, and encrypt the data
 with an <abbr title="authenticated encryption with associated data">AEAD</abbr> cipher (authenticated encryption with associated data) from P3. That is <strong>hybrid
 encryption</strong>.</p>
-<p>The modern formulation is <strong><abbr title="key encapsulation mechanism">KEM</abbr>/DEM</strong>. A <strong>key encapsulation mechanism</strong> (<abbr title="key encapsulation mechanism">KEM</abbr>) takes the public
+<p>The modern formulation is <strong><abbr title="key encapsulation mechanism">KEM</abbr>/<abbr title="data encapsulation mechanism">DEM</abbr></strong>. A <strong>key encapsulation mechanism</strong> (<abbr title="key encapsulation mechanism">KEM</abbr>) takes the public
 key and outputs a random shared key plus an "encapsulation" that lets the secret-key holder
 recover it. A <strong>data encapsulation mechanism</strong> (an <abbr title="authenticated encryption with associated data">AEAD</abbr> such as <abbr title="Advanced Encryption Standard">AES</abbr>-GCM) then encrypts the payload
-under that key. HPKE (<a href="https://www.rfc-editor.org/rfc/rfc9180"><abbr title="Request for Comments (an IETF standard)">RFC</abbr> 9180</a>) standardizes the
+under that key. <abbr title="Hybrid Public Key Encryption">HPKE</abbr> (<a href="https://www.rfc-editor.org/rfc/rfc9180"><abbr title="Request for Comments (an IETF standard)">RFC</abbr> 9180</a>) standardizes the
 combination, and <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr> (§9) is a <abbr title="key encapsulation mechanism">KEM</abbr>.</p>
 <p>The script's version, in <a href="../../code/primer/p4_public_key.py">part 4</a>: Bob's ElGamal public key
 \(h\) doubles as a Diffie–Hellman public value. Alice picks \(y\), sends \(c_1 = g^y\), hashes the shared
@@ -913,7 +913,7 @@ promised an explanation of why this is less dramatic than it sounds:</p>
 <p><abbr title="National Institute of Standards and Technology">NIST</abbr>'s post-quantum FAQ concludes that <abbr title="Advanced Encryption Standard">AES</abbr>-128 "will remain secure for decades", and <abbr title="National Institute of Standards and Technology">NIST</abbr> defines
 its lowest post-quantum security category (category 1) by the cost of key search on <abbr title="Advanced Encryption Standard">AES</abbr>-128. The
 conservative choice for secrets that must stay secret for a very long time is <abbr title="Advanced Encryption Standard">AES</abbr>-256, which is
-what NSA's CNSA 2.0 suite requires. Symmetric ciphers and hash functions survive by choosing
+what the National Security Agency's (<abbr title="National Security Agency">NSA</abbr>) CNSA 2.0 suite requires. Symmetric ciphers and hash functions survive by choosing
 larger parameters. Public-key cryptography needs new mathematics.</p>
 <h3 id="nists-post-quantum-standards">NIST's post-quantum standards<a class="headerlink" href="#nists-post-quantum-standards" title="Link to this section">#</a></h3>
 <p><em>Optional on a first read:</em> the standards and deployment details below. What matters for <abbr title="homomorphic encryption">HE</abbr> is
@@ -1199,7 +1199,7 @@ decrypts to \(6 \cdot 7 = 42\). In part 3b only the tally is decrypted, never a 
 <td>Ciphertext size divided by plaintext size</td>
 </tr>
 <tr>
-<td>Hybrid encryption, <abbr title="key encapsulation mechanism">KEM</abbr>/DEM</td>
+<td>Hybrid encryption, <abbr title="key encapsulation mechanism">KEM</abbr>/<abbr title="data encapsulation mechanism">DEM</abbr></td>
 <td>Public-key step agrees on a key, a symmetric <abbr title="authenticated encryption with associated data">AEAD</abbr> encrypts the data</td>
 </tr>
 <tr>

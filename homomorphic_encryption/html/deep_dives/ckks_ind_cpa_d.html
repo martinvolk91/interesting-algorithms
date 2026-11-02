@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="stylesheet" href="../assets/figures.css">
+<script src="../assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -90,11 +91,11 @@ function renderMath() {
 <h1 id="deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d">Deep dive: breaking CKKS with its own decryptions (IND-CPA-D)<a class="headerlink" href="#deep-dive-breaking-ckks-with-its-own-decryptions-ind-cpa-d" title="Link to this section">#</a></h1>
 <p><a href="../index.html">index</a> · background: <a href="ckks.html"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive</a>, <a href="../06_security.html#3-ind-cpa-d-when-decryption-leaks-the-key">06 Security §3</a></p>
 <hr />
-<p>In 2021 Baiyu Li and Daniele Micciancio showed that <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, a scheme with a valid <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>
-security proof, falls to a <strong>passive key-recovery attack</strong> as soon as someone who holds a
-ciphertext also sees its decryption. No malicious computation is involved, no fault
-injection, no side channel: one honestly computed result, shared in the ordinary way, gives
-away the secret key.</p>
+<p><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme) has a valid proof of indistinguishability under
+chosen-plaintext attack (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>). Yet an attacker who holds a ciphertext and also sees its
+decryption can recover the secret key, as Baiyu Li and Daniele Micciancio showed in 2021 with
+a <strong>passive key-recovery attack</strong>. No malicious computation is involved, no fault injection,
+no side channel: one honestly computed result, shared in the ordinary way, gives the key away.</p>
 <p>This document reproduces the attack on the toy <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>, then fixes it with <strong>noise flooding</strong>,
 then breaks weak flooding with an <strong>averaging attack</strong>. Everything runs in
 <a href="../../code/ckks_attack.py"><code>../code/ckks_attack.py</code></a>, which builds on
@@ -110,7 +111,8 @@ is part of the approximate answer. Whoever holds the ciphertext \((c_0, c_1)\) a
 output has one linear equation in one unknown polynomial: \(c_1 \cdot s = m&#x27; - c_0\).
 Solve it, and you have the key.</p>
 </blockquote>
-<p>Exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>) round the noise away during decryption, so their outputs
+<p>Exact schemes (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, the Brakerski/Fan–Vercauteren scheme; <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>, the
+Brakerski–Gentry–Vaikuntanathan scheme; <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, Torus fully homomorphic encryption) round the noise away during decryption, so their outputs
 contain only the message, which the attacker already knows. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> skipped that step to gain
 precision, and the rounding step was what protected the key.</p>
 <hr />
@@ -118,7 +120,7 @@ precision, and the rounding step was what protected the key.</p>
 <h3 id="11-what-ind-cpa-promises">1.1 What IND-CPA promises<a class="headerlink" href="#11-what-ind-cpa-promises" title="Link to this section">#</a></h3>
 <p>In the <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> game, the adversary picks two messages, gets an encryption of one of them, and
 must guess which. It sees public keys, evaluation keys and ciphertexts, <strong>but never a
-decryption</strong>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure under <abbr title="ring learning with errors">RLWE</abbr>. That proof is correct and the attack does
+decryption</strong>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> is <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure under ring learning with errors (<abbr title="ring learning with errors">RLWE</abbr>). That proof is correct and the attack does
 not contradict it. The game simply doesn't model the attack.</p>
 <h3 id="12-ind-cpa-d-decryptions-of-honest-computations">1.2 IND-CPA-D: decryptions of honest computations<a class="headerlink" href="#12-ind-cpa-d-decryptions-of-honest-computations" title="Link to this section">#</a></h3>
 <p>Li and Micciancio's game adds decryptions, restricted so the adversary can't win trivially:</p>
@@ -207,8 +209,8 @@ the attacker has <code>s</code> and reads a completely unrelated ciphertext.</p>
 ring \(\mathbb{F}_2[X]/(X^N+1) = \mathbb{F}_2[X]/((X+1)^N)\) is <em>local</em>: a polynomial is
 invertible exactly when the sum of its coefficients is odd. That is true for about half of all
 <code>c₁</code>. Measured: 103 of 200 results. The attacker checks the parity in advance and waits for a
-usable result. <strong>Real libraries use <abbr title="residue number system">RNS</abbr> prime moduli</strong>, where <code>c₁</code> is invertible with
-overwhelming probability. There the attack is a single division done prime by prime in the <abbr title="number-theoretic transform">NTT</abbr>
+usable result. <strong>Real libraries use residue number system (<abbr title="residue number system">RNS</abbr>) prime moduli</strong>, where <code>c₁</code> is invertible with
+overwhelming probability. There the attack is a single division done prime by prime in the number-theoretic transform (<abbr title="number-theoretic transform">NTT</abbr>)
 domain, \(s = (m&#x27; - c_0)\cdot c_1^{-1}\), and it takes milliseconds even at <code>N = 2¹⁶</code>.</p>
 <h3 id="23-what-makes-it-so-damaging">2.3 What makes it so damaging<a class="headerlink" href="#23-what-makes-it-so-damaging" title="Link to this section">#</a></h3>
 <ul>
@@ -273,6 +275,77 @@ everything. This is why <strong>high-precision <abbr title="the Cheon–Kim–Ki
 bootstrapping at ~80 bits (Choe–Kim–Stehlé–Suvanto 2025,
 <a href="https://eprint.iacr.org/2025/1786">ePrint 2025/1786</a>) exists precisely to make flooding
 affordable.</p>
+<figure class="widget" id="w-dd-cpad-flooding">
+  <p class="widget-title">Flooding the decryption: attack versus precision</p>
+  <p class="widget-hint">Raise the flooding from none. One bit of noise already turns the recovered “key” into garbage. Then keep going to σ ≈ 2⁴⁶, the size that actually proves 40 bits of security, and watch what is left of the output.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">What the one-shot attack recovers, coefficient by coefficient</p><div class="c-key"></div></div>
+    <div><p class="panel-title">Precision of the shared result</p><div class="c-prec"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>The same result from <code>ckks_attack.py</code> (Δ = 2⁴⁰, modulus \(2^{94}\)), decrypted with fresh Gaussian noise of width \(\sigma_f\) and then attacked with \(c_1 \cdot s = m' - c_0\). Without flooding the solve returns the true ternary key. With any flooding it returns numbers spread over the whole modulus. But the precision falls bit for bit as \(\sigma_f\) grows, and the flooding that the smudging lemma asks for leaves nothing.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-cpad-flooding';
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹', sup = v => [...String(v)].map(d => SUP[d]).join('');
+  const LOG_DELTA = 40, LOG_Q = 94, LOG_B = 6;     // B ~ 2^6 bounds the computation noise (section 3.2)
+  // replayed from ckks_attack.py (seed 2, same draws): [log2 sigma (-1 = none), output precision in bits,
+  // key recovered?, log2 |coefficient| of the solved "key" (null = 0)]
+  const RUNS = [[-1,33.86,1,[null,0,0,null,0,0,null,null,null,0,0,null,null,null,0,0]],[0,33.86,0,[92.0,93.0,92.8,87.5,91.8,92.5,91.7,90.0,92.4,92.1,92.6,91.5,90.7,92.0,91.6,89.2]],[2,33.54,0,[90.2,90.4,91.6,92.1,91.3,92.1,90.8,89.6,92.7,92.6,91.2,92.9,91.5,91.5,92.4,92.4]],[4,32.91,0,[92.9,89.9,92.2,92.8,92.1,92.9,90.5,90.6,92.6,91.3,92.1,91.4,90.0,92.2,92.7,92.2]],[6,31.39,0,[92.6,92.0,91.6,87.7,90.9,92.2,91.0,90.4,92.7,92.4,90.8,92.7,91.8,91.4,86.8,91.5]],[8,29.07,0,[91.0,92.8,93.0,92.9,86.9,90.5,87.8,91.8,91.2,92.8,91.3,90.5,91.8,92.8,92.4,92.7]],[10,27.66,0,[92.8,91.8,89.6,92.6,92.3,89.2,92.0,92.9,92.8,90.9,92.7,92.5,90.5,91.1,92.6,92.9]],[12,25.19,0,[92.8,92.0,92.5,88.7,93.0,92.0,90.3,89.2,90.5,90.7,92.5,92.6,91.9,93.0,91.5,92.1]],[14,23.48,0,[91.6,91.4,89.0,92.6,92.7,91.0,89.8,90.7,90.9,92.7,89.1,89.0,90.0,92.5,91.0,91.8]],[16,21.12,0,[92.2,92.8,92.8,91.3,91.9,92.5,92.2,92.3,89.1,91.3,92.9,92.1,90.5,89.8,86.9,92.0]],[18,19.04,0,[89.8,92.5,91.6,91.7,90.5,89.6,91.7,92.9,92.5,92.9,91.9,92.4,91.7,93.0,92.3,91.3]],[20,16.98,0,[91.4,90.8,91.1,92.5,92.4,92.2,92.2,91.6,90.9,91.7,91.3,93.0,88.5,92.2,91.7,86.3]],[22,15.18,0,[92.6,90.3,92.1,91.3,92.6,92.5,92.9,92.2,92.4,92.0,92.8,87.9,92.1,91.2,90.2,92.9]],[24,13.31,0,[90.3,92.3,93.0,92.7,92.7,92.5,91.9,92.2,88.9,92.8,93.0,92.5,92.6,92.8,91.4,92.1]],[26,11.32,0,[90.3,92.4,91.2,92.3,91.9,92.2,92.8,92.2,90.7,91.7,91.8,92.9,89.8,89.2,92.8,92.0]],[28,9.5,0,[92.3,92.5,91.7,92.6,90.6,84.1,92.1,92.2,92.6,91.3,92.7,91.9,92.9,91.1,92.5,93.0]],[30,7.2,0,[93.0,91.8,89.0,91.1,92.0,92.5,92.3,92.1,92.9,92.3,91.9,91.8,90.5,90.6,84.7,92.9]],[32,5.11,0,[91.6,92.1,92.7,91.3,92.2,92.1,91.9,91.8,92.7,91.7,90.8,92.0,91.6,91.8,92.8,90.8]],[36,1.6,0,[91.8,91.3,91.0,91.6,92.2,90.4,92.6,90.9,88.2,92.4,91.8,92.2,92.4,92.4,90.1,92.0]],[40,-2.74,0,[91.4,92.9,92.3,92.4,91.0,91.3,92.9,92.5,91.8,92.8,89.8,92.3,91.6,92.9,88.8,92.5]],[46,-8.34,0,[92.5,91.0,89.1,92.3,92.6,90.0,92.3,91.2,91.9,92.7,92.8,92.8,92.8,91.8,92.7,91.1]]];
+  const byLg = new Map(RUNS.map(r => [r[0], r]));
+  const bitlen = v => v === null ? 0 : Math.floor(v + 1e-9) + 1;    // bits needed for |coefficient|
+
+  const ui = DS.controls(root + ' .controls', () => { key.update(); prec.update(); readout(); });
+  const sig = ui.slider({ label: 'Flooding σ_f', values: RUNS.map(r => r[0]), value: -1,
+    format: v => v < 0 ? 'none' : '2' + sup(v) });
+
+  const key = DS.chart(root + ' .c-key', {
+    x: { domain: [-0.7, 15.7], label: 'coefficient k of the solved s', tickValues: [0, 3, 6, 9, 12, 15] },
+    y: { domain: [0, 125], label: 'bits in |sₖ|', tickValues: [0, 25, 50, 75, 100] },
+    height: 260,
+    draw(c) {
+      const r = byLg.get(sig.value), ok = r[2] === 1;
+      c.hline(LOG_Q, { dash: true, label: 'modulus 2' + sup(LOG_Q), at: 'left' });
+      c.bars(r[3].map((v, k) => ({ x: k, y: Math.max(bitlen(v), ok ? 1.2 : 0), series: ok ? 'bad' : 'good',
+        tip: ok ? `s${k}: a true key coefficient` : `s${k}: a ${bitlen(v)}-bit number` })), { width: 0.8 });
+      if (ok) c.text(7.5, 112, 'the true key: every coefficient is −1, 0 or 1', { anchor: 'middle', cls: 'ink strong' });
+      else c.text(7.5, 112, 'not a key: numbers spread over the modulus', { anchor: 'middle', cls: 'ink strong' });
+    },
+  });
+
+  const flooded = RUNS.filter(r => r[0] >= 0).map(r => [r[0], r[1]]);
+  const prec = DS.chart(root + ' .c-prec', {
+    x: { domain: [0, 46], label: 'log₂ σ_f' },
+    y: { domain: [-10, 38], label: 'output precision (bits)' },
+    height: 260,
+    draw(c) {
+      c.legend([{ label: 'measured', series: 1, kind: 'dot' }, { label: 'log₂Δ − log₂σ_f − 3', series: 2, kind: 'dash' }]);
+      c.hline(0, { series: 'muted' });
+      c.hline(33.86, { dash: true });
+      c.text(12, 33.86, 'no flooding: 33.9 bits', { dy: -6 });
+      c.vline(LOG_B + 40, { dash: true, series: 'ink', label: '40-bit security' });
+      c.fn(x => LOG_DELTA - x - 3, { series: 2, dash: true });
+      c.line(flooded, { series: 1, label: 'precision', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(flooded, { series: 1, r: 3 });
+      const r = byLg.get(sig.value);
+      c.point(Math.max(0, r[0]), r[1], { series: 1, r: 6.5 });
+    },
+  });
+
+  function readout() {
+    const r = byLg.get(sig.value), lg = r[0];
+    const lam = lg < 0 ? 0 : Math.max(0, lg - LOG_B);
+    DS.stats(root + ' .readout', [
+      { label: 'Output precision', value: r[1] > 0 ? DS.fmt(r[1], 1) + ' bits' : 'none', tone: r[1] > 0 ? undefined : 'bad' },
+      { label: 'One-shot attack', value: r[2] ? 'key recovered' : 'garbage', tone: r[2] ? 'bad' : 'good' },
+      { label: 'Statistical security ≈ log₂(σ_f / B)', value: lam > 0 ? lam + ' bits' : 'none', note: 'with B ≈ 2⁶ (§3.2)', tone: lam >= 40 ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <hr />
 <h2 id="4-why-the-number-of-decryptions-matters-the-averaging-attack">4. Why the number of decryptions matters: the averaging attack<a class="headerlink" href="#4-why-the-number-of-decryptions-matters-the-averaging-attack" title="Link to this section">#</a></h2>
 <p>Flooding noise is fresh each time. If the attacker sees <strong>many</strong> flooded decryptions of the
@@ -291,6 +364,73 @@ rule of thumb: ~(6 sigma)^2 queries -&gt; 9216 for sigma = 2^4, 2^65 for sigma =
 <p>The <code>(6σ)²</code> rule follows from needing all <code>N</code> coefficients within ½ of the truth, i.e.
 \(\sigma/\sqrt{k} \lesssim 1/6\), a 3-sigma margin. The observed threshold (between 3 000 and
 10 000) matches the predicted ~9 200.</p>
+<figure class="widget" id="w-dd-cpad-averaging">
+  <p class="widget-title">Averaging away weak flooding (\(\sigma_f = 2^4\))</p>
+  <p class="widget-hint">Drag the number of decryptions up until every dot sits inside the ±½ band. At that point rounding the average gives the exact decryption, and the one-shot attack works again.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Average minus the true decryption, per coefficient</p><div class="c-res"></div></div>
+    <div><p class="panel-title">Largest of the 16 errors</p><div class="c-max"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Replayed from <code>ckks_attack.py</code> with the same random draws: the same result, decrypted again and again with fresh flooding of width 16, averaged coefficient by coefficient. The flooding shrinks like \(\sigma_f/\sqrt{k}\) while the computation noise stays put. In this run all 16 coefficients round correctly from about 4 000 decryptions on; the \((6\sigma_f)^2 = 9\,216\) rule of thumb is the cautious estimate.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-cpad-averaging';
+  const SIGMA = 16, N = 16;
+  // [decryptions averaged k, key recovered?, (average - m') for each of the 16 coefficients]
+  const RUNS = [[1,0,[-1.0,4.0,-17.0,-17.0,-5.0,-4.0,25.0,3.0,-2.0,0.0,-6.0,-2.0,-25.0,4.0,3.0,16.0]],[2,0,[-1.5,-4.5,-10.5,-10.5,-4.0,-7.5,-11.0,12.0,0.0,-5.0,-0.5,-8.5,-19.0,2.0,12.5,29.0]],[3,0,[-3.667,-0.667,-6.333,-9.333,-5.0,-3.667,7.667,11.333,-7.667,-2.667,2.667,-1.667,-3.0,5.0,21.0,20.0]],[5,0,[5.8,-2.0,0.2,-3.8,-1.4,3.6,0.4,9.0,-4.6,-4.8,0.0,-2.2,2.4,2.2,11.0,14.6]],[10,0,[1.9,-3.7,-3.9,9.1,-2.1,1.2,0.2,6.0,-0.2,-2.8,7.3,-1.2,3.2,-1.9,9.7,2.5]],[20,0,[2.4,3.05,-1.8,2.6,-0.25,3.35,-0.3,0.5,-2.05,0.25,3.1,0.7,6.55,0.15,4.2,0.85]],[30,0,[-1.167,2.233,-1.533,4.133,0.9,2.667,-0.9,-0.233,-2.633,-1.633,0.9,1.033,5.1,-0.6,3.467,0.9]],[50,0,[-0.76,0.02,-3.66,4.04,0.04,0.38,0.34,-0.7,-3.62,-0.64,-1.4,-2.54,0.74,0.78,3.12,1.64]],[100,0,[1.57,1.01,-3.36,1.34,-0.16,1.85,-0.05,-0.84,0.22,-0.65,0.65,-1.57,1.35,-1.32,1.94,0.88]],[200,0,[2.1,-0.02,-1.34,2.285,1.115,2.115,-0.69,-1.015,-0.82,-0.5,0.15,-0.525,0.79,-0.86,1.605,1.555]],[300,0,[0.883,-0.38,-0.783,1.01,0.203,0.587,-0.57,-0.213,-0.757,-0.447,0.7,0.093,0.437,-1.043,1.537,0.473]],[500,0,[0.966,0.292,0.294,-0.062,-0.332,0.98,-0.548,0.07,-0.13,-0.112,0.202,0.21,0.486,-0.34,0.722,0.256]],[1000,0,[-0.149,0.145,0.038,0.086,-0.743,0.684,-0.158,0.012,0.155,0.275,-0.335,0.283,0.585,0.031,0.897,-0.826]],[2000,0,[-0.376,0.378,0.178,-0.165,-0.576,0.575,-0.408,-0.288,0.205,0.181,-0.003,0.155,0.561,0.621,0.516,-0.53]],[3000,0,[-0.238,-0.204,0.109,-0.136,-0.551,0.376,-0.344,-0.289,0.546,0.135,-0.244,0.009,0.168,0.485,0.166,-0.495]],[4000,1,[-0.386,-0.101,0.189,0.219,-0.305,0.252,-0.18,-0.291,0.322,0.01,0.021,0.109,-0.018,0.372,0.188,-0.425]],[5000,1,[-0.243,-0.253,0.13,0.026,-0.161,0.042,-0.168,-0.359,-0.001,-0.116,0.005,-0.002,-0.081,0.405,0.089,-0.207]],[6000,1,[-0.134,-0.157,0.191,0.021,-0.167,0.112,-0.175,-0.374,-0.057,-0.136,0.051,0.14,-0.069,0.405,-0.13,-0.235]],[7000,1,[-0.106,-0.097,0.089,0.033,-0.266,0.013,-0.13,-0.211,-0.024,-0.105,0.006,0.042,-0.148,0.253,-0.145,-0.218]],[8000,1,[-0.187,-0.014,0.208,-0.061,-0.28,0.047,-0.055,-0.134,0.073,-0.024,0.034,-0.037,-0.155,0.197,-0.113,-0.198]],[9000,1,[-0.122,0.024,0.107,0.007,-0.27,0.015,-0.159,-0.169,-0.02,0.025,0.043,-0.031,-0.106,0.208,-0.112,-0.175]],[10000,1,[-0.028,0.086,0.044,-0.042,-0.37,-0.014,-0.169,-0.044,0.041,0.068,0.067,-0.045,-0.05,0.156,-0.166,-0.13]],[15000,1,[-0.174,-0.065,0.118,0.016,-0.305,0.028,-0.141,-0.001,-0.102,0.135,-0.04,-0.164,0.105,0.191,-0.162,-0.135]],[20000,1,[-0.193,0.104,0.092,-0.015,-0.257,-0.142,-0.12,0.051,-0.141,0.142,-0.053,-0.089,0.017,0.19,-0.15,-0.189]],[30000,1,[-0.137,0.015,0.134,0.01,-0.14,-0.076,-0.074,0.113,-0.127,0.158,0.064,-0.06,-0.018,0.086,-0.076,-0.22]]];
+  const byK = new Map(RUNS.map(r => [r[0], r]));
+  const maxAbs = r => Math.max(...r[2].map(Math.abs));
+  const RULE = (6 * SIGMA) ** 2;
+  const kfmt = k => k.toLocaleString('en-US').replace(/,/g, ' ');
+
+  const ui = DS.controls(root + ' .controls', () => { res.update(); mx.update(); readout(); });
+  const kk = ui.slider({ label: 'Flooded decryptions averaged, k', values: RUNS.map(r => r[0]), value: 1000, format: kfmt });
+
+  const res = DS.chart(root + ' .c-res', {
+    x: { domain: [-0.7, 15.7], label: 'coefficient', tickValues: [0, 3, 6, 9, 12, 15] },
+    y: { domain: [-1, 1], label: 'average − m′' },
+    height: 260,
+    draw(c) {
+      const r = byK.get(kk.value), top = Math.max(1, 1.15 * maxAbs(r));
+      c.domain({ y: [-top, top] });
+      c.legend([{ label: 'within ±½: rounds to the exact value', series: 1, kind: 'dot' }, { label: 'outside', series: 2, kind: 'dot' }]);
+      c.polygon([[-0.7, -0.5], [15.7, -0.5], [15.7, 0.5], [-0.7, 0.5]], { series: 1, stroke: false });
+      c.hline(0.5, { dash: true });
+      c.hline(-0.5, { dash: true });
+      c.scatter(r[2].map((v, k) => ({ x: k, y: v, series: Math.abs(v) < 0.5 ? 1 : 2,
+        tip: `coefficient ${k}: ${DS.fmt(v, 3)}` + (Math.abs(v) < 0.5 ? ' (rounds correctly)' : ' (rounds wrong)') })), { r: 5 });
+    },
+  });
+
+  const mx = DS.chart(root + ' .c-max', {
+    x: { type: 'log', domain: [1, 30000], label: 'decryptions averaged, k', tipLabel: 'k =' },
+    y: { type: 'log', domain: [0.1, 100], label: 'largest |average − m′|' },
+    height: 260,
+    draw(c) {
+      c.legend([{ label: 'this run', series: 1 }, { label: '3σ_f/√k', series: 2, kind: 'dash' }]);
+      c.hline(0.5, { dash: true, label: 'rounding works below ½', at: 'left' });
+      c.vline(RULE, { series: 'ink', dash: true, label: '(6σ_f)²', labelPos: 'bottom' });
+      c.line(DS.math.linspace(0, Math.log10(30000), 60).map(e => [10 ** e, 3 * SIGMA / Math.sqrt(10 ** e)]), { series: 2, dash: true });
+      c.line(RUNS.map(r => [r[0], maxAbs(r)]), { series: 1, label: 'largest error', format: v => DS.fmt(v, 2) });
+      const r = byK.get(kk.value);
+      c.point(r[0], maxAbs(r), { series: 1, r: 6.5 });
+    },
+  });
+
+  function readout() {
+    const r = byK.get(kk.value), inside = r[2].filter(v => Math.abs(v) < 0.5).length;
+    DS.stats(root + ' .readout', [
+      { label: 'Largest error', value: DS.fmt(maxAbs(r), 2), note: `expected about σ_f/√k = ${DS.fmt(SIGMA / Math.sqrt(r[0]), 2)} each` },
+      { label: 'Coefficients within ½', value: `${inside} of ${N}` },
+      { label: 'Key', value: r[1] ? 'recovered' : 'not yet', tone: r[1] ? 'bad' : 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong>"Just cache the noise per ciphertext" doesn't help.</strong> A natural patch is to derive <code>f</code>
 deterministically from a hash of the ciphertext, so repeated requests get the same answer.
 But the attacker can submit \(c + (k_i, 0)\) for known constants \(k_i\). Each is a <em>different</em>
@@ -300,7 +440,7 @@ the known \(k_i\) and averages anyway.</p>
 adversary can observe</strong>. In differential-privacy terms, the privacy budget composes over
 queries. Libraries expose this as a statistical-security parameter plus an expected number of
 adversarial decryptions; recent OpenFHE versions take both when configuring <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> noise
-flooding (check the current <abbr title="application programming interface">API</abbr>). The averaging attack is only one attack. The real
+flooding (check the current application programming interface, or <abbr title="application programming interface">API</abbr>). The averaging attack is only one attack. The real
 requirement is the statistical bound of §3.2 over all queries combined.</p>
 <hr />
 <h2 id="5-getting-the-noise-bound-right">5. Getting the noise bound right<a class="headerlink" href="#5-getting-the-noise-bound-right" title="Link to this section">#</a></h2>
@@ -344,12 +484,12 @@ silently voids the protection:</p>
 <td><a href="https://eprint.iacr.org/2026/2546">ePrint 2026/2546</a></td>
 </tr>
 <tr>
-<td><strong>Scheme switching <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> → <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong></td>
+<td><strong>Scheme switching <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> → <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong> (the Ducas–Micciancio scheme)</td>
 <td>PEGASUS-style switching is not <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>. Key recovery against OpenFHE's implementation</td>
 <td>Santato–Zanotto, <a href="https://eprint.iacr.org/2026/285">ePrint 2026/285</a></td>
 </tr>
 <tr>
-<td><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong></td>
+<td><strong>Threshold <abbr title="fully homomorphic encryption">FHE</abbr></strong> (fully homomorphic encryption)</td>
 <td>each party's <em>partial</em> decryption contains its key share times a ciphertext plus noise. Without flooding ("smudging"), the shares leak</td>
 <td>demonstrated in the <a href="threshold_fhe.html#5-why-smudging-is-mandatory">threshold <abbr title="fully homomorphic encryption">FHE</abbr> deep dive §5</a></td>
 </tr>
@@ -374,7 +514,7 @@ threshold, is a channel to the secret key.</strong></p>
 <li><strong>Exact schemes:</strong> choose parameters with <strong>negligible</strong> failure probability (2⁻⁶⁴ to
    2⁻¹²⁸). Libraries such as <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>-rs now default to this range.</li>
 <li><strong>Never decrypt arbitrary ciphertexts on request.</strong> That is a decryption oracle for
-   <em>dishonest</em> ciphertexts, the even stronger <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> setting, where lattice schemes break with a
+   <em>dishonest</em> ciphertexts, the even stronger non-adaptive chosen-ciphertext attack (<abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr>) setting, where lattice schemes break with a
    few thousand queries regardless of flooding.</li>
 <li><strong>If results may have leaked without flooding, treat the key as compromised.</strong></li>
 </ol>

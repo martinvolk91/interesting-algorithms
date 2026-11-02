@@ -315,7 +315,7 @@ all 234 <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> blo
 <li><strong>Padding is needed, and padding errors leak.</strong> Vaudenay (2002) showed that if a receiver
   reveals whether the padding of a decrypted message was valid (by an error message, or just by
   timing), an attacker can decrypt any ciphertext byte by byte by submitting modified versions.
-  These <strong>padding oracle</strong> attacks hit SSL/<abbr title="Transport Layer Security">TLS</abbr>, IPsec and many web frameworks. They are a first
+  These <strong>padding oracle</strong> attacks hit <abbr title="Secure Sockets Layer">SSL</abbr>/<abbr title="Transport Layer Security">TLS</abbr> (<abbr title="Secure Sockets Layer">SSL</abbr>, the Secure Sockets Layer, is <abbr title="Transport Layer Security">TLS</abbr>'s predecessor), IPsec and many web frameworks. They are a first
   hint of §7: the attacker succeeds by <em>modifying</em> ciphertexts.</li>
 </ul>
 <h2 id="4-ctr-a-block-cipher-becomes-a-stream-cipher">4. CTR: a block cipher becomes a stream cipher<a class="headerlink" href="#4-ctr-a-block-cipher-becomes-a-stream-cipher" title="Link to this section">#</a></h2>
@@ -995,7 +995,7 @@ padding oracle or a bit-flipping attack to exploit.</p>
 </tr>
 <tr>
 <td><abbr title="message authentication code">MAC</abbr>-then-encrypt: encrypt message and tag</td>
-<td>SSL/<abbr title="Transport Layer Security">TLS</abbr> up to 1.2 (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> suites)</td>
+<td><abbr title="Secure Sockets Layer">SSL</abbr>/<abbr title="Transport Layer Security">TLS</abbr> up to 1.2 (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> suites)</td>
 <td>not secure in general; Lucky Thirteen (2013) is a padding-oracle attack on it</td>
 </tr>
 <tr>
@@ -1339,7 +1339,7 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
   Encryption", FOCS 1997: <a href="https://doi.org/10.1109/SFCS.1997.646128">doi:10.1109/SFCS.1997.646128</a>.</li>
 <li>M. Bellare, C. Namprempre, "Authenticated Encryption: Relations among Notions and Analysis of
   the Generic Composition Paradigm", ASIACRYPT 2000: <a href="https://eprint.iacr.org/2000/025">ePrint 2000/025</a>.</li>
-<li>S. Vaudenay, "Security Flaws Induced by <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> Padding: Applications to SSL, IPSEC, WTLS…",
+<li>S. Vaudenay, "Security Flaws Induced by <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> Padding: Applications to <abbr title="Secure Sockets Layer">SSL</abbr>, IPSEC, WTLS…",
   EUROCRYPT 2002: <a href="https://doi.org/10.1007/3-540-46035-7_35">doi:10.1007/3-540-46035-7_35</a>.</li>
 <li>N. J. AlFardan, K. G. Paterson, "Lucky Thirteen: Breaking the <abbr title="Transport Layer Security">TLS</abbr> and DTLS Record Protocols",
   IEEE S&amp;P 2013: <a href="https://doi.org/10.1109/SP.2013.42">doi:10.1109/<abbr title="Special Publication (a NIST document series)">SP</abbr>.2013.42</a>.</li>

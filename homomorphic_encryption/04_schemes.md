@@ -103,7 +103,7 @@ Formalized over the **real torus** $\mathbb{T} = \mathbb{R}/\mathbb{Z}$, impleme
 | **GLWE** (general learning with errors; here RLWE) | polynomial version | accumulator during bootstrapping |
 | **GGSW** (GSW over rings) | a matrix of GLWEs | bootstrapping key: encryptions of the secret-key bits |
 
-The **external product** `GGSW × GLWE → GLWE` is cheap, and it gives the **CMux** gate
+The **external product** `GGSW × GLWE → GLWE` is cheap, and it gives the **CMux** (controlled multiplexer) gate
 (encrypted if-then-else), which blind rotation uses (ch. 03 §8). Gate bootstrapping took
 **under 0.1 s** in the 2016 paper, and about **13 ms** a year later.
 

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -84,13 +85,14 @@ function renderMath() {
 <hr />
 <blockquote>
 <p><strong>Gentle version:</strong> the primer walks through the same material step by step:
-<a href="primer/p7_lattices_and_lwe.html">P7</a> (<abbr title="learning with errors">LWE</abbr> encryption and noise),
+<a href="primer/p7_lattices_and_lwe.html">P7</a> (learning with errors: encryption and noise),
 <a href="primer/p8_multiplication_and_relinearization.html">P8</a> (multiplication, relinearization,
 modulus switching) and <a href="primer/p9_bootstrapping.html">P9</a> (bootstrapping).</p>
 </blockquote>
 <p>This chapter follows one ciphertext through its whole life: encryption, addition,
 multiplication, the noise problem, the tricks that manage noise, and finally bootstrapping.
-The notation is close to <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. The specific schemes are covered in <a href="04_schemes.html">04</a>.</p>
+The notation is close to <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (the Brakerski/Fan–Vercauteren scheme) and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the
+Cheon–Kim–Kim–Song scheme). The specific schemes are covered in <a href="04_schemes.html">04</a>.</p>
 <h2 id="1-a-toy-scheme-you-can-run">1. A toy scheme you can run<a class="headerlink" href="#1-a-toy-scheme-you-can-run" title="Link to this section">#</a></h2>
 <p><a href="../code/toy_lwe.py"><code>code/toy_lwe.py</code></a> is secret-key <abbr title="learning with errors">LWE</abbr> encryption of messages mod <code>t</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="n">n</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">15</span><span class="p">,</span> <span class="mi">16</span>          <span class="c1"># LWE dimension, ciphertext modulus, plaintext modulus</span>
@@ -120,7 +122,7 @@ after  1000 additions: noise =   646   (limit 1024)
 after  4813 additions: noise =  1027   -&gt; decryption FAILED
 </code></pre></div>
 
-<p>That output contains the two central facts of all of <abbr title="fully homomorphic encryption">FHE</abbr>:</p>
+<p>That output contains the two central facts of all of fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>):</p>
 <ol>
 <li><strong>Operations on ciphertexts act on the plaintexts.</strong></li>
 <li><strong>Every operation grows the noise, and once noise exceeds <code>Δ/2</code> the message is destroyed.</strong></li>
@@ -141,7 +143,7 @@ sector's centre. Decryption fails when the offset crosses into the neighbouring 
 <p>Everything else in this chapter is about getting <strong>multiplication</strong> to work and <strong>keeping
 noise under control</strong>.</p>
 <h2 id="2-moving-to-rings-and-public-keys">2. Moving to rings and public keys<a class="headerlink" href="#2-moving-to-rings-and-public-keys" title="Link to this section">#</a></h2>
-<p>Real schemes use <abbr title="ring learning with errors">RLWE</abbr> (ch. 02): everything below is a polynomial in
+<p>Real schemes use <abbr title="ring learning with errors">RLWE</abbr>, ring learning with errors (ch. 02): everything below is a polynomial in
 \(R_q = \mathbb{Z}_q[X]/(X^N+1)\), and "small" means "small coefficients".</p>
 <p><strong>Key generation</strong></p>
 <ul>
@@ -171,7 +173,7 @@ noise by about <code>‖k‖</code>.</p>
 with <code>(1, s, s²)</code>. Two problems remain:</p>
 <ol>
 <li><strong>Scale.</strong> The plaintext part is now <code>Δ²·m₁m₂</code>. <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> multiplies by <code>t/q</code> and rounds to get
-   back to <code>Δ·m₁m₂</code>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> <em>rescales</em> (§7). <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> avoids the issue by putting the message in the
+   back to <code>Δ·m₁m₂</code>. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> <em>rescales</em> (§7). <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (the Brakerski–Gentry–Vaikuntanathan scheme) avoids the issue by putting the message in the
    low bits instead of the high bits.</li>
 <li><strong>Size.</strong> The ciphertext grew from 2 to 3 polynomials. Keep multiplying and it keeps growing.</li>
 </ol>
@@ -202,11 +204,11 @@ noise is only (small digit) × (small error).</p>
 <li><strong>relinearization</strong> (<code>s' = s²</code>)</li>
 <li><strong>rotations</strong> of packed slots (<code>s' = σ(s)</code>, a Galois automorphism; ch. 05)</li>
 <li><strong>scheme switching</strong> and changing ring dimension</li>
-<li>the final step of <strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping</strong></li>
+<li>the final step of <strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping</strong> (Torus <abbr title="fully homomorphic encryption">FHE</abbr>)</li>
 </ul>
-<p>Key switching is the single most expensive routine in <abbr title="ring learning with errors">RLWE</abbr>-based <abbr title="fully homomorphic encryption">FHE</abbr> (many <abbr title="number-theoretic transform">NTT</abbr>s plus large
-keys) and the main target of hardware acceleration. Modern libraries use <strong>hybrid key
-switching</strong>: <abbr title="residue number system">RNS</abbr> digit decomposition combined with a temporary larger "special" modulus <code>P</code>.</p>
+<p>Key switching is the single most expensive routine in <abbr title="ring learning with errors">RLWE</abbr>-based <abbr title="fully homomorphic encryption">FHE</abbr> (many number-theoretic transforms, <abbr title="number-theoretic transform">NTT</abbr>s, plus
+large keys) and the main target of hardware acceleration. Modern libraries use <strong>hybrid key
+switching</strong>: residue number system (<abbr title="residue number system">RNS</abbr>) digit decomposition combined with a temporary larger "special" modulus <code>P</code>.</p>
 <h2 id="6-modulus-switching-bgv-trading-modulus-for-noise">6. Modulus switching (BGV): trading modulus for noise<a class="headerlink" href="#6-modulus-switching-bgv-trading-modulus-for-noise" title="Link to this section">#</a></h2>
 <p><strong>Brakerski–Gentry–Vaikuntanathan (2012)</strong> observed that if you scale a ciphertext from
 modulus <code>q</code> down to a smaller <code>q'</code>,</p>
@@ -236,9 +238,10 @@ decryption returns <code>Δ·m + e</code> and treats <code>e</code> as <strong>o
   That brings the scale back to about <code>Δ</code> and divides the noise too.</li>
 </ul>
 <p>So <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>'s modulus chain is literally a budget of <em>precision-preserving multiplications</em>. It is
-the natural fit for <abbr title="machine learning">ML</abbr>, statistics and signal processing, where you already accept rounding
+the natural fit for machine learning (<abbr title="machine learning">ML</abbr>), statistics and signal processing, where you already accept rounding
 error. Its weakness is that it isn't exact, and the approximate decryption leaks information
-about <code>e</code>. See the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attacks in <a href="06_security.html">06</a>.</p>
+about <code>e</code>. See the <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> attacks in <a href="06_security.html">06</a>, which only need the attacker to
+see decryptions of honestly computed results.</p>
 <h2 id="8-bootstrapping-gentrys-big-idea">8. Bootstrapping: Gentry's big idea<a class="headerlink" href="#8-bootstrapping-gentrys-big-idea" title="Link to this section">#</a></h2>
 <p>Levels run out. To evaluate <strong>unbounded</strong> depth you need to <em>reset</em> the noise. Gentry's
 insight (2009):</p>
@@ -272,20 +275,83 @@ expensive and used less in practice; most <abbr title="the Brakerski–Gentry–
 <p>The ciphertext at level 0 satisfies <code>c₀ + c₁s = Δm + e (mod q₀)</code>.</p>
 <ol>
 <li><strong>ModRaise</strong>: reinterpret it modulo a big <code>Q</code>. Now <code>c₀ + c₁s = Δm + e + q₀·I(X)</code> for some small-integer polynomial <code>I</code>.</li>
-<li><strong>CoeffToSlot</strong>: a homomorphic <abbr title="discrete Fourier transform">DFT</abbr> moves polynomial coefficients into slots.</li>
+<li><strong>CoeffToSlot</strong>: a homomorphic discrete Fourier transform (<abbr title="discrete Fourier transform">DFT</abbr>) moves polynomial coefficients into slots.</li>
 <li><strong>EvalMod</strong>: remove <code>q₀·I</code> by computing <code>x mod q₀</code> approximately, as a polynomial approximation of <code>(q₀/2π)·sin(2πx/q₀)</code> (Chebyshev series and double-angle formulas).</li>
 <li><strong>SlotToCoeff</strong>: inverse <abbr title="discrete Fourier transform">DFT</abbr>.</li>
 </ol>
+<figure class="widget" id="w-n03-evalmod-sine">
+  <p class="widget-title">EvalMod: a sine standing in for “mod q₀”</p>
+  <p class="widget-hint">Raise the headroom to 14 bits, the value in <code>toy_ckks.py</code>. Each extra bit of headroom buys two bits of precision.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">\(x \bmod q_0\) (sawtooth) and \(\tfrac{q_0}{2\pi}\sin(2\pi x/q_0)\), in units of \(q_0\)</p><div class="c-wide"></div></div>
+    <div><p class="panel-title">Zoom on one tooth, in units of the largest message</p><div class="c-zoom"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>After ModRaise the slots hold \(x = \Delta m + e + q_0 I\), and bootstrapping must remove \(q_0 I\). The exact function, the sawtooth, jumps, and no low-degree polynomial can follow a jump. The sine is smooth and periodic, and near the centre of each tooth it agrees with the sawtooth. So CKKS chooses \(q_0\) much larger than the message (the shaded bands) and approximates the sine. The relative error is about \(\theta^2/6\) with \(\theta = 2\pi \cdot\) message\(/q_0\). That is the source of the 20–30 bits of precision. The toy's bootstrapped result reaches \(2^{-23.3}\), a little below the sine's own limit, because the polynomial approximation of the sine adds error too.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n03-evalmod-sine';
+  const TAU = 2 * Math.PI;
+  const sup = n => String(n).split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d] || (d === '-' ? '⁻' : d)).join('');
+  const ui = DS.controls(root + ' .controls', () => { wide.update(); zoom.update(); readout(); });
+  const head = ui.slider({ label: 'Headroom: q₀ ÷ largest message', values: [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 20], value: 3, format: v => '2' + sup(v) + ' (' + v + (v === 1 ? ' bit)' : ' bits)') });
+  const eps = () => Math.pow(2, -head.value);         // largest message as a fraction of q0
+
+  const wide = DS.chart(root + ' .c-wide', {
+    x: { domain: [-2.5, 2.5], label: 'x / q₀', format: v => DS.fmt(v) },
+    y: { domain: [-0.6, 0.6], format: v => DS.fmt(v) },
+    height: 250,
+    draw(c) {
+      const w = eps();
+      for (let I = -2; I <= 2; I++) {
+        c.polygon([[I - w, -0.6], [I + w, -0.6], [I + w, 0.6], [I - w, 0.6]], { series: 1, stroke: false });
+        c.segment(Math.max(-2.5, I - 0.5), -0.5, Math.min(2.5, I + 0.5), 0.5, { series: 'ink', thin: true });
+      }
+      c.fn(x => Math.sin(TAU * x) / TAU, { series: 2, n: 400, label: 'sine', format: v => DS.fmt(v, 3) });
+      c.legend([{ label: 'x mod q₀ (what we need)', series: 'ink' }, { label: 'scaled sine', series: 2 }, { label: 'where the message lives', series: 1, kind: 'rect' }]);
+    },
+  });
+
+  // u = (x − I·q0) / (largest message), so the message band is |u| ≤ 1 whatever the headroom
+  const zoom = DS.chart(root + ' .c-zoom', {
+    x: { domain: [-1.5, 1.5], label: 'offset from the tooth centre ÷ largest message', format: v => DS.fmt(v) },
+    y: { domain: [-1.6, 1.6], tickValues: [-1, 0, 1], format: v => DS.fmt(v) },
+    height: 250,
+    draw(c) {
+      const w = eps();
+      c.polygon([[-1, -1.6], [1, -1.6], [1, 1.6], [-1, 1.6]], { series: 1, stroke: false });
+      c.fn(u => u, { series: 'ink', thin: true, label: 'x mod q₀', format: v => DS.fmt(v, 4) });
+      c.fn(u => Math.sin(TAU * w * u) / (TAU * w), { series: 2, label: 'sine', format: v => DS.fmt(v, 4) });
+      const edge = Math.sin(TAU * w) / (TAU * w);
+      c.point(1, edge, { series: 2 });
+    },
+  });
+
+  function readout() {
+    const th = TAU * eps(), rel = th < 1e-3 ? th * th / 6 - Math.pow(th, 4) / 120 : 1 - Math.sin(th) / th;
+    const bits = -Math.log2(rel);
+    DS.stats(root + ' .readout', [
+      { label: 'Message ÷ q₀', value: '2' + sup(-head.value), note: 'θ = 2π · 2' + sup(-head.value) + ' = ' + th.toPrecision(3) },
+      { label: 'Relative error of the sine', value: rel.toExponential(1), note: '1 − sin θ / θ at the band edge' },
+      { label: 'Precision left', value: bits.toFixed(1) + ' bits', tone: bits >= 20 ? 'good' : bits < 8 ? 'bad' : undefined },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>It consumes roughly 10–18 levels by itself (depending on the parameters and the precision wanted), so you need big parameters (<code>N = 2¹⁶</code>). The linear
 transforms (2 and 4) are 55–72% of the time in recent <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> implementations (ch. 07). Results
 are <em>approximate</em>, with precision typically 20–30+ bits.</p>
 <h3 id="fhew--tfhe-bootstrapping-blind-rotation">FHEW / TFHE bootstrapping (blind rotation)<a class="headerlink" href="#fhew--tfhe-bootstrapping-blind-rotation" title="Link to this section">#</a></h3>
-<p>These schemes bootstrap <strong>after every gate or lookup</strong>, and each bootstrap is fast:</p>
+<p>These schemes, the Ducas–Micciancio scheme <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> and its successor <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>, bootstrap
+<strong>after every gate or lookup</strong>, and each bootstrap is fast:</p>
 <ol>
 <li>Mod-switch the <abbr title="learning with errors">LWE</abbr> ciphertext <code>(a, b)</code> from <code>q</code> to <code>2N</code>, giving <code>(ã, b̃)</code>.</li>
 <li><strong>Blind rotation</strong>: start with an accumulator <code>ACC = X^(−b̃) · v(X)</code>, where <code>v</code> is a
    <strong>test polynomial</strong>. For each secret-key coordinate <code>sᵢ</code>, multiply by <code>X^(ãᵢ·sᵢ)</code> using a
-   <strong>CMux</strong> with the bootstrapping-key ciphertext <code>GGSW(sᵢ)</code>, without learning <code>sᵢ</code>. At the end
+   <strong><abbr title="controlled multiplexer">CMux</abbr></strong> (controlled multiplexer) with the bootstrapping-key ciphertext <code>GGSW(sᵢ)</code>, without learning <code>sᵢ</code>. At the end
    <code>ACC = X^(−phase) · v(X)</code>.</li>
 <li><strong>Sample extract</strong>: the constant coefficient is now <code>v[phase] ≈ f(m)</code>. Pull it out as an <abbr title="learning with errors">LWE</abbr> ciphertext.</li>
 <li><strong>Key switch</strong> back to the original <abbr title="learning with errors">LWE</abbr> key.</li>
@@ -293,7 +359,7 @@ are <em>approximate</em>, with precision typically 20–30+ bits.</p>
 <p>Because <code>v</code> is arbitrary, the bootstrap <strong>evaluates any lookup table <code>f</code> for free</strong> while
 cleaning the noise. This is <strong>programmable bootstrapping</strong> (<abbr title="programmable bootstrapping">PBS</abbr>), and it is why <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> is so
 good at non-linear functions: comparisons, ReLU, sign, max. The cost is that each ciphertext
-holds only one small value (≈ 1–8 bits), and the <code>n</code> sequential CMux steps (each a few <abbr title="number-theoretic transform">NTT</abbr>s)
+holds only one small value (≈ 1–8 bits), and the <code>n</code> sequential <abbr title="controlled multiplexer">CMux</abbr> steps (each a few <abbr title="number-theoretic transform">NTT</abbr>s)
 limit latency. The CRYPTO 2026 work in ch. 07 attacks exactly this sequential chain.</p>
 <h2 id="9-putting-it-together-the-lifecycle">9. Putting it together: the lifecycle<a class="headerlink" href="#9-putting-it-together-the-lifecycle" title="Link to this section">#</a></h2>
 <div class="highlight"><pre><span></span><code>Client                                         Server

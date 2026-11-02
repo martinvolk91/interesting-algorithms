@@ -127,7 +127,7 @@ What CBC needs and what it costs:
 - **Padding is needed, and padding errors leak.** Vaudenay (2002) showed that if a receiver
   reveals whether the padding of a decrypted message was valid (by an error message, or just by
   timing), an attacker can decrypt any ciphertext byte by byte by submitting modified versions.
-  These **padding oracle** attacks hit SSL/TLS, IPsec and many web frameworks. They are a first
+  These **padding oracle** attacks hit SSL/TLS (SSL, the Secure Sockets Layer, is TLS's predecessor), IPsec and many web frameworks. They are a first
   hint of §7: the attacker succeeds by *modifying* ciphertexts.
 
 ## 4. CTR: a block cipher becomes a stream cipher

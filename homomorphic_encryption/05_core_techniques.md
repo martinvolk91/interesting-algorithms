@@ -80,7 +80,7 @@ non-scalar multiplications at depth $\lceil \log_2 d \rceil$. The cost is set by
 higher degree means better accuracy but more levels, and therefore more bootstrapping.
 
 The alternative is to **change the model**: train with FHE-friendly activations such as
-$x^2$ or low-degree polynomials, or quantize. The 2026 SoK on encrypted large language models (LLMs) calls frameworks
+$x^2$ or low-degree polynomials, or quantize. The 2026 systematization of knowledge (SoK) on encrypted large language models (LLMs) calls frameworks
 that do *not* change the model "**model-preserving**". Only 5 of 21 surveyed frameworks are
 (ch. 07).
 

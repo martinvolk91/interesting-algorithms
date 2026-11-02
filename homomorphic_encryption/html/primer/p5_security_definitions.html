@@ -181,7 +181,7 @@ chosen-ciphertext attack</em>.</p>
 <tr>
 <td><strong>Adaptive chosen-ciphertext</strong> (<abbr title="adaptive chosen-ciphertext attack">CCA2</abbr>)</td>
 <td>Decryptions of anything except the target, before and after seeing it</td>
-<td>Bleichenbacher's attack on Rivest–Shamir–Adleman (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>) encryption with Public-Key Cryptography Standards (<abbr title="Public-Key Cryptography Standards">PKCS</abbr>) #1 v1.5 padding in SSL (1998), still found in many servers by ROBOT (2018)</td>
+<td>Bleichenbacher's attack on Rivest–Shamir–Adleman (<abbr title="Rivest–Shamir–Adleman">RSA</abbr>) encryption with Public-Key Cryptography Standards (<abbr title="Public-Key Cryptography Standards">PKCS</abbr>) #1 v1.5 padding in the Secure Sockets Layer (<abbr title="Secure Sockets Layer">SSL</abbr>) protocol (1998), still found in many servers by ROBOT (2018)</td>
 </tr>
 </tbody>
 </table></div>
@@ -200,7 +200,7 @@ chosen-ciphertext attack</em>.</p>
   enough to recover the key of Gentry's original somewhat-homomorphic scheme (§7).</li>
 <li><strong><abbr title="adaptive chosen-ciphertext attack">CCA2</abbr>.</strong> The attacker can keep asking for decryptions after it has the target, as long as it
   does not submit the target itself. This sounds artificial, but servers do it all the time:
-  they decrypt what clients send and react. Bleichenbacher's SSL servers answered differently
+  they decrypt what clients send and react. Bleichenbacher's <abbr title="Secure Sockets Layer">SSL</abbr> servers answered differently
   when a decrypted message had invalid padding, and about a million crafted ciphertexts were
   enough to decrypt the key exchange of a recorded session. Twenty years later ROBOT found the same oracle in
   products from nine vendors and on almost a third of the top 100 web domains.</li>
@@ -1296,7 +1296,7 @@ adversary:  divides by 2 -&gt; 5 -&gt; guesses b&#39; = 0
 <li>Y. Sheffer, R. Holz, P. Saint-Andre, Request for Comments (<abbr title="Request for Comments (an IETF standard)">RFC</abbr>) 7457 of the Internet
   Engineering Task Force (<abbr title="Internet Engineering Task Force">IETF</abbr>), <em>Summarizing Known Attacks on <abbr title="Transport Layer Security">TLS</abbr> and DTLS</em>,
   2015 (BEAST, CRIME, padding oracles). <a href="https://www.rfc-editor.org/rfc/rfc7457">https://www.rfc-editor.org/rfc/rfc7457</a></li>
-<li>NSA Center for Cryptologic History, <em>The Battle of Midway</em> (the "AF is short of water" ruse).
+<li>National Security Agency (<abbr title="National Security Agency">NSA</abbr>) Center for Cryptologic History, <em>The Battle of Midway</em> (the "AF is short of water" ruse).
   <a href="https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF">https://media.defense.gov/2021/Jul/13/2002761541/-1/-1/0/BATTLE-MIDWAY.PDF</a></li>
 <li>J. Loftus, A. May, N. P. Smart, F. Vercauteren, "On <abbr title="chosen-ciphertext attack">CCA</abbr>-Secure Somewhat Homomorphic
   Encryption", SAC 2011. <a href="https://eprint.iacr.org/2010/560">https://eprint.iacr.org/2010/560</a></li>

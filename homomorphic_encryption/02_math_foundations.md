@@ -216,6 +216,6 @@ use a single key, though, so their relinearization and rotation keys (encryption
 ### Deep-dive candidates
 
 - Implement the negacyclic NTT in Python and verify it against schoolbook multiplication.
-- How the Lattice Estimator works: primal uSVP attack, BKZ cost models, dual and hybrid attacks.
+- How the Lattice Estimator works: primal unique shortest vector problem (uSVP) attack, BKZ cost models, dual and hybrid attacks.
 - The canonical embedding and why CKKS slots are complex numbers.
 - Regev's reduction: what "worst-case to average-case" actually buys you.

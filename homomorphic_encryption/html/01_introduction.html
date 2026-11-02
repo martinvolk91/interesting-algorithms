@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -81,13 +82,14 @@ function renderMath() {
 <hr />
 <blockquote>
 <p><strong>New to cryptography?</strong> This chapter moves fast. The <a href="primer/p1_encryption_basics.html">primer</a>
-builds up everything it relies on, from keys and the one-time pad through <abbr title="Advanced Encryption Standard">AES</abbr>, public-key
-crypto, <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>, lattices and <abbr title="learning with errors">LWE</abbr> to relinearization and bootstrapping. It has hand-worked
+builds up everything it relies on, from keys and the one-time pad through the Advanced Encryption Standard (<abbr title="Advanced Encryption Standard">AES</abbr>), public-key
+crypto, indistinguishability under chosen-plaintext attack (<abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr>), lattices and learning with
+errors (<abbr title="learning with errors">LWE</abbr>) to relinearization and bootstrapping. It has hand-worked
 examples and a runnable script per chapter. Its last chapter maps every term used here to
 the place where it is explained.</p>
 </blockquote>
 <h2 id="1-the-problem-it-solves">1. The problem it solves<a class="headerlink" href="#1-the-problem-it-solves" title="Link to this section">#</a></h2>
-<p>Classical encryption protects data <strong>at rest</strong> (disk encryption) and <strong>in transit</strong> (<abbr title="Transport Layer Security">TLS</abbr>).
+<p>Classical encryption protects data <strong>at rest</strong> (disk encryption) and <strong>in transit</strong> (Transport Layer Security, <abbr title="Transport Layer Security">TLS</abbr>).
 As soon as you want someone to <em>do something</em> with your data, though, they have to decrypt it,
 so the data is exposed <strong>in use</strong>.</p>
 <div class="highlight"><pre><span></span><code>Today:      you --TLS--&gt; cloud [decrypts, computes on plaintext, re-encrypts] --TLS--&gt; you
@@ -146,7 +148,7 @@ anything out. Only you have the key to open the box.</p>
   ciphertexts reveals nothing about the plaintexts. See <a href="06_security.html">06 Security</a>.</li>
 </ul>
 <p>Both are unpacked in the two subsections below.</p>
-<p>Why addition and multiplication? Over bits, <strong><abbr title="exclusive or">XOR</abbr> = addition mod 2</strong> and <strong>AND =
+<p>Why addition and multiplication? Over bits, <strong><abbr title="exclusive or">XOR</abbr> (exclusive or) = addition mod 2</strong> and <strong>AND =
 multiplication mod 2</strong>, and {<abbr title="exclusive or">XOR</abbr>, AND} is functionally complete. Any computable function
 (with a bounded running time) can be written as a circuit of these gates. A scheme that
 supports unlimited additions <strong>and</strong> multiplications can therefore evaluate anything.</p>
@@ -173,18 +175,82 @@ parameter \(\lambda\) alone, whatever <code>f</code> is:</p>
 compactness, one addition and a whole neural network give results of the same size, decrypted
 by the same cheap procedure. There is nowhere to hide the work, so the server must actually do
 it.</p>
+<figure class="widget" id="w-n01-compactness">
+  <p class="widget-title">Output size as f grows: the cheat against a compact scheme</p>
+  <p class="widget-hint">Drag the size of f from one gate to a billion. Only the compact line stays flat.</p>
+  <div class="controls"></div>
+  <div class="c-size"></div>
+  <div class="readout"></div>
+  <figcaption>Here f multiplies \(g + 1\) encrypted numbers, using \(g\) multiplication gates. The cheat returns its \(g + 1\) AES ciphertexts (16 bytes each) plus the circuit (9 bytes per gate: an operation and two input wires). The lattice sizes use the parameters of <a href="02_math_foundations.html#6-parameters-security-and-sizes">02 §6</a>, \(N = 2^{14}\) and \(\log_2 q = 438\), so one polynomial is 0.9 MB. Without relinearization each multiplication adds a polynomial; with it the result stays at two. For a small f the cheat's output is the smaller one: compactness asks for a flat line, not a small one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n01-compactness';
+  const POLY = 16384 * 438 / 8;                       // bytes per polynomial: N · log2 q bits
+  const cheat = g => 16 * (g + 1) + 9 * g;            // input AES blocks + the circuit, 9 bytes per gate
+  const noRelin = g => (g + 2) * POLY;                // a product of g + 1 ciphertexts has g + 2 polynomials
+  const compact = () => 2 * POLY;
+  const SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow10 = e => '10' + String(e).split('').map(d => SUPS[+d]).join('');
+  function bytes(v) {
+    const units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
+    let u = 0;
+    while (v >= 1000 && u < units.length - 1) { v /= 1000; u++; }
+    return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + ' ' + units[u];
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const STEPS = [];
+  for (let e = 0; e <= 9; e++) { STEPS.push(Math.pow(10, e)); if (e < 9) STEPS.push(3 * Math.pow(10, e)); }
+  const gates = ui.slider({ label: 'Gates in f', values: STEPS, value: 1e6,
+    format: v => Math.round(v).toLocaleString('en-US') });
+  const g = () => Math.max(1, Math.round(gates.value));
+
+  const chart = DS.chart(root + ' .c-size', {
+    x: { type: 'log', domain: [1, 1e9], label: 'gates in f (log scale)',
+      format: v => { const e = Math.round(Math.log10(v)); return e % 3 === 0 ? (e === 0 ? '1' : pow10(e)) : ''; } },
+    y: { type: 'log', domain: [10, 1e15], label: 'size of the output (log scale)',
+      format: v => { const e = Math.round(Math.log10(v)); return e % 3 === 0 ? bytes(v).replace('.00', '') : ''; } },
+    height: 320,
+    draw(c) {
+      const xs = [];
+      for (let e = 0; e <= 9.001; e += 0.05) xs.push(Math.pow(10, e));
+      c.line(xs.map(x => [x, noRelin(x)]), { series: 7, label: 'no relinearization', format: bytes });
+      c.line(xs.map(x => [x, cheat(x)]), { series: 2, label: 'cheat: (c, f)', format: bytes });
+      c.line(xs.map(x => [x, compact()]), { series: 1, label: 'compact', format: bytes });
+      const x = g();
+      c.vline(x, { series: 'muted' });
+      c.point(x, noRelin(x), { series: 7 });
+      c.point(x, cheat(x), { series: 2 });
+      c.point(x, compact(), { series: 1 });
+      c.legend([{ label: 'cheat: ciphertexts + description of f', series: 2 }, { label: 'lattice scheme, no relinearization', series: 7 },
+        { label: 'compact: relinearize after each ×', series: 1 }]);
+    },
+  });
+
+  function readout() {
+    const x = g();
+    DS.stats(root + ' .readout', [
+      { label: 'Cheat', value: bytes(cheat(x)), note: 'the client then runs all ' + x.toLocaleString('en-US') + ' gates', tone: 'bad' },
+      { label: 'No relinearization', value: bytes(noRelin(x)), note: (x + 2).toLocaleString('en-US') + ' polynomials; decrypting needs s, s², …' },
+      { label: 'Compact', value: bytes(compact()), note: 'always 2 polynomials, one cheap decryption', tone: 'good' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p>This is why 2009 was the breakthrough. <em>Non-compact</em> computation on encrypted data already
 existed: Sander, Young and Yung (1999) could evaluate shallow circuits, but their ciphertexts
 grew exponentially with depth. The hard part was unlimited operations <strong>and</strong> compact
 outputs.</p>
 <p>Where you meet compactness in the real schemes:</p>
 <ul>
-<li><strong>Relinearization keeps the size fixed.</strong> An <abbr title="ring learning with errors">RLWE</abbr> ciphertext is two polynomials
+<li><strong>Relinearization keeps the size fixed.</strong> A ring learning with errors (<abbr title="ring learning with errors">RLWE</abbr>) ciphertext is two polynomials
   \((c_0, c_1)\), decrypted as \(c_0 + c_1 s\). Multiplying two of them gives three,
   decrypted as \(d_0 + d_1 s + d_2 s^2\), and every further multiplication without cleanup adds
   more. The ciphertext size would follow <code>f</code>. Relinearization (<a href="03_how_it_works.html">03</a>)
-  folds the result back to two polynomials. (<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>-style schemes avoid the growth by
-  construction.)</li>
+  folds the result back to two polynomials. (<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>-style schemes, after Gentry–Sahai–Waters, avoid the
+  growth by construction.)</li>
 <li><strong>Bootstrapping removes the last dependence on <code>f</code>.</strong> Leveled schemes size the modulus for a
   depth <code>L</code>, so their parameters depend on how <em>deep</em> <code>f</code> is, though not on how <em>big</em> it is:
   a slightly relaxed form of compactness. Bootstrapping removes even that: the same
@@ -214,7 +280,7 @@ The notion is equivalent to <em>semantic security</em>.</p>
 <p>What follows from the definition:</p>
 <ul>
 <li><strong>Encryption must be randomized.</strong> With deterministic encryption the attacker encrypts \(m_0\)
-  itself and compares the result with \(c^*\). Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> is deterministic, so it is <strong>not</strong>
+  itself and compares the result with \(c^*\). Textbook <abbr title="Rivest–Shamir–Adleman">RSA</abbr> (Rivest–Shamir–Adleman) is deterministic, so it is <strong>not</strong>
   <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> secure (§3). <abbr title="learning with errors">LWE</abbr> schemes get their randomness from the random mask and the noise:
   encrypting 0 twice gives two completely different-looking ciphertexts.</li>
 <li><strong>It matches the <abbr title="homomorphic encryption">HE</abbr> threat model.</strong> The untrusted server is exactly the attacker in the game:
@@ -222,19 +288,21 @@ The notion is equivalent to <em>semantic security</em>.</p>
   <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> says it learns nothing about the plaintexts. The evaluation keys (relinearization,
   rotation, bootstrapping) are encryptions of the secret key, or functions of it, under
   itself, so this also assumes <strong>circular security</strong> (<a href="02_math_foundations.html">02 §7</a>).</li>
-<li><strong>Stronger notions are impossible.</strong> <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> also lets the attacker ask for the decryption
+<li><strong>Stronger notions are impossible.</strong> <abbr title="indistinguishability under adaptive chosen-ciphertext attack">IND-CCA2</abbr> (indistinguishability under adaptive chosen-ciphertext attack) also lets the attacker ask for the decryption
   of any ciphertext except \(c^*\). A homomorphic scheme fails by design: the attacker computes
   \(c^* + \mathrm{Enc}(0)\), a different ciphertext with the same plaintext, asks for its
   decryption and wins. Malleability is the whole point of <abbr title="homomorphic encryption">HE</abbr> (§5), so <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> is the
-  realistic target. <a href="06_security.html">06 §1</a> covers the weaker <abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr> notion, which most
+  realistic target. <a href="06_security.html">06 §1</a> covers the weaker non-adaptive chosen-ciphertext (<abbr title="non-adaptive chosen-ciphertext attack">CCA1</abbr>) notion, which most
   lattice schemes also fail.</li>
 <li><strong>It says nothing about shared decryptions.</strong> <abbr title="indistinguishability under chosen-plaintext attack">IND-CPA</abbr> assumes the attacker never sees a
-  decrypted result. For exact schemes seeing one adds little, but <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> decryption also returns
-  the noise, and one shared decryption is enough to recover the key. That gap is the
+  decrypted result. For exact schemes seeing one adds little, but decryption in <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (the Cheon–Kim–Kim–Song scheme for
+  approximate arithmetic) also returns the noise, and one shared decryption is enough to recover the key. That gap is the
   <abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> notion; the attack is reproduced on the toy in the
   <a href="deep_dives/ckks_ind_cpa_d.html"><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr> deep dive</a>.</li>
 </ul>
 <h2 id="3-the-taxonomy-phe--she--lhe--fhe">3. The taxonomy: PHE → SHE → LHE → FHE<a class="headerlink" href="#3-the-taxonomy-phe--she--lhe--fhe" title="Link to this section">#</a></h2>
+<p>Schemes fall into four classes, from partially through somewhat and leveled to fully homomorphic
+encryption:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -254,13 +322,13 @@ The notion is equivalent to <em>semantic security</em>.</p>
 <tr>
 <td><strong>Somewhat <abbr title="homomorphic encryption">HE</abbr> (<abbr title="somewhat homomorphic encryption">SHE</abbr>)</strong></td>
 <td>Both + and ×, but only a few multiplications</td>
-<td><abbr title="the Boneh–Goh–Nissim scheme">BGN</abbr> (2005, 1 mult via pairings), early lattice schemes</td>
+<td>Boneh–Goh–Nissim (<abbr title="the Boneh–Goh–Nissim scheme">BGN</abbr>, 2005, 1 mult via pairings), early lattice schemes</td>
 <td>Noise blows up after a few levels</td>
 </tr>
 <tr>
 <td><strong>Leveled <abbr title="homomorphic encryption">HE</abbr> (<abbr title="leveled homomorphic encryption">LHE</abbr>)</strong></td>
 <td>Any circuit up to a depth <code>L</code> chosen at key generation</td>
-<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> / <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> / <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> without bootstrapping</td>
+<td><abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan) / <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (Brakerski/Fan–Vercauteren) / <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> without bootstrapping</td>
 <td><strong>What most real deployments use</strong>: parameters sized for the exact circuit</td>
 </tr>
 <tr>
@@ -342,11 +410,11 @@ That mathematics is lattices.</p>
 </tr>
 <tr>
 <td>2015</td>
-<td><strong><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong> (Ducas–Micciancio): bootstrapping a <abbr title="not-and (a logic gate)">NAND</abbr> gate in under a second</td>
+<td><strong><abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr></strong> (Ducas–Micciancio): bootstrapping a <abbr title="not-and (a logic gate)">NAND</abbr> (not-and logic) gate in under a second</td>
 </tr>
 <tr>
 <td>2016</td>
-<td><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong> (Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017)</td>
+<td><strong><abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr></strong> (Torus <abbr title="fully homomorphic encryption">FHE</abbr>, by Chillotti–Gama–Georgieva–Izabachène): gate bootstrapping in under 0.1 s (about 13 ms by 2017)</td>
 </tr>
 <tr>
 <td>2017</td>
@@ -358,11 +426,11 @@ That mathematics is lattices.</p>
 </tr>
 <tr>
 <td>2019</td>
-<td><abbr title="International Organization for Standardization">ISO</abbr>/IEC 18033-6 standardizes <em>partially</em> <abbr title="homomorphic encryption">HE</abbr> (ElGamal, Paillier)</td>
+<td><abbr title="International Organization for Standardization">ISO</abbr>/<abbr title="International Electrotechnical Commission">IEC</abbr> 18033-6 (International Organization for Standardization and International Electrotechnical Commission) standardizes <em>partially</em> <abbr title="homomorphic encryption">HE</abbr> (ElGamal, Paillier)</td>
 </tr>
 <tr>
 <td>2021</td>
-<td>Li–Micciancio: <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> passive key-recovery attack on <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. <abbr title="Defense Advanced Research Projects Agency">DARPA</abbr> <strong><abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr></strong> hardware program kicks off. Programmable bootstrapping (Chillotti–Joye–Paillier)</td>
+<td>Li–Micciancio: <strong><abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr></strong> passive key-recovery attack on <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr>. The Defense Advanced Research Projects Agency (<abbr title="Defense Advanced Research Projects Agency">DARPA</abbr>) starts its <strong><abbr title="Data Protection in Virtual Environments (a DARPA program)">DPRIVE</abbr></strong> (Data Protection in Virtual Environments) hardware program. Programmable bootstrapping (Chillotti–Joye–Paillier)</td>
 </tr>
 <tr>
 <td>2022</td>
@@ -370,24 +438,102 @@ That mathematics is lattices.</p>
 </tr>
 <tr>
 <td>2024</td>
-<td>Apple ships <strong>Live Caller ID Lookup</strong> (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>-based <abbr title="private information retrieval">PIR</abbr>) in iOS 18 and open-sources swift-homomorphic-encryption. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> learns to bootstrap bits and small integers. A claimed quantum attack on <abbr title="learning with errors">LWE</abbr> (Chen) is withdrawn after a bug is found</td>
+<td>Apple ships <strong>Live Caller ID Lookup</strong> (<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>-based private information retrieval, <abbr title="private information retrieval">PIR</abbr>) in iOS 18 and open-sources swift-homomorphic-encryption. <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> learns to bootstrap bits and small integers. A claimed quantum attack on <abbr title="learning with errors">LWE</abbr> (Chen) is withdrawn after a bug is found</td>
 </tr>
 <tr>
 <td>2025</td>
-<td>Gentry–Lee: <strong><abbr title="fully homomorphic encryption">FHE</abbr> for matrix arithmetic</strong> (ePrint 2025/1935). Zama Protocol (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> + threshold <abbr title="secure multiparty computation">MPC</abbr>) launches on Ethereum mainnet (Dec 2025)</td>
+<td>Gentry–Lee: <strong><abbr title="fully homomorphic encryption">FHE</abbr> for matrix arithmetic</strong> (ePrint 2025/1935). Zama Protocol (<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> + threshold secure multiparty computation, <abbr title="secure multiparty computation">MPC</abbr>) launches on Ethereum mainnet (Dec 2025)</td>
 </tr>
 <tr>
 <td>2026</td>
-<td><strong>Intel Heracles</strong> <abbr title="fully homomorphic encryption">FHE</abbr> accelerator chip shown at ISSCC. <abbr title="International Organization for Standardization">ISO</abbr>/IEC 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping depth to 3 <abbr title="number-theoretic transform">NTT</abbr> layers (vs 500+). Google promotes the <strong>HEIR</strong> compiler for encrypted AI</td>
+<td><strong>Intel Heracles</strong> <abbr title="fully homomorphic encryption">FHE</abbr> accelerator chip shown at ISSCC. <abbr title="International Organization for Standardization">ISO</abbr>/<abbr title="International Electrotechnical Commission">IEC</abbr> 28033 parts 2–4 reach Draft International Standard. CRYPTO 2026 papers cut <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr>/<abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping depth to 3 <abbr title="number-theoretic transform">NTT</abbr> (number-theoretic transform) layers (vs 500+). Google promotes the <strong>HEIR</strong> compiler for encrypted AI</td>
 </tr>
 </tbody>
 </table></div>
 <p>Details and sources for 2024–2026 are in <a href="07_state_of_the_art_2026.html">07 State of the art</a>.</p>
+<figure class="diagram" id="d-n01-scheme-families">
+  <svg viewBox="0 0 520 486" role="img" aria-label="Family tree of fully homomorphic encryption schemes, from Gentry 2009 and the LWE problems to the BGV family and the GSW family" style="max-width:620px">
+    <defs>
+      <marker id="n01sf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+      </marker>
+    </defs>
+    <style>
+      #d-n01-scheme-families .h { font-size: 12.5px; fill: var(--muted); font-weight: 600; letter-spacing: .02em; }
+      #d-n01-scheme-families .t { font-size: 15px; font-weight: 650; }
+      #d-n01-scheme-families .s { font-size: 13px; fill: var(--fg-2, currentColor); }
+      #d-n01-scheme-families .ar { stroke: var(--muted); stroke-width: 1.4; fill: none; marker-end: url(#n01sf-arrow); }
+    </style>
+
+    <!-- 1st generation -->
+    <text class="h" x="20" y="16">1ST GENERATION · FHE IS POSSIBLE</text>
+    <rect x="35" y="26" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+    <text class="t" x="140" y="46" text-anchor="middle">Gentry · 2009</text>
+    <text class="s" x="140" y="65" text-anchor="middle">ideal lattices, bootstrapping</text>
+    <rect x="275" y="26" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)" stroke-dasharray="5 4"/>
+    <text class="t" x="380" y="46" text-anchor="middle">DGHV · 2010</text>
+    <text class="s" x="380" y="65" text-anchor="middle">the same over the integers</text>
+
+    <!-- hard problems -->
+    <text class="h" x="20" y="108">THE HARD PROBLEMS UNDERNEATH</text>
+    <rect x="35" y="118" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)"/>
+    <text class="t" x="140" y="138" text-anchor="middle">Ring-LWE · 2010</text>
+    <text class="s" x="140" y="157" text-anchor="middle">LWE with polynomials</text>
+    <rect x="275" y="118" width="210" height="50" rx="8" fill="var(--soft)" stroke="var(--line-strong)"/>
+    <text class="t" x="380" y="138" text-anchor="middle">LWE · 2005</text>
+    <text class="s" x="380" y="157" text-anchor="middle">Regev: noisy linear equations</text>
+    <path class="ar" d="M274,143 L248,143"/>
+
+    <!-- column headings -->
+    <text class="h" x="82" y="195">Arithmetic on many slots</text>
+    <text class="h" x="322" y="195">Bits and lookup tables</text>
+
+    <!-- BGV family -->
+    <path class="ar" d="M70,169 L70,210"/>
+    <g fill="color-mix(in srgb, var(--series-1) 13%, transparent)" stroke="var(--series-1)">
+      <rect x="35" y="212" width="210" height="50" rx="8"/>
+      <rect x="35" y="284" width="210" height="50" rx="8"/>
+      <rect x="35" y="356" width="210" height="50" rx="8"/>
+      <rect x="35" y="428" width="210" height="50" rx="8"/>
+    </g>
+    <text class="t" x="140" y="232" text-anchor="middle">BV · 2011</text>
+    <text class="s" x="140" y="251" text-anchor="middle">relinearization</text>
+    <text class="t" x="140" y="304" text-anchor="middle">BGV · 2012</text>
+    <text class="s" x="140" y="323" text-anchor="middle">modulus switching, levels</text>
+    <text class="t" x="140" y="376" text-anchor="middle">BFV · 2012</text>
+    <text class="s" x="140" y="395" text-anchor="middle">scale-invariant</text>
+    <text class="t" x="140" y="448" text-anchor="middle">CKKS · 2017</text>
+    <text class="s" x="140" y="467" text-anchor="middle">approximate real numbers</text>
+    <path class="ar" d="M140,263 L140,282"/>
+    <path class="ar" d="M140,335 L140,354"/>
+    <path class="ar" d="M140,407 L140,426"/>
+
+    <!-- GSW family -->
+    <path class="ar" d="M310,169 L310,210"/>
+    <g fill="color-mix(in srgb, var(--series-2) 13%, transparent)" stroke="var(--series-2)">
+      <rect x="275" y="212" width="210" height="50" rx="8"/>
+      <rect x="275" y="284" width="210" height="50" rx="8"/>
+      <rect x="275" y="356" width="210" height="50" rx="8"/>
+    </g>
+    <text class="t" x="380" y="232" text-anchor="middle">GSW · 2013</text>
+    <text class="s" x="380" y="251" text-anchor="middle">no relinearization needed</text>
+    <text class="t" x="380" y="304" text-anchor="middle">FHEW · 2015</text>
+    <text class="s" x="380" y="323" text-anchor="middle">bootstraps a gate in &lt; 1 s</text>
+    <text class="t" x="380" y="376" text-anchor="middle">TFHE · 2016</text>
+    <text class="s" x="380" y="395" text-anchor="middle">a gate in ≈ 13 ms (2017)</text>
+    <path class="ar" d="M380,263 L380,282"/>
+    <path class="ar" d="M380,335 L380,354"/>
+    <text class="s" x="380" y="440" text-anchor="middle">one small value per ciphertext,</text>
+    <text class="s" x="380" y="458" text-anchor="middle">bootstrapped after every operation</text>
+  </svg>
+  <figcaption>The schemes of the timeline as a family tree. Gentry's construction and DGHV showed that fully homomorphic encryption is possible but are no longer used; his bootstrapping idea is in every scheme below. The left family (second generation, plus CKKS) packs thousands of numbers into one ring ciphertext and computes on all of them at once. The right family (third generation) works on one bit or small integer at a time, but bootstraps so fast that it can do so after every gate.</figcaption>
+</figure>
 <h2 id="5-what-he-does-not-give-you">5. What HE does <em>not</em> give you<a class="headerlink" href="#5-what-he-does-not-give-you" title="Link to this section">#</a></h2>
 <p>These limits matter as much as the capabilities:</p>
 <ul>
 <li><strong>No integrity.</strong> The server can compute the <em>wrong</em> function, or garbage, and you can't
-  tell. Fixing this needs verifiable computation (<abbr title="zero knowledge">ZK</abbr> proofs over <abbr title="fully homomorphic encryption">FHE</abbr>), redundancy, or a <abbr title="trusted execution environment">TEE</abbr>.</li>
+  tell. Fixing this needs verifiable computation (zero-knowledge, <abbr title="zero knowledge">ZK</abbr>, proofs over <abbr title="fully homomorphic encryption">FHE</abbr>), redundancy, or a
+  trusted execution environment (<abbr title="trusted execution environment">TEE</abbr>).</li>
 <li><strong>No hiding of the function by default.</strong> Ciphertext noise can leak <em>what</em> was computed.
   Circuit privacy needs extra work (noise flooding, sanitization).</li>
 <li><strong>No data-dependent control flow.</strong> The server can't branch on an encrypted value, because it

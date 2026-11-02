@@ -141,7 +141,7 @@ share drops, and data movement and basis conversion move to the front.</p>
 <h3 id="12-in-real-ckks-bootstrapping">1.2 In real CKKS bootstrapping<a class="headerlink" href="#12-in-real-ckks-bootstrapping" title="Link to this section">#</a></h3>
 <p>The ARK paper measured the computational workload of bootstrapping at practical parameters:
 <strong><abbr title="number-theoretic transform">NTT</abbr> 54.8 %</strong>, <strong>basis conversion 34.2 %</strong>, everything else ~11 % (as summarized by the <abbr title="fully homomorphic encryption">FHE</abbr>
-accelerator SoK, arXiv 2212.01713). Recent <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping implementations spend
+accelerator systematization of knowledge (<abbr title="systematization of knowledge (a survey paper)">SoK</abbr>), arXiv 2212.01713). Recent <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> bootstrapping implementations spend
 <strong>55–72 %</strong> of their <em>time</em> in the CoeffToSlot/SlotToCoeff linear transforms, which are
 rotations, i.e. key switches (<a href="ckks.html#57-where-the-time-goes"><abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> deep dive §5.7</a>).</p>
 <hr />
@@ -306,7 +306,7 @@ fewer</strong>. No real <abbr title="fully homomorphic encryption">FHE</abbr> li
   twiddles, transpose, and do small <abbr title="number-theoretic transform">NTT</abbr>s on the rows. F1 builds a <code>2¹⁴</code>-point <abbr title="number-theoretic transform">NTT</abbr> from 128-wide vector operations this way. BTS splits a
   <code>2¹⁷</code>-point <abbr title="number-theoretic transform">NTT</abbr> into 64 × 64 × 32 steps across a 2-D array of processing elements.</li>
 <li><strong>Twiddle factors per limb.</strong> Each <abbr title="residue number system">RNS</abbr> prime (§3) needs its own table of <code>ψ</code> powers, which
-  is extra memory that fast Fourier transforms (<abbr title="fast Fourier transform">FFT</abbr>s) over ℂ don't need (SoK §4.1.2).</li>
+  is extra memory that fast Fourier transforms (<abbr title="fast Fourier transform">FFT</abbr>s) over ℂ don't need (<abbr title="systematization of knowledge (a survey paper)">SoK</abbr> §4.1.2).</li>
 <li><strong>Modular multiplication</strong> of 30–64-bit words (Barrett or Montgomery reduction) costs
   several integer multiplies. Multiplier area grows roughly with the square of the word
   width, which is why designs trend toward <strong>shorter words</strong>: SHARP uses 36-bit words, and the
@@ -341,7 +341,7 @@ no carries between them. Accelerators organize their parallelism around two axes
 </thead>
 <tbody>
 <tr>
-<td><strong>limb-level</strong> (rPLP in the SoK)</td>
+<td><strong>limb-level</strong> (rPLP in the <abbr title="systematization of knowledge (a survey paper)">SoK</abbr>)</td>
 <td>different <abbr title="residue number system">RNS</abbr> limbs on different units</td>
 <td><abbr title="number-theoretic transform">NTT</abbr>, element-wise ops</td>
 <td>basis conversion mixes all limbs</td>
@@ -358,7 +358,7 @@ no carries between them. Accelerators organize their parallelism around two axes
 polynomial from one set of primes in another, which needs every limb's coefficient <code>k</code> to
 produce every output limb's coefficient <code>k</code>: an all-to-all mixing of limbs. Key switching
 (§4) and rescaling need it. CraterLake gave it a dedicated unit (the CRB unit, <strong>34 % of the
-chip area</strong> per the SoK), and ARK switches between limb-level and coefficient-level
+chip area</strong> per the <abbr title="systematization of knowledge (a survey paper)">SoK</abbr>), and ARK switches between limb-level and coefficient-level
 distribution depending on the operation.</p>
 <hr />
 <h2 id="4-key-switching-the-operation-that-sets-the-speed-limit">4. Key switching: the operation that sets the speed limit<a class="headerlink" href="#4-key-switching-the-operation-that-sets-the-speed-limit" title="Link to this section">#</a></h2>
@@ -382,7 +382,7 @@ of <code>k = α</code> limbs:</p>
 <h3 id="42-a-cost-model-at-bootstrapping-size">4.2 A cost model at bootstrapping size<a class="headerlink" href="#42-a-cost-model-at-bootstrapping-size" title="Link to this section">#</a></h3>
 <p><code>hw_profile.py</code> counts the operations of one key switch at <code>N = 2¹⁶</code> and <code>L = 24</code> limbs of
 64 bits. It then times them on a hypothetical chip with <strong>40 960 modular multipliers at 1 GHz</strong>
-and <strong>3 TB/s of high-bandwidth memory (HBM3)</strong>, the example machine the <abbr title="fully homomorphic encryption">FHE</abbr> accelerator SoK
+and <strong>3 TB/s of high-bandwidth memory (HBM3)</strong>, the example machine the <abbr title="fully homomorphic encryption">FHE</abbr> accelerator <abbr title="systematization of knowledge (a survey paper)">SoK</abbr>
 uses. This is a model, not a measurement:</p>
 <div class="highlight"><pre><span></span><code>N = 2^16, 24 limbs of 64 bits; hypothetical chip: 41 T modmul/s, 3 TB/s HBM
 dnum alpha=k  NTTs   modmults  key size mults/byte  compute  load key  bound
@@ -405,7 +405,7 @@ dnum alpha=k  NTTs   modmults  key size mults/byte  compute  load key  bound
 <li><strong><code>dnum</code> is a dial</strong>: fewer digits mean a smaller key and less traffic, but a bigger special
   modulus, which costs security budget (fewer levels for the same <code>N</code>). More digits mean more
   <abbr title="number-theoretic transform">NTT</abbr>s and much bigger keys.</li>
-<li>This matches the literature. ARK's analysis (via the SoK) found CoeffToSlot at
+<li>This matches the literature. ARK's analysis (via the <abbr title="systematization of knowledge (a survey paper)">SoK</abbr>) found CoeffToSlot at
   <code>N = 2¹⁶, L = 23, dnum = 4</code> takes <strong>0.18 ms of compute but 2.1 ms to load its data
   (11.7×)</strong>.</li>
 </ul>
@@ -656,7 +656,7 @@ arithmetic, and running thousands of independent <abbr title="Torus fully homomo
 <h2 id="7-fpgas">7. FPGAs<a class="headerlink" href="#7-fpgas" title="Link to this section">#</a></h2>
 <p><abbr title="field-programmable gate array">FPGA</abbr>s offer custom datapaths with <abbr title="high-bandwidth memory">HBM</abbr>, but limited on-chip memory (BRAM/URAM), lower clocks,
 and DSP blocks sized for small multiplies. Examples are HEAX, HEXL-FPGA, FAB and Poseidon
-(the last two with bootstrapping). For one logistic-regression iteration, the SoK lists
+(the last two with bootstrapping). For one logistic-regression iteration, the <abbr title="systematization of knowledge (a survey paper)">SoK</abbr> lists
 Poseidon at <strong>73 ms</strong> and FAB at <strong>103 ms</strong>, against <strong>775 ms</strong> for the "100×" <abbr title="graphics processing unit">GPU</abbr>
 implementation. <abbr title="field-programmable gate array">FPGA</abbr>s are a good prototyping and niche-deployment target, and Niobium and
 others have used them on the way to <abbr title="application-specific integrated circuit">ASIC</abbr>s.</p>
@@ -908,7 +908,7 @@ Use them for order of magnitude only.</p>
 <hr />
 <h2 id="references">References<a class="headerlink" href="#references" title="Link to this section">#</a></h2>
 <ul>
-<li><em>SoK: Fully Homomorphic Encryption Accelerators</em>. <a href="https://arxiv.org/abs/2212.01713">arXiv 2212.01713</a>: architecture summaries of F1, CraterLake, BTS and ARK, the memory-bound CoeffToSlot example, and the cross-platform evaluation used above</li>
+<li><em><abbr title="systematization of knowledge (a survey paper)">SoK</abbr>: Fully Homomorphic Encryption Accelerators</em>. <a href="https://arxiv.org/abs/2212.01713">arXiv 2212.01713</a>: architecture summaries of F1, CraterLake, BTS and ARK, the memory-bound CoeffToSlot example, and the cross-platform evaluation used above</li>
 <li>Feldmann et al. <em>F1: A Fast and Programmable Accelerator for Fully Homomorphic Encryption</em>. MICRO 2021</li>
 <li>Samardzic et al. <em>CraterLake: A Hardware Accelerator for Efficient Unbounded Computation on Encrypted Data</em>. ISCA 2022 (<a href="https://par.nsf.gov/servlets/purl/10350313">PDF via NSF PAR</a>)</li>
 <li>Kim et al. <em>BTS: An Accelerator for Bootstrappable Fully Homomorphic Encryption</em>. ISCA 2022</li>
@@ -923,7 +923,7 @@ Use them for order of magnitude only.</p>
 </ul>
 <blockquote>
 <p>Venues and titles of F1, BTS, SHARP and "100×" are cited from memory; the architecture facts
-about F1, BTS, CraterLake and ARK come from the SoK. <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> accelerator names (Matcha, Strix,
+about F1, BTS, CraterLake and ARK come from the <abbr title="systematization of knowledge (a survey paper)">SoK</abbr>. <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> accelerator names (Matcha, Strix,
 Morphling, FPT) are from memory and were not re-checked here.</p>
 </blockquote>
 </article>

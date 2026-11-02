@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/figures.css">
+<script src="assets/charts.js"></script>
 <script>
 function renderMath() {
   renderMathInElement(document.body, {
@@ -79,9 +80,17 @@ function renderMath() {
 <h1 id="04--the-schemes-five-generations-of-fhe">04 · The schemes: five "generations" of FHE<a class="headerlink" href="#04--the-schemes-five-generations-of-fhe" title="Link to this section">#</a></h1>
 <p><a href="03_how_it_works.html">← 03 How it works</a> · <a href="index.html">index</a> · next: <a href="05_core_techniques.html">05 Core techniques →</a></p>
 <hr />
-<p><abbr title="fully homomorphic encryption">FHE</abbr> schemes are usually grouped into generations. The grouping is loose, and the later
-generations did <strong>not</strong> replace the earlier ones. <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> are all actively
-used and developed, because they are good at different things.</p>
+<p>Fully homomorphic encryption (<abbr title="fully homomorphic encryption">FHE</abbr>) schemes are usually grouped into generations. Most scheme
+names are the authors' initials: <abbr title="the van Dijk–Gentry–Halevi–Vaikuntanathan scheme (FHE over the integers)">DGHV</abbr> (van Dijk–Gentry–Halevi–Vaikuntanathan), <abbr title="the Brakerski–Vaikuntanathan scheme">BV</abbr>
+(Brakerski–Vaikuntanathan), <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> (Brakerski–Gentry–Vaikuntanathan), <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>
+(Brakerski/Fan–Vercauteren), <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr> (Gentry–Sahai–Waters), <abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr>
+(Chillotti–Gama–Georgieva–Izabachène) and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> (Cheon–Kim–Kim–Song). <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> is the
+Ducas–Micciancio scheme ("Fastest Homomorphic Encryption in the West"), and <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> (torus fully
+homomorphic encryption) is the <abbr title="Chillotti–Gama–Georgieva–Izabachène (the TFHE scheme)">CGGI</abbr> scheme. Generation 2 is built on ring learning with errors
+(<abbr title="ring learning with errors">RLWE</abbr>) and packs many values into one ciphertext, single instruction, multiple data (<abbr title="single instruction, multiple data">SIMD</abbr>) style.</p>
+<p>The grouping is loose, and the later generations did <strong>not</strong> replace the earlier ones.
+<abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr>/<abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr>, <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> and <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> are all actively used and developed, because they are good at
+different things.</p>
 <div class="highlight"><pre><span></span><code>Gen 1 (2009–10)  Gentry (ideal lattices), DGHV (integers)        proof of concept, impractical
 Gen 2 (2011–12)  BV, BGV, BFV  (RLWE, leveled, SIMD)              exact modular arithmetic, batched
 Gen 3 (2013–16)  GSW → FHEW → TFHE / CGGI                         fast bootstrapping, bits / LUTs
@@ -139,8 +148,8 @@ bootstrapping). Brakerski 2012 and Fan–Vercauteren 2012 (<strong><abbr title="
 </tr>
 </tbody>
 </table></div>
-<p>Kim–Polyakov–Zucca (2021) showed that with modern <abbr title="residue number system">RNS</abbr> optimizations the two have similar
-performance. <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> tends to win for larger plaintext moduli, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> for small ones.</p>
+<p>Kim–Polyakov–Zucca (2021) showed that with modern residue number system (<abbr title="residue number system">RNS</abbr>) optimizations
+the two have similar performance. <abbr title="the Brakerski–Gentry–Vaikuntanathan scheme">BGV</abbr> tends to win for larger plaintext moduli, <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> for small ones.</p>
 <blockquote>
 <p><strong>Deep dive:</strong> <a href="deep_dives/bfv_pir.html">deep_dives/bfv_pir.md</a> builds <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> step by step
 (<a href="../code/toy_bfv.py">code/toy_bfv.py</a>) and uses it for a caller-ID <abbr title="private information retrieval">PIR</abbr> demo (<a href="../code/pir_caller_id.py">code/pir_caller_id.py</a>).</p>
@@ -160,9 +169,56 @@ arithmetic with no evaluation key and no relinearization</strong>. With the gadg
 factor's noise is scaled by a fixed <code>poly(n)</code>; the other's only by the small message. Chaining many multiplications in the right order (e.g. a branching program) therefore grows
 noise only <em>linearly</em>. This asymmetry is what makes the fast bootstrapping of <abbr title="the Ducas–Micciancio scheme (&quot;Fastest Homomorphic Encryption in the West&quot;)">FHEW</abbr> and <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr>
 possible. <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr> ciphertexts are big, so <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr> is rarely used directly. Its idea lives on as the
-<strong><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr></strong> ciphertexts in <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping keys.</p>
+<strong><abbr title="general GSW ciphertext (ring or module version of GSW)">GGSW</abbr></strong> (general <abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>, over rings) ciphertexts in <abbr title="Torus fully homomorphic encryption (the CGGI scheme)">TFHE</abbr> bootstrapping keys.</p>
+<figure class="widget" id="w-n04-gsw-order">
+  <p class="widget-title">GSW: the order of the factors decides how fast noise grows</p>
+  <p class="widget-hint">Lengthen the chain. In the right order each multiplication adds a fixed amount of noise; in the wrong order the noise is multiplied by poly(n) each time and passes the limit after 6 steps.</p>
+  <div class="controls"></div>
+  <div class="c-chain"></div>
+  <div class="readout"></div>
+  <figcaption>A chain of \(k\) multiplications of one-bit messages, using the product noise
+    \(\mathrm{poly}(n)\cdot e_2 + m_2\cdot e_1\). Right order: the running product is the first factor,
+    so its noise is multiplied only by a bit, and each step adds \(\mathrm{poly}(n)\cdot e\): after \(k\) steps
+    the noise is \(e\,(1 + k\cdot\mathrm{poly}(n))\). Wrong order: the running product's noise is multiplied by
+    \(\mathrm{poly}(n)\) every step. Illustrative numbers: fresh noise \(e = 2^3\), \(\mathrm{poly}(n) = 2^{10}\),
+    \(q = 2^{64}\), and a one-bit message needs the noise below about \(q/4\).</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n04-gsw-order';
+  const LE = 3, LB = 10, B = 2 ** LB, LIMIT = 62;            // log2 of fresh noise, of poly(n); log2(q/4)
+  const right = k => LE + Math.log2(1 + k * B);                // e·(1 + k·B)
+  const wrong = k => LE + Math.log2((B ** (k + 1) - 1) / (B - 1));   // e·(B^(k+1) − 1)/(B − 1)
+  const wrongSafe = k => (k < 90 ? wrong(k) : LE + (k + 1) * LB - Math.log2(B - 1));
+  const KS = DS.math.range(1024).map(i => i + 1);
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const len = ui.slider({ label: 'Multiplications in the chain', values: [1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64, 128, 256, 512, 1024], value: 6, format: v => String(v) });
+  const chart = DS.chart(root + ' .c-chain', {
+    x: { type: 'log', domain: [1, 1024], label: 'multiplications k (log scale)' },
+    y: { domain: [0, 80], label: 'noise, log₂', tickValues: [0, 16, 32, 48, 64, 80] },
+    height: 280,
+    draw(c) {
+      c.hline(LIMIT, { dash: true, label: 'q/4 = 2⁶²: decryption fails above' });
+      c.line(KS.map(k => [k, right(k)]), { series: 1, label: 'right order', format: v => v.toFixed(1) + ' bits' });
+      c.line(KS.slice(0, 12).map(k => [k, wrongSafe(k)]), { series: 2, label: 'wrong order', format: v => v.toFixed(1) + ' bits' });
+      const k = len.value, r = right(k), w = wrongSafe(k);
+      c.point(k, r, { series: r < LIMIT ? 'good' : 'bad' });
+      if (w <= 80) c.point(k, w, { series: w < LIMIT ? 'good' : 'bad' });
+      c.legend([{ label: 'right order: running product × fresh', series: 1 }, { label: 'wrong order: fresh × running product', series: 2 }]);
+    },
+  });
+  function readout() {
+    const k = len.value, r = right(k), w = wrongSafe(k);
+    DS.stats(root + ' .readout', [
+      { label: 'Right order: log₂ noise', value: r.toFixed(1) + ' bits', note: r < LIMIT ? 'decrypts' : 'fails', tone: r < LIMIT ? 'good' : 'bad' },
+      { label: 'Wrong order: log₂ noise', value: w.toFixed(1) + ' bits', note: w < LIMIT ? 'decrypts' : 'fails', tone: w < LIMIT ? 'good' : 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <h3 id="fhew-ducasmicciancio-2015">FHEW (Ducas–Micciancio 2015)<a class="headerlink" href="#fhew-ducasmicciancio-2015" title="Link to this section">#</a></h3>
-<p>Encrypt <strong>single bits</strong> with plain <abbr title="learning with errors">LWE</abbr>. Bootstrap after <strong>every</strong> <abbr title="not-and (a logic gate)">NAND</abbr> gate, with an <abbr title="ring learning with errors">RLWE</abbr>/<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>
+<p>Encrypt <strong>single bits</strong> with plain <abbr title="learning with errors">LWE</abbr>. Bootstrap after <strong>every</strong> <abbr title="not-and (a logic gate)">NAND</abbr> (not-and) logic gate, with an <abbr title="ring learning with errors">RLWE</abbr>/<abbr title="the Gentry–Sahai–Waters scheme">GSW</abbr>
 accumulator that performs the decryption's rounding step "in the exponent" of <code>X</code>. It was the
 first bootstrapping under one second.</p>
 <h3 id="tfhe--cggi-chillottigamageorgievaizabachène-2016">TFHE / CGGI (Chillotti–Gama–Georgieva–Izabachène 2016)<a class="headerlink" href="#tfhe--cggi-chillottigamageorgievaizabachène-2016" title="Link to this section">#</a></h3>
@@ -183,7 +239,7 @@ first bootstrapping under one second.</p>
 <td>carries the data</td>
 </tr>
 <tr>
-<td><strong><abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr></strong> (<abbr title="ring learning with errors">RLWE</abbr>)</td>
+<td><strong><abbr title="general learning with errors (ring or module version of LWE)">GLWE</abbr></strong> (general learning with errors; here <abbr title="ring learning with errors">RLWE</abbr>)</td>
 <td>polynomial version</td>
 <td>accumulator during bootstrapping</td>
 </tr>
@@ -194,7 +250,7 @@ first bootstrapping under one second.</p>
 </tr>
 </tbody>
 </table></div>
-<p>The <strong>external product</strong> <code>GGSW × GLWE → GLWE</code> is cheap, and it gives the <strong>CMux</strong> gate
+<p>The <strong>external product</strong> <code>GGSW × GLWE → GLWE</code> is cheap, and it gives the <strong><abbr title="controlled multiplexer">CMux</abbr></strong> (controlled multiplexer) gate
 (encrypted if-then-else), which blind rotation uses (ch. 03 §8). Gate bootstrapping took
 <strong>under 0.1 s</strong> in the 2016 paper, and about <strong>13 ms</strong> a year later.</p>
 <blockquote>
@@ -218,23 +274,87 @@ original library.</p>
 bootstrapping step by step, with a runnable toy implementation (<a href="../code/toy_ckks.py">code/toy_ckks.py</a>).</p>
 </blockquote>
 <p><strong>Encoding.</strong> A vector \(z \in \mathbb{C}^{N/2}\) is mapped to a polynomial by the inverse
-<strong>canonical embedding</strong> (evaluating at the complex roots of \(X^N+1\); an inverse <abbr title="fast Fourier transform">FFT</abbr>),
-multiplied by a scale <code>Δ</code> (e.g. 2⁴⁰), and rounded to integer coefficients. One ciphertext
+<strong>canonical embedding</strong> (evaluating at the complex roots of \(X^N+1\); an inverse fast Fourier
+transform, <abbr title="fast Fourier transform">FFT</abbr>), multiplied by a scale <code>Δ</code> (e.g. 2⁴⁰), and rounded to integer coefficients. One ciphertext
 holds <strong>N/2 complex slots</strong>, e.g. 32 768 values at <code>N = 2¹⁶</code>.</p>
 <p><strong>Arithmetic.</strong> Slot-wise add and multiply, <strong>rescale</strong> after each multiplication (drop a
 prime, ch. 03 §7), and rotate slots with Galois keys. Noise <em>is</em> rounding error, and precision
 is managed like floating point.</p>
+<p>The difference from <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> is the missing rounding step. Both put the message above the noise,
+but <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> rounds the noise away when it decrypts, while <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr> keeps it as the low digits of the
+answer:</p>
+<figure class="widget" id="w-n04-exact-vs-approx">
+  <p class="widget-title">Same noise, two readings: exact and approximate</p>
+  <p class="widget-hint">Step the noise up. BFV keeps answering 11 until the noise reaches Δ/2 = 2048 (try 2047, then 2048). CKKS drifts away from 3.14159 at every step.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">BFV reads \(\lfloor x/\Delta \rceil \bmod 16\)</p><div class="c-bfv"></div></div>
+    <div><p class="panel-title">CKKS reads \(x/\Delta\)</p><div class="c-ckks"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both toy coefficients use \(q = 2^{16}\) and \(\Delta = 4096\), and get the same noise \(e\).
+    BFV (\(t = 16\)) stores the integer 11 as \(x = 11\Delta + e\) and rounds \(e\) away, so the answer
+    is exact while \(|e| < \Delta/2\) and wrong by a whole step after that. CKKS stores 3.14159 as
+    \(x = \lfloor 3.14159\,\Delta \rceil + e\) and has no rounding step: \(e/\Delta\) becomes part of the
+    answer, so every extra bit of noise costs a bit of precision.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-n04-exact-vs-approx';
+  const D = 4096, T = 16, M_BFV = 11, M_CKKS = 3.14159;
+  const X_CKKS = Math.round(M_CKKS * D);                       // 12868
+  const bfv = e => ((Math.round((M_BFV * D + e) / D) % T) + T) % T;
+  const ckks = e => (X_CKKS + e) / D;
+  const ui = DS.controls(root + ' .controls', () => { left.update(); right.update(); readout(); });
+  const noise = ui.slider({ label: 'Noise e', values: [0, 1, 4, 16, 64, 256, 1024, 2047, 2048, 3000, 4000], value: 64, format: v => String(v) });
+
+  const left = DS.chart(root + ' .c-bfv', {
+    x: { domain: [0, 4096], label: 'noise e', tickValues: [0, 1024, 2048, 3072, 4096] },
+    y: { domain: [9.5, 13.5], label: 'decrypts to', tickValues: [10, 11, 12, 13], format: v => String(v) },
+    height: 240,
+    draw(c) {
+      c.polygon([[0, 9.5], [2048, 9.5], [2048, 13.5], [0, 13.5]], { series: 'good', stroke: false });
+      c.vline(2048, { dash: true, label: 'Δ/2' });
+      c.hline(11, { dash: true, series: 'muted', label: 'true value 11' });
+      c.line([[0, 11], [2048, 11], [2048, 12], [4096, 12]], { series: 1 });
+      const e = noise.value, v = bfv(e);
+      c.point(e, v, { series: v === M_BFV ? 'good' : 'bad' });
+    },
+  });
+  const right = DS.chart(root + ' .c-ckks', {
+    x: { domain: [0, 4096], label: 'noise e', tickValues: [0, 1024, 2048, 3072, 4096] },
+    y: { domain: [3, 4.25], label: 'decrypts to', tickValues: [3, 3.25, 3.5, 3.75, 4], format: v => v.toFixed(2) },
+    height: 240,
+    draw(c) {
+      c.hline(M_CKKS, { dash: true, series: 'muted', label: 'true value 3.14159' });
+      c.line([[0, ckks(0)], [4096, ckks(4096)]], { series: 1 });
+      c.point(noise.value, ckks(noise.value), { series: 2 });
+    },
+  });
+  function readout() {
+    const e = noise.value, b = bfv(e), v = ckks(e), err = Math.abs(v - M_CKKS);
+    const bits = Math.max(0, Math.floor(-Math.log2(err)));
+    DS.stats(root + ' .readout', [
+      { label: 'BFV decrypts to', value: String(b), note: b === M_BFV ? 'exact' : 'wrong by one step', tone: b === M_BFV ? 'good' : 'bad' },
+      { label: 'CKKS decrypts to', value: v.toFixed(5), note: 'error ' + err.toPrecision(3) },
+      { label: 'CKKS correct bits', value: String(bits), note: 'after the binary point' },
+    ]);
+  }
+  readout();
+})();
+</script>
 <p><strong>Bootstrapping.</strong> Cheon–Han–Kim–Kim–Song (2018). ModRaise → CoeffToSlot → EvalMod (sine
-approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On <abbr title="central processing unit">CPU</abbr>s it takes
-seconds per (fully packed) ciphertext. <abbr title="graphics processing unit">GPU</abbr> implementations bring it to the tens to hundreds
-of milliseconds; FIDESlib reports ≥ 70× over <abbr title="Advanced Vector Extensions (Intel&#x27;s SIMD instructions)">AVX</abbr>-optimized OpenFHE. Because it refreshes
+approximation) → SlotToCoeff. It costs roughly 10–18 levels and is approximate. On central
+processing units (<abbr title="central processing unit">CPU</abbr>s) it takes seconds per (fully packed) ciphertext. Graphics processing
+unit (<abbr title="graphics processing unit">GPU</abbr>) implementations bring it to the tens to hundreds of milliseconds; FIDESlib reports
+≥ 70× over OpenFHE optimized with Advanced Vector Extensions (<abbr title="Advanced Vector Extensions (Intel&#x27;s SIMD instructions)">AVX</abbr>). Because it refreshes
 <strong>tens of thousands of values at once</strong>, the amortized cost per value is tiny.</p>
 <p><strong>Good for:</strong> machine learning inference and training, statistics, linear algebra, signal
 processing. Anything that tolerates ~20–40 bits of precision. It dominates encrypted
-neural-network research, including the encrypted-LLM work in ch. 07.</p>
+neural-network research, including the work on encrypted large language models (<abbr title="large language model">LLM</abbr>s) in ch. 07.</p>
 <p><strong>Weak at:</strong> exact results, and non-polynomial functions, which need polynomial approximations
 (ch. 05). Its decryption leaks noise, so it needs <strong>noise flooding</strong> before results are shared
-(<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>, ch. 06).</p>
+(<abbr title="IND-CPA with decryptions: the attacker also sees decryptions of honestly computed ciphertexts">IND-CPA-D</abbr>: security when the attacker also sees decryptions, ch. 06).</p>
 <p><strong>Recent twist (2024–2026):</strong> "<strong>discrete <abbr title="the Cheon–Kim–Kim–Song scheme for approximate arithmetic">CKKS</abbr></strong>". Bae–Cheon–Kim–Stehlé (Eurocrypt 2024)
 showed how to bootstrap <strong>bits</strong>. Bae–Kim–Stehlé–Suvanto (Asiacrypt 2024) bootstrapped <strong>small
 integers</strong> with functional (<abbr title="lookup table">LUT</abbr>) bootstrapping, at 3.75 ms amortized per 8-bit <abbr title="lookup table">LUT</abbr>. Alexandru,

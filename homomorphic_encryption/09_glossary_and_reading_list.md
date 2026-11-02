@@ -15,11 +15,11 @@ it is explained.
 | **Automorphism (Galois)** | Ring map `X ↦ X^k` (`k` odd). Permutes slots and gives **rotations**. Needs a Galois key to switch back to the original secret key |
 | **Batching / SIMD packing** | Encoding many values into one plaintext via the Chinese remainder theorem (CRT) so that one operation acts on all **slots**, like single instruction, multiple data (SIMD) instructions on a processor |
 | **BKZ** | Block Korkine–Zolotarev lattice reduction, a lattice basis-reduction algorithm. Its cost model underpins concrete security estimates |
-| **Blind rotation** | Core of bootstrapping in FHEW (the Ducas–Micciancio scheme) and TFHE (torus fully homomorphic encryption): rotates a test polynomial by the encrypted phase using CMux gates |
+| **Blind rotation** | Core of bootstrapping in FHEW (the Ducas–Micciancio scheme) and TFHE (torus fully homomorphic encryption): rotates a test polynomial by the encrypted phase using controlled multiplexer (CMux) gates |
 | **Bootstrapping** | Homomorphically evaluating decryption with an encrypted secret key to reset the noise. Turns leveled homomorphic encryption (HE) into fully homomorphic encryption (FHE) |
 | **Circuit privacy** | The output ciphertext reveals nothing about the evaluated function. Achieved by sanitization |
 | **Circular security** | The assumption that publishing `Enc_sk(sk)` is safe. Needed for bootstrapping |
-| **CMux** | Encrypted multiplexer `b ? x : y` built from the GGSW × GLWE external product: a GGSW ciphertext (general GSW, after the Gentry–Sahai–Waters scheme) times a GLWE ciphertext (general learning with errors) |
+| **CMux** | Controlled multiplexer, an encrypted multiplexer `b ? x : y` built from the GGSW × GLWE external product: a GGSW ciphertext (general GSW, after the Gentry–Sahai–Waters scheme) times a GLWE ciphertext (general learning with errors) |
 | **CRT** | Chinese Remainder Theorem. Underlies batching, the number-theoretic transform (NTT) and the residue number system (RNS) |
 | **Δ (scale / scaling factor)** | Multiplier that lifts the message above the noise (in BFV, the Brakerski/Fan–Vercauteren scheme: `q/t`; in CKKS, the Cheon–Kim–Kim–Song scheme: e.g. 2⁴⁰) |
 | **Depth (multiplicative)** | Longest chain of sequential multiplications in the circuit. Determines parameters |
@@ -67,7 +67,7 @@ it is explained.
 - Acar, Aksu, Uluagac, Conti, *"A Survey on Homomorphic Encryption Schemes: Theory and Implementation"*, ACM Computing Surveys 2018.
 - Shai Halevi, *"Homomorphic Encryption"*, in *Tutorials on the Foundations of Cryptography* (2017).
 - Chris Peikert, *"A Decade of Lattice Cryptography"* ([ePrint 2015/939](https://eprint.iacr.org/2015/939)). The lattice background.
-- Al Badawi et al., *SoK: Private LLM Inference using Approximate HE* ([ePrint 2026/935](https://eprint.iacr.org/2026/935)). The current state of encrypted AI, in particular of large language models (LLMs).
+- Al Badawi et al., *SoK: Private LLM Inference using Approximate HE* ([ePrint 2026/935](https://eprint.iacr.org/2026/935)). This systematization of knowledge (SoK) is the current state of encrypted AI, in particular of large language models (LLMs).
 
 ### Foundational papers (chronological)
 | Year | Paper | Link |
