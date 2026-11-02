@@ -1,0 +1,130 @@
+<figure class="widget" id="w-p3-nonce-reuse">
+  <style>
+    #w-p3-nonce-reuse .p3-imgs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+    #w-p3-nonce-reuse canvas { display: block; width: 100%; height: auto; image-rendering: pixelated;
+                               border: 1px solid var(--line); border-radius: 4px; }
+    @media (max-width: 640px) { #w-p3-nonce-reuse .p3-imgs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <p class="widget-title">Two pictures under one keystream</p>
+  <p class="widget-hint">Switch the second picture to a fresh nonce: the XOR of the ciphertexts turns back into noise.</p>
+  <div class="controls"></div>
+  <div class="p3-imgs">
+    <div><p class="panel-title">C₁ (public notice)</p><canvas class="c-c1" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₂ (secret)</p><canvas class="c-c2" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₁ ⊕ C₂</p><canvas class="c-x" width="96" height="64"></canvas></div>
+    <div><p class="panel-title">C₁ ⊕ C₂ ⊕ P₁</p><canvas class="c-r" width="96" height="64"></canvas></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Both pictures are encrypted with real AES-128 in CTR mode under one key, 4 bytes per pixel. With the same nonce the keystream cancels: \(C_1 \oplus C_2 = P_1 \oplus P_2\), which shows both pictures on top of each other (black where they agree, since the XOR is zero there). An attacker who knows the public notice \(P_1\) removes it and reads the secret, without the key.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-nonce-reuse';
+  // AES-128, as in the AES standard: encryption of one 16-byte block.
+  const SB = new Uint8Array(256);
+  const xt = a => ((a << 1) ^ (a & 0x80 ? 0x1b : 0)) & 0xff;
+  { let p = 1, q = 1; const rl = (x, s) => ((x << s) | (x >> (8 - s))) & 0xff;
+    do { p ^= xt(p); q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff; if (q & 0x80) q ^= 0x09;
+         SB[p] = q ^ rl(q, 1) ^ rl(q, 2) ^ rl(q, 3) ^ rl(q, 4) ^ 0x63; } while (p !== 1);
+    SB[0] = 0x63; }
+  function expandKey(key) {
+    const w = new Uint8Array(176); w.set(key); let rc = 1;
+    for (let i = 16; i < 176; i += 4) {
+      let t = [w[i - 4], w[i - 3], w[i - 2], w[i - 1]];
+      if (i % 16 === 0) { t = [SB[t[1]] ^ rc, SB[t[2]], SB[t[3]], SB[t[0]]]; rc = xt(rc); }
+      for (let j = 0; j < 4; j++) w[i + j] = w[i - 16 + j] ^ t[j];
+    }
+    return w;
+  }
+  function encBlock(w, b) {
+    let s = Uint8Array.from(b, (x, i) => x ^ w[i]);
+    for (let r = 1; r <= 10; r++) {
+      const t = new Uint8Array(16);
+      for (let c = 0; c < 4; c++) for (let j = 0; j < 4; j++) t[j + 4 * c] = SB[s[j + 4 * ((c + j) % 4)]];
+      if (r < 10) for (let c = 0; c < 16; c += 4) {
+        const a0 = t[c], a1 = t[c + 1], a2 = t[c + 2], a3 = t[c + 3], x = a0 ^ a1 ^ a2 ^ a3;
+        t[c] ^= x ^ xt(a0 ^ a1); t[c + 1] ^= x ^ xt(a1 ^ a2); t[c + 2] ^= x ^ xt(a2 ^ a3); t[c + 3] ^= x ^ xt(a3 ^ a0);
+      }
+      s = t.map((x, i) => x ^ w[16 * r + i]);
+    }
+    return s;
+  }
+  const hexb = s => Uint8Array.from(s.match(/../g), x => parseInt(x, 16));
+  const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+  if (hex(encBlock(expandKey(hexb('000102030405060708090a0b0c0d0e0f')), hexb('00112233445566778899aabbccddeeff')))
+      !== '69c4e0d86a7b0430d8cdb78070b4c55a') throw new Error('AES self-test failed');
+
+  // Two 96 x 64 pictures, 4 bytes per pixel: the padlock (public) and the vault code 7341 (secret).
+  const W = 96, H = 64, N = W * H * 4;
+  const COL = { bg: [0xf6, 0xf8, 0xfa], shackle: [0x8c, 0x95, 0x9f], body: [0x2a, 0x78, 0xd6], ink: [0x1f, 0x23, 0x28], code: [0xe3, 0x49, 0x48] };
+  function padlock(x, y) {
+    const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 48, py - 29);
+    if (px > 22 && px < 74 && py > 29 && py < 60) {
+      if (Math.hypot(px - 48, py - 40) < 5 || (Math.abs(px - 48) < 2.2 + (py - 40) * 0.12 && py > 40 && py < 53)) return 'ink';
+      return 'body';
+    }
+    return py <= 29 && d >= 12 && d <= 20 ? 'shackle' : 'bg';
+  }
+  const GLYPH = {
+    7: ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+    3: ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+    4: ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+    1: ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  };
+  function code(x, y) {                        // "7341", 5 x 7 glyphs scaled by 4, centred
+    const gx = x - 2, gy = y - 18;
+    if (gx < 0 || gy < 0 || gy >= 28) return 'bg';
+    const k = Math.floor(gx / 24), cx = Math.floor((gx % 24) / 4);
+    if (k > 3 || cx > 4) return 'bg';
+    return GLYPH['7341'[k]][Math.floor(gy / 4)][cx] === '1' ? 'code' : 'bg';
+  }
+  function picture(f) {
+    const out = new Uint8Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = COL[f(x, y)], o = 4 * (y * W + x);
+      out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; out[o + 3] = 0xff;
+    }
+    return out;
+  }
+  const P1 = picture(padlock), P2 = picture(code);
+
+  const key = expandKey(hexb('fd3feb3c9250b7974a9b528b69636321'));
+  function keystream(nonce) {                  // CTR: E_K(8-byte nonce || 8-byte block counter)
+    const out = new Uint8Array(N), cb = new Uint8Array(16); cb.set(nonce);
+    for (let i = 0; i < N / 16; i++) {
+      for (let j = 0, v = i; j < 8; j++, v = Math.floor(v / 256)) cb[15 - j] = v & 0xff;
+      out.set(encBlock(key, cb), 16 * i);
+    }
+    return out;
+  }
+  const xor = (a, b) => a.map((x, i) => x ^ b[i]);
+  const nonce1 = hexb('6a4d5297d238f40a'), nonce2 = hexb('c31f0b7e5a90d264');
+  const S1 = keystream(nonce1), S2 = keystream(nonce2);
+  const C1 = xor(P1, S1);
+
+  function paint(sel, bytes) {
+    const cv = document.querySelector(root + ' ' + sel), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      img.data[4 * i] = bytes[4 * i]; img.data[4 * i + 1] = bytes[4 * i + 1]; img.data[4 * i + 2] = bytes[4 * i + 2]; img.data[4 * i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  // compare only the 3 colour bytes of each pixel (the fourth byte is not drawn)
+  const share = (a, b) => { let n = 0, m = 0; for (let i = 0; i < N; i++) if (i % 4 !== 3) { m++; if (a[i] === b[i]) n++; } return n / m; };
+
+  const ui = DS.controls(root + ' .controls', render);
+  const mode = ui.choice({ label: 'Nonce of the secret picture', options: [{ value: 'same', label: 'Same as C₁ (reused)' }, { value: 'fresh', label: 'Fresh' }], value: 'same' });
+  function render() {
+    const reused = mode.value === 'same';
+    const C2 = xor(P2, reused ? S1 : S2), X = xor(C1, C2), Rec = xor(X, P1);
+    paint('.c-c1', C1); paint('.c-c2', C2); paint('.c-x', X); paint('.c-r', Rec);
+    const a = share(X, xor(P1, P2)), b = share(Rec, P2);
+    DS.stats(root + ' .readout', [
+      { label: 'Nonces', value: reused ? 'equal' : 'different', note: `${hex(nonce1)} and ${hex(reused ? nonce1 : nonce2)}` },
+      { label: 'C₁ ⊕ C₂ agrees with P₁ ⊕ P₂', value: DS.pct(a), note: 'of the colour bytes', tone: reused ? 'bad' : 'good' },
+      { label: 'Secret bytes recovered', value: DS.pct(b), note: reused ? 'the whole picture' : 'about 1 in 256, by chance', tone: reused ? 'bad' : 'good' },
+    ]);
+  }
+  render();
+})();
+</script>

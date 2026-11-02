@@ -4,20 +4,23 @@
 
 ---
 
-AES encrypts exactly one 16-byte block, and always the same way. Turning it into encryption of
-real messages brings out two ideas that are central to homomorphic encryption. First,
-encryption must be **randomized**: encrypting the same message twice must give different
-ciphertexts. Second, ciphertexts can be **malleable**: changed in a way that changes the
-plaintext predictably. For ordinary encryption malleability is an attack, stopped with a MAC.
-For HE it is the whole point.
+The Advanced Encryption Standard (AES) encrypts exactly one 16-byte block, and always the same
+way. Turning it into encryption of real messages brings out two ideas that are central to
+homomorphic encryption. First, encryption must be **randomized**: encrypting the same message
+twice must give different ciphertexts. Second, ciphertexts can be **malleable**: changed in a
+way that changes the plaintext predictably. For ordinary encryption malleability is an attack,
+stopped with a message authentication code (MAC). For HE it is the whole point.
 
 **In this chapter** you will learn to:
 
-- explain why encrypting block by block (ECB) leaks, and see the leak in a picture;
-- use CBC and CTR correctly, and say what an IV and a nonce must each satisfy;
+- explain why encrypting block by block (electronic codebook, ECB) leaks, and see the leak in a
+  picture;
+- use cipher block chaining (CBC) and counter mode (CTR) correctly, and say what an
+  initialization vector (IV) and a nonce must each satisfy;
 - recover a secret message when a CTR nonce is reused;
 - turn "pay \$100 to Bob" into "pay \$900 to Bob" without the key;
-- build encrypt-then-MAC with HMAC, and say what AES-GCM and ChaCha20-Poly1305 provide;
+- build encrypt-then-MAC with HMAC (hash-based message authentication code), and say what
+  AES-GCM (AES in Galois/counter mode) and ChaCha20-Poly1305 provide;
 - explain why HE ciphertexts must be malleable, and why that rules out this kind of integrity.
 
 **Companion script:** [`code/primer/p3_modes.py`](../code/primer/p3_modes.py). Run it from the
@@ -35,15 +38,16 @@ missing before it can encrypt messages:
   ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat.
   Think of a "yes"/"no" vote, a status field, or a file header.
 
-A **mode of operation** fixes both. NIST SP 800-38A (2001) standardizes five confidentiality
-modes: ECB, CBC, CFB, OFB and CTR. This chapter covers ECB (what not to do), CBC and CTR. CFB
-and OFB are close relatives of CBC and CTR.
+A **mode of operation** fixes both. The National Institute of Standards and Technology (NIST)
+standardizes five confidentiality modes in its Special Publication (SP) 800-38A (2001): ECB,
+CBC, cipher feedback (CFB), output feedback (OFB) and CTR. This chapter covers ECB (what not to
+do), CBC and CTR. CFB and OFB are close relatives of CBC and CTR.
 
-**Padding.** Modes that work on whole blocks (ECB, CBC) need padding. The usual rule,
-**PKCS#7**, appends $n$ bytes each of value $n$, where $1 \le n \le 16$ is the number needed
-to reach a multiple of 16. "attack at dawn" has 14 bytes, so it gets `02 02`. A message that
-already fills whole blocks gets a full extra block of sixteen `10` bytes (hex 10 = 16), so the
-receiver can always remove the padding unambiguously.
+**Padding.** Modes that work on whole blocks (ECB, CBC) need padding. The usual rule, **PKCS#7**
+(from the Public-Key Cryptography Standards), appends $n$ bytes each of value $n$, where
+$1 \le n \le 16$ is the number needed to reach a multiple of 16. "attack at dawn" has 14 bytes,
+so it gets `02 02`. A message that already fills whole blocks gets a full extra block of sixteen
+`10` bytes (hex 10 = 16), so the receiver can always remove the padding unambiguously.
 
 ## 2. ECB and the penguin
 
@@ -87,11 +91,13 @@ plaintext block. The leak is in the *pattern* of equal blocks, which ECB passes 
 untouched. In 2023 NIST announced that the revision of SP 800-38A will restrict ECB to the few
 uses other NIST standards explicitly allow.
 
+<!-- figure: p3-ecb-penguin -->
+
 ## 3. CBC: chaining with a random IV
 
-**Cipher block chaining (CBC)** XORs each plaintext block with the previous ciphertext block
-before encrypting it. The first block is XORed with an **initialization vector (IV)**, a fresh
-random block for every message:
+**Cipher block chaining (CBC)** combines each plaintext block with the previous ciphertext block
+by exclusive or (XOR, $\oplus$) before encrypting it. The first block is XORed with an
+**initialization vector (IV)**, a fresh random block for every message:
 
 ```text
            P1              P2              P3
@@ -113,8 +119,9 @@ all 234 CBC blocks are different.
 What CBC needs and what it costs:
 
 - **The IV must be unpredictable** (SP 800-38A, Appendix C): not secret, but impossible to guess
-  before it is used. TLS 1.0 used the last ciphertext block of the previous record as the next
-  IV, which an attacker could predict; the BEAST attack (2011) exploited exactly that.
+  before it is used. Transport Layer Security (TLS) 1.0 used the last ciphertext block of the
+  previous record as the next IV, which an attacker could predict; the BEAST attack (2011)
+  exploited exactly that.
 - **Encryption is sequential** (each block waits for the previous one); decryption can run in
   parallel.
 - **Padding is needed, and padding errors leak.** Vaudenay (2002) showed that if a receiver
@@ -199,6 +206,8 @@ attacker knows P1 (a public notice) and recovers P2 without the key:
    b'New vault code is 7341; tell no one!!!'
 ```
 
+<!-- figure: p3-nonce-reuse -->
+
 This is not hypothetical. The KRACK attacks on WPA2 Wi-Fi (Vanhoef and Piessens, 2017) tricked
 devices into reinstalling a key and resetting their nonces. For AES-GCM, nonce reuse is worse
 still: it also destroys authentication (§10).
@@ -263,10 +272,14 @@ CBC is malleable too (flip IV byte 5): b'pay $900 to Bob'
 (The first 8 bytes of each ciphertext are the nonce.) The attacker needed no key and broke no
 cryptography, only knowledge of the message format, which is rarely secret.
 
+<!-- figure: p3-ctr-bitflip -->
+
 CBC is malleable too. Flipping a bit of $C_{i-1}$ flips the same bit of $P_i$, at the price of
 turning $P_{i-1}$ into garbage; flipping a bit of the IV flips the same bit of $P_1$ cleanly, as
 the last line of part 5 shows. NIST says the same in plain words: SP 800-38D, Appendix A, calls
 CTR ciphertext "malleable" and gives this as the reason to combine it with authentication.
+
+<!-- figure: p3-cbc-flip -->
 
 Look at the attack from the other side: $\mathrm{Dec}(C \oplus \delta) = \mathrm{Dec}(C) \oplus \delta$.
 That is a **homomorphism**: an operation on ciphertexts that performs a known operation on the
@@ -282,14 +295,15 @@ valid tags on many messages of its choice, an attacker cannot produce a valid ta
 message. A MAC gives integrity and authenticity, since only key holders can make valid tags. It
 gives no confidentiality.
 
-**Why not just $\mathrm{SHA\text{-}256}(K \,\|\, m)$?** SHA-256 processes its input block by
-block and outputs its internal state. Given $H(K \,\|\, m)$, anyone can continue hashing and
-compute $H(K \,\|\, m \,\|\, \text{pad} \,\|\, m')$ for a chosen $m'$ without knowing $K$: a
-**length-extension** forgery. (Here "pad" is SHA-256's own fixed length padding, which the
-attacker can compute from the length of $K \,\|\, m$; it has nothing to do with a one-time
-pad.)
+**Why not just $\mathrm{SHA\text{-}256}(K \,\|\, m)$?** SHA-256 (from the Secure Hash Algorithm
+family) processes its input block by block and outputs its internal state. Given
+$H(K \,\|\, m)$, anyone can continue hashing and compute $H(K \,\|\, m \,\|\, \text{pad} \,\|\, m')$
+for a chosen $m'$ without knowing $K$: a **length-extension** forgery. (Here "pad" is SHA-256's own
+fixed length padding, which the attacker can compute from the length of $K \,\|\, m$; it has
+nothing to do with a one-time pad.)
 
-**HMAC** (Bellare, Canetti and Krawczyk, 1996; RFC 2104, 1997) hashes twice with two derived
+**HMAC** (Bellare, Canetti and Krawczyk, 1996; standardized by the Internet Engineering Task
+Force (IETF) as Request for Comments (RFC) 2104, 1997) hashes twice with two derived
 keys:
 
 $$\mathrm{HMAC}(K, m) = H\big((K' \oplus \mathit{opad}) \,\|\, H((K' \oplus \mathit{ipad}) \,\|\, m)\big)$$
@@ -360,14 +374,15 @@ $$\mathrm{Enc}(K, \mathit{nonce}, \mathit{AD}, m) \to (C, T), \qquad \mathrm{Dec
 The **associated data** AD (say, a packet header) is authenticated but not encrypted. Decryption
 either returns the message or fails; it never returns a tampered plaintext.
 
-- **AES-GCM** (Galois/Counter Mode, NIST SP 800-38D, 2007) is CTR mode plus **GHASH**, a
-  keyed hash that treats the associated data and ciphertext blocks as the coefficients of a
-  polynomial and evaluates it at a secret point $H = E_K(0)$ in the field
-  $\mathrm{GF}(2^{128})$, the 128-bit cousin of the field in [P2](p2_aes.md). The result,
-  masked with one more AES output, is the tag. With AES-NI and the CPU's carry-less
-  multiplication instruction it runs at gigabytes per second. Its weak spot is the nonce (96
-  bits recommended): if a nonce is ever repeated under a key, an attacker can usually recover
-  $H$ and then forge tags for any ciphertext (Joux, 2006; SP 800-38D, Appendix A).
+- **AES-GCM** (Galois/Counter Mode, NIST SP 800-38D, 2007) is CTR mode plus an authenticator,
+  **GHASH** (Galois hash): a keyed hash that treats the associated data and ciphertext blocks as
+  the coefficients of a polynomial and evaluates it at a secret point $H = E_K(0)$ in the field
+  $\mathrm{GF}(2^{128})$, the 128-bit cousin of the field in [P2](p2_aes.md). The result, masked
+  with one more AES output, is the tag. With Intel's AES New Instructions (AES-NI) and the
+  processor's carry-less multiplication instruction it runs at gigabytes per second. Its weak
+  spot is the nonce (96 bits recommended): if a nonce is ever repeated under a key, an attacker
+  can usually recover $H$ and then forge tags for any ciphertext (Joux, 2006; SP 800-38D,
+  Appendix A).
 - **ChaCha20-Poly1305** (RFC 8439, 2018, which replaced RFC 7539) combines Bernstein's ChaCha20
   stream cipher with the Poly1305 MAC. It needs no special hardware; RFC 8439 estimates it at
   about three times the speed of AES on platforms without AES instructions. It also uses a
@@ -428,11 +443,11 @@ Things to try:
 ## 12. How this connects to homomorphic encryption
 
 - **HE encryption is randomized, for the same reason as CBC and CTR.** Every HE scheme in these
-  notes is IND-CPA secure, so it cannot be deterministic. In LWE ([P7](p7_lattices_and_lwe.md))
-  each encryption draws a fresh random mask `a` and fresh noise `e`, which play the role of the
-  IV or nonce: encrypting 0 twice gives two completely different ciphertexts. HE ciphertexts
-  are also much larger than their plaintexts, partly for the same reason: the random mask
-  travels with the ciphertext.
+  notes is IND-CPA secure, so it cannot be deterministic. In learning with errors (LWE)
+  ([P7](p7_lattices_and_lwe.md)) each encryption draws a fresh random mask `a` and fresh noise
+  `e`, which play the role of the IV or nonce: encrypting 0 twice gives two completely different
+  ciphertexts. HE ciphertexts are also much larger than their plaintexts, partly for the same
+  reason: the random mask travels with the ciphertext.
 - **Malleability is the feature.** This chapter treated malleability as an attack: the
   attacker turned $\mathrm{Enc}(m)$ into $\mathrm{Enc}(m \oplus \delta)$. Homomorphic encryption
   is malleability made rich and controllable: anyone holding $\mathrm{Enc}(a)$ and
@@ -454,11 +469,12 @@ Things to try:
       accepts only if they agree;
     - a **trusted execution environment (TEE)**: a hardware enclave that computes on plaintext
       in protected memory; running the HE evaluator inside one adds a second line of defence;
-    - **secure multi-party computation (MPC)**: several parties compute jointly on secret
+    - **secure multiparty computation (MPC)**: several parties compute jointly on secret
       shares of the data; versions secure against cheating parties detect a wrong result
       unless too many of them collude.
-- **And HE can never be IND-CCA2**, the stronger notion in which the attacker may also ask for
-  decryptions: it would maul the challenge and ask for the decryption of the result.
+- **And HE can never be IND-CCA2** (indistinguishability under adaptive chosen-ciphertext
+  attack), the stronger notion in which the attacker may also ask for decryptions: it would maul
+  the challenge and ask for the decryption of the result.
   [P5 §7](p5_security_definitions.md#malleability-breaks-cca2) gives the argument.
 - **AEAD still has a place around HE.** HE ciphertexts travel over TLS like any other data, and
   the transport layer's AEAD protects them in transit. What no MAC can cover is the computation
@@ -535,7 +551,7 @@ Things to try:
 | Verifiable computation | Checking that a computation was done correctly without redoing it |
 | Zero-knowledge (ZK) proof | Proof that a computation was done correctly that reveals nothing else |
 | TEE | Trusted execution environment: a hardware enclave computing on plaintext in protected memory |
-| MPC | Secure multi-party computation: several parties compute jointly on secret shares |
+| MPC | Secure multiparty computation: several parties compute jointly on secret shares |
 
 ## 15. Sources and further reading
 
