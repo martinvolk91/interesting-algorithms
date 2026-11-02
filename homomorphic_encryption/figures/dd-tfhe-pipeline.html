@@ -1,0 +1,69 @@
+<figure class="diagram" id="d-dd-tfhe-pipeline">
+  <svg viewBox="0 0 500 556" role="img" style="max-width: 600px" aria-label="The five steps of a programmable bootstrap, with the ciphertext type and size after each step and the two keys they use">
+    <style>
+      #d-dd-tfhe-pipeline text.b { font-weight: 650; font-size: 14px; }
+      #d-dd-tfhe-pipeline text.s { font-size: 13px; }
+      #d-dd-tfhe-pipeline text.m { fill: var(--muted); }
+      #d-dd-tfhe-pipeline text.hd { font-size: 11.5px; fill: var(--muted); letter-spacing: .02em; }
+    </style>
+    <text x="316" y="18" class="hd">toy · real</text>
+    <rect x="10" y="30" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-1)" stroke-width="1.6"/>
+    <text x="22" y="50" class="b">LWE ciphertext, key s, dimension n</text>
+    <text x="22" y="68" class="s">phase Δ·m + e, any |e| below Δ/2</text>
+    <text x="316" y="50" class="s">17 words</text>
+    <text x="316" y="68" class="s m">≈ 801 words</text>
+    <line x1="34" y1="78" x2="34" y2="113" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,111 L34,120 L39,111 Z" fill="currentColor"/>
+    <text x="48" y="104.0" class="b">① modulus switch Q → 2N</text>
+    <rect x="10" y="120" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--ink-muted)" stroke-width="1.6" stroke-dasharray="5 4"/>
+    <text x="22" y="140" class="b">Rounded LWE, entries mod 2N</text>
+    <text x="22" y="158" class="s">phase φ̃ in [0, 2N): an exponent of X</text>
+    <text x="316" y="140" class="s">17 numbers < 256</text>
+    <text x="316" y="158" class="s m">≈ 801 numbers < 4096</text>
+    <line x1="34" y1="168" x2="34" y2="245" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,243 L34,252 L39,243 Z" fill="currentColor"/>
+    <text x="48" y="190" class="b">②③ blind rotation</text>
+    <text x="48" y="208" class="s">n CMuxes, one after another</text>
+    <rect x="312" y="178" width="180" height="64" rx="6" fill="none" stroke="var(--series-2)" stroke-width="1.6"/>
+    <text x="322" y="196" class="b">bootstrapping key</text>
+    <text x="322" y="214" class="s">n GGSW(sᵢ), one per bit</text>
+    <text x="322" y="232" class="s m">toy 64 KB · real ≈ 52 MB</text>
+    <line x1="312" y1="226" x2="43" y2="226" stroke="var(--series-2)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <path d="M45,221.5 L36,226 L45,230.5 Z" fill="var(--series-2)"/>
+    <rect x="10" y="252" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-3)" stroke-width="1.6"/>
+    <text x="22" y="272" class="b">GLWE accumulator, key S</text>
+    <text x="22" y="290" class="s">phase X^(−φ̃)·v: the table, rotated</text>
+    <text x="316" y="272" class="s">2 × 128 words</text>
+    <text x="316" y="290" class="s m">2 × 2048 words</text>
+    <line x1="34" y1="300" x2="34" y2="335" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,333 L34,342 L39,333 Z" fill="currentColor"/>
+    <text x="48" y="326.0" class="b">④ sample extraction: free, no key</text>
+    <rect x="10" y="342" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-3)" stroke-width="1.6"/>
+    <text x="22" y="362" class="b">LWE ciphertext, key S, dimension N</text>
+    <text x="22" y="380" class="s">phase v_φ̃ = Δ·f(m) + fresh noise</text>
+    <text x="316" y="362" class="s">129 words</text>
+    <text x="316" y="380" class="s m">2049 words</text>
+    <line x1="34" y1="390" x2="34" y2="467" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M29,465 L34,474 L39,465 Z" fill="currentColor"/>
+    <text x="48" y="412" class="b">⑤ key switching</text>
+    <text x="48" y="430" class="s">back to the small key s</text>
+    <rect x="312" y="400" width="180" height="64" rx="6" fill="none" stroke="var(--series-2)" stroke-width="1.6"/>
+    <text x="322" y="418" class="b">key-switching key</text>
+    <text x="322" y="436" class="s">N × ℓ_ks LWEs under s</text>
+    <text x="322" y="454" class="s m">toy 43 KB · real ≈ 66 MB</text>
+    <line x1="312" y1="448" x2="43" y2="448" stroke="var(--series-2)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <path d="M45,443.5 L36,448 L45,452.5 Z" fill="var(--series-2)"/>
+    <rect x="10" y="474" width="292" height="48" rx="6" fill="var(--soft)" stroke="var(--series-1)" stroke-width="1.6"/>
+    <text x="22" y="494" class="b">LWE ciphertext, key s, dimension n</text>
+    <text x="22" y="512" class="s">phase Δ·f(m) + e′, e′ independent of e</text>
+    <text x="316" y="494" class="s">17 words</text>
+    <text x="316" y="512" class="s m">≈ 801 words</text>
+    <rect x="10" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-1)" stroke-width="1.8"/>
+    <text x="27" y="542" class="s">under key s</text>
+    <rect x="115.8" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-3)" stroke-width="1.8"/>
+    <text x="132.8" y="542" class="s">under GLWE key S</text>
+    <rect x="255.60000000000002" y="533" width="12" height="10" rx="2" fill="none" stroke="var(--series-2)" stroke-width="1.8"/>
+    <text x="272.6" y="542" class="s">public evaluation key</text>
+  </svg>
+  <figcaption>One programmable bootstrap, and what each step holds. Sizes count numbers mod \(Q\) ("words"): the toy (\(n = 16\), \(N = 128\), \(Q = 2^{32}\)) first, then a typical real parameter set (\(n \approx 800\), \(N = 2048\), \(Q = 2^{64}\)). Only the two key-dependent steps do real work; the input noise \(e\) leaves no trace in the output, whose noise comes from the two keys.</figcaption>
+</figure>
