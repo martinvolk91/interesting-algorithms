@@ -1,0 +1,71 @@
+<figure class="widget" id="w-p4-elgamal-grid">
+  <p class="widget-title">Every ElGamal ciphertext mod 23</p>
+  <p class="widget-hint">Drag \(y\): the encryption of \(m = 3\) jumps to another column and still decrypts to 3. Then change \(m\): its ten ciphertexts form a new pattern, again one per column.</p>
+  <div class="controls"></div>
+  <div class="c-grid"></div>
+  <div class="readout"></div>
+  <figcaption>Bob's key is \(x = 3\), \(h = 2^3 = 8\), and \(y\) runs from 1 to 10. The grey dots are
+  all 110 pairs \((c_1, c_2)\) that encryption can produce, and each is an encryption of exactly one
+  message. Every column holds exactly one encryption of each of the 11 messages, so \(c_1\) alone
+  says nothing about \(m\); only the key tells which pattern a dot belongs to. Textbook RSA gives
+  each message a single ciphertext.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-elgamal-grid';
+  const p = 23, g = 2, x = 3;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const inv = v => powmod(v, p - 2, p);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const h = powmod(g, x, p);                                           // 8
+  const SQ = [1, 2, 3, 4, 6, 8, 9, 12, 13, 16, 18];                     // the messages: squares mod 23
+  const YS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const C1 = YS.map(y => powmod(g, y, p)).sort((u, v) => u - v);      // the 10 possible c1 values
+  const enc = (m, y) => [powmod(g, y, p), m * powmod(h, y, p) % p];
+  const dec = (c1, c2) => c2 * inv(powmod(c1, x, p)) % p;
+  const ix = c1 => C1.indexOf(c1), iy = c2 => SQ.indexOf(c2);
+
+  // all 110 ciphertexts, computed once
+  const ALL = [];
+  for (const m of SQ) for (const y of YS) {
+    const [c1, c2] = enc(m, y);
+    ALL.push({ x: ix(c1), y: iy(c2), tip: `(${c1}, ${c2}) decrypts to ${dec(c1, c2)}` });
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const sm = ui.slider({ label: 'Message m', values: SQ, value: 3 });
+  const sy = ui.slider({ label: 'Randomness y', min: 1, max: 10, step: 1, value: 4 });
+
+  const chart = DS.chart(root + ' .c-grid', {
+    x: { domain: [-0.5, 9.5], tickValues: C1.map((_, i) => i), format: i => String(C1[Math.round(i)]), label: 'c₁ = 2ʸ mod 23', grid: true },
+    y: { domain: [-0.5, 10.5], tickValues: SQ.map((_, i) => i), format: i => String(SQ[Math.round(i)]), label: 'c₂ = m · 8ʸ mod 23', baseline: 'bottom' },
+    height: 340,
+    draw(c) {
+      const m = sm.value, y = sy.value;
+      c.scatter(ALL, { series: 'muted', r: 2.5 });
+      const mine = YS.map(yy => { const [c1, c2] = enc(m, yy); return { x: ix(c1), y: iy(c2), tip: `y = ${yy}: (${c1}, ${c2})` }; });
+      c.scatter(mine, { series: 1, r: 5 });
+      const [c1, c2] = enc(m, y);
+      const right = ix(c1) > 6, top = iy(c2) > 8;          // keep the label inside the plot
+      c.point(ix(c1), iy(c2), { series: 1, r: 8, label: `(${c1}, ${c2})`,
+        labelOpts: { dx: right ? -12 : 12, dy: top ? 18 : -10, anchor: right ? 'end' : 'start', cls: 'ink strong' } });
+      c.legend([{ label: 'all 110 possible ciphertexts', series: 'muted', kind: 'dot' },
+                { label: `the 10 encryptions of m = ${m}`, series: 1, kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const m = sm.value, y = sy.value;
+    const [c1, c2] = enc(m, y), pad = powmod(h, y, p), back = powmod(c1, x, p);
+    DS.stats(root + ' .readout', [
+      { label: 'c₁ = 2ʸ', value: `2${sup(y)} ≡ ${c1}` },
+      { label: 'pad = hʸ = 8ʸ', value: `8${sup(y)} ≡ ${pad}` },
+      { label: 'c₂ = m · pad', value: `${m} · ${pad} ≡ ${c2}` },
+      { label: 'Bob: c₂ · (c₁ˣ)⁻¹', value: `${c2} · ${inv(back)} ≡ ${dec(c1, c2)}`, tone: dec(c1, c2) === m ? 'good' : 'bad',
+        note: `c₁³ = ${c1}³ ≡ ${back}, ${back}⁻¹ ≡ ${inv(back)}` },
+    ]);
+  }
+  readout();
+})();
+</script>

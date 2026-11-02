@@ -1,0 +1,91 @@
+<figure class="widget" id="w-p4-dh-clock">
+  <p class="widget-title">Diffie–Hellman on a clock with 11 hours</p>
+  <p class="widget-hint">Move \(a\) up by one: \(A\) moves one hour clockwise, but its number jumps (1, 2, 4, 8, 16, 9, 18, …). Whatever \(a\) and \(b\) are, Alice and Bob land on the same \(K\).</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Powers of 2 mod 23, one per hour</p><div class="c-clock"></div></div>
+    <div><p class="panel-title">The exchange</p><div class="c-steps"></div><div class="readout"></div></div>
+  </div>
+  <figcaption>The hour \(k\) is the exponent and the number at that hour is \(2^k \bmod 23\). Alice's
+  secret \(a\) is how many hours she walks from 1, and \(A\) is where she stops; the same for Bob.
+  The key sits at hour \(ab \bmod 11\), because \(2^{11} \equiv 1\). Eve sees only the numbers
+  \(A\) and \(B\), not the hours. Here she can read the hour off the clock; with a 2048-bit \(p\)
+  the clock has about \(2^{2047}\) hours.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-dh-clock';
+  const p = 23, g = 2, q = 11;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const val = k => powmod(g, k, p);                     // 2^k mod 23: the number at hour k
+  const at = (k, r) => [r * Math.sin(2 * Math.PI * k / q), r * Math.cos(2 * Math.PI * k / q)];
+
+  const ui = DS.controls(root + ' .controls', () => { clock.update(); steps(); });
+  const sa = ui.slider({ label: "Alice's secret a", min: 1, max: 10, step: 1, value: 6 });
+  const sb = ui.slider({ label: "Bob's secret b", min: 1, max: 10, step: 1, value: 9 });
+
+  function arc(k0, k1, r) {                              // points along the circle from hour k0 to k1
+    const pts = [], n = Math.max(2, Math.round((k1 - k0) * 12));
+    for (let i = 0; i <= n; i++) pts.push(at(k0 + (k1 - k0) * i / n, r));
+    return pts;
+  }
+
+  const clock = DS.chart(root + ' .c-clock', {
+    x: { domain: [-1.5, 1.5], hidden: true },
+    y: { domain: [-1.5, 1.5], hidden: true },
+    equal: true, maxHeight: 400, minHeight: 280,
+    margin: { t: 6, r: 6, b: 6, l: 6 },
+    draw(c) {
+      const a = sa.value, b = sb.value, kK = a * b % q;
+      c.line(arc(0, q, 1), { series: 'muted', thin: true });
+      // the two walks: Alice inside the ring, Bob outside
+      const ra = 0.84, rb = 1.16;
+      c.line(arc(0, a - 0.12, ra), { series: 1, thick: true });
+      c.arrow(...at(a - 0.2, ra), ...at(a - 0.02, ra), { series: 1, head: 10 });
+      c.line(arc(0, b - 0.12, rb), { series: 2, thick: true });
+      c.arrow(...at(b - 0.2, rb), ...at(b - 0.02, rb), { series: 2, head: 10 });
+      // every hour: a dot, the public number outside, the exponent inside
+      for (let k = 0; k < q; k++) {
+        const [x, y] = at(k, 1);
+        c.scatter([[x, y]], { series: 'muted', r: 3.5, clip: false });
+        const [tx, ty] = at(k, 1.36);
+        c.text(tx, ty, String(val(k)), { anchor: 'middle', baseline: 'middle', cls: 'ink strong', size: 15 });
+        const [ix, iy] = at(k, 0.66);
+        c.text(ix, iy, String(k), { anchor: 'middle', baseline: 'middle', size: 11 });
+      }
+      // K: a ring in the "good" colour; A and B: filled dots
+      const [kx, ky] = at(kK, 1);
+      c.line(DS.math.linspace(0, 2 * Math.PI, 40).map(t => [kx + 0.1 * Math.cos(t), ky + 0.1 * Math.sin(t)]), { series: 'good', thick: true });
+      c.point(...at(b, 1), { series: 2, r: 6.5 });
+      c.point(...at(a, 1), { series: 1, r: 6.5 });
+      c.point(kx, ky, { series: 'good', r: 4 });
+      c.text(0, 0.18, 'a·b mod 11', { anchor: 'middle', size: 12 });
+      c.text(0, -0.04, `${a}·${b} = ${a * b} ≡ ${kK}`, { anchor: 'middle', cls: 'ink strong', size: 14 });
+      c.text(0, -0.24, `K = 2${sup(kK)} = ${val(kK)}`, { anchor: 'middle', cls: 'ink', size: 12.5 });
+      c.legend([{ label: 'Alice walks a hours to A', series: 1 }, { label: 'Bob walks b hours to B', series: 2 },
+                { label: 'shared key K', series: 'good', kind: 'dot' }]);
+    },
+  });
+
+  function steps() {
+    const a = sa.value, b = sb.value, A = val(a), B = val(b);
+    const KA = powmod(B, a, p), KB = powmod(A, b, p);
+    DS.table(root + ' .c-steps', {
+      columns: ['', 'Alice', 'Bob'],
+      rows: [
+        [{ text: 'keeps', th: true }, `a = ${a}`, `b = ${b}`],
+        [{ text: 'sends', th: true }, `A = 2${sup(a)} mod 23 = ${A}`, `B = 2${sup(b)} mod 23 = ${B}`],
+        [{ text: 'computes', th: true }, `K = ${B}${sup(a)} mod 23 = ${KA}`, `K = ${A}${sup(b)} mod 23 = ${KB}`],
+      ],
+    });
+    DS.stats(root + ' .readout', [
+      { label: 'Eve sees', value: `A = ${A}, B = ${B}`, note: 'and p = 23, g = 2' },
+      { label: 'Shared key', value: `K = ${KA}`, tone: KA === KB ? 'good' : 'bad', note: KA === KB ? 'both sides agree' : 'mismatch' },
+      { label: "Eve's brute force for a", value: `${a + 1} tries`, note: `2ᵏ for k = 0, 1, …, ${a} until it hits ${A}` },
+    ]);
+  }
+  steps();
+})();
+</script>

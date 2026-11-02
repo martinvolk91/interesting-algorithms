@@ -1,0 +1,95 @@
+<figure class="widget" id="w-p4-elgamal-tally">
+  <p class="widget-title">A vote tally on encrypted ballots</p>
+  <p class="widget-hint">Click a ballot to flip its vote: its ciphertext changes, and so does the tally. Then press New randomness: every ciphertext changes, the tally does not.</p>
+  <div class="controls"></div>
+  <div class="ballots" role="group" aria-label="Ten ballots; click one to flip its vote"></div>
+  <div class="readout"></div>
+  <p class="panel-title">Bob tries k = 0, 1, 2, … until 2ᵏ mod 23 equals the decrypted value</p>
+  <div class="c-lookup"></div>
+  <figcaption>Exponential ElGamal with \(p = 23\), \(g = 2\) and Bob's key \(x = 3\), \(h = 8\). Ballot
+  \(i\) is \((2^{y_i},\ 2^{v_i} \cdot 8^{y_i}) \bmod 23\) with a fresh \(y_i\) and the vote
+  \(v_i \in \{0, 1\}\). Anyone can multiply the ballots; the votes add up in the exponent, so the
+  product decrypts to \(2^{v_1 + \dots + v_{10}}\), and only that is ever decrypted. The search
+  works because the tally is small. Here it must also stay below \(q = 11\), which is why there are
+  ten voters.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-elgamal-tally';
+  const p = 23, g = 2, q = 11, x = 3;
+  const powmod = (b, e, m) => { let r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; b = b * b % m; e >>= 1; } return r; };
+  const inv = v => powmod(v, p - 2, p);
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = n => String(n).split('').map(d => SUP[+d]).join('');
+  const h = powmod(g, x, p);                                        // 8
+  const votes = [1, 0, 1, 1, 0, 0, 1, 0, 1, 0];
+  let seed = 7, ys = [];
+  const draw = () => { const R = DS.random(seed); ys = votes.map(() => 1 + R.int(q - 1)); };   // y in 1..10
+  draw();
+  const ballot = i => [powmod(g, ys[i], p), powmod(g, votes[i], p) * powmod(h, ys[i], p) % p];
+
+  const ui = DS.controls(root + ' .controls', () => { render(); });
+  ui.button({ label: 'New randomness', onClick: () => { seed++; draw(); } });
+
+  // the ten ballots: plain buttons in a grid
+  const box = document.querySelector(root + ' .ballots');
+  box.style.cssText = 'display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:2px 0 6px;max-width:34rem';
+  const buttons = votes.map((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.cssText = 'font:inherit;font-size:13px;line-height:1.35;padding:5px 2px;border-radius:8px;cursor:pointer;min-width:0;' +
+      'border:1px solid var(--line-strong);color:var(--fg);display:flex;flex-direction:column;align-items:center;gap:1px';
+    b.addEventListener('click', () => { votes[i] = 1 - votes[i]; render(); });
+    box.appendChild(b);
+    return b;
+  });
+
+  const lookup = DS.chart(root + ' .c-lookup', {
+    x: { type: 'band', domain: DS.math.range(q), label: 'k' },
+    y: { domain: [0, 20], label: '2ᵏ mod 23', ticks: 4 },
+    height: 200,
+    draw(c) {
+      const t = tally();
+      const target = powmod(g, t, p);
+      c.bars(DS.math.range(q).map(k => {
+        const v = powmod(g, k, p);
+        return { x: k, y: v, series: k === t ? 'good' : 'muted', opacity: k > t ? 0.3 : 1,
+                 tip: `2${sup(k)} mod 23 = ${v}` + (k < t ? ': no match' : k === t ? ': match, tally = ' + k : ': not needed') };
+      }), { maxWidth: 30 });
+      c.hline(target, { dash: true, series: 'ink' });
+      c.legend([{ label: 'tried, no match', series: 'muted', kind: 'rect' }, { label: 'first match: k = tally', series: 'good', kind: 'rect' },
+                { label: `decrypted value ${target}`, series: 'ink', kind: 'dash' }]);
+    },
+  });
+
+  function tally() {                                   // what Bob gets: decrypt the product, then search
+    let P1 = 1, P2 = 1;
+    votes.forEach((_, i) => { const [c1, c2] = ballot(i); P1 = P1 * c1 % p; P2 = P2 * c2 % p; });
+    const D = P2 * inv(powmod(P1, x, p)) % p;
+    for (let k = 0; k < q; k++) if (powmod(g, k, p) === D) return k;
+    return -1;
+  }
+
+  function render() {
+    let P1 = 1, P2 = 1;
+    buttons.forEach((b, i) => {
+      const [c1, c2] = ballot(i);
+      P1 = P1 * c1 % p; P2 = P2 * c2 % p;
+      b.setAttribute('aria-pressed', String(votes[i] === 1));
+      b.style.background = votes[i] ? 'color-mix(in srgb, var(--series-1) 16%, var(--bg))' : 'var(--bg)';
+      b.innerHTML = `<span style="font-size:11.5px;color:var(--fg-2)">voter ${i + 1}</span>` +
+        `<b>${votes[i] ? 'yes' : 'no'}</b><span style="font-variant-numeric:tabular-nums">(${c1}, ${c2})</span>`;
+    });
+    const back = powmod(P1, x, p), D = P2 * inv(back) % p, t = tally();
+    const truth = votes.reduce((s, v) => s + v, 0);
+    DS.stats(root + ' .readout', [
+      { label: 'Product of all ten ballots', value: `(${P1}, ${P2})`, note: 'component by component, mod 23' },
+      { label: 'Bob decrypts it', value: `${P2} · ${inv(back)} ≡ ${D}`, note: `c₁³ = ${P1}³ ≡ ${back}, inverse ${inv(back)}` },
+      { label: 'Search: 2ᵏ = ' + D + ' at', value: `k = ${t}`, tone: t === truth ? 'good' : 'bad',
+        note: `${t} yes votes out of 10` },
+    ]);
+    lookup.update();
+  }
+  render();
+})();
+</script>
