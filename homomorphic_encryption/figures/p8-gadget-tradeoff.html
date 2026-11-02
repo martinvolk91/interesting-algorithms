@@ -1,0 +1,76 @@
+<figure class="widget" id="w-p8-gadget-tradeoff">
+  <p class="widget-title">Choosing the base w: key size against noise</p>
+  <p class="widget-hint">Drag w from 2¹⁵ toward 2⁶⁰. The key shrinks only at 2²⁰, 2³⁰ and 2⁶⁰, but the noise grows all the way.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Noise after relinearizing (bits)</p><div class="c-noise"></div></div>
+    <div><p class="panel-title">Relinearization key size (KiB)</p><div class="c-key"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Measured on the script's toy BFV (\(N = 16\), \(q = 2^{60}\), part 5): the same product
+    ciphertext, relinearized with a fresh key for each base. A smaller base means more digits
+    \(\ell = \lceil 60 / \log_2 w \rceil\): a bigger key and more work, but less noise. For each
+    number of digits, the smallest base that gives it is the best choice.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p8-gadget-tradeoff';
+  // [log2 w, digits, key size in KiB, log2(noise after relinearization)], computed with
+  // code/primer/p8_relinearization.py (seed 8, the product x*y of part 2, a fresh key per base)
+  const W = [[1,60,14.06,9.3],[2,30,7.03,9.4],[3,20,4.69,9.5],[4,15,3.52,10.1],[5,12,2.81,10.6],[6,10,2.34,11.3],[7,9,2.11,11.9],[8,8,1.88,12.9],[9,7,1.64,15.1],[10,6,1.41,15.3],[11,6,1.41,16.2],[12,5,1.17,17.2],[13,5,1.17,18.5],[14,5,1.17,19.1],[15,4,0.94,19.7],[16,4,0.94,20.4],[17,4,0.94,21.9],[18,4,0.94,22.5],[19,4,0.94,23.7],[20,3,0.7,23.8],[21,3,0.7,25.6],[22,3,0.7,26.1],[23,3,0.7,28.4],[24,3,0.7,28.3],[25,3,0.7,28.9],[26,3,0.7,30.8],[27,3,0.7,30.8],[28,3,0.7,32.5],[29,3,0.7,33.8],[30,2,0.47,34.4],[31,2,0.47,34.7],[32,2,0.47,35.6],[33,2,0.47,37.1],[34,2,0.47,37.2],[35,2,0.47,38.5],[36,2,0.47,40.4],[37,2,0.47,40.3],[38,2,0.47,41.6],[39,2,0.47,42.6],[40,2,0.47,43.1],[41,2,0.47,44.4],[42,2,0.47,45.6],[43,2,0.47,46.5],[44,2,0.47,48.4],[45,2,0.47,49.3],[46,2,0.47,50.2],[47,2,0.47,50.4],[48,2,0.47,51.6],[49,2,0.47,52.4],[50,2,0.47,54.0],[51,2,0.47,55.3],[52,2,0.47,55.8],[53,2,0.47,57.3],[54,2,0.47,57.4],[55,2,0.47,58.5],[56,2,0.47,58.9],[57,2,0.47,58.9],[58,2,0.47,58.7],[59,2,0.47,59.0],[60,1,0.23,58.9]];
+  const BEFORE = 9.1, LIMIT = 55;            // noise of x*y before relinearizing; Δ/2 = 2^55
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '.': '·' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+  const row = lw => W[lw - 1];
+
+  const ui = DS.controls(root + ' .controls', () => { noise.update(); key.update(); readout(); });
+  const w = ui.slider({ label: 'Base w', min: 1, max: 60, step: 1, value: 15, format: pow2 });
+
+  const noise = DS.chart(root + ' .c-noise', {
+    x: { domain: [0, 60], label: 'log₂ w', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    y: { domain: [0, 62], label: 'log₂ noise', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    height: 260,
+    draw(c) {
+      c.polygon([[0, LIMIT], [60, LIMIT], [60, 62], [0, 62]], { series: 'bad', stroke: false });
+      c.hline(LIMIT, { series: 'bad' });
+      c.text(17, (LIMIT + 62) / 2, 'Δ/2: decryption fails', { baseline: 'middle', cls: 'ink2' });
+      c.hline(BEFORE, { dash: true, label: 'before relinearizing: 2⁹·¹' });
+      c.vline(15, { dash: true, label: 'script: 2¹⁵', labelPos: 'bottom' });
+      c.line(W.map(r => [r[0], r[3]]), { series: 1, label: 'noise after', format: v => pow2(v.toFixed(1)) });
+      const r = row(w.value);
+      c.point(r[0], r[3], { series: r[3] < LIMIT ? 1 : 'bad' });
+    },
+  });
+
+  const KMAX = 4;                            // KiB shown; bases 2¹–2³ need more (clipped)
+  const steps = [];
+  W.forEach(r => steps.push([r[0] - 0.5, r[2]], [r[0] + 0.5, r[2]]));
+  const key = DS.chart(root + ' .c-key', {
+    x: { domain: [0, 61], label: 'log₂ w', tickValues: [0, 10, 20, 30, 40, 50, 60] },
+    y: { domain: [0, KMAX], label: 'KiB' },
+    height: 260,
+    draw(c) {
+      c.area(steps, { series: 2 });
+      c.line(steps, { series: 2 });
+      const r = row(w.value), y = Math.min(r[2], KMAX);
+      c.point(r[0], y, { series: 2 });
+      const right = r[0] > 42;
+      c.text(r[0], y, `${r[1]} digit${r[1] > 1 ? 's' : ''}, ${r[2].toFixed(2)} KiB`,
+        { anchor: right ? 'end' : 'start', dx: right ? -8 : 8, dy: y > KMAX * 0.8 ? 16 : -14, cls: 'ink strong' });
+    },
+  });
+
+  function readout() {
+    const r = row(w.value), left = LIMIT - r[3];
+    DS.stats(root + ' .readout', [
+      { label: 'Digits ℓ', value: String(r[1]), note: `⌈60 / ${r[0]}⌉` },
+      { label: 'Key size', value: r[2].toFixed(2) + ' KiB', note: `${r[1]} keys × 2 × 16 × 60 bits` },
+      { label: 'Ring multiplications', value: String(2 * r[1]), note: 'per relinearization (2ℓ)' },
+      { label: 'Noise after', value: pow2(r[3].toFixed(1)), note: 'before: 2⁹·¹' },
+      { label: 'Budget left', value: DS.fmt(left, 1) + ' bits', tone: left > 0 ? 'good' : 'bad',
+        note: left > 0 ? 'decrypts correctly' : 'decryption fails' },
+    ]);
+  }
+  readout();
+})();
+</script>

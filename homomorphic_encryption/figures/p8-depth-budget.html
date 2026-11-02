@@ -1,0 +1,58 @@
+<figure class="widget" id="w-p8-depth-budget">
+  <p class="widget-title">Seven multiplications, two shapes: the budget follows depth</p>
+  <p class="widget-hint">Pick the base w of the relinearization key. At 2¹⁵ the chain runs out at depth 7. Try 2⁴ (the chain survives) and 2³⁰ (it fails at depth 5).</p>
+  <div class="controls"></div>
+  <div class="c-depth"></div>
+  <div class="readout"></div>
+  <figcaption>The script's toy BFV, part 6: eight fresh ciphertexts multiplied together as a chain
+    \(((x_1 x_2) x_3) \cdots x_8\) and as a balanced tree, seven multiplications each. Every point
+    is the noise budget after that level (for the tree, its worst ciphertext). The first
+    multiplication costs the most because relinearization adds its noise once, and w sets how
+    much. After that each level costs about 6–7 bits.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p8-depth-budget';
+  // Budgets in bits at depth 0..7 (chain) and 0..3 (tree), and whether each decrypts correctly,
+  // computed with code/primer/p8_relinearization.py (seed 8) with LOG_W set to each base.
+  const D = {"4":{"chain":[51.8,45.0,39.2,32.4,27.1,20.5,14.0,7.1],"chainOk":[1,1,1,1,1,1,1,1],"tree":[51.8,44.6,38.5,31.2],"treeOk":[1,1,1,1]},"10":{"chain":[52.0,40.4,34.1,27.3,21.4,14.9,9.5,3.9],"chainOk":[1,1,1,1,1,1,1,1],"tree":[52.0,39.9,34.3,27.6],"treeOk":[1,1,1,1]},"15":{"chain":[52.0,35.2,28.3,22.2,16.4,9.9,5.1,-1.6],"chainOk":[1,1,1,1,1,1,1,0],"tree":[52.0,35.2,27.7,20.8],"treeOk":[1,1,1,1]},"20":{"chain":[51.8,30.5,24.5,18.4,12.5,5.8,-2.0,-3.8],"chainOk":[1,1,1,1,1,1,0,0],"tree":[51.8,30.3,24.1,18.6],"treeOk":[1,1,1,1]},"30":{"chain":[52.0,20.6,14.1,8.4,1.9,-3.8,-4.0,-3.8],"chainOk":[1,1,1,1,1,0,0,0],"tree":[52.0,20.4,13.3,6.8],"treeOk":[1,1,1,1]}};
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const pow2 = e => '2' + String(e).split('').map(ch => SUP[ch]).join('');
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const w = ui.choice({ label: 'Base w of the relinearization key', value: 15,
+    options: [4, 10, 15, 20, 30].map(v => ({ value: v, label: pow2(v) })) });
+
+  const chart = DS.chart(root + ' .c-depth', {
+    x: { domain: [-0.3, 7.6], label: 'multiplicative depth', tickValues: [0, 1, 2, 3, 4, 5, 6, 7] },
+    y: { domain: [-10, 56], label: 'noise budget (bits)', tickValues: [0, 10, 20, 30, 40, 50] },
+    height: 300,
+    draw(c) {
+      const d = D[w.value];
+      c.polygon([[-0.3, 0], [7.6, 0], [7.6, -10], [-0.3, -10]], { series: 'bad', stroke: false });
+      c.hline(0, { series: 'bad', label: 'below 0: decryption fails', at: 'left' });
+      const pts = (ys, ok, s) => ys.map((y, i) => ({ x: i, y, series: ok[i] ? s : 'bad',
+        tip: `depth ${i}: ${DS.fmt(y, 1)} bits, ${ok[i] ? 'decrypts correctly' : 'wrong result'}` }));
+      c.line(d.chain.map((y, i) => [i, y]), { series: 2, label: 'chain', format: v => DS.fmt(v, 1) + ' bits' });
+      c.line(d.tree.map((y, i) => [i, y]), { series: 1, label: 'tree', format: v => DS.fmt(v, 1) + ' bits' });
+      c.scatter(pts(d.chain, d.chainOk, 2), { r: 4.5 });
+      c.scatter(pts(d.tree, d.treeOk, 1), { r: 4.5 });
+      c.text(3, d.tree[3], `tree done: ${DS.fmt(d.tree[3], 1)} bits left`, { anchor: 'start', dx: 8, dy: -16, cls: 'ink strong' });
+      c.legend([{ label: 'chain ((((((x₁x₂)x₃)x₄)x₅)x₆)x₇)x₈, depth 7', series: 2 },
+                { label: 'tree ((x₁x₂)(x₃x₄))((x₅x₆)(x₇x₈)), depth 3', series: 1 },
+                { label: 'wrong result', series: 'bad', kind: 'dot' }]);
+    },
+  });
+
+  function readout() {
+    const d = D[w.value], cOk = d.chainOk[7], tOk = d.treeOk[3];
+    DS.stats(root + ' .readout', [
+      { label: 'First multiplication costs', value: `${DS.fmt(d.tree[0] - d.tree[1], 1)} bits`, note: 'includes the relinearization noise' },
+      { label: 'Each later level costs', value: `${DS.fmt((d.tree[1] - d.tree[3]) / 2, 1)} bits`, note: 'tree, depth 1 to 3, on average' },
+      { label: 'Tree, depth 3', value: `${DS.fmt(d.tree[3], 1)} bits`, tone: tOk ? 'good' : 'bad', note: tOk ? 'decrypts correctly' : 'wrong result' },
+      { label: 'Chain, depth 7', value: `${DS.fmt(d.chain[7], 1)} bits`, tone: cOk ? 'good' : 'bad', note: cOk ? 'decrypts correctly' : 'wrong result' },
+    ]);
+  }
+  readout();
+})();
+</script>
