@@ -1,0 +1,80 @@
+<figure class="widget" id="w-dd-ckks-levels">
+  <p class="widget-title">Squaring 14 times: the bits of each result</p>
+  <p class="widget-hint">Switch rescaling off. The scale doubles in bits with every squaring and passes the modulus at the fourth one. With rescaling on, the message stays at Δ = 2⁶⁰ and each squaring costs one level.</p>
+  <div class="controls"></div>
+  <div class="c-bits"></div>
+  <div class="readout"></div>
+  <figcaption>Each row is one ciphertext of the toy's squaring chain, drawn as a ruler of bits: the decryption \(\Delta z + e\) has its error in the low bits and the message above it, inside the modulus \(Q_\ell\). With rescaling, the modulus shrinks by \(\log_2\Delta = 60\) bits per squaring and the error creeps up by one bit. Without it, the error grows just as slowly relative to the scale, but the scale itself squares. (Precision with rescaling is measured by <code>toy_ckks.py</code>; the rows without it use the same relative error.)</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-dd-ckks-levels';
+  const NS = 'http://www.w3.org/2000/svg';
+  const LOG_D = 60, LOG_Q0 = 74, L = 14, logQ = l => LOG_Q0 + LOG_D * l;
+  // max error of z^(2^d) is 2^-PREC[d] (toy_ckks.py, seed 1); d = 0 is the fresh ciphertext
+  const PREC = [48.18, 47.06, 46.06, 44.74, 43.7, 42.7, 41.7, 40.69, 39.69, 38.68, 37.68, 36.68, 35.68, 34.68, 33.68];
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const sup = v => [...String(v)].map(c => SUP[c]).join('');
+  const rowLabel = d => d === 0 ? 'fresh z' : 'z' + sup(2 ** d);
+
+  const ui = DS.controls(root + ' .controls', () => { chart.update(); readout(); });
+  const mode = ui.choice({ label: 'After each multiplication', options: [
+    { value: 'on', label: 'rescale by Δ' }, { value: 'off', label: 'don’t rescale' }], value: 'on' });
+
+  function rect(c, b0, b1, d, cls) {       // a horizontal bar from bit b0 to bit b1 in row d
+    const x0 = c.x(b0), x1 = c.x(Math.min(b1, c.x.domain[1])), y0 = c.y(d - 0.34), y1 = c.y(d + 0.34);
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', x0); r.setAttribute('width', Math.max(0, x1 - x0));
+    r.setAttribute('y', Math.min(y0, y1)); r.setAttribute('height', Math.abs(y1 - y0));
+    r.setAttribute('class', cls);
+    c.gData.appendChild(r);
+    return r;
+  }
+
+  const chart = DS.chart(root + ' .c-bits', {
+    x: { domain: [0, 920], label: 'bits' },
+    y: { domain: [L + 0.6, -0.6], tickValues: DS.math.range(L + 1), format: rowLabel, grid: false },
+    height: 390, margin: { l: 58, r: 58, t: 26 },
+    draw(c) {
+      c.legend([{ label: 'error e', series: 2, kind: 'rect' }, { label: 'message bits', series: 1, kind: 'rect' },
+        { label: 'modulus at this level', series: 'muted', kind: 'rect' }]);
+      const on = mode.value === 'on';
+      c.text(920, -1.25, on ? 'precision' : 'scale', { dx: 6, cls: 'ink2' });
+      for (let d = 0; d <= L; d++) {
+        const q = on ? logQ(L - d) : logQ(L);
+        const scale = on ? LOG_D : LOG_D * 2 ** d;
+        const err = scale - PREC[d];
+        const over = !on && scale > q;
+        if (!on && d > 4) {
+          if (d === 9) c.text(460, d, 'nothing left to square', { anchor: 'middle', baseline: 'middle', cls: 'ink2' });
+          continue;
+        }
+        const m = rect(c, 0, q, d, 'wash fmuted'); m.setAttribute('stroke', 'var(--axis)');
+        if (over) {
+          rect(c, 0, 920, d, 'bar fbad').setAttribute('fill-opacity', 0.55);
+          c.text(460, d, `scale 2${sup(scale)} > Q: wraps around`, { anchor: 'middle', baseline: 'middle', cls: 'ink strong' });
+          c.text(920, d, '—', { dx: 6, baseline: 'middle', cls: 'ink2' });
+          continue;
+        }
+        rect(c, 0, err, d, 'bar f2');
+        rect(c, err, scale, d, 'bar f1');
+        c.text(920, d, on ? PREC[d].toFixed(1) : '2' + sup(scale), { dx: 6, baseline: 'middle', cls: 'ink2' });
+      }
+    },
+  });
+
+  function readout() {
+    if (mode.value === 'on') DS.stats(root + ' .readout', [
+      { label: 'Squarings done', value: String(L) },
+      { label: 'Levels left', value: '0', note: `modulus 2${sup(logQ(L))} → q₀ = 2${sup(LOG_Q0)}` },
+      { label: 'Precision left', value: PREC[L].toFixed(1) + ' bits', note: `from ${PREC[0].toFixed(1)} bits fresh` },
+    ]);
+    else DS.stats(root + ' .readout', [
+      { label: 'Squarings done', value: '3', note: 'the 4th overflows' },
+      { label: 'Scale after 4 squarings', value: `2${sup(LOG_D * 16)}`, note: `modulus Q = 2${sup(logQ(L))}`, tone: 'bad' },
+      { label: 'Precision left', value: 'none', note: 'the message wraps mod Q', tone: 'bad' },
+    ]);
+  }
+  readout();
+})();
+</script>
