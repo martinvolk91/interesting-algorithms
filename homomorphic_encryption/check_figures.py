@@ -51,7 +51,9 @@ def chrome(*args):
 
 def console_errors(url):
     run = chrome("--enable-logging=stderr", "--v=0", "--dump-dom", url)
-    return [l for l in run.stderr.splitlines() if "CONSOLE" in l or "Uncaught" in l]
+    # "Slow network is detected" is Chrome noting slow KaTeX font loads, not a page error
+    return [l for l in run.stderr.splitlines()
+            if ("CONSOLE" in l or "Uncaught" in l) and "Slow network" not in l]
 
 
 def main(argv):
