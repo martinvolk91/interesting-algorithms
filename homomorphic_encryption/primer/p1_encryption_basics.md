@@ -593,7 +593,10 @@ $\langle a, s \rangle + e$ is that structure.
 4. No: there are only $2^{128}$ keys and far more possible files. An unbounded attacker tries all
    keys, and only one gives a sensible file. It does not matter because $2^{128}$ operations are
    about $10^{10}$ years even at Bitcoin-network scale. The security is computational.
-5. $25 + 574 = 599$. The key is $905 + 234 = 1139 \equiv 139$, and $599 - 139 = 460 = 120 + 340$.
+5. $25 + 574 = 599$. The key is $905 + 234 = 1139 \equiv 139$, and $599 - 139 = 460$. That is
+   the sum of the two messages: decrypting each ciphertext on its own gives
+   $m_1 = 25 - 905 = -880 \equiv 120$ and $m_2 = 574 - 234 = 340$, and $120 + 340 = 460$. The
+   server added the messages without seeing either.
 6. $2^{80} \approx 1.2 \times 10^{24}$ operations take about $1.2 \times 10^{3}$ s, some
    20 minutes, at $10^{21}$ per second. $2^{128}$ is $2^{48} \approx 3 \times 10^{14}$ times more:
    about $10^{10}$ years. Each bit doubles the work, so the 48-bit gap is decisive.

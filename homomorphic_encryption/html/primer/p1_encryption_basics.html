@@ -1079,7 +1079,10 @@ so thoroughly that no algebra survives (P2). <abbr title="homomorphic encryption
    about \(10^{10}\) years even at Bitcoin-network scale. The security is computational.</p></div></details></li>
 <li>With the pad mod 1000, \(c_1 = 25\) (key 905) and \(c_2 = 574\) (key 234). The server returns
    \(c_1 + c_2 \bmod 1000\). What is that ciphertext, which key decrypts it, and to what?
-<details class="answer"><summary>Show answer</summary><div><p>\(25 + 574 = 599\). The key is \(905 + 234 = 1139 \equiv 139\), and \(599 - 139 = 460 = 120 + 340\).</p></div></details></li>
+<details class="answer"><summary>Show answer</summary><div><p>\(25 + 574 = 599\). The key is \(905 + 234 = 1139 \equiv 139\), and \(599 - 139 = 460\). That is
+   the sum of the two messages: decrypting each ciphertext on its own gives
+   \(m_1 = 25 - 905 = -880 \equiv 120\) and \(m_2 = 574 - 234 = 340\), and \(120 + 340 = 460\). The
+   server added the messages without seeing either.</p></div></details></li>
 <li>Why is 80-bit security no longer acceptable while 128-bit is? Use the rate of
    \(10^{21}\) operations per second.
 <details class="answer"><summary>Show answer</summary><div><p>\(2^{80} \approx 1.2 \times 10^{24}\) operations take about \(1.2 \times 10^{3}\) s, some
