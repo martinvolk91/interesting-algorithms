@@ -13,6 +13,8 @@ stopped with a message authentication code (MAC). For HE it is the whole point.
 
 **In this chapter** you will learn to:
 
+- say what a mode of operation is and where it sits around AES, and run ECB, CBC and CTR by
+  hand on a 4-bit toy block cipher;
 - explain why encrypting block by block (electronic codebook, ECB) leaks, and see the leak in a
   picture;
 - use cipher block chaining (CBC) and counter mode (CTR) correctly, and say what an
@@ -27,27 +29,109 @@ stopped with a message authentication code (MAC). For HE it is the whole point.
 `homomorphic_encryption/` folder with `python3 code/primer/p3_modes.py`. Its output is split
 into numbered parts, and the text says which part shows what.
 
-## 1. What a block cipher alone cannot do
+## 1. What a mode of operation is
 
-A block cipher ([P2](p2_aes.md)) is a keyed permutation of 16-byte blocks. Two things are
-missing before it can encrypt messages:
+AES ([P2](p2_aes.md)) does exactly one thing: it takes a key and one 16-byte block and returns
+another 16-byte block. It knows nothing about messages, files or lengths, and it does not
+remember earlier calls: the same key and the same block always give the same output.
+
+A useful picture: fix the key, and AES becomes a giant secret look-up table, a **codebook**.
+The left column lists every possible 16-byte block ($2^{128}$ rows), the right column its
+encryption. Every block appears exactly once in the right column, so the book can be read both
+ways: left to right is encryption $E_K$, right to left is decryption $D_K$. A different key
+gives a completely different book, and without the key nobody can read it. (Such a table is a
+**permutation**: a shuffle of all possible blocks.)
+
+Real messages are not 16 bytes long: an email, a 3 MB photo, a video call. A **mode of
+operation** is the recipe for using the one-block machine on a whole message. It decides:
+
+1. **how to cut** the message into 16-byte blocks, and how to fill up the last one;
+2. **what goes into AES** for each block: the message block itself, the message block mixed
+   with something else, or just a counter;
+3. **what to do with what comes out**: send it as the ciphertext, or combine it with the message
+   by exclusive or (XOR, $\oplus$), as the one-time pad of
+   [P1](p1_encryption_basics.md#4-the-one-time-pad) does;
+4. **which extra value travels with the ciphertext**: an initialization vector (IV) or a nonce,
+   so that the same message never encrypts the same way twice.
+
+The mode never changes AES itself. AES is the engine and the mode is the wiring around it,
+calling AES once per block:
+
+```text
+  message, any length (14 bytes, a 3 MB photo, a video stream)
+     |
+     v
+ +--------------------------------------------------------------+
+ | mode of operation: ECB, CBC or CTR (§2 to §4)                |
+ | cuts the message into blocks, adds an IV or a nonce,         |
+ | decides what goes into AES and what to do with the output    |
+ |                                                              |
+ |            +----------------------------------+              |
+ |    ------> | AES, E_K: 16 bytes in, 16 out    | ------>      |
+ |            | key schedule and 10 rounds (P2)  |              |
+ |            +----------------------------------+              |
+ |                    called once per block                     |
+ +--------------------------------------------------------------+
+     |
+     v
+  ciphertext, plus the IV or nonce (sent in the clear)
+```
+
+This is why AES never appears on its own in practice. A name like **AES-256-GCM** reads as:
+block cipher AES, 256-bit key, mode GCM (§10). The command `openssl enc -aes-128-cbc` means AES
+with a 128-bit key in CBC mode. The bare one-block AES of P2 is only ever used inside a mode.
+
+A mode has two jobs:
 
 - **Length.** Messages have any length. They must be cut into blocks, and the last block must
-  be filled up.
+  be filled up (padding, below).
 - **Repetition.** $E_K$ is a fixed function. Encrypt the same block twice and you get the same
-  ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat.
-  Think of a "yes"/"no" vote, a status field, or a file header.
+  ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat,
+  without reading any of them. Real data repeats all the time: a "yes"/"no" vote, a status
+  field, a file header, a payroll file in which many people earn the same salary, the large
+  single-colour areas of a picture.
 
-A **mode of operation** fixes both. The National Institute of Standards and Technology (NIST)
-standardizes five confidentiality modes in its Special Publication (SP) 800-38A (2001): ECB,
-CBC, cipher feedback (CFB), output feedback (OFB) and CTR. This chapter covers ECB (what not to
-do), CBC and CTR. CFB and OFB are close relatives of CBC and CTR.
+The National Institute of Standards and Technology (NIST) standardizes five confidentiality
+modes in its Special Publication (SP) 800-38A (2001): ECB, CBC, cipher feedback (CFB), output
+feedback (OFB) and CTR. This chapter covers ECB (what not to do), CBC and CTR. CFB and OFB are
+close relatives of CBC and CTR.
 
 **Padding.** Modes that work on whole blocks (ECB, CBC) need padding. The usual rule, **PKCS#7**
 (from the Public-Key Cryptography Standards), appends $n$ bytes each of value $n$, where
 $1 \le n \le 16$ is the number needed to reach a multiple of 16. "attack at dawn" has 14 bytes,
 so it gets `02 02`. A message that already fills whole blocks gets a full extra block of sixteen
 `10` bytes (hex 10 = 16), so the receiver can always remove the padding unambiguously.
+
+### A toy block cipher to follow by hand
+
+AES's codebook has $2^{128}$ rows, far too many to print. To watch each mode work step by step,
+§2 to §4 use a **toy block cipher with 4-bit blocks**: each block is one hexadecimal digit, 0 to
+F. Its whole codebook, for our key $K$, fits on one line:
+
+```text
+x        0 1 2 3 4 5 6 7 8 9 A B C D E F
+E_K(x)   C E F 7 6 2 0 3 D 1 8 5 9 4 A B
+```
+
+- **Encrypting is a look-up:** $E_K(7) = 3$.
+- **Decrypting reads the table backwards:** $D_K(3) = 7$, because 3 sits under 7. Every value
+  appears exactly once in the bottom row, so this always works.
+- **Another key gives another shuffle** of the 16 values.
+
+AES is exactly this, with $2^{128}$ entries instead of 16, and with the key schedule and the ten
+rounds computing any entry on demand instead of storing the table. The toy is hopeless as real
+encryption (a handful of known plaintext and ciphertext pairs fills in its table), but it is
+just right for seeing the wiring.
+
+The message is one row of a black-and-white picture: six pixels, one pixel per block,
+dark = 0 and light = F.
+
+```text
+P = 0 0 F F 0 0        dark, dark, light, light, dark, dark
+```
+
+It repeats, as real data does. Each mode below encrypts it, and the question each time is:
+**what does an eavesdropper see?**
 
 ## 2. ECB and the penguin
 
@@ -61,11 +145,26 @@ The obvious mode is **electronic codebook (ECB)**: encrypt each block on its own
      C1          C2          C3          C_i = E_K(P_i)
 ```
 
-ECB is a giant codebook: each 16-byte plaintext block always maps to the same 16-byte
-ciphertext block. Equal plaintext blocks give equal ciphertext blocks, anywhere in a message and
-across all messages under the same key. The famous illustration is the "ECB penguin": a bitmap
-of the Linux mascot encrypted in ECB mode is still plainly a penguin, because large areas of the
-same colour become large areas of the same ciphertext.
+**On the toy.** Look up each block in the table:
+
+```text
+block i            1  2  3  4  5  6
+P_i                0  0  F  F  0  0
+C_i = E_K(P_i)     C  C  B  B  C  C
+```
+
+From C alone, the eavesdropper cannot tell that a pixel is dark. But they see that blocks 1
+and 2 are equal, that blocks 3 and 4 are equal to each other but different, and that blocks 5
+and 6 equal the first two: the exact shape of the row. Send the same row again tomorrow and
+they see `C C B B C C` again, so they also learn that you repeated yourself. That is the
+codebook in the name: a block value always looks up the same entry.
+
+With real AES it is the same, only bigger: each 16-byte plaintext block always maps to the same
+16-byte ciphertext block, anywhere in a message and across all messages under the same key.
+Encrypt a payroll table field by field in ECB, and everyone with the same salary has the same
+ciphertext. The famous illustration is the "ECB penguin": a bitmap of the Linux mascot
+encrypted in ECB mode is still plainly a penguin, because large areas of the same colour become
+large areas of the same ciphertext.
 
 [Part 2 of the script](../code/primer/p3_modes.py) does the same with a small padlock. To keep
 the picture tiny, each pixel is a whole 16-byte block (in a real bitmap, one block covers a few
@@ -95,9 +194,11 @@ uses other NIST standards explicitly allow.
 
 ## 3. CBC: chaining with a random IV
 
-**Cipher block chaining (CBC)** combines each plaintext block with the previous ciphertext block
-by exclusive or (XOR, $\oplus$) before encrypting it. The first block is XORed with an
-**initialization vector (IV)**, a fresh random block for every message:
+**Cipher block chaining (CBC)** fixes ECB's problem at its root. In ECB, equal message blocks
+go into AES as equal inputs, so they come out equal. CBC makes sure that AES practically never
+sees the same input twice: before encrypting a block, it XORs it with the previous *ciphertext*
+block, which looks random. The first block has no previous ciphertext block, so it is XORed with
+the **IV**, a fresh random block for every message:
 
 ```text
            P1              P2              P3
@@ -111,9 +212,38 @@ by exclusive or (XOR, $\oplus$) before encrypting it. The first block is XORed w
 
 $$C_0 = \mathit{IV}, \qquad C_i = E_K(P_i \oplus C_{i-1}), \qquad P_i = D_K(C_i) \oplus C_{i-1}.$$
 
+**On the toy**, with IV = 7:
+
+```text
+block i                      1  2  3  4  5  6
+P_i                          0  0  F  F  0  0
+C_{i-1}  (C_0 = IV)          7  3  7  D  F  B
+P_i XOR C_{i-1}              7  3  8  2  F  B     <- what E_K actually sees
+C_i = E_K(P_i XOR C_{i-1})   3  7  D  F  B  5
+```
+
+Block by block:
+
+- **Block 1:** $0 \oplus 7 = 7$ (0000 ⊕ 0111 = 0111), and $E_K(7) = 3$, so $C_1 = 3$.
+- **Block 2:** $C_1$ now plays the role of the IV: $0 \oplus 3 = 3$, and $E_K(3) = 7$. The
+  message block is the same as in block 1, but $E_K$ saw 3 instead of 7, so the output differs.
+- **Block 3:** $F \oplus 7$ = 1111 ⊕ 0111 = 1000 = 8, and $E_K(8) = D$.
+- **Blocks 4 to 6** continue the chain: each ciphertext block is mixed into the next message
+  block before it goes into $E_K$.
+
+The eavesdropper sees `7 | 3 7 D F B 5`: the IV in the clear, then six different values. The
+shape of the row is gone. Encrypt the same row again with a fresh IV, say A, and they see
+`A | 8 D F C 9 1`, so they cannot even tell that it is the same message. (With only 16 possible
+values, the toy's chained inputs sometimes collide by chance; with $2^{128}$ values they
+practically never do.)
+
+**Decryption** reads the table backwards, then removes the mixing: $P_i = D_K(C_i) \oplus C_{i-1}$.
+For block 3: $D_K(D) = 8$ (D sits under 8), and $8 \oplus C_2 = 8 \oplus 7 = F$. The receiver
+has every $C_{i-1}$, since they are all part of the ciphertext.
+
 The IV is sent in the clear with the ciphertext. Because it is random, the same message
 encrypts differently every time, and equal plaintext blocks inside a message are blended with
-different predecessors. In the picture above ([part 2 of the script](../code/primer/p3_modes.py)),
+different predecessors. In the padlock picture of §2 ([part 2 of the script](../code/primer/p3_modes.py)),
 all 234 CBC blocks are different.
 
 What CBC needs and what it costs:
@@ -122,8 +252,9 @@ What CBC needs and what it costs:
   before it is used. Transport Layer Security (TLS) 1.0 used the last ciphertext block of the
   previous record as the next IV, which an attacker could predict; the BEAST attack (2011)
   exploited exactly that.
-- **Encryption is sequential** (each block waits for the previous one); decryption can run in
-  parallel.
+- **Encryption is sequential**: each block waits for the previous one (on the toy, $C_3$ needs
+  $C_2$, which needs $C_1$). Decryption can run in parallel, because all the $C_{i-1}$ are
+  already there.
 - **Padding is needed, and padding errors leak.** Vaudenay (2002) showed that if a receiver
   reveals whether the padding of a decrypted message was valid (by an error message, or just by
   timing), an attacker can decrypt any ciphertext byte by byte by submitting modified versions.
@@ -147,25 +278,85 @@ P0 ->(+)       P1 ->(+)       P2 ->(+)
       C0             C1             C2          C_i = P_i XOR S_i
 ```
 
-(Blocks are numbered from 0 here, to match the counter.)
+(Blocks are numbered from 0 here, to match the counter. $\|$ means "followed by".)
+
+The inputs to AES are all different, so its outputs are all different and look random, whatever
+the message contains. Repetitions in the message cannot show through, because every block is
+XORed with a different piece of pad.
+
+**On the toy.** A counter block has to fit into one 4-bit block, so the toy splits its 4 bits
+into **1 nonce bit ‖ 3 counter bits** (written `0|000` in the table). That is the same layout as real CTR, only smaller: the
+script uses an 8-byte nonce ‖ an 8-byte counter. The first message under the key gets nonce 0:
+
+```text
+block i                    0      1      2      3      4      5
+counter block            0|000  0|001  0|010  0|011  0|100  0|101    (0 to 5)
+keystream S_i = E_K(..)    C      E      F      7      6      2
+P_i                        0      0      F      F      0      0
+C_i = P_i XOR S_i          C      E      0      8      6      2
+```
+
+For example, block 3: $F \oplus 7$ = 1111 ⊕ 0111 = 1000 = 8.
+
+- **AES never sees the message.** It only encrypts the counter blocks 0 to 5. The pad changes
+  every block, so the message's repetitions do not show: the eavesdropper sees
+  `0 | C E 0 8 6 2`.
+- **The next message uses nonce 1**: counter blocks 1‖000 to 1‖101 (8 to D), keystream
+  `D 1 8 5 9 4`. The same row now encrypts to `1 | D 1 7 A 9 4`.
+- **Decryption is the same operation.** The receiver rebuilds $S_i$ from the nonce and the
+  counter and XORs again: $C_i \oplus S_i = P_i \oplus S_i \oplus S_i = P_i$. Block 3:
+  $8 \oplus 7 = F$. The table is only ever read forwards; $D_K$ is never needed.
+- **The pad does not depend on the message**, so it can be computed in advance and in parallel,
+  and block 4 can be decrypted without touching the others.
+- **The toy's nonce has one bit**, so its key can encrypt just two messages. A third would have
+  to reuse a nonce, and §5 shows what that costs. The script's 8-byte nonce allows $2^{64}$
+  messages, AES-GCM's 12-byte nonce $2^{96}$.
 
 This is the stream cipher of
 [P1 §7](p1_encryption_basics.md#7-stream-ciphers-growing-a-short-key-into-a-long-pad): a short
 key stretched into a long pseudorandom pad, then XORed with the message, a computational
-one-time pad. Decryption is the same operation (XOR the same keystream again). Practical
-advantages: no padding (cut the last keystream block short), every block is independent
-(parallel, random access), and only $E_K$ is ever used, never $D_K$.
+one-time pad. Practical advantages: no padding (cut the last keystream block short), every
+block is independent (parallel, random access), and only $E_K$ is ever used, never $D_K$.
 
 The **counter block** must never repeat under one key. Each message gets a **nonce** ("number
-used once"), and the block counter runs within the message. The toy uses an 8-byte nonce and an
-8-byte block counter; AES-GCM uses a 12-byte nonce and a 4-byte counter. A nonce need not be
+used once"), and the block counter runs within the message. The script uses an 8-byte nonce and
+an 8-byte block counter; AES-GCM uses a 12-byte nonce and a 4-byte counter. A nonce need not be
 random or secret, only unique: a message counter is fine.
+
+### The three modes side by side
+
+The figure runs the toy row through all three modes. The $E_K$ boxes are the same table every
+time; only the wiring around them changes.
+
+<!-- figure: p3-toy-modes -->
+
+| | ECB | CBC | CTR |
+|---|---|---|---|
+| What goes into $E_K$ | the message block | message block ⊕ previous ciphertext block | nonce ‖ counter |
+| What comes out of $E_K$ | the ciphertext block | the ciphertext block | pad, XORed onto the message |
+| Equal message blocks | give equal ciphertext blocks | give different ones | give different ones |
+| The same message sent twice | gives the same ciphertext | differs (fresh IV) | differs (fresh nonce) |
+| Decryption uses | $D_K$ | $D_K$ | $E_K$ only |
+| The toy row `0 0 F F 0 0` | `C C B B C C` | IV 7, then `3 7 D F B 5` | nonce 0, then `C E 0 8 6 2` |
 
 | Mode | Per-message value | Requirement | Padding | Parallel encryption | Malleable |
 |---|---|---|---|---|---|
 | ECB | none | (deterministic) | yes | yes | blocks can be swapped or replayed |
 | CBC | IV, 16 bytes | unpredictable | yes | no (decryption yes) | yes, with collateral damage |
 | CTR | nonce | unique | no | yes | yes, bit by bit |
+
+Where you meet each mode today:
+
+- **ECB:** hardly ever for data, and NIST is restricting it (§2). Encrypting a *single* block
+  with AES is fine: CTR itself is ECB applied to counter blocks, which never repeat.
+- **CBC:** older protocols and file formats, and TLS up to version 1.2. TLS 1.3 (2018) dropped
+  it, partly because of the padding oracle attacks above.
+- **CTR:** everywhere, but almost always inside an authenticated mode that adds a MAC (§8 to
+  §10). AES-GCM, which is CTR plus an authenticator, protects much of today's HTTPS traffic;
+  SSH (Secure Shell) offers AES-GCM and plain AES-CTR; Wi-Fi Protected Access (WPA2 and WPA3)
+  uses AES-CCM (counter with CBC-MAC), again CTR plus a MAC.
+- Disk encryption uses yet another mode, XTS (NIST SP 800-38E), built to encrypt each disk
+  sector in place, with no room for an IV.
 
 [Part 1 of the script](../code/primer/p3_modes.py) checks its CBC and CTR against the official
 test vectors of SP 800-38A (F.2.1 and F.5.1), and part 3 shows that both modes randomize:
@@ -492,6 +683,8 @@ Things to try:
 5. Why encrypt-then-MAC rather than MAC-then-encrypt? Why two separate keys?
 6. Why can't a server that computes on HE ciphertexts return results protected by AES-GCM-style
    authentication? What does that mean for a client that does not trust the server?
+7. With the toy block cipher of §1, encrypt the two-block message `5 5` in ECB, in CBC with
+   IV = 3, and in CTR with nonce 1. Which ciphertext shows that the two blocks are equal?
 
 **Answers**
 
@@ -522,18 +715,25 @@ Things to try:
    integrity guarantee. A client that does not trust the server needs extra machinery:
    verifiable computation (proofs of correct evaluation), redundancy across independent
    servers, or trusted hardware.
+7. ECB: $E_K(5) = 2$ for both blocks, so `2 2`. CBC: $5 \oplus 3 = 6$ and $E_K(6) = 0$, then
+   $5 \oplus 0 = 5$ and $E_K(5) = 2$, so `3 | 0 2` (the IV first). CTR: the counter blocks are
+   1‖000 = 8 and 1‖001 = 9, the keystream is $E_K(8) = D$ and $E_K(9) = 1$, and
+   $5 \oplus D$ = 0101 ⊕ 1101 = 1000 = 8 and $5 \oplus 1 = 4$, so `1 | 8 4`. Only ECB's `2 2`
+   shows the repetition.
 
 ## 14. Key terms
 
 | Term | Meaning |
 |---|---|
-| Mode of operation | Rule for using a block cipher on messages of any length |
+| Codebook | A block cipher with a fixed key, seen as a table from every block to its encryption |
+| Mode of operation | Rule for using a block cipher on messages of any length: what goes into it, what comes out, which IV or nonce travels along |
 | PKCS#7 padding | Append $n$ bytes of value $n$ to reach a whole number of blocks |
 | ECB | Encrypt each block independently; deterministic, leaks equal blocks |
 | CBC | XOR each block with the previous ciphertext block before encrypting; needs a random IV |
 | Initialization vector (IV) | Per-message random block for CBC; public but unpredictable |
 | CTR | Encrypt a counter to make a keystream and XOR it with the message |
 | Nonce | Per-message value that must never repeat under a key; need not be random |
+| Counter block | CTR's input to the block cipher: nonce followed by the block counter |
 | Keystream | The pad $E_K(\mathit{nonce} \Vert i)$ that CTR XORs with the message |
 | Two-time pad | Reusing a keystream: $C_1 \oplus C_2 = P_1 \oplus P_2$ |
 | Randomized encryption | Encrypting the same message twice gives different ciphertexts; required for IND-CPA |

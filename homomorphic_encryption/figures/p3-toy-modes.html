@@ -1,0 +1,145 @@
+<figure class="widget" id="w-p3-toy-modes">
+  <style>
+    #w-p3-toy-modes svg { display: block; width: 100%; max-width: 620px; height: auto; margin: 0 auto 6px; font-family: var(--font); }
+    #w-p3-toy-modes svg text { fill: var(--ink); font-size: 16px; }
+    #w-p3-toy-modes svg text.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; }
+    #w-p3-toy-modes svg text.ctr { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+    #w-p3-toy-modes svg text.wv { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; fill: var(--ink-2); }
+    #w-p3-toy-modes svg text.lab { font-size: 17px; font-weight: 600; fill: var(--ink-2); }
+    #w-p3-toy-modes svg text.px-dark { fill: #ffffff; }
+    #w-p3-toy-modes svg text.px-light { fill: #1f2328; }
+    #w-p3-toy-modes svg .pix { cursor: pointer; }
+  </style>
+  <p class="widget-title">One toy row through three modes</p>
+  <p class="widget-hint">Switch the mode and press Encrypt again. Click a pixel of the message to flip it between dark (0) and light (F).</p>
+  <div class="controls"></div>
+  <svg viewBox="0 0 520 252" role="img" aria-label="Six 4-bit message blocks encrypted with the toy block cipher in the chosen mode: the message blocks, the E_K boxes, the XOR and chaining wires of CBC and CTR, and the ciphertext blocks."></svg>
+  <div class="readout"></div>
+  <figcaption>The toy block cipher of §1: 4-bit blocks and one fixed key, so \(E_K\) is the 16-entry table in the text. ECB puts each message block straight into \(E_K\). CBC first XORs it with the previous ciphertext block (the IV for the first block), so \(E_K\) sees the values written beside its input wires. CTR feeds \(E_K\) only the counter blocks, nonce bit | 3 counter bits, and XORs the outputs written beside the wires onto the message. Each ciphertext value has its own colour, so repeats stand out. The toy's nonce has a single bit, so a third CTR message under the key has to reuse one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-toy-modes';
+  const E = [0xC, 0xE, 0xF, 0x7, 0x6, 0x2, 0x0, 0x3, 0xD, 0x1, 0x8, 0x5, 0x9, 0x4, 0xA, 0xB];   // the toy table of §1
+  const H = v => v.toString(16).toUpperCase();
+  const START = [0, 0, 15, 15, 0, 0];
+  const IVS = [7, 10];                                         // the IVs of §3; later ones are random
+  const R = DS.random(3);
+  let msg = START.slice(), ivAt = 0, iv = IVS[0], sent = 0;     // sent: CTR messages so far under this key
+  let prev = null, lastMode = null;
+
+  function encrypt(mode) {
+    if (mode === 'ECB') return { into: msg.slice(), ct: msg.map(p => E[p]) };
+    if (mode === 'CBC') {
+      const into = [], ct = []; let c = iv;
+      msg.forEach(p => { into.push(p ^ c); c = E[p ^ c]; ct.push(c); });
+      return { into, ct };
+    }
+    const nonce = sent % 2, into = msg.map((_, i) => (nonce << 3) | i), pad = into.map(x => E[x]);
+    return { nonce, into, pad, ct: msg.map((p, i) => p ^ pad[i]) };
+  }
+
+  // ---------------------------------------------------------------- drawing
+  const NS = 'http://www.w3.org/2000/svg', svg = document.querySelector(root + ' svg');
+  const X = [130, 202, 274, 346, 418, 490], CY = 206;
+  function add(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  function wire(pts) {
+    add('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: 'var(--line-strong)', 'stroke-width': 1.5, 'stroke-linejoin': 'round' });
+    const [x0, y0] = pts[pts.length - 2], [x1, y1] = pts[pts.length - 1], a = Math.atan2(y1 - y0, x1 - x0), L = 7;
+    const p1 = [x1 - L * Math.cos(a - 0.45), y1 - L * Math.sin(a - 0.45)], p2 = [x1 - L * Math.cos(a + 0.45), y1 - L * Math.sin(a + 0.45)];
+    add('polygon', { points: [[x1, y1], p1, p2].map(p => p.join(',')).join(' '), fill: 'var(--line-strong)' });
+  }
+  function cell(x, y, w, h, text, fill, cls) {
+    add('rect', { x: x - w / 2, y, width: w, height: h, rx: 5, fill, stroke: 'var(--line-strong)', 'stroke-width': 1.2 });
+    add('text', { x, y: y + h / 2 + 6, 'text-anchor': 'middle', class: cls || 'mono' }, text);
+  }
+  function pixel(i, x, y, w, h) {                              // a clickable message block
+    const dark = msg[i] === 0;
+    cell(x, y, w, h, H(msg[i]), dark ? '#24292f' : '#f6f8fa', dark ? 'mono px-dark' : 'mono px-light');   // pixels keep their shade in dark mode
+    const hit = add('rect', { x: x - w / 2, y, width: w, height: h, fill: 'transparent', class: 'pix' });
+    hit.addEventListener('click', () => { msg[i] ^= 15; prev = null; render(); });
+  }
+  function ebox(x, y) {
+    add('rect', { x: x - 24, y, width: 48, height: 30, rx: 6, fill: 'var(--bg)', stroke: 'var(--line-strong)', 'stroke-width': 1.5 });
+    const t = add('text', { x: x - 3, y: y + 21, 'text-anchor': 'middle' }, 'E');
+    const s = document.createElementNS(NS, 'tspan'); s.setAttribute('font-size', '12'); s.setAttribute('dy', '3'); s.textContent = 'K'; t.appendChild(s);
+  }
+  function xor(x, y) {
+    add('circle', { cx: x, cy: y, r: 10, fill: 'var(--bg)', stroke: 'var(--line-strong)', 'stroke-width': 1.5 });
+    add('path', { d: `M${x - 5.5},${y}h11M${x},${y - 5.5}v11`, stroke: 'var(--ink)', 'stroke-width': 1.5 });
+  }
+  const colour = v => `hsla(${(v * 7 % 16) * 22.5}, 75%, 50%, 0.3)`;   // neighbouring values get distant hues
+
+  function draw(mode, r) {
+    svg.textContent = '';
+    add('text', { x: 4, y: CY + 23, class: 'lab' }, 'ciphertext');
+    if (mode === 'ECB') {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'message');
+      X.forEach((x, i) => { wire([[x, 54], [x, 104]]); ebox(x, 104); wire([[x, 134], [x, CY]]); pixel(i, x, 18, 44, 36); });
+    } else if (mode === 'CBC') {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'message');
+      add('text', { x: 66, y: 74, 'text-anchor': 'middle', class: 'lab' }, 'IV');
+      cell(66, 80, 44, 30, H(iv), 'var(--bg)');
+      wire([[88, 95], [X[0] - 10, 95]]);
+      X.forEach((x, i) => {
+        wire([[x, 54], [x, 85]]); xor(x, 95);
+        wire([[x, 105], [x, 140]]); add('text', { x: x + 8, y: 128, class: 'wv' }, H(r.into[i]));
+        ebox(x, 140); wire([[x, 170], [x, CY]]);
+        if (i) wire([[X[i - 1] + 22, CY + 18], [x - 36, CY + 18], [x - 36, 95], [x - 10, 95]]);
+        pixel(i, x, 18, 44, 36);
+      });
+    } else {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'counter');
+      add('text', { x: 4, y: 165, class: 'lab' }, 'message');
+      X.forEach((x, i) => {
+        cell(x, 18, 56, 36, `${r.nonce}|${(i).toString(2).padStart(3, '0')}`, 'var(--bg)', 'ctr');
+        wire([[x, 54], [x, 78]]); ebox(x, 78);
+        wire([[x, 108], [x, 150]]); add('text', { x: x + 8, y: 134, class: 'wv' }, H(r.pad[i]));
+        xor(x, 160); wire([[x - 19, 160], [x - 10, 160]]); wire([[x, 170], [x, CY]]);
+        pixel(i, x - 33, 146, 28, 28);
+      });
+    }
+    X.forEach((x, i) => cell(x, CY, 44, 36, H(r.ct[i]), colour(r.ct[i])));
+  }
+
+  // ---------------------------------------------------------------- controls and readout
+  const ui = DS.controls(root + ' .controls', render);
+  const mode = ui.choice({ label: 'Mode', options: ['ECB', 'CBC', 'CTR'], value: 'ECB' });
+  ui.button({ label: 'Encrypt again', onClick: () => {
+    prev = { mode: mode.value, ct: encrypt(mode.value).ct.join() };
+    if (mode.value === 'CBC') { ivAt++; let v = IVS[ivAt]; if (v === undefined) do v = R.int(16); while (v === iv); iv = v; }
+    if (mode.value === 'CTR') sent++;
+  } });
+  ui.button({ label: 'Reset', onClick: () => { msg = START.slice(); ivAt = 0; iv = IVS[0]; sent = 0; prev = null; } });
+
+  function render() {
+    const m = mode.value;
+    if (m !== lastMode) { prev = null; lastMode = m; }
+    if (prev && prev.mode !== m) prev = null;
+    const r = encrypt(m);
+    draw(m, r);
+    const ct = r.ct.map(H).join(' ');
+    const seen = m === 'ECB' ? ct : m === 'CBC' ? `IV ${H(iv)} · ${ct}` : `nonce ${r.nonce} · ${ct}`;
+    let pairs = 0, kept = 0;
+    for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) if (msg[i] === msg[j]) { pairs++; if (r.ct[i] === r.ct[j]) kept++; }
+    const leak = pairs > 0 && kept === pairs;
+    let cmp = { label: 'Compared with the previous encryption', value: 'press Encrypt again' };
+    if (m === 'CTR' && sent >= 2) cmp = { ...cmp, value: 'nonce reused', tone: 'bad', note: `nonce ${r.nonce} again: same pad, so C ⊕ C′ = P ⊕ P′ (§5)` };
+    else if (prev) cmp = prev.ct === r.ct.join()
+      ? { ...cmp, value: 'identical', tone: 'bad', note: 'the eavesdropper sees that you sent the same row again' }
+      : { ...cmp, value: 'different', tone: 'good', note: m === 'CBC' ? `fresh IV ${H(iv)}` : `fresh nonce ${r.nonce}` };
+    DS.stats(root + ' .readout', [
+      { label: 'The eavesdropper sees', value: seen },
+      { label: 'Equal message blocks give equal ciphertext blocks', value: pairs ? (leak ? 'yes' : 'no') : 'no equal blocks',
+        tone: pairs ? (leak ? 'bad' : 'good') : undefined },
+      cmp,
+    ]);
+  }
+  render();
+})();
+</script>

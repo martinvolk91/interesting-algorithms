@@ -58,10 +58,16 @@ function renderMath() {
 <main>
 <details class="page-toc"><summary>On this page</summary><div class="toc">
 <ul>
-<li><a href="#1-what-a-block-cipher-alone-cannot-do">1. What a block cipher alone cannot do</a></li>
+<li><a href="#1-what-a-mode-of-operation-is">1. What a mode of operation is</a><ul>
+<li><a href="#a-toy-block-cipher-to-follow-by-hand">A toy block cipher to follow by hand</a></li>
+</ul>
+</li>
 <li><a href="#2-ecb-and-the-penguin">2. ECB and the penguin</a></li>
 <li><a href="#3-cbc-chaining-with-a-random-iv">3. CBC: chaining with a random IV</a></li>
-<li><a href="#4-ctr-a-block-cipher-becomes-a-stream-cipher">4. CTR: a block cipher becomes a stream cipher</a></li>
+<li><a href="#4-ctr-a-block-cipher-becomes-a-stream-cipher">4. CTR: a block cipher becomes a stream cipher</a><ul>
+<li><a href="#the-three-modes-side-by-side">The three modes side by side</a></li>
+</ul>
+</li>
 <li><a href="#5-nonce-reuse-the-two-time-pad-returns">5. Nonce reuse: the two-time pad returns</a></li>
 <li><a href="#6-why-encryption-must-be-randomized">6. Why encryption must be randomized</a></li>
 <li><a href="#7-malleability-changing-a-message-without-reading-it">7. Malleability: changing a message without reading it</a></li>
@@ -88,6 +94,8 @@ way that changes the plaintext predictably. For ordinary encryption malleability
 stopped with a message authentication code (<abbr title="message authentication code">MAC</abbr>). For <abbr title="homomorphic encryption">HE</abbr> it is the whole point.</p>
 <p><strong>In this chapter</strong> you will learn to:</p>
 <ul>
+<li>say what a mode of operation is and where it sits around <abbr title="Advanced Encryption Standard">AES</abbr>, and run <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr> by
+  hand on a 4-bit toy block cipher;</li>
 <li>explain why encrypting block by block (electronic codebook, <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>) leaks, and see the leak in a
   picture;</li>
 <li>use cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) and counter mode (<abbr title="counter mode (a block cipher mode)">CTR</abbr>) correctly, and say what an
@@ -101,25 +109,96 @@ stopped with a message authentication code (<abbr title="message authentication 
 <p><strong>Companion script:</strong> <a href="../../code/primer/p3_modes.py"><code>code/primer/p3_modes.py</code></a>. Run it from the
 <code>homomorphic_encryption/</code> folder with <code>python3 code/primer/p3_modes.py</code>. Its output is split
 into numbered parts, and the text says which part shows what.</p>
-<h2 id="1-what-a-block-cipher-alone-cannot-do">1. What a block cipher alone cannot do<a class="headerlink" href="#1-what-a-block-cipher-alone-cannot-do" title="Link to this section">#</a></h2>
-<p>A block cipher (<a href="p2_aes.html">P2</a>) is a keyed permutation of 16-byte blocks. Two things are
-missing before it can encrypt messages:</p>
+<h2 id="1-what-a-mode-of-operation-is">1. What a mode of operation is<a class="headerlink" href="#1-what-a-mode-of-operation-is" title="Link to this section">#</a></h2>
+<p><abbr title="Advanced Encryption Standard">AES</abbr> (<a href="p2_aes.html">P2</a>) does exactly one thing: it takes a key and one 16-byte block and returns
+another 16-byte block. It knows nothing about messages, files or lengths, and it does not
+remember earlier calls: the same key and the same block always give the same output.</p>
+<p>A useful picture: fix the key, and <abbr title="Advanced Encryption Standard">AES</abbr> becomes a giant secret look-up table, a <strong>codebook</strong>.
+The left column lists every possible 16-byte block (\(2^{128}\) rows), the right column its
+encryption. Every block appears exactly once in the right column, so the book can be read both
+ways: left to right is encryption \(E_K\), right to left is decryption \(D_K\). A different key
+gives a completely different book, and without the key nobody can read it. (Such a table is a
+<strong>permutation</strong>: a shuffle of all possible blocks.)</p>
+<p>Real messages are not 16 bytes long: an email, a 3 MB photo, a video call. A <strong>mode of
+operation</strong> is the recipe for using the one-block machine on a whole message. It decides:</p>
+<ol>
+<li><strong>how to cut</strong> the message into 16-byte blocks, and how to fill up the last one;</li>
+<li><strong>what goes into <abbr title="Advanced Encryption Standard">AES</abbr></strong> for each block: the message block itself, the message block mixed
+   with something else, or just a counter;</li>
+<li><strong>what to do with what comes out</strong>: send it as the ciphertext, or combine it with the message
+   by exclusive or (<abbr title="exclusive or">XOR</abbr>, \(\oplus\)), as the one-time pad of
+   <a href="p1_encryption_basics.html#4-the-one-time-pad">P1</a> does;</li>
+<li><strong>which extra value travels with the ciphertext</strong>: an initialization vector (<abbr title="initialization vector">IV</abbr>) or a nonce,
+   so that the same message never encrypts the same way twice.</li>
+</ol>
+<p>The mode never changes <abbr title="Advanced Encryption Standard">AES</abbr> itself. <abbr title="Advanced Encryption Standard">AES</abbr> is the engine and the mode is the wiring around it,
+calling <abbr title="Advanced Encryption Standard">AES</abbr> once per block:</p>
+<div class="highlight"><pre><span></span><code>  message, any length (14 bytes, a 3 MB photo, a video stream)
+     |
+     v
+ +--------------------------------------------------------------+
+ | mode of operation: ECB, CBC or CTR (§2 to §4)                |
+ | cuts the message into blocks, adds an IV or a nonce,         |
+ | decides what goes into AES and what to do with the output    |
+ |                                                              |
+ |            +----------------------------------+              |
+ |    ------&gt; | AES, E_K: 16 bytes in, 16 out    | ------&gt;      |
+ |            | key schedule and 10 rounds (P2)  |              |
+ |            +----------------------------------+              |
+ |                    called once per block                     |
+ +--------------------------------------------------------------+
+     |
+     v
+  ciphertext, plus the IV or nonce (sent in the clear)
+</code></pre></div>
+
+<p>This is why <abbr title="Advanced Encryption Standard">AES</abbr> never appears on its own in practice. A name like <strong><abbr title="Advanced Encryption Standard">AES</abbr>-256-GCM</strong> reads as:
+block cipher <abbr title="Advanced Encryption Standard">AES</abbr>, 256-bit key, mode <abbr title="Galois/counter mode (an authenticated block cipher mode)">GCM</abbr> (§10). The command <code>openssl enc -aes-128-cbc</code> means <abbr title="Advanced Encryption Standard">AES</abbr>
+with a 128-bit key in <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> mode. The bare one-block <abbr title="Advanced Encryption Standard">AES</abbr> of P2 is only ever used inside a mode.</p>
+<p>A mode has two jobs:</p>
 <ul>
 <li><strong>Length.</strong> Messages have any length. They must be cut into blocks, and the last block must
-  be filled up.</li>
+  be filled up (padding, below).</li>
 <li><strong>Repetition.</strong> \(E_K\) is a fixed function. Encrypt the same block twice and you get the same
-  ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat.
-  Think of a "yes"/"no" vote, a status field, or a file header.</li>
+  ciphertext twice, so an eavesdropper learns when messages, or parts of messages, repeat,
+  without reading any of them. Real data repeats all the time: a "yes"/"no" vote, a status
+  field, a file header, a payroll file in which many people earn the same salary, the large
+  single-colour areas of a picture.</li>
 </ul>
-<p>A <strong>mode of operation</strong> fixes both. The National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>)
-standardizes five confidentiality modes in its Special Publication (<abbr title="Special Publication (a NIST document series)">SP</abbr>) 800-38A (2001): <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>,
-<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, cipher feedback (<abbr title="cipher feedback (a block cipher mode)">CFB</abbr>), output feedback (<abbr title="output feedback (a block cipher mode)">OFB</abbr>) and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. This chapter covers <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> (what not to
-do), <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. <abbr title="cipher feedback (a block cipher mode)">CFB</abbr> and <abbr title="output feedback (a block cipher mode)">OFB</abbr> are close relatives of <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>.</p>
+<p>The National Institute of Standards and Technology (<abbr title="National Institute of Standards and Technology">NIST</abbr>) standardizes five confidentiality
+modes in its Special Publication (<abbr title="Special Publication (a NIST document series)">SP</abbr>) 800-38A (2001): <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>, cipher feedback (<abbr title="cipher feedback (a block cipher mode)">CFB</abbr>), output
+feedback (<abbr title="output feedback (a block cipher mode)">OFB</abbr>) and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. This chapter covers <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> (what not to do), <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>. <abbr title="cipher feedback (a block cipher mode)">CFB</abbr> and <abbr title="output feedback (a block cipher mode)">OFB</abbr> are
+close relatives of <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr>.</p>
 <p><strong>Padding.</strong> Modes that work on whole blocks (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>) need padding. The usual rule, <strong><abbr title="Public-Key Cryptography Standards">PKCS</abbr>#7</strong>
 (from the Public-Key Cryptography Standards), appends \(n\) bytes each of value \(n\), where
 \(1 \le n \le 16\) is the number needed to reach a multiple of 16. "attack at dawn" has 14 bytes,
 so it gets <code>02 02</code>. A message that already fills whole blocks gets a full extra block of sixteen
 <code>10</code> bytes (hex 10 = 16), so the receiver can always remove the padding unambiguously.</p>
+<h3 id="a-toy-block-cipher-to-follow-by-hand">A toy block cipher to follow by hand<a class="headerlink" href="#a-toy-block-cipher-to-follow-by-hand" title="Link to this section">#</a></h3>
+<p><abbr title="Advanced Encryption Standard">AES</abbr>'s codebook has \(2^{128}\) rows, far too many to print. To watch each mode work step by step,
+§2 to §4 use a <strong>toy block cipher with 4-bit blocks</strong>: each block is one hexadecimal digit, 0 to
+F. Its whole codebook, for our key \(K\), fits on one line:</p>
+<div class="highlight"><pre><span></span><code>x        0 1 2 3 4 5 6 7 8 9 A B C D E F
+E_K(x)   C E F 7 6 2 0 3 D 1 8 5 9 4 A B
+</code></pre></div>
+
+<ul>
+<li><strong>Encrypting is a look-up:</strong> \(E_K(7) = 3\).</li>
+<li><strong>Decrypting reads the table backwards:</strong> \(D_K(3) = 7\), because 3 sits under 7. Every value
+  appears exactly once in the bottom row, so this always works.</li>
+<li><strong>Another key gives another shuffle</strong> of the 16 values.</li>
+</ul>
+<p><abbr title="Advanced Encryption Standard">AES</abbr> is exactly this, with \(2^{128}\) entries instead of 16, and with the key schedule and the ten
+rounds computing any entry on demand instead of storing the table. The toy is hopeless as real
+encryption (a handful of known plaintext and ciphertext pairs fills in its table), but it is
+just right for seeing the wiring.</p>
+<p>The message is one row of a black-and-white picture: six pixels, one pixel per block,
+dark = 0 and light = F.</p>
+<div class="highlight"><pre><span></span><code>P = 0 0 F F 0 0        dark, dark, light, light, dark, dark
+</code></pre></div>
+
+<p>It repeats, as real data does. Each mode below encrypts it, and the question each time is:
+<strong>what does an eavesdropper see?</strong></p>
 <h2 id="2-ecb-and-the-penguin">2. ECB and the penguin<a class="headerlink" href="#2-ecb-and-the-penguin" title="Link to this section">#</a></h2>
 <p>The obvious mode is <strong>electronic codebook (<abbr title="electronic codebook (a block cipher mode)">ECB</abbr>)</strong>: encrypt each block on its own.</p>
 <div class="highlight"><pre><span></span><code>     P1          P2          P3
@@ -129,11 +208,23 @@ so it gets <code>02 02</code>. A message that already fills whole blocks gets a 
      C1          C2          C3          C_i = E_K(P_i)
 </code></pre></div>
 
-<p><abbr title="electronic codebook (a block cipher mode)">ECB</abbr> is a giant codebook: each 16-byte plaintext block always maps to the same 16-byte
-ciphertext block. Equal plaintext blocks give equal ciphertext blocks, anywhere in a message and
-across all messages under the same key. The famous illustration is the "<abbr title="electronic codebook (a block cipher mode)">ECB</abbr> penguin": a bitmap
-of the Linux mascot encrypted in <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> mode is still plainly a penguin, because large areas of the
-same colour become large areas of the same ciphertext.</p>
+<p><strong>On the toy.</strong> Look up each block in the table:</p>
+<div class="highlight"><pre><span></span><code>block i            1  2  3  4  5  6
+P_i                0  0  F  F  0  0
+C_i = E_K(P_i)     C  C  B  B  C  C
+</code></pre></div>
+
+<p>From C alone, the eavesdropper cannot tell that a pixel is dark. But they see that blocks 1
+and 2 are equal, that blocks 3 and 4 are equal to each other but different, and that blocks 5
+and 6 equal the first two: the exact shape of the row. Send the same row again tomorrow and
+they see <code>C C B B C C</code> again, so they also learn that you repeated yourself. That is the
+codebook in the name: a block value always looks up the same entry.</p>
+<p>With real <abbr title="Advanced Encryption Standard">AES</abbr> it is the same, only bigger: each 16-byte plaintext block always maps to the same
+16-byte ciphertext block, anywhere in a message and across all messages under the same key.
+Encrypt a payroll table field by field in <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, and everyone with the same salary has the same
+ciphertext. The famous illustration is the "<abbr title="electronic codebook (a block cipher mode)">ECB</abbr> penguin": a bitmap of the Linux mascot
+encrypted in <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> mode is still plainly a penguin, because large areas of the same colour become
+large areas of the same ciphertext.</p>
 <p><a href="../../code/primer/p3_modes.py">Part 2 of the script</a> does the same with a small padlock. To keep
 the picture tiny, each pixel is a whole 16-byte block (in a real bitmap, one block covers a few
 neighbouring pixels, and uniform areas still give identical blocks). Each ciphertext block is
@@ -287,9 +378,11 @@ uses other <abbr title="National Institute of Standards and Technology">NIST</ab
 })();
 </script>
 <h2 id="3-cbc-chaining-with-a-random-iv">3. CBC: chaining with a random IV<a class="headerlink" href="#3-cbc-chaining-with-a-random-iv" title="Link to this section">#</a></h2>
-<p><strong>Cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>)</strong> combines each plaintext block with the previous ciphertext block
-by exclusive or (<abbr title="exclusive or">XOR</abbr>, \(\oplus\)) before encrypting it. The first block is XORed with an
-<strong>initialization vector (<abbr title="initialization vector">IV</abbr>)</strong>, a fresh random block for every message:</p>
+<p><strong>Cipher block chaining (<abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>)</strong> fixes <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>'s problem at its root. In <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, equal message blocks
+go into <abbr title="Advanced Encryption Standard">AES</abbr> as equal inputs, so they come out equal. <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> makes sure that <abbr title="Advanced Encryption Standard">AES</abbr> practically never
+sees the same input twice: before encrypting a block, it <abbr title="exclusive or">XOR</abbr>s it with the previous <em>ciphertext</em>
+block, which looks random. The first block has no previous ciphertext block, so it is XORed with
+the <strong><abbr title="initialization vector">IV</abbr></strong>, a fresh random block for every message:</p>
 <div class="highlight"><pre><span></span><code>           P1              P2              P3
            |               |               |
   IV ----&gt;(+)     +------&gt;(+)     +------&gt;(+)
@@ -300,9 +393,34 @@ by exclusive or (<abbr title="exclusive or">XOR</abbr>, \(\oplus\)) before encry
 </code></pre></div>
 
 <div class="math-display">\[C_0 = \mathit{IV}, \qquad C_i = E_K(P_i \oplus C_{i-1}), \qquad P_i = D_K(C_i) \oplus C_{i-1}.\]</div>
+<p><strong>On the toy</strong>, with <abbr title="initialization vector">IV</abbr> = 7:</p>
+<div class="highlight"><pre><span></span><code>block i                      1  2  3  4  5  6
+P_i                          0  0  F  F  0  0
+C_{i-1}  (C_0 = IV)          7  3  7  D  F  B
+P_i XOR C_{i-1}              7  3  8  2  F  B     &lt;- what E_K actually sees
+C_i = E_K(P_i XOR C_{i-1})   3  7  D  F  B  5
+</code></pre></div>
+
+<p>Block by block:</p>
+<ul>
+<li><strong>Block 1:</strong> \(0 \oplus 7 = 7\) (0000 ⊕ 0111 = 0111), and \(E_K(7) = 3\), so \(C_1 = 3\).</li>
+<li><strong>Block 2:</strong> \(C_1\) now plays the role of the <abbr title="initialization vector">IV</abbr>: \(0 \oplus 3 = 3\), and \(E_K(3) = 7\). The
+  message block is the same as in block 1, but \(E_K\) saw 3 instead of 7, so the output differs.</li>
+<li><strong>Block 3:</strong> \(F \oplus 7\) = 1111 ⊕ 0111 = 1000 = 8, and \(E_K(8) = D\).</li>
+<li><strong>Blocks 4 to 6</strong> continue the chain: each ciphertext block is mixed into the next message
+  block before it goes into \(E_K\).</li>
+</ul>
+<p>The eavesdropper sees <code>7 | 3 7 D F B 5</code>: the <abbr title="initialization vector">IV</abbr> in the clear, then six different values. The
+shape of the row is gone. Encrypt the same row again with a fresh <abbr title="initialization vector">IV</abbr>, say A, and they see
+<code>A | 8 D F C 9 1</code>, so they cannot even tell that it is the same message. (With only 16 possible
+values, the toy's chained inputs sometimes collide by chance; with \(2^{128}\) values they
+practically never do.)</p>
+<p><strong>Decryption</strong> reads the table backwards, then removes the mixing: \(P_i = D_K(C_i) \oplus C_{i-1}\).
+For block 3: \(D_K(D) = 8\) (D sits under 8), and \(8 \oplus C_2 = 8 \oplus 7 = F\). The receiver
+has every \(C_{i-1}\), since they are all part of the ciphertext.</p>
 <p>The <abbr title="initialization vector">IV</abbr> is sent in the clear with the ciphertext. Because it is random, the same message
 encrypts differently every time, and equal plaintext blocks inside a message are blended with
-different predecessors. In the picture above (<a href="../../code/primer/p3_modes.py">part 2 of the script</a>),
+different predecessors. In the padlock picture of §2 (<a href="../../code/primer/p3_modes.py">part 2 of the script</a>),
 all 234 <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> blocks are different.</p>
 <p>What <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> needs and what it costs:</p>
 <ul>
@@ -310,8 +428,9 @@ all 234 <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> blo
   before it is used. Transport Layer Security (<abbr title="Transport Layer Security">TLS</abbr>) 1.0 used the last ciphertext block of the
   previous record as the next <abbr title="initialization vector">IV</abbr>, which an attacker could predict; the BEAST attack (2011)
   exploited exactly that.</li>
-<li><strong>Encryption is sequential</strong> (each block waits for the previous one); decryption can run in
-  parallel.</li>
+<li><strong>Encryption is sequential</strong>: each block waits for the previous one (on the toy, \(C_3\) needs
+  \(C_2\), which needs \(C_1\)). Decryption can run in parallel, because all the \(C_{i-1}\) are
+  already there.</li>
 <li><strong>Padding is needed, and padding errors leak.</strong> Vaudenay (2002) showed that if a receiver
   reveals whether the padding of a decrypted message was valid (by an error message, or just by
   timing), an attacker can decrypt any ciphertext byte by byte by submitting modified versions.
@@ -332,17 +451,241 @@ P0 -&gt;(+)       P1 -&gt;(+)       P2 -&gt;(+)
       C0             C1             C2          C_i = P_i XOR S_i
 </code></pre></div>
 
-<p>(Blocks are numbered from 0 here, to match the counter.)</p>
+<p>(Blocks are numbered from 0 here, to match the counter. \(\|\) means "followed by".)</p>
+<p>The inputs to <abbr title="Advanced Encryption Standard">AES</abbr> are all different, so its outputs are all different and look random, whatever
+the message contains. Repetitions in the message cannot show through, because every block is
+XORed with a different piece of pad.</p>
+<p><strong>On the toy.</strong> A counter block has to fit into one 4-bit block, so the toy splits its 4 bits
+into <strong>1 nonce bit ‖ 3 counter bits</strong> (written <code>0|000</code> in the table). That is the same layout as real <abbr title="counter mode (a block cipher mode)">CTR</abbr>, only smaller: the
+script uses an 8-byte nonce ‖ an 8-byte counter. The first message under the key gets nonce 0:</p>
+<div class="highlight"><pre><span></span><code>block i                    0      1      2      3      4      5
+counter block            0|000  0|001  0|010  0|011  0|100  0|101    (0 to 5)
+keystream S_i = E_K(..)    C      E      F      7      6      2
+P_i                        0      0      F      F      0      0
+C_i = P_i XOR S_i          C      E      0      8      6      2
+</code></pre></div>
+
+<p>For example, block 3: \(F \oplus 7\) = 1111 ⊕ 0111 = 1000 = 8.</p>
+<ul>
+<li><strong><abbr title="Advanced Encryption Standard">AES</abbr> never sees the message.</strong> It only encrypts the counter blocks 0 to 5. The pad changes
+  every block, so the message's repetitions do not show: the eavesdropper sees
+  <code>0 | C E 0 8 6 2</code>.</li>
+<li><strong>The next message uses nonce 1</strong>: counter blocks 1‖000 to 1‖101 (8 to D), keystream
+  <code>D 1 8 5 9 4</code>. The same row now encrypts to <code>1 | D 1 7 A 9 4</code>.</li>
+<li><strong>Decryption is the same operation.</strong> The receiver rebuilds \(S_i\) from the nonce and the
+  counter and <abbr title="exclusive or">XOR</abbr>s again: \(C_i \oplus S_i = P_i \oplus S_i \oplus S_i = P_i\). Block 3:
+  \(8 \oplus 7 = F\). The table is only ever read forwards; \(D_K\) is never needed.</li>
+<li><strong>The pad does not depend on the message</strong>, so it can be computed in advance and in parallel,
+  and block 4 can be decrypted without touching the others.</li>
+<li><strong>The toy's nonce has one bit</strong>, so its key can encrypt just two messages. A third would have
+  to reuse a nonce, and §5 shows what that costs. The script's 8-byte nonce allows \(2^{64}\)
+  messages, <abbr title="Advanced Encryption Standard">AES</abbr>-GCM's 12-byte nonce \(2^{96}\).</li>
+</ul>
 <p>This is the stream cipher of
 <a href="p1_encryption_basics.html#7-stream-ciphers-growing-a-short-key-into-a-long-pad">P1 §7</a>: a short
 key stretched into a long pseudorandom pad, then XORed with the message, a computational
-one-time pad. Decryption is the same operation (<abbr title="exclusive or">XOR</abbr> the same keystream again). Practical
-advantages: no padding (cut the last keystream block short), every block is independent
-(parallel, random access), and only \(E_K\) is ever used, never \(D_K\).</p>
+one-time pad. Practical advantages: no padding (cut the last keystream block short), every
+block is independent (parallel, random access), and only \(E_K\) is ever used, never \(D_K\).</p>
 <p>The <strong>counter block</strong> must never repeat under one key. Each message gets a <strong>nonce</strong> ("number
-used once"), and the block counter runs within the message. The toy uses an 8-byte nonce and an
-8-byte block counter; <abbr title="Advanced Encryption Standard">AES</abbr>-GCM uses a 12-byte nonce and a 4-byte counter. A nonce need not be
+used once"), and the block counter runs within the message. The script uses an 8-byte nonce and
+an 8-byte block counter; <abbr title="Advanced Encryption Standard">AES</abbr>-GCM uses a 12-byte nonce and a 4-byte counter. A nonce need not be
 random or secret, only unique: a message counter is fine.</p>
+<h3 id="the-three-modes-side-by-side">The three modes side by side<a class="headerlink" href="#the-three-modes-side-by-side" title="Link to this section">#</a></h3>
+<p>The figure runs the toy row through all three modes. The \(E_K\) boxes are the same table every
+time; only the wiring around them changes.</p>
+<figure class="widget" id="w-p3-toy-modes">
+  <style>
+    #w-p3-toy-modes svg { display: block; width: 100%; max-width: 620px; height: auto; margin: 0 auto 6px; font-family: var(--font); }
+    #w-p3-toy-modes svg text { fill: var(--ink); font-size: 16px; }
+    #w-p3-toy-modes svg text.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; }
+    #w-p3-toy-modes svg text.ctr { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+    #w-p3-toy-modes svg text.wv { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; fill: var(--ink-2); }
+    #w-p3-toy-modes svg text.lab { font-size: 17px; font-weight: 600; fill: var(--ink-2); }
+    #w-p3-toy-modes svg text.px-dark { fill: #ffffff; }
+    #w-p3-toy-modes svg text.px-light { fill: #1f2328; }
+    #w-p3-toy-modes svg .pix { cursor: pointer; }
+  </style>
+  <p class="widget-title">One toy row through three modes</p>
+  <p class="widget-hint">Switch the mode and press Encrypt again. Click a pixel of the message to flip it between dark (0) and light (F).</p>
+  <div class="controls"></div>
+  <svg viewBox="0 0 520 252" role="img" aria-label="Six 4-bit message blocks encrypted with the toy block cipher in the chosen mode: the message blocks, the E_K boxes, the XOR and chaining wires of CBC and CTR, and the ciphertext blocks."></svg>
+  <div class="readout"></div>
+  <figcaption>The toy block cipher of §1: 4-bit blocks and one fixed key, so \(E_K\) is the 16-entry table in the text. ECB puts each message block straight into \(E_K\). CBC first XORs it with the previous ciphertext block (the IV for the first block), so \(E_K\) sees the values written beside its input wires. CTR feeds \(E_K\) only the counter blocks, nonce bit | 3 counter bits, and XORs the outputs written beside the wires onto the message. Each ciphertext value has its own colour, so repeats stand out. The toy's nonce has a single bit, so a third CTR message under the key has to reuse one.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p3-toy-modes';
+  const E = [0xC, 0xE, 0xF, 0x7, 0x6, 0x2, 0x0, 0x3, 0xD, 0x1, 0x8, 0x5, 0x9, 0x4, 0xA, 0xB];   // the toy table of §1
+  const H = v => v.toString(16).toUpperCase();
+  const START = [0, 0, 15, 15, 0, 0];
+  const IVS = [7, 10];                                         // the IVs of §3; later ones are random
+  const R = DS.random(3);
+  let msg = START.slice(), ivAt = 0, iv = IVS[0], sent = 0;     // sent: CTR messages so far under this key
+  let prev = null, lastMode = null;
+
+  function encrypt(mode) {
+    if (mode === 'ECB') return { into: msg.slice(), ct: msg.map(p => E[p]) };
+    if (mode === 'CBC') {
+      const into = [], ct = []; let c = iv;
+      msg.forEach(p => { into.push(p ^ c); c = E[p ^ c]; ct.push(c); });
+      return { into, ct };
+    }
+    const nonce = sent % 2, into = msg.map((_, i) => (nonce << 3) | i), pad = into.map(x => E[x]);
+    return { nonce, into, pad, ct: msg.map((p, i) => p ^ pad[i]) };
+  }
+
+  // ---------------------------------------------------------------- drawing
+  const NS = 'http://www.w3.org/2000/svg', svg = document.querySelector(root + ' svg');
+  const X = [130, 202, 274, 346, 418, 490], CY = 206;
+  function add(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  function wire(pts) {
+    add('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: 'var(--line-strong)', 'stroke-width': 1.5, 'stroke-linejoin': 'round' });
+    const [x0, y0] = pts[pts.length - 2], [x1, y1] = pts[pts.length - 1], a = Math.atan2(y1 - y0, x1 - x0), L = 7;
+    const p1 = [x1 - L * Math.cos(a - 0.45), y1 - L * Math.sin(a - 0.45)], p2 = [x1 - L * Math.cos(a + 0.45), y1 - L * Math.sin(a + 0.45)];
+    add('polygon', { points: [[x1, y1], p1, p2].map(p => p.join(',')).join(' '), fill: 'var(--line-strong)' });
+  }
+  function cell(x, y, w, h, text, fill, cls) {
+    add('rect', { x: x - w / 2, y, width: w, height: h, rx: 5, fill, stroke: 'var(--line-strong)', 'stroke-width': 1.2 });
+    add('text', { x, y: y + h / 2 + 6, 'text-anchor': 'middle', class: cls || 'mono' }, text);
+  }
+  function pixel(i, x, y, w, h) {                              // a clickable message block
+    const dark = msg[i] === 0;
+    cell(x, y, w, h, H(msg[i]), dark ? '#24292f' : '#f6f8fa', dark ? 'mono px-dark' : 'mono px-light');   // pixels keep their shade in dark mode
+    const hit = add('rect', { x: x - w / 2, y, width: w, height: h, fill: 'transparent', class: 'pix' });
+    hit.addEventListener('click', () => { msg[i] ^= 15; prev = null; render(); });
+  }
+  function ebox(x, y) {
+    add('rect', { x: x - 24, y, width: 48, height: 30, rx: 6, fill: 'var(--bg)', stroke: 'var(--line-strong)', 'stroke-width': 1.5 });
+    const t = add('text', { x: x - 3, y: y + 21, 'text-anchor': 'middle' }, 'E');
+    const s = document.createElementNS(NS, 'tspan'); s.setAttribute('font-size', '12'); s.setAttribute('dy', '3'); s.textContent = 'K'; t.appendChild(s);
+  }
+  function xor(x, y) {
+    add('circle', { cx: x, cy: y, r: 10, fill: 'var(--bg)', stroke: 'var(--line-strong)', 'stroke-width': 1.5 });
+    add('path', { d: `M${x - 5.5},${y}h11M${x},${y - 5.5}v11`, stroke: 'var(--ink)', 'stroke-width': 1.5 });
+  }
+  const colour = v => `hsla(${(v * 7 % 16) * 22.5}, 75%, 50%, 0.3)`;   // neighbouring values get distant hues
+
+  function draw(mode, r) {
+    svg.textContent = '';
+    add('text', { x: 4, y: CY + 23, class: 'lab' }, 'ciphertext');
+    if (mode === 'ECB') {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'message');
+      X.forEach((x, i) => { wire([[x, 54], [x, 104]]); ebox(x, 104); wire([[x, 134], [x, CY]]); pixel(i, x, 18, 44, 36); });
+    } else if (mode === 'CBC') {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'message');
+      add('text', { x: 66, y: 74, 'text-anchor': 'middle', class: 'lab' }, 'IV');
+      cell(66, 80, 44, 30, H(iv), 'var(--bg)');
+      wire([[88, 95], [X[0] - 10, 95]]);
+      X.forEach((x, i) => {
+        wire([[x, 54], [x, 85]]); xor(x, 95);
+        wire([[x, 105], [x, 140]]); add('text', { x: x + 8, y: 128, class: 'wv' }, H(r.into[i]));
+        ebox(x, 140); wire([[x, 170], [x, CY]]);
+        if (i) wire([[X[i - 1] + 22, CY + 18], [x - 36, CY + 18], [x - 36, 95], [x - 10, 95]]);
+        pixel(i, x, 18, 44, 36);
+      });
+    } else {
+      add('text', { x: 4, y: 41, class: 'lab' }, 'counter');
+      add('text', { x: 4, y: 165, class: 'lab' }, 'message');
+      X.forEach((x, i) => {
+        cell(x, 18, 56, 36, `${r.nonce}|${(i).toString(2).padStart(3, '0')}`, 'var(--bg)', 'ctr');
+        wire([[x, 54], [x, 78]]); ebox(x, 78);
+        wire([[x, 108], [x, 150]]); add('text', { x: x + 8, y: 134, class: 'wv' }, H(r.pad[i]));
+        xor(x, 160); wire([[x - 19, 160], [x - 10, 160]]); wire([[x, 170], [x, CY]]);
+        pixel(i, x - 33, 146, 28, 28);
+      });
+    }
+    X.forEach((x, i) => cell(x, CY, 44, 36, H(r.ct[i]), colour(r.ct[i])));
+  }
+
+  // ---------------------------------------------------------------- controls and readout
+  const ui = DS.controls(root + ' .controls', render);
+  const mode = ui.choice({ label: 'Mode', options: ['ECB', 'CBC', 'CTR'], value: 'ECB' });
+  ui.button({ label: 'Encrypt again', onClick: () => {
+    prev = { mode: mode.value, ct: encrypt(mode.value).ct.join() };
+    if (mode.value === 'CBC') { ivAt++; let v = IVS[ivAt]; if (v === undefined) do v = R.int(16); while (v === iv); iv = v; }
+    if (mode.value === 'CTR') sent++;
+  } });
+  ui.button({ label: 'Reset', onClick: () => { msg = START.slice(); ivAt = 0; iv = IVS[0]; sent = 0; prev = null; } });
+
+  function render() {
+    const m = mode.value;
+    if (m !== lastMode) { prev = null; lastMode = m; }
+    if (prev && prev.mode !== m) prev = null;
+    const r = encrypt(m);
+    draw(m, r);
+    const ct = r.ct.map(H).join(' ');
+    const seen = m === 'ECB' ? ct : m === 'CBC' ? `IV ${H(iv)} · ${ct}` : `nonce ${r.nonce} · ${ct}`;
+    let pairs = 0, kept = 0;
+    for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) if (msg[i] === msg[j]) { pairs++; if (r.ct[i] === r.ct[j]) kept++; }
+    const leak = pairs > 0 && kept === pairs;
+    let cmp = { label: 'Compared with the previous encryption', value: 'press Encrypt again' };
+    if (m === 'CTR' && sent >= 2) cmp = { ...cmp, value: 'nonce reused', tone: 'bad', note: `nonce ${r.nonce} again: same pad, so C ⊕ C′ = P ⊕ P′ (§5)` };
+    else if (prev) cmp = prev.ct === r.ct.join()
+      ? { ...cmp, value: 'identical', tone: 'bad', note: 'the eavesdropper sees that you sent the same row again' }
+      : { ...cmp, value: 'different', tone: 'good', note: m === 'CBC' ? `fresh IV ${H(iv)}` : `fresh nonce ${r.nonce}` };
+    DS.stats(root + ' .readout', [
+      { label: 'The eavesdropper sees', value: seen },
+      { label: 'Equal message blocks give equal ciphertext blocks', value: pairs ? (leak ? 'yes' : 'no') : 'no equal blocks',
+        tone: pairs ? (leak ? 'bad' : 'good') : undefined },
+      cmp,
+    ]);
+  }
+  render();
+})();
+</script>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><abbr title="electronic codebook (a block cipher mode)">ECB</abbr></th>
+<th><abbr title="cipher block chaining (a block cipher mode)">CBC</abbr></th>
+<th><abbr title="counter mode (a block cipher mode)">CTR</abbr></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What goes into \(E_K\)</td>
+<td>the message block</td>
+<td>message block ⊕ previous ciphertext block</td>
+<td>nonce ‖ counter</td>
+</tr>
+<tr>
+<td>What comes out of \(E_K\)</td>
+<td>the ciphertext block</td>
+<td>the ciphertext block</td>
+<td>pad, XORed onto the message</td>
+</tr>
+<tr>
+<td>Equal message blocks</td>
+<td>give equal ciphertext blocks</td>
+<td>give different ones</td>
+<td>give different ones</td>
+</tr>
+<tr>
+<td>The same message sent twice</td>
+<td>gives the same ciphertext</td>
+<td>differs (fresh <abbr title="initialization vector">IV</abbr>)</td>
+<td>differs (fresh nonce)</td>
+</tr>
+<tr>
+<td>Decryption uses</td>
+<td>\(D_K\)</td>
+<td>\(D_K\)</td>
+<td>\(E_K\) only</td>
+</tr>
+<tr>
+<td>The toy row <code>0 0 F F 0 0</code></td>
+<td><code>C C B B C C</code></td>
+<td><abbr title="initialization vector">IV</abbr> 7, then <code>3 7 D F B 5</code></td>
+<td>nonce 0, then <code>C E 0 8 6 2</code></td>
+</tr>
+</tbody>
+</table></div>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -381,6 +724,19 @@ random or secret, only unique: a message counter is fine.</p>
 </tr>
 </tbody>
 </table></div>
+<p>Where you meet each mode today:</p>
+<ul>
+<li><strong><abbr title="electronic codebook (a block cipher mode)">ECB</abbr>:</strong> hardly ever for data, and <abbr title="National Institute of Standards and Technology">NIST</abbr> is restricting it (§2). Encrypting a <em>single</em> block
+  with <abbr title="Advanced Encryption Standard">AES</abbr> is fine: <abbr title="counter mode (a block cipher mode)">CTR</abbr> itself is <abbr title="electronic codebook (a block cipher mode)">ECB</abbr> applied to counter blocks, which never repeat.</li>
+<li><strong><abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>:</strong> older protocols and file formats, and <abbr title="Transport Layer Security">TLS</abbr> up to version 1.2. <abbr title="Transport Layer Security">TLS</abbr> 1.3 (2018) dropped
+  it, partly because of the padding oracle attacks above.</li>
+<li><strong><abbr title="counter mode (a block cipher mode)">CTR</abbr>:</strong> everywhere, but almost always inside an authenticated mode that adds a <abbr title="message authentication code">MAC</abbr> (§8 to
+  §10). <abbr title="Advanced Encryption Standard">AES</abbr>-GCM, which is <abbr title="counter mode (a block cipher mode)">CTR</abbr> plus an authenticator, protects much of today's HTTPS traffic;
+  SSH (Secure Shell) offers <abbr title="Advanced Encryption Standard">AES</abbr>-GCM and plain <abbr title="Advanced Encryption Standard">AES</abbr>-CTR; Wi-Fi Protected Access (WPA2 and WPA3)
+  uses <abbr title="Advanced Encryption Standard">AES</abbr>-CCM (counter with <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>-MAC), again <abbr title="counter mode (a block cipher mode)">CTR</abbr> plus a <abbr title="message authentication code">MAC</abbr>.</li>
+<li>Disk encryption uses yet another mode, XTS (<abbr title="National Institute of Standards and Technology">NIST</abbr> <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38E), built to encrypt each disk
+  sector in place, with no room for an <abbr title="initialization vector">IV</abbr>.</li>
+</ul>
 <p><a href="../../code/primer/p3_modes.py">Part 1 of the script</a> checks its <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> and <abbr title="counter mode (a block cipher mode)">CTR</abbr> against the official
 test vectors of <abbr title="Special Publication (a NIST document series)">SP</abbr> 800-38A (F.2.1 and F.5.1), and part 3 shows that both modes randomize:</p>
 <div class="highlight"><pre><span></span><code>=== 3. the same message encrypted twice ===
@@ -1198,6 +1554,13 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
    integrity guarantee. A client that does not trust the server needs extra machinery:
    verifiable computation (proofs of correct evaluation), redundancy across independent
    servers, or trusted hardware.</p></div></details></li>
+<li>With the toy block cipher of §1, encrypt the two-block message <code>5 5</code> in <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>, in <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr> with
+   <abbr title="initialization vector">IV</abbr> = 3, and in <abbr title="counter mode (a block cipher mode)">CTR</abbr> with nonce 1. Which ciphertext shows that the two blocks are equal?
+<details class="answer"><summary>Show answer</summary><div><p><abbr title="electronic codebook (a block cipher mode)">ECB</abbr>: \(E_K(5) = 2\) for both blocks, so <code>2 2</code>. <abbr title="cipher block chaining (a block cipher mode)">CBC</abbr>: \(5 \oplus 3 = 6\) and \(E_K(6) = 0\), then
+   \(5 \oplus 0 = 5\) and \(E_K(5) = 2\), so <code>3 | 0 2</code> (the <abbr title="initialization vector">IV</abbr> first). <abbr title="counter mode (a block cipher mode)">CTR</abbr>: the counter blocks are
+   1‖000 = 8 and 1‖001 = 9, the keystream is \(E_K(8) = D\) and \(E_K(9) = 1\), and
+   \(5 \oplus D\) = 0101 ⊕ 1101 = 1000 = 8 and \(5 \oplus 1 = 4\), so <code>1 | 8 4</code>. Only <abbr title="electronic codebook (a block cipher mode)">ECB</abbr>'s <code>2 2</code>
+   shows the repetition.</p></div></details></li>
 </ol>
 
 <h2 id="14-key-terms">14. Key terms<a class="headerlink" href="#14-key-terms" title="Link to this section">#</a></h2>
@@ -1210,8 +1573,12 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
 </thead>
 <tbody>
 <tr>
+<td>Codebook</td>
+<td>A block cipher with a fixed key, seen as a table from every block to its encryption</td>
+</tr>
+<tr>
 <td>Mode of operation</td>
-<td>Rule for using a block cipher on messages of any length</td>
+<td>Rule for using a block cipher on messages of any length: what goes into it, what comes out, which <abbr title="initialization vector">IV</abbr> or nonce travels along</td>
 </tr>
 <tr>
 <td><abbr title="Public-Key Cryptography Standards">PKCS</abbr>#7 padding</td>
@@ -1236,6 +1603,10 @@ decrypt check: b&#39;attack at dawn&#39; b&#39;attack at dawn&#39; b&#39;attack 
 <tr>
 <td>Nonce</td>
 <td>Per-message value that must never repeat under a key; need not be random</td>
+</tr>
+<tr>
+<td>Counter block</td>
+<td><abbr title="counter mode (a block cipher mode)">CTR</abbr>'s input to the block cipher: nonce followed by the block counter</td>
 </tr>
 <tr>
 <td>Keystream</td>
