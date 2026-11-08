@@ -59,7 +59,15 @@ function renderMath() {
 <details class="page-toc"><summary>On this page</summary><div class="toc">
 <ul>
 <li><a href="#1-the-key-distribution-problem">1. The key distribution problem</a></li>
-<li><a href="#2-one-way-functions-and-trapdoors">2. One-way functions and trapdoors</a></li>
+<li><a href="#2-one-way-functions-and-trapdoors">2. One-way functions and trapdoors</a><ul>
+<li><a href="#easy-one-way-hard-the-other">Easy one way, hard the other</a></li>
+<li><a href="#candidate-1-exponentiation-mod-a-prime">Candidate 1: exponentiation mod a prime</a></li>
+<li><a href="#candidate-2-multiplying-two-primes">Candidate 2: multiplying two primes</a></li>
+<li><a href="#trapdoors-a-secret-way-back">Trapdoors: a secret way back</a></li>
+<li><a href="#which-scheme-uses-what">Which scheme uses what</a></li>
+<li><a href="#hard-is-an-assumption">"Hard" is an assumption</a></li>
+</ul>
+</li>
 <li><a href="#3-diffie-hellman-key-exchange">3. Diffie-Hellman key exchange</a><ul>
 <li><a href="#the-protocol">The protocol</a></li>
 <li><a href="#a-run-with-tiny-numbers">A run with tiny numbers</a></li>
@@ -115,6 +123,8 @@ replacement: lattices, the same mathematics fully homomorphic encryption (<abbr 
 <ul>
 <li>explain the key distribution problem and how a public key solves it;</li>
 <li>say what one-way and trapdoor functions are, and which ones <abbr title="Rivest–Shamir–Adleman">RSA</abbr> and Diffie–Hellman use;</li>
+<li>compute a large power mod \(p\) by square-and-multiply, and see by hand why a power mod a
+  prime can be undone by anyone but a power mod \(n = pq\) only by whoever knows \(p\) and \(q\);</li>
 <li>run a Diffie–Hellman exchange by hand, list what an eavesdropper sees, and name the problems
   that protect it: discrete log, computational Diffie–Hellman (<abbr title="computational Diffie–Hellman">CDH</abbr>) and decisional
   Diffie–Hellman (<abbr title="decisional Diffie–Hellman">DDH</abbr>);</li>
@@ -157,30 +167,43 @@ Clifford Cocks found what is essentially <abbr title="Rivest–Shamir–Adleman"
 essentially Diffie–Hellman in 1974. The work stayed classified until 1997. The public line is
 Diffie–Hellman (1976), <abbr title="Rivest–Shamir–Adleman">RSA</abbr> (1977, published 1978) and ElGamal (1985).</p>
 <h2 id="2-one-way-functions-and-trapdoors">2. One-way functions and trapdoors<a class="headerlink" href="#2-one-way-functions-and-trapdoors" title="Link to this section">#</a></h2>
-<p>A <strong>one-way function</strong> is easy to compute and hard to invert. Public-key cryptography rests on
-two candidates:</p>
-<div class="table-wrap"><table>
-<thead>
-<tr>
-<th>Function</th>
-<th>Easy direction</th>
-<th>Hard direction</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>\(x \mapsto g^x \bmod p\)</td>
-<td>square-and-multiply: about \(2\log_2 x\) multiplications</td>
-<td>the <strong>discrete logarithm</strong>: find \(x\) from \(g^x\)</td>
-</tr>
-<tr>
-<td>\((p, q) \mapsto p \cdot q\)</td>
-<td>one multiplication</td>
-<td><strong>factoring</strong> \(pq\)</td>
-</tr>
-</tbody>
-</table></div>
-<p>Here are the powers of 2 modulo 23:</p>
+<p>§1 asked for a padlock that anyone can snap shut but only Bob can open. In mathematics this
+comes in two steps:</p>
+<ol>
+<li>a function that anyone can compute but nobody can undo: a <strong>one-way function</strong>;</li>
+<li>a secret that lets one person undo it after all: a <strong>trapdoor</strong>.</li>
+</ol>
+<p>This section builds both, with numbers small enough to check by hand. §3 builds key exchange
+from the first, and §4 and §5 build encryption from the second.</p>
+<h3 id="easy-one-way-hard-the-other">Easy one way, hard the other<a class="headerlink" href="#easy-one-way-hard-the-other" title="Link to this section">#</a></h3>
+<p>A <strong>one-way function</strong> \(f\) has two properties:</p>
+<ul>
+<li><strong>easy to compute:</strong> given \(x\), anyone can work out \(f(x)\) quickly, even when \(x\) has
+  thousands of digits;</li>
+<li><strong>hard to invert:</strong> given \(y = f(x)\), nobody can find an \(x\) with \(f(x) = y\) in any realistic
+  amount of time.</li>
+</ul>
+<p>A printed phone book is the everyday version. Finding a number from a name takes seconds,
+because the names are sorted. Finding the name from a number means reading the whole book.</p>
+<p>Two things the definition does <em>not</em> say:</p>
+<ul>
+<li><strong>The function is not secret.</strong> Everyone knows exactly how \(f\) is computed (Kerckhoffs's
+  principle, <a href="p1_encryption_basics.html">P1</a>). The hardness has to come from the mathematics, not
+  from hiding the recipe.</li>
+<li><strong>"Looks scrambled" is not enough.</strong> \(x \mapsto 7x \bmod 23\) shuffles the numbers 0 to 22
+  thoroughly, but undoing it is one multiplication by 10, because \(7 \cdot 10 = 70 = 3 \cdot 23 + 1\).
+  A one-way function must have no such shortcut back.</li>
+</ul>
+<p>"Hard" means that the best known method needs something like \(2^{112}\) or \(2^{128}\) steps at the
+sizes used in practice, far beyond all the computers on Earth
+(<a href="p1_encryption_basics.html#8-computational-security-and-bits-of-security">P1 §8</a>). Two functions
+have survived decades of attack and carry most of today's public-key cryptography.</p>
+<h3 id="candidate-1-exponentiation-mod-a-prime">Candidate 1: exponentiation mod a prime<a class="headerlink" href="#candidate-1-exponentiation-mod-a-prime" title="Link to this section">#</a></h3>
+<p>Start with ordinary powers of 2: 1, 2, 4, 8, …, 1024. They only grow, so going backward is easy.
+"Which \(k\) gives 1024?" The logarithm answers at once, \(\log_2 1024 = 10\), and even without it you
+could halve 1024 until you reach 1 and count the steps. The size of the result gives \(k\) away.</p>
+<p>Now compute the same powers mod 23. Each step multiplies by 2 and reduces, for example
+\(16 \cdot 2 = 32 = 23 + 9\), so the entry after 16 is 9:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -215,20 +238,210 @@ two candidates:</p>
 </tr>
 </tbody>
 </table></div>
-<p>Then \(2^{11} = 2048 = 89 \cdot 23 + 1 \equiv 1\), and the cycle repeats. Going forward is cheap even
-for huge exponents: \(2^7 = 2^4 \cdot 2^2 \cdot 2 = 16 \cdot 4 \cdot 2 = 128 \equiv 13\), and a 2048-bit
-exponent needs only a few thousand multiplications. Going backward ("which \(k\) gives 13?") means
-searching the table. The values jump around with no visible pattern, and for a 2048-bit prime the
-cycle has about \(2^{2047}\) entries.</p>
-<p>A <strong>trapdoor one-way function</strong> is one-way for everyone except the holder of a secret, the
-trapdoor, that makes inversion easy. <abbr title="Rivest–Shamir–Adleman">RSA</abbr>'s \(x \mapsto x^e \bmod n\) is the standard example: with the
-factors of \(n\) you can compute \(d\) and invert it; without them, nobody knows how.
-Encryption needs a trapdoor, because the receiver must be able to invert. Key exchange needs only
-a one-way function with a special algebraic property, as the next section shows.</p>
-<p>One caveat matters for P5. <strong>No function has been proven one-way.</strong> A proof would settle
-P ≠ NP. "Hard" means that decades of effort have produced no efficient algorithm. Security
-proofs therefore take the form "breaking this scheme is at least as hard as problem X", and the
-hardness of X is an assumption.</p>
+<p>Then \(2^{11} = 2048 = 89 \cdot 23 + 1 \equiv 1\), and the cycle starts again: \(2^{12} \equiv 2\),
+\(2^{13} \equiv 4\), and so on. The exponents go round a clock with 11 hours (the figure in §3 draws
+it).</p>
+<p><strong>Backward is hard.</strong> "Which \(k\) gives 13?" The table has no order to exploit: 13 sits between
+18 and 3, and nothing about the number 13 says that it is near \(k = 7\). Without a cleverer
+algorithm you walk the table, 1, 2, 4, 8, 16, 9, 18, 13, and find \(k = 7\) after 8 tries. This is
+the <strong>discrete logarithm</strong> problem: a logarithm because it undoes exponentiation, discrete because
+it lives in whole numbers mod \(p\) instead of the real numbers. For a 2048-bit prime the cycle has
+about \(2^{2047}\) entries. The best known algorithms are far cleverer than walking the table (§3
+lists them), but at this size they are still hopelessly slow.</p>
+<p><strong>Forward stays easy, even for huge exponents.</strong> The trick is <strong>square-and-multiply</strong>. Instead of
+multiplying by 2 a hundred times to get \(2^{100}\), square again and again, reducing mod 23 after
+every step:</p>
+<div class="highlight"><pre><span></span><code>2^1                        = 2
+2^2  = 2^2                 = 4
+2^4  = 4^2   =  16         = 16
+2^8  = 16^2  = 256         = 3     (256 = 11·23 + 3)
+2^16 = 3^2   =   9         = 9
+2^32 = 9^2   =  81         = 12    (81 = 3·23 + 12)
+2^64 = 12^2  = 144         = 6     (144 = 6·23 + 6)
+</code></pre></div>
+
+<p>Then write the exponent in binary, \(100 = 64 + 32 + 4\), and multiply those three squares:</p>
+<div class="math-display">\[2^{100} = 2^{64} \cdot 2^{32} \cdot 2^{4} \equiv 6 \cdot 12 \cdot 16 = 1152 = 50 \cdot 23 + 2 \equiv 2 \pmod{23}.\]</div>
+<p>That is six squarings and two multiplications instead of 99 multiplications. (The cycle confirms
+it: \(100 = 9 \cdot 11 + 1\), so \(2^{100} \equiv 2^1 = 2\).) Because every intermediate result is
+reduced, the numbers never grow beyond \(p\). A 2048-bit exponent needs at most 2047 squarings and
+2047 multiplications, about 4,000 steps in all, which takes a few milliseconds on a laptop.</p>
+<p>So the forward direction costs a few thousand multiplications, and the backward direction costs
+more steps than anyone can ever take. That gap is what "one-way" means.</p>
+<figure class="widget" id="w-p4-oneway-powers">
+  <p class="widget-title">Ordinary powers against powers mod p</p>
+  <p class="widget-hint">Move \(k\). On the left, \(2^k\) only climbs, so its value gives \(k\) away. On the right, \(2^k \bmod p\) jumps around. Switch to a bigger \(p\) and try to guess where the next point will land.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Ordinary powers \(2^k\), \(k = 0\) to 10</p><div class="c-plain"></div></div>
+    <div><p class="panel-title">Powers mod \(p\): \(2^k \bmod p\)</p><div class="c-mod"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Left: the first eleven ordinary powers of 2. They only grow, so a value pins down its exponent (the logarithm reads it off). Right: the same powers reduced mod \(p\). They wrap around after \(N\) steps (\(N = 11\) for \(p = 23\), as in the table of §2) and land in no visible order. Computing one point is quick with square-and-multiply; finding the \(k\) of a given value means searching the cycle, and for a 2048-bit prime the cycle has about \(2^{2047}\) entries.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-oneway-powers';
+  const PRIMES = [23, 107, 1019];
+  const cycle = {};                                            // p -> [2^0, 2^1, ...] until it returns to 1
+  PRIMES.forEach(p => { const c = [1]; for (let x = 2; x !== 1; x = x * 2 % p) c.push(x); cycle[p] = c; });
+
+  const sup = n => String(n).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);   // 2⁷ rather than 2^7 in text drawn at run time
+  function squareAndMultiply(k) {                              // operation counts for 2^k by square-and-multiply
+    if (k < 2) return { sq: 0, mul: 0 };
+    const bits = k.toString(2);
+    return { sq: bits.length - 1, mul: bits.split('').filter(b => b === '1').length - 1 };
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { syncRange(); plain.update(); mod.update(); readout(); });
+  const prime = ui.choice({ label: 'Prime p', options: PRIMES.map(p => ({ value: p, label: String(p) })), value: 23 });
+  const kk = ui.slider({ label: 'Exponent k', min: 0, max: 10, step: 1, value: 7, format: v => String(v) });
+  let shownFor = 23;
+  function syncRange() {                                       // the slider covers one full cycle of the chosen p
+    if (prime.value === shownFor) return;
+    shownFor = prime.value;
+    const N = cycle[shownFor].length;
+    kk.input.max = N - 1;
+    kk.set(Math.min(kk.value, N - 1));
+  }
+
+  const plain = DS.chart(root + ' .c-plain', {
+    x: { domain: [0, 10], label: 'k', tickValues: [0, 2, 4, 6, 8, 10] }, y: { domain: [0, 1100], label: '2ᵏ' }, height: 260,
+    draw(c) {
+      const pts = DS.math.range(11).map(k => [k, 2 ** k]);
+      c.line(pts, { series: 1 });
+      c.scatter(pts, { series: 1, r: 3.5, tip: p => `2${sup(p[0])} = ${p[1]}` });
+      const k = kk.value;
+      if (k <= 10) { c.hline(2 ** k, { dash: true, series: 'muted' }); c.point(k, 2 ** k, { series: 2, label: `2${sup(k)} = ${2 ** k}`, labelOpts: k > 5 ? { anchor: 'end', dx: -9 } : {} }); }
+      else c.text(5, 700, `2${sup(k)} has ${Math.floor(k * Math.log10(2)) + 1} digits`, { anchor: 'middle', cls: 'ink' });
+    },
+  });
+
+  const mod = DS.chart(root + ' .c-mod', {
+    x: { domain: [0, 10], label: 'k' }, y: { domain: [0, 23], label: '2ᵏ mod p' }, height: 260,
+    draw(c) {
+      const p = prime.value, cyc = cycle[p], N = cyc.length;
+      c.domain({ x: [0, N - 1], y: [0, p] });
+      const pts = cyc.map((v, k) => [k, v]);
+      c.scatter(pts, { series: 1, r: p === 23 ? 3.5 : p === 107 ? 2.5 : 1.6, tip: q => `2${sup(q[0])} mod ${p} = ${q[1]}` });
+      const k = kk.value, v = cyc[k];
+      c.hline(v, { dash: true, series: 'muted' });
+      c.point(k, v, { series: 2, label: `2${sup(k)} mod ${p} = ${v}`, labelOpts: k > (N - 1) / 2 ? { anchor: 'end', dx: -9 } : {} });
+    },
+  });
+
+  function readout() {
+    const p = prime.value, cyc = cycle[p], N = cyc.length, k = kk.value, ops = squareAndMultiply(k);
+    DS.stats(root + ' .readout', [
+      { label: `Forward: 2${sup(k)} mod ${p}`, value: String(cyc[k]),
+        note: k < 2 ? 'no work needed' : `k = ${k.toString(2)} in binary: ${ops.sq} squaring${ops.sq === 1 ? '' : 's'} and ${ops.mul} multiplication${ops.mul === 1 ? '' : 's'}` },
+      { label: `Backward: which k gives ${cyc[k]}?`, value: `${k + 1} ${k ? 'tries' : 'try'}`,
+        note: 'walking the table from k = 0; on average half of it' },
+      { label: 'Length of the cycle N', value: String(N), note: 'for a 2048-bit prime: about 2²⁰⁴⁷' },
+    ]);
+  }
+  readout();
+})();
+</script>
+<h3 id="candidate-2-multiplying-two-primes">Candidate 2: multiplying two primes<a class="headerlink" href="#candidate-2-multiplying-two-primes" title="Link to this section">#</a></h3>
+<p><strong>Forward:</strong> \(61 \cdot 53 = 3233\) takes a minute with pen and paper. A computer multiplies two
+1024-bit primes in about a microsecond.</p>
+<p><strong>Backward:</strong> given only 3233, find the two primes. There is no formula for this. The obvious
+method is <strong>trial division</strong>: divide by 2, 3, 5, 7, 11, … until one of them goes in evenly. The
+smaller factor cannot be bigger than \(\sqrt{3233} \approx 57\), so at most 16 divisions (by the 16
+primes up to 53) find 53, and then \(3233 / 53 = 61\).</p>
+<p>For a 2048-bit product, a number with 617 decimal digits, the smaller factor has about 308 digits
+and there are about \(10^{305}\) primes below it. Much cleverer algorithms exist, the best being the
+general number field sieve, but they too are far out of reach at this size. Factoring <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-250, an
+829-bit challenge number, took about 2,700 years of computing on a single processor core in 2020,
+and 2048 bits is vastly harder. This is <strong>factoring</strong>, the second one-way function.</p>
+<h3 id="trapdoors-a-secret-way-back">Trapdoors: a secret way back<a class="headerlink" href="#trapdoors-a-secret-way-back" title="Link to this section">#</a></h3>
+<p>A one-way function alone cannot encrypt: if nobody can invert it, the receiver cannot either.
+Encryption needs a function that anyone can compute with the public key, but that the holder of
+one extra secret can invert. That secret is the <strong>trapdoor</strong>, like a hidden door in a castle wall:
+the wall is just as hard to climb for everyone who does not know where the door is. A <strong>trapdoor
+one-way function</strong> is one-way for everyone without the trapdoor and easy to invert with it. It is
+the padlock of §1.</p>
+<p><abbr title="Rivest–Shamir–Adleman">RSA</abbr>'s trapdoor function combines the two candidates. A failed attempt shows why both are needed.</p>
+<p><strong>Attempt: a power mod a prime.</strong> Take \(f(x) = x^3 \bmod 23\). Forward:
+\(5^3 = 125 = 5 \cdot 23 + 10\), so \(f(5) = 10\). Backward, use the cycle. For every \(x\) not divisible
+by 23, \(x^{22} \equiv 1 \pmod{23}\) (Fermat's little theorem), so exponents can be reduced mod 22,
+just as the exponents of 2 were reduced mod 11 above. Find \(d\) with \(3d \equiv 1 \pmod{22}\):
+\(d = 15\), since \(3 \cdot 15 = 45 = 2 \cdot 22 + 1\). Then</p>
+<div class="math-display">\[f(x)^{15} = x^{45} = x^{2 \cdot 22 + 1} = (x^{22})^2 \cdot x \equiv x \pmod{23},\]</div>
+<p>and indeed \(10^{15} \bmod 23 = 5\). Anyone can do this, because anyone knows the cycle length
+\(22 = 23 - 1\). A power mod a prime is not one-way at all.</p>
+<p><strong><abbr title="Rivest–Shamir–Adleman">RSA</abbr>: hide the cycle length.</strong> Now use a modulus that is the product of two secret primes,
+\(n = p \cdot q = 61 \cdot 53 = 3233\). Powers mod \(n\) still cycle, but the cycle length is now
+\(\varphi(n) = (p - 1)(q - 1) = 60 \cdot 52 = 3120\). (This is Euler's theorem:
+\(x^{\varphi(n)} \equiv 1 \pmod n\) for every \(x\) that shares no factor with \(n\). <abbr title="Rivest–Shamir–Adleman">RSA</abbr> decryption works
+for the other \(x\) too, by a slightly longer argument.) Whoever knows \(\varphi(n)\) inverts
+\(f(x) = x^{17} \bmod 3233\) exactly as above: \(d = 17^{-1} \bmod 3120 = 2753\), since
+\(17 \cdot 2753 = 46801 = 15 \cdot 3120 + 1\).</p>
+<ul>
+<li><strong>Forward, anyone:</strong> \(f(65) = 65^{17} \bmod 3233 = 2790\), using only the public \(n = 3233\) and
+  \(e = 17\).</li>
+<li><strong>Backward, Bob:</strong> \(2790^{2753} \bmod 3233 = 65\).</li>
+<li><strong>Backward, Eve:</strong> she knows \(n\) and \(e\), but not \(\varphi(n)\). Computing \(\varphi(n)\) is as
+  hard as factoring \(n\), because the factors follow from it: \(p + q = n - \varphi(n) + 1 = 114\),
+  and the two numbers with sum 114 and product 3233 are 61 and 53. Nobody knows a way to take
+  \(e\)-th roots mod \(n\) without the factors.</li>
+</ul>
+<p>So <strong>the trapdoor is the factorization of \(n\)</strong>, and it is guarded by the second one-way function:
+multiplying \(p\) and \(q\) is easy, recovering them from \(n\) is factoring. That is the whole idea of
+<abbr title="Rivest–Shamir–Adleman">RSA</abbr>, and §4 continues from here.</p>
+<h3 id="which-scheme-uses-what">Which scheme uses what<a class="headerlink" href="#which-scheme-uses-what" title="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Building block</th>
+<th>Hard problem behind it</th>
+<th>Trapdoor</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(x \mapsto g^x \bmod p\)</td>
+<td>discrete logarithm</td>
+<td>none</td>
+<td>Diffie–Hellman (§3), ElGamal (§5)</td>
+</tr>
+<tr>
+<td>\((p, q) \mapsto p \cdot q\)</td>
+<td>factoring</td>
+<td>none: it guards <abbr title="Rivest–Shamir–Adleman">RSA</abbr>'s trapdoor</td>
+<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr> key generation</td>
+</tr>
+<tr>
+<td>\(x \mapsto x^e \bmod n\)</td>
+<td>\(e\)-th roots mod \(n\) (the <abbr title="Rivest–Shamir–Adleman">RSA</abbr> problem)</td>
+<td>the factors of \(n\), or \(d\)</td>
+<td><abbr title="Rivest–Shamir–Adleman">RSA</abbr> encryption (§4)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Diffie–Hellman needs no trapdoor. Alice and Bob never invert anything; they only compute forward,
+and they rely on one algebraic fact, \((g^a)^b = (g^b)^a\) (§3). ElGamal turns that exchange into
+encryption: the receiver's secret exponent lets them finish the exchange and remove the pad (§5).
+The lattice schemes of <a href="p7_lattices_and_lwe.html">P7</a>, on which <abbr title="fully homomorphic encryption">FHE</abbr> is built, use a third hard
+problem: solving linear equations with a little noise added.</p>
+<h3 id="hard-is-an-assumption">"Hard" is an assumption<a class="headerlink" href="#hard-is-an-assumption" title="Link to this section">#</a></h3>
+<ul>
+<li><strong>Small sizes are easy.</strong> Everything above was inverted by hand. The security comes from size:
+  the same functions with numbers of 2048 bits or more.</li>
+<li><strong>No function has been proven one-way.</strong> A proof would show that P ≠ NP, the most famous open
+  problem in computer science, unsolved since 1971. Roughly, P is the class of problems that can
+  be solved quickly and NP the class whose answers can be checked quickly. Checking a claimed
+  factorization takes one multiplication, so factoring is in NP; if P = NP, factoring would be
+  quick too. Nobody knows.</li>
+<li><strong>What we have is evidence:</strong> decades of work by the best mathematicians, with no efficient
+  algorithm found. Security proofs therefore take the form "breaking this scheme is at least as
+  hard as problem X" (<a href="p5_security_definitions.html">P5</a>), and the hardness of X is an assumption.</li>
+<li><strong>The evidence is about ordinary computers.</strong> Shor's algorithm (§9) inverts both candidates
+  efficiently on a large quantum computer. That is why post-quantum cryptography and <abbr title="fully homomorphic encryption">FHE</abbr> build on
+  lattices instead.</li>
+</ul>
 <h2 id="3-diffie-hellman-key-exchange">3. Diffie-Hellman key exchange<a class="headerlink" href="#3-diffie-hellman-key-exchange" title="Link to this section">#</a></h2>
 <h3 id="the-protocol">The protocol<a class="headerlink" href="#the-protocol" title="Link to this section">#</a></h3>
 <p>Everyone agrees on a public prime \(p\) and a generator \(g\) (more on choosing them below).</p>
@@ -385,7 +598,7 @@ exchange with Alice and another with Bob and relays the traffic. Both "share a k
 Mallory. The fix is to authenticate the exchanged values with <strong>signatures</strong> (§7) whose public keys
 are vouched for by certificates. <abbr title="Transport Layer Security">TLS</abbr> signs the whole handshake (§6).</p>
 <h2 id="4-rsa-revisited-what-matters-for-he">4. RSA revisited: what matters for HE<a class="headerlink" href="#4-rsa-revisited-what-matters-for-he" title="Link to this section">#</a></h2>
-<p>You know the mechanics: \(n = pq\), \(e\) coprime to \(\varphi(n) = (p-1)(q-1)\), \(d = e^{-1} \bmod \varphi(n)\),</p>
+<p>§2 derived the mechanics: \(n = pq\), \(e\) coprime to \(\varphi(n) = (p-1)(q-1)\), \(d = e^{-1} \bmod \varphi(n)\),</p>
 <div class="math-display">\[\mathrm{Enc}(m) = m^e \bmod n, \qquad \mathrm{Dec}(c) = c^d \bmod n\]</div>
 <p>The repo's <a href="../../../python_rsa/sandpit.py"><code>sandpit.py</code></a> uses 2048-bit primes and \(e = 65537\). Its
 commented-out \(p = 61\), \(q = 53\) is the classic tiny key used here: \(n = 3233\), \(\varphi(n) = 3120\),
@@ -1115,6 +1328,17 @@ decrypts to \(6 \cdot 7 = 42\). In part 3b only the tally is decrypted, never a 
    wide margin), <abbr title="Module-Lattice-Based Key-Encapsulation Mechanism (FIPS 203)">ML-KEM</abbr>-768 and <abbr title="the Brakerski/Fan–Vercauteren scheme">BFV</abbr> (both lattice-based). <abbr title="Rivest–Shamir–Adleman">RSA</abbr>-OAEP and X25519 fall to Shor, and
    since <abbr title="Transport Layer Security">TLS</abbr> derives the <abbr title="Advanced Encryption Standard">AES</abbr> key from the <abbr title="ephemeral elliptic-curve Diffie–Hellman">ECDHE</abbr> secret, a recorded X25519-only handshake exposes
    the <abbr title="Advanced Encryption Standard">AES</abbr>-encrypted data too. A hybrid X25519MLKEM768 handshake does not.</p></div></details></li>
+<li>Anyone can invert \(x \mapsto x^3 \bmod 23\), but only the key owner can invert
+   \(x \mapsto x^{17} \bmod 3233\). Why the difference, and what exactly is the trapdoor? Compute
+   \(2^{13} \bmod 23\) by square-and-multiply while you are at it.
+<details class="answer"><summary>Show answer</summary><div><p>Inverting a power means finding the exponent \(d\) that undoes it, and that needs the cycle
+   length of the powers. Mod the prime 23 the cycle length is \(23 - 1 = 22\), which everyone knows,
+   so anyone finds \(d = 15\) (\(3 \cdot 15 = 45 \equiv 1 \bmod 22\)). Mod \(3233\) it is
+   \(\varphi(3233) = (61 - 1)(53 - 1) = 3120\), which needs the factors 61 and 53; then
+   \(d = 2753\). The trapdoor is the factorization of \(n\) (equivalently \(\varphi(n)\) or \(d\)), and
+   finding it from \(n\) alone is factoring. For \(2^{13}\): \(13 = 8 + 4 + 1\), and
+   \(2^8 \equiv 3\), \(2^4 = 16\), so \(2^{13} \equiv 3 \cdot 16 \cdot 2 = 96 = 4 \cdot 23 + 4 \equiv 4\)
+   (three squarings, two multiplications; the cycle agrees: \(2^{13} = 2^{11} \cdot 2^2 \equiv 4\)).</p></div></details></li>
 </ol>
 
 <h2 id="13-key-terms">13. Key terms<a class="headerlink" href="#13-key-terms" title="Link to this section">#</a></h2>
@@ -1141,6 +1365,14 @@ decrypts to \(6 \cdot 7 = 42\). In part 3b only the tally is decrypted, never a 
 <tr>
 <td>Trapdoor (one-way) function</td>
 <td>One-way except for the holder of a secret that makes inversion easy</td>
+</tr>
+<tr>
+<td>Square-and-multiply</td>
+<td>Computing \(g^k \bmod p\) by repeated squaring and multiplying the squares picked out by the binary digits of \(k\): about \(2\log_2 k\) steps</td>
+</tr>
+<tr>
+<td>Factoring</td>
+<td>Finding the primes \(p, q\) from \(n = pq\); <abbr title="Rivest–Shamir–Adleman">RSA</abbr>'s trapdoor is the factorization</td>
 </tr>
 <tr>
 <td>Discrete logarithm (DL)</td>

@@ -16,6 +16,8 @@ replacement: lattices, the same mathematics fully homomorphic encryption (FHE) i
 
 - explain the key distribution problem and how a public key solves it;
 - say what one-way and trapdoor functions are, and which ones RSA and Diffie–Hellman use;
+- compute a large power mod $p$ by square-and-multiply, and see by hand why a power mod a
+  prime can be undone by anyone but a power mod $n = pq$ only by whoever knows $p$ and $q$;
 - run a Diffie–Hellman exchange by hand, list what an eavesdropper sees, and name the problems
   that protect it: discrete log, computational Diffie–Hellman (CDH) and decisional
   Diffie–Hellman (DDH);
@@ -66,36 +68,181 @@ Diffie–Hellman (1976), RSA (1977, published 1978) and ElGamal (1985).
 
 ## 2. One-way functions and trapdoors
 
-A **one-way function** is easy to compute and hard to invert. Public-key cryptography rests on
-two candidates:
+§1 asked for a padlock that anyone can snap shut but only Bob can open. In mathematics this
+comes in two steps:
 
-| Function | Easy direction | Hard direction |
-|---|---|---|
-| $x \mapsto g^x \bmod p$ | square-and-multiply: about $2\log_2 x$ multiplications | the **discrete logarithm**: find $x$ from $g^x$ |
-| $(p, q) \mapsto p \cdot q$ | one multiplication | **factoring** $pq$ |
+1. a function that anyone can compute but nobody can undo: a **one-way function**;
+2. a secret that lets one person undo it after all: a **trapdoor**.
 
-Here are the powers of 2 modulo 23:
+This section builds both, with numbers small enough to check by hand. §3 builds key exchange
+from the first, and §4 and §5 build encryption from the second.
+
+### Easy one way, hard the other
+
+A **one-way function** $f$ has two properties:
+
+- **easy to compute:** given $x$, anyone can work out $f(x)$ quickly, even when $x$ has
+  thousands of digits;
+- **hard to invert:** given $y = f(x)$, nobody can find an $x$ with $f(x) = y$ in any realistic
+  amount of time.
+
+A printed phone book is the everyday version. Finding a number from a name takes seconds,
+because the names are sorted. Finding the name from a number means reading the whole book.
+
+Two things the definition does *not* say:
+
+- **The function is not secret.** Everyone knows exactly how $f$ is computed (Kerckhoffs's
+  principle, [P1](p1_encryption_basics.md)). The hardness has to come from the mathematics, not
+  from hiding the recipe.
+- **"Looks scrambled" is not enough.** $x \mapsto 7x \bmod 23$ shuffles the numbers 0 to 22
+  thoroughly, but undoing it is one multiplication by 10, because $7 \cdot 10 = 70 = 3 \cdot 23 + 1$.
+  A one-way function must have no such shortcut back.
+
+"Hard" means that the best known method needs something like $2^{112}$ or $2^{128}$ steps at the
+sizes used in practice, far beyond all the computers on Earth
+([P1 §8](p1_encryption_basics.md#8-computational-security-and-bits-of-security)). Two functions
+have survived decades of attack and carry most of today's public-key cryptography.
+
+### Candidate 1: exponentiation mod a prime
+
+Start with ordinary powers of 2: 1, 2, 4, 8, …, 1024. They only grow, so going backward is easy.
+"Which $k$ gives 1024?" The logarithm answers at once, $\log_2 1024 = 10$, and even without it you
+could halve 1024 until you reach 1 and count the steps. The size of the result gives $k$ away.
+
+Now compute the same powers mod 23. Each step multiplies by 2 and reduces, for example
+$16 \cdot 2 = 32 = 23 + 9$, so the entry after 16 is 9:
 
 | $k$ | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | $2^k \bmod 23$ | 1 | 2 | 4 | 8 | 16 | 9 | 18 | 13 | 3 | 6 | 12 |
 
-Then $2^{11} = 2048 = 89 \cdot 23 + 1 \equiv 1$, and the cycle repeats. Going forward is cheap even
-for huge exponents: $2^7 = 2^4 \cdot 2^2 \cdot 2 = 16 \cdot 4 \cdot 2 = 128 \equiv 13$, and a 2048-bit
-exponent needs only a few thousand multiplications. Going backward ("which $k$ gives 13?") means
-searching the table. The values jump around with no visible pattern, and for a 2048-bit prime the
-cycle has about $2^{2047}$ entries.
+Then $2^{11} = 2048 = 89 \cdot 23 + 1 \equiv 1$, and the cycle starts again: $2^{12} \equiv 2$,
+$2^{13} \equiv 4$, and so on. The exponents go round a clock with 11 hours (the figure in §3 draws
+it).
 
-A **trapdoor one-way function** is one-way for everyone except the holder of a secret, the
-trapdoor, that makes inversion easy. RSA's $x \mapsto x^e \bmod n$ is the standard example: with the
-factors of $n$ you can compute $d$ and invert it; without them, nobody knows how.
-Encryption needs a trapdoor, because the receiver must be able to invert. Key exchange needs only
-a one-way function with a special algebraic property, as the next section shows.
+**Backward is hard.** "Which $k$ gives 13?" The table has no order to exploit: 13 sits between
+18 and 3, and nothing about the number 13 says that it is near $k = 7$. Without a cleverer
+algorithm you walk the table, 1, 2, 4, 8, 16, 9, 18, 13, and find $k = 7$ after 8 tries. This is
+the **discrete logarithm** problem: a logarithm because it undoes exponentiation, discrete because
+it lives in whole numbers mod $p$ instead of the real numbers. For a 2048-bit prime the cycle has
+about $2^{2047}$ entries. The best known algorithms are far cleverer than walking the table (§3
+lists them), but at this size they are still hopelessly slow.
 
-One caveat matters for P5. **No function has been proven one-way.** A proof would settle
-P ≠ NP. "Hard" means that decades of effort have produced no efficient algorithm. Security
-proofs therefore take the form "breaking this scheme is at least as hard as problem X", and the
-hardness of X is an assumption.
+**Forward stays easy, even for huge exponents.** The trick is **square-and-multiply**. Instead of
+multiplying by 2 a hundred times to get $2^{100}$, square again and again, reducing mod 23 after
+every step:
+
+```text
+2^1                        = 2
+2^2  = 2^2                 = 4
+2^4  = 4^2   =  16         = 16
+2^8  = 16^2  = 256         = 3     (256 = 11·23 + 3)
+2^16 = 3^2   =   9         = 9
+2^32 = 9^2   =  81         = 12    (81 = 3·23 + 12)
+2^64 = 12^2  = 144         = 6     (144 = 6·23 + 6)
+```
+
+Then write the exponent in binary, $100 = 64 + 32 + 4$, and multiply those three squares:
+
+$$2^{100} = 2^{64} \cdot 2^{32} \cdot 2^{4} \equiv 6 \cdot 12 \cdot 16 = 1152 = 50 \cdot 23 + 2 \equiv 2 \pmod{23}.$$
+
+That is six squarings and two multiplications instead of 99 multiplications. (The cycle confirms
+it: $100 = 9 \cdot 11 + 1$, so $2^{100} \equiv 2^1 = 2$.) Because every intermediate result is
+reduced, the numbers never grow beyond $p$. A 2048-bit exponent needs at most 2047 squarings and
+2047 multiplications, about 4,000 steps in all, which takes a few milliseconds on a laptop.
+
+So the forward direction costs a few thousand multiplications, and the backward direction costs
+more steps than anyone can ever take. That gap is what "one-way" means.
+
+<!-- figure: p4-oneway-powers -->
+
+### Candidate 2: multiplying two primes
+
+**Forward:** $61 \cdot 53 = 3233$ takes a minute with pen and paper. A computer multiplies two
+1024-bit primes in about a microsecond.
+
+**Backward:** given only 3233, find the two primes. There is no formula for this. The obvious
+method is **trial division**: divide by 2, 3, 5, 7, 11, … until one of them goes in evenly. The
+smaller factor cannot be bigger than $\sqrt{3233} \approx 57$, so at most 16 divisions (by the 16
+primes up to 53) find 53, and then $3233 / 53 = 61$.
+
+For a 2048-bit product, a number with 617 decimal digits, the smaller factor has about 308 digits
+and there are about $10^{305}$ primes below it. Much cleverer algorithms exist, the best being the
+general number field sieve, but they too are far out of reach at this size. Factoring RSA-250, an
+829-bit challenge number, took about 2,700 years of computing on a single processor core in 2020,
+and 2048 bits is vastly harder. This is **factoring**, the second one-way function.
+
+### Trapdoors: a secret way back
+
+A one-way function alone cannot encrypt: if nobody can invert it, the receiver cannot either.
+Encryption needs a function that anyone can compute with the public key, but that the holder of
+one extra secret can invert. That secret is the **trapdoor**, like a hidden door in a castle wall:
+the wall is just as hard to climb for everyone who does not know where the door is. A **trapdoor
+one-way function** is one-way for everyone without the trapdoor and easy to invert with it. It is
+the padlock of §1.
+
+RSA's trapdoor function combines the two candidates. A failed attempt shows why both are needed.
+
+**Attempt: a power mod a prime.** Take $f(x) = x^3 \bmod 23$. Forward:
+$5^3 = 125 = 5 \cdot 23 + 10$, so $f(5) = 10$. Backward, use the cycle. For every $x$ not divisible
+by 23, $x^{22} \equiv 1 \pmod{23}$ (Fermat's little theorem), so exponents can be reduced mod 22,
+just as the exponents of 2 were reduced mod 11 above. Find $d$ with $3d \equiv 1 \pmod{22}$:
+$d = 15$, since $3 \cdot 15 = 45 = 2 \cdot 22 + 1$. Then
+
+$$f(x)^{15} = x^{45} = x^{2 \cdot 22 + 1} = (x^{22})^2 \cdot x \equiv x \pmod{23},$$
+
+and indeed $10^{15} \bmod 23 = 5$. Anyone can do this, because anyone knows the cycle length
+$22 = 23 - 1$. A power mod a prime is not one-way at all.
+
+**RSA: hide the cycle length.** Now use a modulus that is the product of two secret primes,
+$n = p \cdot q = 61 \cdot 53 = 3233$. Powers mod $n$ still cycle, but the cycle length is now
+$\varphi(n) = (p - 1)(q - 1) = 60 \cdot 52 = 3120$. (This is Euler's theorem:
+$x^{\varphi(n)} \equiv 1 \pmod n$ for every $x$ that shares no factor with $n$. RSA decryption works
+for the other $x$ too, by a slightly longer argument.) Whoever knows $\varphi(n)$ inverts
+$f(x) = x^{17} \bmod 3233$ exactly as above: $d = 17^{-1} \bmod 3120 = 2753$, since
+$17 \cdot 2753 = 46801 = 15 \cdot 3120 + 1$.
+
+- **Forward, anyone:** $f(65) = 65^{17} \bmod 3233 = 2790$, using only the public $n = 3233$ and
+  $e = 17$.
+- **Backward, Bob:** $2790^{2753} \bmod 3233 = 65$.
+- **Backward, Eve:** she knows $n$ and $e$, but not $\varphi(n)$. Computing $\varphi(n)$ is as
+  hard as factoring $n$, because the factors follow from it: $p + q = n - \varphi(n) + 1 = 114$,
+  and the two numbers with sum 114 and product 3233 are 61 and 53. Nobody knows a way to take
+  $e$-th roots mod $n$ without the factors.
+
+So **the trapdoor is the factorization of $n$**, and it is guarded by the second one-way function:
+multiplying $p$ and $q$ is easy, recovering them from $n$ is factoring. That is the whole idea of
+RSA, and §4 continues from here.
+
+### Which scheme uses what
+
+| Building block | Hard problem behind it | Trapdoor | Used by |
+|---|---|---|---|
+| $x \mapsto g^x \bmod p$ | discrete logarithm | none | Diffie–Hellman (§3), ElGamal (§5) |
+| $(p, q) \mapsto p \cdot q$ | factoring | none: it guards RSA's trapdoor | RSA key generation |
+| $x \mapsto x^e \bmod n$ | $e$-th roots mod $n$ (the RSA problem) | the factors of $n$, or $d$ | RSA encryption (§4) |
+
+Diffie–Hellman needs no trapdoor. Alice and Bob never invert anything; they only compute forward,
+and they rely on one algebraic fact, $(g^a)^b = (g^b)^a$ (§3). ElGamal turns that exchange into
+encryption: the receiver's secret exponent lets them finish the exchange and remove the pad (§5).
+The lattice schemes of [P7](p7_lattices_and_lwe.md), on which FHE is built, use a third hard
+problem: solving linear equations with a little noise added.
+
+### "Hard" is an assumption
+
+- **Small sizes are easy.** Everything above was inverted by hand. The security comes from size:
+  the same functions with numbers of 2048 bits or more.
+- **No function has been proven one-way.** A proof would show that P ≠ NP, the most famous open
+  problem in computer science, unsolved since 1971. Roughly, P is the class of problems that can
+  be solved quickly and NP the class whose answers can be checked quickly. Checking a claimed
+  factorization takes one multiplication, so factoring is in NP; if P = NP, factoring would be
+  quick too. Nobody knows.
+- **What we have is evidence:** decades of work by the best mathematicians, with no efficient
+  algorithm found. Security proofs therefore take the form "breaking this scheme is at least as
+  hard as problem X" ([P5](p5_security_definitions.md)), and the hardness of X is an assumption.
+- **The evidence is about ordinary computers.** Shor's algorithm (§9) inverts both candidates
+  efficiently on a large quantum computer. That is why post-quantum cryptography and FHE build on
+  lattices instead.
 
 ## 3. Diffie-Hellman key exchange
 
@@ -182,7 +329,7 @@ are vouched for by certificates. TLS signs the whole handshake (§6).
 
 ## 4. RSA revisited: what matters for HE
 
-You know the mechanics: $n = pq$, $e$ coprime to $\varphi(n) = (p-1)(q-1)$, $d = e^{-1} \bmod \varphi(n)$,
+§2 derived the mechanics: $n = pq$, $e$ coprime to $\varphi(n) = (p-1)(q-1)$, $d = e^{-1} \bmod \varphi(n)$,
 
 $$\mathrm{Enc}(m) = m^e \bmod n, \qquad \mathrm{Dec}(c) = c^d \bmod n$$
 
@@ -635,6 +782,9 @@ decrypts to $6 \cdot 7 = 42$. In part 3b only the tally is decrypted, never a si
 5. Why does exponential ElGamal need small messages, and why is that acceptable for vote tallies?
 6. A large quantum computer is switched on tomorrow. Which of these still protect a recording of
    today's traffic: RSA-OAEP, ECDHE with X25519, AES-128-GCM, AES-256-GCM, ML-KEM-768, BFV?
+7. Anyone can invert $x \mapsto x^3 \bmod 23$, but only the key owner can invert
+   $x \mapsto x^{17} \bmod 3233$. Why the difference, and what exactly is the trapdoor? Compute
+   $2^{13} \bmod 23$ by square-and-multiply while you are at it.
 
 **Answers**
 
@@ -660,6 +810,14 @@ decrypts to $6 \cdot 7 = 42$. In part 3b only the tally is decrypted, never a si
    wide margin), ML-KEM-768 and BFV (both lattice-based). RSA-OAEP and X25519 fall to Shor, and
    since TLS derives the AES key from the ECDHE secret, a recorded X25519-only handshake exposes
    the AES-encrypted data too. A hybrid X25519MLKEM768 handshake does not.
+7. Inverting a power means finding the exponent $d$ that undoes it, and that needs the cycle
+   length of the powers. Mod the prime 23 the cycle length is $23 - 1 = 22$, which everyone knows,
+   so anyone finds $d = 15$ ($3 \cdot 15 = 45 \equiv 1 \bmod 22$). Mod $3233$ it is
+   $\varphi(3233) = (61 - 1)(53 - 1) = 3120$, which needs the factors 61 and 53; then
+   $d = 2753$. The trapdoor is the factorization of $n$ (equivalently $\varphi(n)$ or $d$), and
+   finding it from $n$ alone is factoring. For $2^{13}$: $13 = 8 + 4 + 1$, and
+   $2^8 \equiv 3$, $2^4 = 16$, so $2^{13} \equiv 3 \cdot 16 \cdot 2 = 96 = 4 \cdot 23 + 4 \equiv 4$
+   (three squarings, two multiplications; the cycle agrees: $2^{13} = 2^{11} \cdot 2^2 \equiv 4$).
 
 ## 13. Key terms
 
@@ -669,6 +827,8 @@ decrypts to $6 \cdot 7 = 42$. In part 3b only the tally is decrypted, never a si
 | Public-key encryption | `pk` encrypts, only the matching `sk` decrypts |
 | One-way function | Easy to compute, believed hard to invert |
 | Trapdoor (one-way) function | One-way except for the holder of a secret that makes inversion easy |
+| Square-and-multiply | Computing $g^k \bmod p$ by repeated squaring and multiplying the squares picked out by the binary digits of $k$: about $2\log_2 k$ steps |
+| Factoring | Finding the primes $p, q$ from $n = pq$; RSA's trapdoor is the factorization |
 | Discrete logarithm (DL) | Given $g$ and $g^x$, find $x$ |
 | CDH | Given $g^a$ and $g^b$, compute $g^{ab}$ |
 | DDH | Tell $g^{ab}$ apart from a random element, given $g^a$ and $g^b$ |

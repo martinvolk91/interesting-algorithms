@@ -1,0 +1,75 @@
+<figure class="widget" id="w-p4-oneway-powers">
+  <p class="widget-title">Ordinary powers against powers mod p</p>
+  <p class="widget-hint">Move \(k\). On the left, \(2^k\) only climbs, so its value gives \(k\) away. On the right, \(2^k \bmod p\) jumps around. Switch to a bigger \(p\) and try to guess where the next point will land.</p>
+  <div class="controls"></div>
+  <div class="widget-grid">
+    <div><p class="panel-title">Ordinary powers \(2^k\), \(k = 0\) to 10</p><div class="c-plain"></div></div>
+    <div><p class="panel-title">Powers mod \(p\): \(2^k \bmod p\)</p><div class="c-mod"></div></div>
+  </div>
+  <div class="readout"></div>
+  <figcaption>Left: the first eleven ordinary powers of 2. They only grow, so a value pins down its exponent (the logarithm reads it off). Right: the same powers reduced mod \(p\). They wrap around after \(N\) steps (\(N = 11\) for \(p = 23\), as in the table of §2) and land in no visible order. Computing one point is quick with square-and-multiply; finding the \(k\) of a given value means searching the cycle, and for a 2048-bit prime the cycle has about \(2^{2047}\) entries.</figcaption>
+</figure>
+<script>
+(() => {
+  const root = '#w-p4-oneway-powers';
+  const PRIMES = [23, 107, 1019];
+  const cycle = {};                                            // p -> [2^0, 2^1, ...] until it returns to 1
+  PRIMES.forEach(p => { const c = [1]; for (let x = 2; x !== 1; x = x * 2 % p) c.push(x); cycle[p] = c; });
+
+  const sup = n => String(n).replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);   // 2⁷ rather than 2^7 in text drawn at run time
+  function squareAndMultiply(k) {                              // operation counts for 2^k by square-and-multiply
+    if (k < 2) return { sq: 0, mul: 0 };
+    const bits = k.toString(2);
+    return { sq: bits.length - 1, mul: bits.split('').filter(b => b === '1').length - 1 };
+  }
+
+  const ui = DS.controls(root + ' .controls', () => { syncRange(); plain.update(); mod.update(); readout(); });
+  const prime = ui.choice({ label: 'Prime p', options: PRIMES.map(p => ({ value: p, label: String(p) })), value: 23 });
+  const kk = ui.slider({ label: 'Exponent k', min: 0, max: 10, step: 1, value: 7, format: v => String(v) });
+  let shownFor = 23;
+  function syncRange() {                                       // the slider covers one full cycle of the chosen p
+    if (prime.value === shownFor) return;
+    shownFor = prime.value;
+    const N = cycle[shownFor].length;
+    kk.input.max = N - 1;
+    kk.set(Math.min(kk.value, N - 1));
+  }
+
+  const plain = DS.chart(root + ' .c-plain', {
+    x: { domain: [0, 10], label: 'k', tickValues: [0, 2, 4, 6, 8, 10] }, y: { domain: [0, 1100], label: '2ᵏ' }, height: 260,
+    draw(c) {
+      const pts = DS.math.range(11).map(k => [k, 2 ** k]);
+      c.line(pts, { series: 1 });
+      c.scatter(pts, { series: 1, r: 3.5, tip: p => `2${sup(p[0])} = ${p[1]}` });
+      const k = kk.value;
+      if (k <= 10) { c.hline(2 ** k, { dash: true, series: 'muted' }); c.point(k, 2 ** k, { series: 2, label: `2${sup(k)} = ${2 ** k}`, labelOpts: k > 5 ? { anchor: 'end', dx: -9 } : {} }); }
+      else c.text(5, 700, `2${sup(k)} has ${Math.floor(k * Math.log10(2)) + 1} digits`, { anchor: 'middle', cls: 'ink' });
+    },
+  });
+
+  const mod = DS.chart(root + ' .c-mod', {
+    x: { domain: [0, 10], label: 'k' }, y: { domain: [0, 23], label: '2ᵏ mod p' }, height: 260,
+    draw(c) {
+      const p = prime.value, cyc = cycle[p], N = cyc.length;
+      c.domain({ x: [0, N - 1], y: [0, p] });
+      const pts = cyc.map((v, k) => [k, v]);
+      c.scatter(pts, { series: 1, r: p === 23 ? 3.5 : p === 107 ? 2.5 : 1.6, tip: q => `2${sup(q[0])} mod ${p} = ${q[1]}` });
+      const k = kk.value, v = cyc[k];
+      c.hline(v, { dash: true, series: 'muted' });
+      c.point(k, v, { series: 2, label: `2${sup(k)} mod ${p} = ${v}`, labelOpts: k > (N - 1) / 2 ? { anchor: 'end', dx: -9 } : {} });
+    },
+  });
+
+  function readout() {
+    const p = prime.value, cyc = cycle[p], N = cyc.length, k = kk.value, ops = squareAndMultiply(k);
+    DS.stats(root + ' .readout', [
+      { label: `Forward: 2${sup(k)} mod ${p}`, value: String(cyc[k]),
+        note: k < 2 ? 'no work needed' : `k = ${k.toString(2)} in binary: ${ops.sq} squaring${ops.sq === 1 ? '' : 's'} and ${ops.mul} multiplication${ops.mul === 1 ? '' : 's'}` },
+      { label: `Backward: which k gives ${cyc[k]}?`, value: `${k + 1} ${k ? 'tries' : 'try'}`,
+        note: 'walking the table from k = 0; on average half of it' },
+      { label: 'Length of the cycle N', value: String(N), note: 'for a 2048-bit prime: about 2²⁰⁴⁷' },
+    ]);
+  }
+  readout();
+})();
+</script>
